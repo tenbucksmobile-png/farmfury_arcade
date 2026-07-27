@@ -35,11 +35,15 @@ namespace FarmFuryArcade.Gameplay
         private void Update()
         {
             Direction facing = _gridMovement != null ? _gridMovement.CurrentDirection : Direction.None;
-            Sprite[] frames = GetFramesForDirection(facing == Direction.None ? Direction.Down : facing);
+            Direction dir = facing == Direction.None ? Direction.Down : facing;
+            Sprite[] frames = GetFramesForDirection(dir);
             if (frames == null)
             {
                 return;
             }
+
+            // No dedicated Right art — Right reuses the Left frames mirrored horizontally.
+            _spriteRenderer.flipX = dir == Direction.Right;
 
             bool moving = facing != Direction.None;
             if (!moving)

@@ -23,6 +23,9 @@ namespace FarmFuryArcade.Core
         [SerializeField] private GameObject powerPelletPrefab;
         [SerializeField] private GameObject warpTunnelPrefab;
         [SerializeField] private GameObject waterTilePrefab;
+        [SerializeField] private Sprite sunflowerPelletSprite;
+        [SerializeField] private Sprite goldenWheatPelletSprite;
+        [SerializeField] private Sprite rainbowPelletSprite;
 
         private const int TileWall = 1;
         private const int TileCropKernel = 2;
@@ -72,7 +75,9 @@ namespace FarmFuryArcade.Core
                             _spawned.Add(Instantiate(cropVegetablePrefab, worldPos, Quaternion.identity, mazeParent));
                             break;
                         case TilePowerPellet:
-                            _spawned.Add(Instantiate(powerPelletPrefab, worldPos, Quaternion.identity, mazeParent));
+                            var pelletGO = Instantiate(powerPelletPrefab, worldPos, Quaternion.identity, mazeParent);
+                            _spawned.Add(pelletGO);
+                            ConfigurePelletTier(pelletGO);
                             break;
                         case TileWarpEdge:
                             var warpGO = Instantiate(warpTunnelPrefab, worldPos, Quaternion.identity, mazeParent);
@@ -102,6 +107,53 @@ namespace FarmFuryArcade.Core
 
             PairWarpTunnels(warpTunnelsByRow);
             PairWaterTiles(waterTilesByRow);
+        }
+
+        /// <summary>Rolls a weighted tier (Sunflower common, GoldenWheat uncommon, Rainbow rare —
+        /// matching the "RarePellets" art naming) and applies its sprite/type to a spawned pellet.
+        /// Sprite fields are optional — a pellet with no tier art assigned keeps the prefab's
+        /// default sprite, same fallback convention as everywhere else art isn't wired yet.</summary>
+        private void ConfigurePelletTier(GameObject pelletGO)
+        {
+            var tier = RollPelletTier();
+
+            var pickup = pelletGO.GetComponent<PowerPelletPickup>();
+            if (pickup != null)
+            {
+                pickup.pelletType = tier;
+            }
+
+            var sr = pelletGO.GetComponent<SpriteRenderer>();
+            if (sr == null)
+            {
+                return;
+            }
+
+            Sprite tierSprite = tier switch
+            {
+                PowerPelletType.GoldenWheat => goldenWheatPelletSprite,
+                PowerPelletType.Rainbow => rainbowPelletSprite,
+                _ => sunflowerPelletSprite
+            };
+
+            if (tierSprite != null)
+            {
+                sr.sprite = tierSprite;
+            }
+        }
+
+        private static PowerPelletType RollPelletTier()
+        {
+            float roll = Random.value;
+            if (roll < 0.10f)
+            {
+                return PowerPelletType.Rainbow;
+            }
+            if (roll < 0.30f)
+            {
+                return PowerPelletType.GoldenWheat;
+            }
+            return PowerPelletType.Sunflower;
         }
 
         private static void PairWarpTunnels(Dictionary<int, List<WarpTunnel>> warpTunnelsByRow)

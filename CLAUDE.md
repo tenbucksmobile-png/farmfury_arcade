@@ -42,10 +42,12 @@ Assets/_Project/
                   CharacterSwapUI is still OnGUI (a Phase 4 leftover, not rebuilt this phase —
                   see that section for why).
     Utilities/   Singleton<T>, PlaceholderSprite, CameraShake
-    Editor/      Phase1-5ProjectBuilder, UIBuilderHelpers (see below)
+    Editor/      Phase1-5ProjectBuilder, ArtWiringBuilder, UIBuilderHelpers (see below)
   ScriptableObjects/Resources/{Levels,Characters,Robots}   ScriptableObject assets
   Prefabs/{Characters,Robots,Blocks,Abilities,UI}
-  Sprites/, Audio/                                          (empty — no art/audio pipeline yet)
+  Sprites/{Characters,Robots,Environment,UI}, Audio/        first real art landed here (see
+                                                              "Art status" below); Audio/ still
+                                                              empty
   Resources/TMP Settings.asset, TextMesh Pro/Resources/     TMP essentials (see "TextMeshPro
                                                               bootstrap" below)
   Scenes/Game.unity
@@ -140,6 +142,15 @@ This bit us once already; if new pickup/trigger types stop firing `OnTriggerEnte
 check this setting first before assuming a logic bug. Every robot prefab carries the same
 Kinematic + `useFullKinematicContacts` Rigidbody2D for the same reason (so robots can trigger
 `WarpTunnel`, which has no Rigidbody2D of its own).
+
+**Camera:** there is no camera-follow script — the Main Camera is static, orthographic size `16`,
+positioned at `(14, 15, -10)`, sized to keep the entire 28×31 `LevelData_01` maze on screen at
+once (classic-arcade Pac-Man framing, not a scrolling/following camera). Orthographic size was
+originally `8` (only showing about half the maze's height), which made Cluck's spawn near the
+bottom of the maze (`playerStartPosition (14, 3)`) render clean off-screen — looked exactly like a
+missing-sprite bug but was actually a framing bug. If a future level's `mazeWidth`/`mazeHeight`
+is taller than `LevelData_01`'s, the camera won't automatically reframe to fit it (nothing recomputes
+orthographic size from `LevelData` today) — check this first if a new level's edges get clipped.
 
 ### Robot AI (`Scripts/Enemies`)
 
@@ -342,7 +353,7 @@ reading/writing through `SaveManager`'s per-level best score/time (`GetLevelBest
 (`GetTotalCombosTriggered`, `GetCharactersMasteredCount` — the latter approximated as "unlocked
 count" since the GDD text available to this phase doesn't define "mastered" any more precisely).
 
-**`AudioManager`** has no real clips to play yet (see "No art or audio yet") — `PlayMusic`
+**`AudioManager`** has no real clips to play yet (see "Art status") — `PlayMusic`
 crossfades between two looping `AudioSource`s, `PlaySFX` round-robins a pooled array via
 `PlayOneShot`, both respect `SaveManager.MusicOn/SfxOn/MusicVolume/SfxVolume`. Wire real
 `AudioClip`s into `CharacterData`/`LevelData`/`RobotData`/UI prefabs and call these same methods
@@ -352,17 +363,38 @@ once art/audio lands — nothing here should need to change shape.
 
 No `com.unity.textmeshpro` package reference exists in `Packages/manifest.json` — in this Unity
 version TMP ships bundled directly inside `com.unity.ugui@2.5.0` (`TMPro.TMP_Text` etc. live under
-that package's `Runtime/TMP`), but its essential font/settings (normally brought in via
-**Window > TextMeshPro > Import TMP Essential Resources**) were never imported into `Assets`, so a
-fresh `TextMeshProUGUI` would render with no visible glyphs. `Phase5ProjectBuilder.
-EnsureTMPEssentials()` finds the one SDF font asset this project actually has available — bundled
-as URP samples under `Library/PackageCache/com.unity.render-pipelines.core@.../Samples~/Common/
-TextMesh Pro/` (searched by filename via `Directory.GetFiles(..., SearchOption.AllDirectories)`,
-not a hardcoded path, since the package-cache hash suffix varies by machine) — and copies
-`TMP Settings.asset` + `Fonts & Materials/` into `Assets/Resources/` and
-`Assets/TextMesh Pro/Resources/`, then points `TMP_Settings.defaultFontAsset` at the copied
-`Inter-Regular SDF.asset`. Runs once (checks whether `Assets/Resources/TMP Settings.asset` already
-exists first) and is safe to re-run.
+that package's `Runtime/TMP`). Originally its essential font/settings (normally brought in via
+**Window > TextMeshPro > Import TMP Essential Resources**) hadn't been imported into `Assets`, so
+`Phase5ProjectBuilder.EnsureTMPEssentials()` found the one SDF font asset available at the time —
+bundled as URP samples under `Library/PackageCache/com.unity.render-pipelines.core@.../Samples~/
+Common/TextMesh Pro/` — and copied `TMP Settings.asset` + `Fonts & Materials/` into
+`Assets/Resources/` and `Assets/TextMesh Pro/Resources/`, pointing `TMP_Settings.defaultFontAsset`
+at that copied `Inter-Regular SDF.asset`.
+
+**The standard Essential Resources package has since actually been imported** (via the real
+Editor menu), which also pulled in the proper `TMP_SDF*.shader` files and a correctly-configured
+`LiberationSans SDF` font/material under `Assets/TextMesh Pro/`. `TMP_Settings.defaultFontAsset`
+in **both** copies of `TMP Settings.asset` now points at `LiberationSans SDF`, not
+`Inter-Regular SDF` — do not point it back. `Inter-Regular SDF.asset`'s embedded default material
+has its shader set to `SamplesLit_Inter.shadergraph` (a demo "Lit" shader bundled with the URP
+samples this font was copied from), which is missing the `_Stencil` property TMP's UI masking
+needs — using it throws `Material ... doesn't have _Stencil property` at runtime. Don't repair
+that material or repoint anything at it; use `LiberationSans SDF` for anything needing a default
+font, and only give a `TextMeshProUGUI` an explicit custom font if it has a real, correctly-shaded
+SDF material of its own.
+
+**Known footgun:** there are two separate `TMP Settings.asset` files — one under `Assets/
+Resources/` (from the original custom bootstrap) and one under `Assets/TextMesh Pro/Resources/`
+(from the standard import) — both named identically and both living under a folder literally
+named `Resources`, so `Resources.Load<TMP_Settings>("TMP Settings")` can return either one
+depending on Unity's internal resolution order. If they ever drift out of sync (e.g. one gets
+reimported/overwritten and the other doesn't), you'll see nondeterministic TMP behaviour —
+verify **both** files agree (same `assetVersion`, same `m_defaultFontAsset`) any time TMP
+essentials get touched again, rather than assuming a fix to one file is sufficient.
+
+`EnsureTMPEssentials()` still runs once per `BuildAll` (checks whether `Assets/Resources/
+TMP Settings.asset` already exists first) and is safe to re-run, but since the real Essential
+Resources package is now present, its practical effect going forward is a no-op.
 
 ### Editor tooling (`Scripts/Editor`)
 
@@ -436,6 +468,18 @@ phase made for art (solid-colour placeholders instead of real sprites).
   searches **active** GameObjects; since most screens are inactive most of the time by design
   (that's the whole point of `ShowOnly`), `Phase5Test` had to look screens up via
   `canvasTransform.Find(name)` instead, which works on inactive children.
+- **`ArtWiringBuilder`** (`Farm Fury Arcade > Wire Uploaded Art`) — not a PhaseNProjectBuilder and
+  not meant to be part of a "rebuild everything" workflow. Wires whatever's currently under
+  `Assets/_Project/Sprites/...` into the specific prefab/UI fields listed in "Art status" above
+  (Cluck, Harvester, crop/pellet prefabs, `TileMapRenderer`'s 3 pellet-tier sprites, UI screen
+  backgrounds, the Level Complete coin icon) — it does not regenerate prefabs or screens from
+  scratch, only sets sprite references (and configures each new texture's import settings —
+  Sprite type, `spritePixelsPerUnit` = texture width, alpha transparency — the first time it sees
+  a path). Safe to re-run; re-running with the same art already wired is a no-op except where it
+  intentionally always re-applies (e.g. sprite references). Also has a narrower
+  `Farm Fury Arcade > Reposition Main Menu Buttons` entry (`RepositionMainMenuContent`) that only
+  re-anchors `MainMenuScreen/Content`, for when just the layout needs adjusting without touching
+  sprite wiring.
 
 `Phase1Test.cs`/`Phase2Test.cs`/`Phase3Test.cs`/`Phase4Test.cs`/`Phase5Test.cs` (`Scripts/Core`) are verification
 harnesses, not gameplay — each auto-runs a battery of checks on `Start()` and logs `PASS`/`FAIL`/
@@ -450,6 +494,14 @@ battery was added — see `Phase3ProjectBuilder`'s `DisableRunOnStart`). Each ne
 already exercises the previous phases' functionality as a side effect. Re-enable `runOnStart` on
 an older test manually (or use its `ContextMenu`/`OnGUI` button) if you need to isolate a
 regression in an earlier phase.
+
+**`Phase5Test.runOnStart` is currently disabled** (`false` in the scene, not the phase-builder
+default) — it was found auto-running concurrently with a manual Play-mode session and racing the
+same `GameManager`/`CharacterManager`/`SceneController` singletons the same way two auto-running
+tests race each other (see above), corrupting maze/character state that looked like a rendering
+bug but wasn't. Re-enable it (Inspector checkbox on the `Phase5Test` GameObject, or its
+`ContextMenu`) only when you specifically want the automated battery to run — never while also
+manually playing through the game in the same session.
 
 **Batch-mode timing gotcha (Phase 5 onward):** Play mode's first few frames in batch mode can
 coincide with Unity's own one-time asset-indexing startup work, which stalls `Update()` ticks for
@@ -493,14 +545,61 @@ state-watch; `SaveManager.GetLevelBestScore` persists the result; and toggling
 `SaveManager.MusicOn` round-trips correctly. See the batch-mode timing gotcha above for why every
 wait is a poll, not a fixed duration.
 
-## No art or audio yet
+## Art status
 
-There's no Kling AI / Suno / asset-import pipeline wired into this Claude Code session, so every
-visual is a solid-color placeholder square generated at runtime by `Utilities/PlaceholderSprite`,
-using hex values from the GDD's color palette where one exists (e.g. Cluck = Accent Gold
-`#FFD700`, walls = Wall Brown `#4A2C1A`). `Sprites/` and `Audio/` folders exist but are empty.
-When real art/audio does get imported, wire it into the existing prefabs (`Prefabs/Characters/`,
-`Prefabs/Blocks/`) rather than creating new ones.
+There's still no Kling AI / Suno / asset-import pipeline wired into this Claude Code session — art
+gets dropped into `Assets/_Project/Sprites/{Characters,Robots,Environment,UI}` by hand and then
+wired into existing prefabs/UI via `Editor/ArtWiringBuilder.cs` (`Farm Fury Arcade > Wire Uploaded
+Art`), not generated by the tooling itself. Anything not yet wired still falls back to a
+solid-color placeholder square generated at runtime by `Utilities/PlaceholderSprite`, using hex
+values from the GDD's color palette where one exists (e.g. walls = Wall Brown `#4A2C1A`).
+
+**Wired so far:**
+- **Cluck** — `Cluck_front/back/left` cover Down/Up/Left; there's no Right art, so
+  `CharacterAnimator` flips the Left sprite horizontally (`spriteRenderer.flipX`) when facing
+  Right instead. Only one pose per direction exists (no walk-cycle frames yet), so
+  `CharacterData_Cluck.walkAnimationFrames`' 8 slots just repeat each direction's single sprite
+  twice — `CharacterAnimator`'s frame-toggle becomes a harmless no-op until a second walk frame
+  is added per direction.
+- **Harvester robot** — `HarvestorRobot_front/back` wired via `RobotVisual.SetDirectionalSprites`
+  (new, optional `frontSprite`/`backSprite` fields). Facing Up shows the back sprite, everything
+  else (including idle) shows front — there's no left/right robot art. Every other robot type
+  (Scout/Patrol/Drifter/Heavy/Drone) has no art yet and keeps the colour-tint-only placeholder
+  behaviour, since those fields stay null for them.
+- **Pickups** — crop kernel uses `CornKernel.png`, the single vegetable pickup uses `carrot.png`
+  (3 other vegetable sprites — cabbage/pumpkin/tomato — were uploaded but aren't wired in; the
+  architecture only supports one vegetable sprite per maze right now).
+- **Power pellets** — now spawn with a real tier instead of always Sunflower. `TileMapRenderer.
+  ConfigurePelletTier` rolls a weighted random tier per pellet (Sunflower 70% / GoldenWheat 20% /
+  Rainbow 10%, matching the "RarePellets" art naming) and swaps in `sunflowerPelletSprite`
+  (`Power_1.png`, plain egg) / `goldenWheatPelletSprite` (`RarePellets_maize.png`) /
+  `rainbowPelletSprite` (`RarePellets_apple.png`) accordingly. `Power_1.png` is also the prefab's
+  static default sprite. Two other uploaded sprites — `CluckPower_2`/`CluckPower_3` (a cracking
+  egg / golden sunburst) — are intentionally **not** wired to anything; there's no "Cluck looks
+  different while powered up" feature in the code for them to hook into.
+- **UI backgrounds** — `MainMenuScreen` uses `landing.png` (which has "FARM FURY ARCADE" baked
+  into the art), `WorldMapScreen` uses `Map.png`, `MatchupScreen` uses `World1_Cornfield.png`,
+  `LevelCompleteScreen`/`LevelFailedScreen` share `Wheatfield_background.png`. Because
+  `landing.png`'s logo sits centred in the upper half, `MainMenuScreen/Content` (the button stack)
+  was re-anchored to the bottom of the screen (`anchorMin/Max = (0.5, 0)`, `pivot = (0.5, 0)`,
+  `anchoredPosition = (0, 30)`) instead of screen-center, so it no longer overlaps the art's logo.
+  `LoadingScreen Background.png` was uploaded but isn't wired anywhere — there's no dedicated
+  loading screen in the current screen flow (see "Screens & scene flow").
+- **Coin icon** — `Collectable Coin.png` was added as a new `CoinIcon` Image next to
+  `LevelCompleteScreen`'s existing "+N coins" text (that field never had an icon slot before, so
+  `ArtWiringBuilder` wraps it in a new `CoinsRow` horizontal group rather than adding a dedicated
+  serialized field for one icon).
+
+**Texture import convention:** `ArtWiringBuilder.ConfigureSpriteImporters` sets every wired
+texture's `spritePixelsPerUnit` to that texture's own pixel width (via `TextureImporter.
+GetSourceTextureWidthAndHeight`), not a fixed value — this makes a sprite at `localScale = 1`
+fill exactly one maze grid cell (1 world unit), matching `PlaceholderSprite`'s 1px==1unit@scale1
+convention that every prefab's existing `localScale` (e.g. crop 0.35, pellet 0.7) was already
+tuned around, so no prefab scale values needed to change when real art went in.
+
+`Audio/` is still empty — no audio pipeline yet. When more art lands, wire it into the existing
+prefabs (`Prefabs/Characters/`, `Prefabs/Robots/`, `Prefabs/Blocks/`) via `ArtWiringBuilder` rather
+than creating new prefabs.
 
 ## Testing
 
@@ -594,13 +693,16 @@ and reopen the project normally to confirm nothing was corrupted.
   player can freely swap characters during a Character-Locked daily challenge; the run just won't
   register as completed if more than one character was used. Real enforcement needs
   `CharacterManager.CanSwapTo` to know about the active challenge.
-- **World Map is a horizontal scroll strip of numbered markers**, not the "isometric farm overhead,
-  winding path" the GDD describes — there's no isometric-map art or hand-placed path-node data to
-  build that from yet (only 2 `LevelData` assets exist against the GDD's 100-level target). The
-  underlying system (`WorldMapController`/`LevelMarker`) is level-count-agnostic, so dropping in
-  real background art and hand-placed marker positions later is a content change, not a rewrite.
+- **World Map is still a horizontal scroll strip of numbered markers layered on top of real
+  background art** (`Map.png`, an isometric winding-path farm illustration, wired as
+  `WorldMapScreen`'s background) — the markers themselves are **not** yet repositioned to align
+  with the path drawn in that art; they still lay out via `WorldMapController`/`LevelMarker`'s
+  horizontal scroll, independent of the background. There's no hand-placed path-node data yet
+  (only 2 `LevelData` assets exist against the GDD's 100-level target). The underlying system is
+  level-count-agnostic, so hand-placing marker positions along the art's path later is a content
+  change, not a rewrite.
 - **No character portrait/ability icon sprites** — HUD portrait, Matchup character/robot cards, and
-  Roster cards all use solid-colour placeholders (see "No art or audio yet").
+  Roster cards all use solid-colour placeholders (see "Art status").
 - **AudioManager has zero real clips wired** — full API, fully wired to `SaveManager` settings, but
   silent until `AudioClip`s are imported and assigned.
 

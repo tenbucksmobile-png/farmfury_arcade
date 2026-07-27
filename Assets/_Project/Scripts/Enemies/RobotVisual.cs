@@ -1,15 +1,16 @@
 using UnityEngine;
 using FarmFuryArcade.Core;
+using FarmFuryArcade.Gameplay;
 
 namespace FarmFuryArcade.Enemies
 {
     /// <summary>
-    /// No art yet (see CLAUDE.md "No art or audio"), so Vulnerable/Defeated states are shown by
-    /// swapping the placeholder SpriteRenderer's colour instead of swapping sprite sheets — same
-    /// convention as PlaceholderSprite everywhere else. Vulnerable flashes white during the last 2
-    /// seconds of the power state (spec's "warning flash"). When real art lands, replace the
-    /// colour swap with sprite swaps from RobotData's Robot_Vulnerable_Walk / Robot_Defeated_Eyes
-    /// sheets and delete this component.
+    /// No art yet for most robots (see CLAUDE.md "No art or audio"), so Vulnerable/Defeated states
+    /// are shown by swapping the placeholder SpriteRenderer's colour instead of swapping sprite
+    /// sheets — same convention as PlaceholderSprite everywhere else. Vulnerable flashes white
+    /// during the last 2 seconds of the power state (spec's "warning flash"). Once a robot has
+    /// real front/back art (via SetDirectionalSprites), Update also swaps the base sprite by
+    /// facing direction — robots with no art assigned keep the colour-only placeholder behaviour.
     /// </summary>
     [RequireComponent(typeof(SpriteRenderer))]
     public class RobotVisual : MonoBehaviour
@@ -21,6 +22,8 @@ namespace FarmFuryArcade.Enemies
         private const float FlashSpeed = 6f;
 
         [SerializeField] private Color normalColor = Color.red;
+        [SerializeField] private Sprite frontSprite;
+        [SerializeField] private Sprite backSprite;
 
         private SpriteRenderer _spriteRenderer;
         private RobotBase _robot;
@@ -36,11 +39,24 @@ namespace FarmFuryArcade.Enemies
             normalColor = color;
         }
 
+        /// <summary>Only front/back art exists so far (no left/right) — facing Up shows the back
+        /// sprite, every other facing (including idle) shows the front sprite.</summary>
+        public void SetDirectionalSprites(Sprite front, Sprite back)
+        {
+            frontSprite = front;
+            backSprite = back;
+        }
+
         private void Update()
         {
             if (_robot == null)
             {
                 return;
+            }
+
+            if (frontSprite != null && backSprite != null)
+            {
+                _spriteRenderer.sprite = _robot.CurrentDirection == Direction.Up ? backSprite : frontSprite;
             }
 
             if (_robot.IsStunned || _robot.IsKnockedBack)
