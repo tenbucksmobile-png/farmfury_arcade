@@ -127,7 +127,14 @@ namespace FarmFuryArcade.EditorTools
             EditorApplication.isPlaying = true;
         }
 
-        private const float PlayModeDurationSeconds = 3f;
+        // Bumped from 3s (Phase 1/2) to 15s (Phase 3, robot spawn delays up to 6s, a short
+        // power-pellet countdown, death/respawn) to 20s (Phase 4, character swap/ability/combo
+        // battery) to 30s (Phase 5, screen-transition waits — generous because Play mode's first
+        // few frames in batch mode can coincide with Unity's own one-time asset-indexing startup
+        // work, which stalls Update() ticks for real wall-clock seconds; see Phase5Test's
+        // WaitForTransition). Still well short of the full 20s chase/scatter cycle, which
+        // Phase3Test logs as INFO rather than asserting.
+        private const float PlayModeDurationSeconds = 30f;
 
         private static void OnUpdateWhilePlaying()
         {

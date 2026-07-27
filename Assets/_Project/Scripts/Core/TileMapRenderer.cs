@@ -22,14 +22,18 @@ namespace FarmFuryArcade.Core
         [SerializeField] private GameObject cropVegetablePrefab;
         [SerializeField] private GameObject powerPelletPrefab;
         [SerializeField] private GameObject warpTunnelPrefab;
+        [SerializeField] private GameObject waterTilePrefab;
 
         private const int TileWall = 1;
         private const int TileCropKernel = 2;
         private const int TileCropVegetable = 3;
         private const int TilePowerPellet = 4;
         private const int TileWarpEdge = 5;
+        private const int TileWater = 8;
 
         private readonly List<GameObject> _spawned = new List<GameObject>();
+        private readonly Dictionary<Vector2Int, GameObject> _wallsByCell = new Dictionary<Vector2Int, GameObject>();
+        private readonly HashSet<Vector2Int> _temporaryWalkableCells = new HashSet<Vector2Int>();
         private LevelData _currentLevel;
 
         public void RenderMaze(LevelData data)
@@ -39,17 +43,21 @@ namespace FarmFuryArcade.Core
 
             var layout = data.MazeLayout;
             var warpTunnelsByRow = new Dictionary<int, List<WarpTunnel>>();
+            var waterTilesByRow = new Dictionary<int, List<WaterTile>>();
 
             for (int x = 0; x < data.mazeWidth; x++)
             {
                 for (int y = 0; y < data.mazeHeight; y++)
                 {
                     int tileId = layout[x, y];
-                    Vector3 worldPos = GridToWorld(new Vector2Int(x, y));
+                    var cell = new Vector2Int(x, y);
+                    Vector3 worldPos = GridToWorld(cell);
 
                     if (tileId == TileWall)
                     {
-                        _spawned.Add(Instantiate(wallPrefab, worldPos, Quaternion.identity, mazeParent));
+                        var wallGO = Instantiate(wallPrefab, worldPos, Quaternion.identity, mazeParent);
+                        _spawned.Add(wallGO);
+                        _wallsByCell[cell] = wallGO;
                         continue;
                     }
 
@@ -77,11 +85,23 @@ namespace FarmFuryArcade.Core
                             }
                             list.Add(warp);
                             break;
+                        case TileWater:
+                            var waterGO = Instantiate(waterTilePrefab, worldPos, Quaternion.identity, mazeParent);
+                            _spawned.Add(waterGO);
+                            var water = waterGO.GetComponent<WaterTile>();
+                            if (!waterTilesByRow.TryGetValue(y, out var waterList))
+                            {
+                                waterList = new List<WaterTile>();
+                                waterTilesByRow[y] = waterList;
+                            }
+                            waterList.Add(water);
+                            break;
                     }
                 }
             }
 
             PairWarpTunnels(warpTunnelsByRow);
+            PairWaterTiles(waterTilesByRow);
         }
 
         private static void PairWarpTunnels(Dictionary<int, List<WarpTunnel>> warpTunnelsByRow)
@@ -102,6 +122,24 @@ namespace FarmFuryArcade.Core
             }
         }
 
+        private static void PairWaterTiles(Dictionary<int, List<WaterTile>> waterTilesByRow)
+        {
+            foreach (var kvp in waterTilesByRow)
+            {
+                var tiles = kvp.Value;
+                if (tiles.Count == 2)
+                {
+                    tiles[0].PairedWater = tiles[1];
+                    tiles[1].PairedWater = tiles[0];
+                }
+                else
+                {
+                    Debug.LogWarning($"[TileMapRenderer] Row {kvp.Key} has {tiles.Count} water " +
+                                      "tiles; expected exactly 2 to pair them for SkipShotAbility.");
+                }
+            }
+        }
+
         public void ClearMaze()
         {
             foreach (var go in _spawned)
@@ -112,6 +150,8 @@ namespace FarmFuryArcade.Core
                 }
             }
             _spawned.Clear();
+            _wallsByCell.Clear();
+            _temporaryWalkableCells.Clear();
             _currentLevel = null;
         }
 
@@ -125,19 +165,85 @@ namespace FarmFuryArcade.Core
             return new Vector2Int(Mathf.RoundToInt(world.x), Mathf.RoundToInt(world.y));
         }
 
-        public bool IsWalkable(Vector2Int grid)
+        public bool IsWalkable(Vector2Int grid) => IsWalkable(grid, false);
+
+        /// <summary>canCrossWater lets a character (Ducky, via CharacterData.canCrossWater) treat
+        /// water tiles (id 8) as walkable; everyone else — including every robot and WoollyClone,
+        /// which always call the 1-arg overload — is blocked by water like a soft wall.</summary>
+        public bool IsWalkable(Vector2Int grid, bool canCrossWater)
+        {
+            if (!IsInBounds(grid))
+            {
+                return false;
+            }
+
+            if (_temporaryWalkableCells.Contains(grid))
+            {
+                return true;
+            }
+
+            int tileId = _currentLevel.MazeLayout[grid.x, grid.y];
+            if (tileId == TileWall)
+            {
+                return false;
+            }
+            if (tileId == TileWater && !canCrossWater)
+            {
+                return false;
+            }
+
+            return true;
+        }
+
+        /// <summary>Bounds-only check (ignores wall tiles) — used by DroneRobot, which is allowed
+        /// to move through walls but not off the edge of the maze.</summary>
+        public bool IsInBounds(Vector2Int grid)
         {
             if (_currentLevel == null)
             {
                 return false;
             }
 
-            if (grid.x < 0 || grid.x >= _currentLevel.mazeWidth || grid.y < 0 || grid.y >= _currentLevel.mazeHeight)
+            return grid.x >= 0 && grid.x < _currentLevel.mazeWidth && grid.y >= 0 && grid.y < _currentLevel.mazeHeight;
+        }
+
+        /// <summary>Overrides a single cell's walkability without touching LevelData — used for
+        /// BounceRollAbility's temporary wall-phase (call again with walkable=false to revert) and
+        /// as the permanent backing for DestroyWallAt (never reverted).</summary>
+        public void SetTemporaryWalkable(Vector2Int cell, bool walkable)
+        {
+            if (walkable)
             {
-                return false;
+                _temporaryWalkableCells.Add(cell);
+            }
+            else
+            {
+                _temporaryWalkableCells.Remove(cell);
+            }
+        }
+
+        /// <summary>The spawned wall GameObject at a cell, if any — used to tint a wall while
+        /// BounceRollAbility's phase window is active.</summary>
+        public GameObject GetWallAt(Vector2Int cell)
+        {
+            return _wallsByCell.TryGetValue(cell, out var go) ? go : null;
+        }
+
+        /// <summary>Permanently destroys the wall at a cell (visually and for walkability) — used
+        /// by HeadbuttThroughAbility and the Iron Stampede combo buff on PuffUpAbility.</summary>
+        public void DestroyWallAt(Vector2Int cell)
+        {
+            if (_wallsByCell.TryGetValue(cell, out var wallGO))
+            {
+                if (wallGO != null)
+                {
+                    Destroy(wallGO);
+                    _spawned.Remove(wallGO);
+                }
+                _wallsByCell.Remove(cell);
             }
 
-            return _currentLevel.MazeLayout[grid.x, grid.y] != TileWall;
+            SetTemporaryWalkable(cell, true);
         }
     }
 }

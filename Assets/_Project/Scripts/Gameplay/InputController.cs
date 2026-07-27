@@ -14,6 +14,14 @@ namespace FarmFuryArcade.Gameplay
     {
         public static event Action<Direction> OnDirectionInput;
 
+        /// <summary>Space — activates whichever character's AbilityBase is currently active
+        /// (Phase 4). Exactly one AbilityBase instance is ever enabled at a time, so a static
+        /// event is safe here for the same reason it's safe on GridMovement.</summary>
+        public static event Action OnAbilityActivateInput;
+
+        /// <summary>Tab — toggles CharacterSwapUI (Phase 4).</summary>
+        public static event Action OnSwapMenuToggleInput;
+
         [SerializeField] private float minSwipeDistancePixels = 50f;
 
         private Vector2 _pointerDownPosition;
@@ -28,6 +36,25 @@ namespace FarmFuryArcade.Gameplay
             }
 
             HandlePointerSwipe();
+            HandleAbilityAndSwapKeys();
+        }
+
+        private void HandleAbilityAndSwapKeys()
+        {
+            var kb = Keyboard.current;
+            if (kb == null)
+            {
+                return;
+            }
+
+            if (kb.spaceKey.wasPressedThisFrame)
+            {
+                OnAbilityActivateInput?.Invoke();
+            }
+            if (kb.tabKey.wasPressedThisFrame)
+            {
+                OnSwapMenuToggleInput?.Invoke();
+            }
         }
 
         private void HandlePointerSwipe()

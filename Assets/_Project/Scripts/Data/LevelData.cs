@@ -33,6 +33,13 @@ namespace FarmFuryArcade.Data
                  "both would mean two sources of truth for the same data.")]
         public int[] warpTunnelRows;
 
+        [Tooltip("Row (y) values where tile id 8 (water) pairs between its two occurrences in " +
+                 "that row, same convention as warpTunnelRows — but water is NOT an automatic " +
+                 "teleport: it blocks movement for everyone except a character with " +
+                 "CharacterData.canCrossWater (Ducky), and even Ducky only teleports across a " +
+                 "pair via SkipShotAbility, not by walking into it.")]
+        public int[] waterTeleportRows;
+
         public int totalCropsRequired;
         public float baseRobotSpeed;
         public float baseCharacterSpeed;
@@ -74,6 +81,69 @@ namespace FarmFuryArcade.Data
                     mazeLayoutFlat[y * mazeWidth + x] = layout[x, y];
                 }
             }
+        }
+
+        private const int TileCropKernel = 2;
+        private const int TileCropVegetable = 3;
+        private const int TilePowerPellet = 4;
+        private const int KernelPoints = 10;
+        private const int VegetablePoints = 50;
+        private const int PelletPoints = 500;
+
+        /// <summary>Sum of crop/vegetable/power-pellet points on the board — guaranteed to be
+        /// earned by any level completion, since clearing the board is required to complete a
+        /// level (see GameManager.NotifyCropCollected).</summary>
+        public int ComputeGuaranteedCollectionScore()
+        {
+            var layout = MazeLayout;
+            int kernels = 0, vegetables = 0, pellets = 0;
+
+            for (int x = 0; x < mazeWidth; x++)
+            {
+                for (int y = 0; y < mazeHeight; y++)
+                {
+                    switch (layout[x, y])
+                    {
+                        case TileCropKernel: kernels++; break;
+                        case TileCropVegetable: vegetables++; break;
+                        case TilePowerPellet: pellets++; break;
+                    }
+                }
+            }
+
+            return kernels * KernelPoints + vegetables * VegetablePoints + pellets * PelletPoints;
+        }
+
+        /// <summary>
+        /// Approximate ceiling used only for star-threshold math (LevelCompleteController: 1 star
+        /// = complete, 2 = 75% of this, 3 = 95%) — NOT a precise "perfect play" score, since the
+        /// real robot-chain bonus achievable depends on how many robots happen to be near the
+        /// player when each power pellet triggers, which varies run to run. Assumes every power
+        /// pellet could theoretically chain all 4 non-Heavy robots (200+400+800+1600+5000=8000)
+        /// plus flat caps for the time and perfect-run bonuses (see GameManager.EndLevel). Revisit
+        /// with real playtest data once more levels exist — this is a deliberately simple,
+        /// documented estimate, not a tuned formula.
+        /// </summary>
+        public int ComputeMaxPossibleScoreEstimate()
+        {
+            const int maxChainPerPellet = 8000;
+            const int timeBonusCap = 500;
+            const int perfectBonusCap = 500;
+
+            var layout = MazeLayout;
+            int pellets = 0;
+            for (int x = 0; x < mazeWidth; x++)
+            {
+                for (int y = 0; y < mazeHeight; y++)
+                {
+                    if (layout[x, y] == TilePowerPellet)
+                    {
+                        pellets++;
+                    }
+                }
+            }
+
+            return ComputeGuaranteedCollectionScore() + pellets * maxChainPerPellet + timeBonusCap + perfectBonusCap;
         }
     }
 }

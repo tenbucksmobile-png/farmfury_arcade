@@ -18,7 +18,12 @@ namespace FarmFuryArcade.Data
         [TextArea]
         public string abilityDescription;
 
-        [Tooltip("Which level completing unlocks this character (0 = available from start).")]
+        [Tooltip("Mazes-completed count that unlocks this character (0 = available from start). " +
+                 "Compared against SaveManager.HighestLevelReached + 1 by UnlockManager.")]
         public int unlockLevel;
+
+        [Tooltip("Only Ducky sets this true — lets GridMovement treat water tiles (id 8) as " +
+                 "walkable instead of a soft wall.")]
+        public bool canCrossWater;
     }
 }

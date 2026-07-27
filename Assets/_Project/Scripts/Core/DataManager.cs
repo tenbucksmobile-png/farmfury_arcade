@@ -67,6 +67,20 @@ namespace FarmFuryArcade.Core
             return _robots.TryGetValue(type, out var robot) ? robot : null;
         }
 
+        public IEnumerable<CharacterData> GetAllCharacterData()
+        {
+            return _characters.Values;
+        }
+
+        /// <summary>Ordered by levelNumber — WorldMapController iterates this rather than
+        /// assuming a fixed level count (only a couple of LevelData assets exist so far; the
+        /// GDD's 100-level World Map is a content-authoring task, not something this method
+        /// should hardcode a range for).</summary>
+        public IEnumerable<LevelData> GetAllLevelData()
+        {
+            return _levelsByIndex.Values.OrderBy(level => level.levelNumber);
+        }
+
         public List<CharacterData> GetAllUnlockedCharacters()
         {
             return _characters.Values

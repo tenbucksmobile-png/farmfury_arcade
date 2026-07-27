@@ -15,6 +15,9 @@ GameObject:
   - component: {fileID: 7681748874935571867}
   - component: {fileID: 8869355332589374064}
   - component: {fileID: 6012903213663039013}
+  - component: {fileID: 7570276893208582986}
+  - component: {fileID: 8612212455965283127}
+  - component: {fileID: 8631100399937234375}
   m_Layer: 0
   m_Name: Cluck
   m_TagString: Untagged
@@ -199,3 +202,44 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::FarmFuryArcade.Gameplay.CharacterAnimator
   characterData: {fileID: 0}
   frameInterval: 0.15
+--- !u!114 &7570276893208582986
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1173313226314908352}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b2314d885a5149f46886efa73c5a6d94, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::FarmFuryArcade.Gameplay.PlayerHealth
+  inputLockSeconds: 1.5
+  fadeOutSeconds: 0.6
+--- !u!114 &8612212455965283127
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1173313226314908352}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 86bc6977915e30b45813c1bdba7fecfc, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::FarmFuryArcade.Gameplay.CharacterBase
+  characterType: 0
+--- !u!114 &8631100399937234375
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1173313226314908352}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: b3f04fa8d9e21cd40821205a6f1a3a45, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::FarmFuryArcade.Abilities.EggDropAbility
+  totalCooldown: 15
+  eggPrefab: {fileID: 2812154423310372149, guid: 08a462d497966fe4a85dc333b199d924, type: 3}

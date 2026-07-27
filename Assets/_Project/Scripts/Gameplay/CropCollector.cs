@@ -14,7 +14,7 @@ namespace FarmFuryArcade.Gameplay
             var crop = other.GetComponent<CropPickup>();
             if (crop != null)
             {
-                ScoreManager.Instance.AddPoints(crop.points);
+                ScoreManager.Instance.AddCropPoints(crop.points);
                 GameManager.Instance.NotifyCropCollected();
                 Destroy(other.gameObject);
                 return;
@@ -23,8 +23,9 @@ namespace FarmFuryArcade.Gameplay
             var pellet = other.GetComponent<PowerPelletPickup>();
             if (pellet != null)
             {
-                ScoreManager.Instance.AddPoints(pellet.points);
+                ScoreManager.Instance.AddCropPoints(pellet.points);
                 GameManager.Instance.NotifyCropCollected();
+                PowerPelletManager.Instance?.ActivatePower(PowerPelletManager.GetDuration(pellet.pelletType));
                 Destroy(other.gameObject);
             }
         }

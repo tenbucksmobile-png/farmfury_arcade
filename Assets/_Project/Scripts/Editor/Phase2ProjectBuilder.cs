@@ -322,11 +322,13 @@ namespace FarmFuryArcade.EditorTools
             tileMapSO.FindProperty("warpTunnelPrefab").objectReferenceValue = warpTunnelPrefab;
             tileMapSO.ApplyModifiedPropertiesWithoutUndo();
 
+            // characterParent/cluckPrefab moved off SceneController onto CharacterManager in
+            // Phase 4 (which now owns all player spawning, including character swapping) — only
+            // robotParent is still SceneController's to wire. Run Phase 4 > Build All afterward
+            // to wire CharacterManager's prefab references.
             var sceneController = managersGO.GetComponent<SceneController>();
             var scSO = new SerializedObject(sceneController);
-            scSO.FindProperty("characterParent").objectReferenceValue = characterParent;
             scSO.FindProperty("robotParent").objectReferenceValue = robotParent;
-            scSO.FindProperty("cluckPrefab").objectReferenceValue = cluckPrefab;
             scSO.ApplyModifiedPropertiesWithoutUndo();
 
             if (GameObject.Find("Phase2Test") == null)

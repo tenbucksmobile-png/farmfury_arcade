@@ -14,6 +14,22 @@ namespace FarmFuryArcade.Core
         private const string CoinBalanceKey = "FFA_CoinBalance";
         private const string LevelStarsKeyPrefix = "FFA_LevelStars_";
         private const string CharacterUnlockedKeyPrefix = "FFA_CharacterUnlocked_";
+        private const string LevelBestScoreKeyPrefix = "FFA_LevelBestScore_";
+        private const string LevelBestTimeKeyPrefix = "FFA_LevelBestTime_";
+        private const string MusicOnKey = "FFA_MusicOn";
+        private const string SfxOnKey = "FFA_SfxOn";
+        private const string MusicVolumeKey = "FFA_MusicVolume";
+        private const string SfxVolumeKey = "FFA_SfxVolume";
+        private const string VibrationOnKey = "FFA_VibrationOn";
+        private const string LanguageKey = "FFA_Language";
+        private const string LeftHandedKey = "FFA_LeftHanded";
+        private const string DailyChallengeCompletedDateKey = "FFA_DailyChallengeCompletedDate";
+        private const string TotalCombosTriggeredKey = "FFA_TotalCombosTriggered";
+
+        /// <summary>Bound used only by ResetAllProgress's per-level key sweep — matches the GDD's
+        /// 100-level World 1-6 scope even though only a handful of LevelData assets exist so far;
+        /// deleting a PlayerPrefs key that was never set is a harmless no-op.</summary>
+        private const int MaxLevelsForReset = 100;
 
         public int HighestLevelReached { get; private set; }
         public int CoinBalance { get; private set; }
@@ -93,6 +109,134 @@ namespace FarmFuryArcade.Core
         public void UnlockCharacter(CharacterType type)
         {
             PlayerPrefs.SetInt(CharacterUnlockedKeyPrefix + type, 1);
+        }
+
+        // ---- Leaderboard (local, Phase 5 — LeaderboardManager) --------------------------------
+
+        public int GetLevelBestScore(int levelIndex)
+        {
+            return PlayerPrefs.GetInt(LevelBestScoreKeyPrefix + levelIndex, 0);
+        }
+
+        public void SetLevelBestScore(int levelIndex, int score)
+        {
+            if (score > GetLevelBestScore(levelIndex))
+            {
+                PlayerPrefs.SetInt(LevelBestScoreKeyPrefix + levelIndex, score);
+            }
+        }
+
+        /// <summary>0 means "no time recorded yet" — always check GetLevelBestTime(i) <= 0 before
+        /// treating a new time as not-a-best.</summary>
+        public float GetLevelBestTime(int levelIndex)
+        {
+            return PlayerPrefs.GetFloat(LevelBestTimeKeyPrefix + levelIndex, 0f);
+        }
+
+        public void SetLevelBestTime(int levelIndex, float seconds)
+        {
+            float existing = GetLevelBestTime(levelIndex);
+            if (existing <= 0f || seconds < existing)
+            {
+                PlayerPrefs.SetFloat(LevelBestTimeKeyPrefix + levelIndex, seconds);
+            }
+        }
+
+        public int GetTotalCombosTriggered()
+        {
+            return PlayerPrefs.GetInt(TotalCombosTriggeredKey, 0);
+        }
+
+        public void IncrementTotalCombosTriggered()
+        {
+            PlayerPrefs.SetInt(TotalCombosTriggeredKey, GetTotalCombosTriggered() + 1);
+        }
+
+        // ---- Settings (SettingsPanel) ----------------------------------------------------------
+
+        public bool MusicOn
+        {
+            get => PlayerPrefs.GetInt(MusicOnKey, 1) == 1;
+            set => PlayerPrefs.SetInt(MusicOnKey, value ? 1 : 0);
+        }
+
+        public bool SfxOn
+        {
+            get => PlayerPrefs.GetInt(SfxOnKey, 1) == 1;
+            set => PlayerPrefs.SetInt(SfxOnKey, value ? 1 : 0);
+        }
+
+        public float MusicVolume
+        {
+            get => PlayerPrefs.GetFloat(MusicVolumeKey, 1f);
+            set => PlayerPrefs.SetFloat(MusicVolumeKey, Mathf.Clamp01(value));
+        }
+
+        public float SfxVolume
+        {
+            get => PlayerPrefs.GetFloat(SfxVolumeKey, 1f);
+            set => PlayerPrefs.SetFloat(SfxVolumeKey, Mathf.Clamp01(value));
+        }
+
+        public bool VibrationOn
+        {
+            get => PlayerPrefs.GetInt(VibrationOnKey, 1) == 1;
+            set => PlayerPrefs.SetInt(VibrationOnKey, value ? 1 : 0);
+        }
+
+        public string Language
+        {
+            get => PlayerPrefs.GetString(LanguageKey, "English");
+            set => PlayerPrefs.SetString(LanguageKey, value);
+        }
+
+        public bool LeftHanded
+        {
+            get => PlayerPrefs.GetInt(LeftHandedKey, 0) == 1;
+            set => PlayerPrefs.SetInt(LeftHandedKey, value ? 1 : 0);
+        }
+
+        // ---- Daily Challenge --------------------------------------------------------------------
+
+        /// <summary>"" if never completed. Compare against DailyChallengeManager.TodayDateKey.</summary>
+        public string GetDailyChallengeCompletedDate()
+        {
+            return PlayerPrefs.GetString(DailyChallengeCompletedDateKey, string.Empty);
+        }
+
+        public void SetDailyChallengeCompletedDate(string dateKey)
+        {
+            PlayerPrefs.SetString(DailyChallengeCompletedDateKey, dateKey);
+        }
+
+        // ---- Reset ------------------------------------------------------------------------------
+
+        /// <summary>SettingsPanel's "Reset Progress" button, after confirmation. PlayerPrefs has
+        /// no key-enumeration/prefix-delete API, so every known key is deleted explicitly
+        /// (per-level keys swept across MaxLevelsForReset — deleting a key that was never set is a
+        /// harmless no-op). Does NOT reset settings (music/sfx/language/etc.) — those aren't
+        /// "progress".</summary>
+        public void ResetAllProgress()
+        {
+            PlayerPrefs.DeleteKey(HighestLevelKey);
+            PlayerPrefs.DeleteKey(CoinBalanceKey);
+            PlayerPrefs.DeleteKey(TotalCombosTriggeredKey);
+            PlayerPrefs.DeleteKey(DailyChallengeCompletedDateKey);
+
+            foreach (CharacterType type in System.Enum.GetValues(typeof(CharacterType)))
+            {
+                PlayerPrefs.DeleteKey(CharacterUnlockedKeyPrefix + type);
+            }
+
+            for (int i = 0; i < MaxLevelsForReset; i++)
+            {
+                PlayerPrefs.DeleteKey(LevelStarsKeyPrefix + i);
+                PlayerPrefs.DeleteKey(LevelBestScoreKeyPrefix + i);
+                PlayerPrefs.DeleteKey(LevelBestTimeKeyPrefix + i);
+            }
+
+            PlayerPrefs.Save();
+            LoadProgress(); // re-applies starter-character unlocks (Cluck/Bessie)
         }
     }
 }

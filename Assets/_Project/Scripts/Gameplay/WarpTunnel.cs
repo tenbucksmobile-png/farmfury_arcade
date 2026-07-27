@@ -1,9 +1,11 @@
 using UnityEngine;
+using FarmFuryArcade.Abilities;
+using FarmFuryArcade.Enemies;
 
 namespace FarmFuryArcade.Gameplay
 {
-    /// <summary>Teleports the character to its paired warp tile on overlap. TileMapRenderer wires
-    /// PairedWarp after instantiating both tunnel tiles for a row.</summary>
+    /// <summary>Teleports the character (or a robot) to its paired warp tile on overlap.
+    /// TileMapRenderer wires PairedWarp after instantiating both tunnel tiles for a row.</summary>
     public class WarpTunnel : MonoBehaviour
     {
         [SerializeField] private float reWarpCooldown = 0.1f;
@@ -27,8 +29,15 @@ namespace FarmFuryArcade.Gameplay
                 return;
             }
 
-            var movement = other.GetComponent<GridMovement>();
-            if (movement == null)
+            bool isGridActor = other.GetComponent<GridMovement>() != null || other.GetComponent<RobotBase>() != null;
+            if (!isGridActor)
+            {
+                return;
+            }
+
+            // Gerald is "too big" to fit through a warp tunnel while puffed up (Phase 4).
+            var puff = other.GetComponent<PuffUpAbility>();
+            if (puff != null && puff.IsPuffed)
             {
                 return;
             }

@@ -18,9 +18,11 @@ namespace FarmFuryArcade.Gameplay
 
         private TileMapRenderer _tileMap;
         private Direction _queuedDirection = Direction.None;
+        private bool _canCrossWater;
 
         public Vector2Int CurrentGridPosition { get; private set; }
         public Direction CurrentDirection { get; private set; } = Direction.None;
+        public float Speed => speed;
 
         private void OnEnable()
         {
@@ -51,6 +53,13 @@ namespace FarmFuryArcade.Gameplay
             speed = newSpeed;
         }
 
+        /// <summary>Set true only for Ducky (via CharacterData.canCrossWater) — lets this
+        /// instance treat water tiles as walkable instead of a soft wall.</summary>
+        public void SetCanCrossWater(bool canCross)
+        {
+            _canCrossWater = canCross;
+        }
+
         private void Update()
         {
             if (_tileMap == null)
@@ -72,7 +81,7 @@ namespace FarmFuryArcade.Gameplay
                     CurrentDirection = _queuedDirection;
                 }
 
-                if (CurrentDirection != Direction.None && !_tileMap.IsWalkable(cell + DirectionUtils.ToVector(CurrentDirection)))
+                if (CurrentDirection != Direction.None && !_tileMap.IsWalkable(cell + DirectionUtils.ToVector(CurrentDirection), _canCrossWater))
                 {
                     CurrentDirection = Direction.None;
                 }
@@ -92,7 +101,7 @@ namespace FarmFuryArcade.Gameplay
                 return false;
             }
 
-            if (!_tileMap.IsWalkable(cell + DirectionUtils.ToVector(queued)))
+            if (!_tileMap.IsWalkable(cell + DirectionUtils.ToVector(queued), _canCrossWater))
             {
                 return false;
             }
@@ -109,10 +118,10 @@ namespace FarmFuryArcade.Gameplay
         private int CountWalkableNeighbours(Vector2Int cell)
         {
             int count = 0;
-            if (_tileMap.IsWalkable(cell + DirectionUtils.ToVector(Direction.Up))) count++;
-            if (_tileMap.IsWalkable(cell + DirectionUtils.ToVector(Direction.Down))) count++;
-            if (_tileMap.IsWalkable(cell + DirectionUtils.ToVector(Direction.Left))) count++;
-            if (_tileMap.IsWalkable(cell + DirectionUtils.ToVector(Direction.Right))) count++;
+            if (_tileMap.IsWalkable(cell + DirectionUtils.ToVector(Direction.Up), _canCrossWater)) count++;
+            if (_tileMap.IsWalkable(cell + DirectionUtils.ToVector(Direction.Down), _canCrossWater)) count++;
+            if (_tileMap.IsWalkable(cell + DirectionUtils.ToVector(Direction.Left), _canCrossWater)) count++;
+            if (_tileMap.IsWalkable(cell + DirectionUtils.ToVector(Direction.Right), _canCrossWater)) count++;
             return count;
         }
     }
