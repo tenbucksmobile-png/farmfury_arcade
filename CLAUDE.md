@@ -521,33 +521,33 @@ distance, dominant axis wins for diagonals. Tunable parameters if movement doesn
 ```bash
 # Compile check
 "C:/Program Files/Unity/Hub/Editor/6000.5.0f1/Editor/Unity.exe" -batchmode -quit \
-  -projectPath "C:/Users/Personel/FarmFuryArcade" -logFile <path>.log
+  -projectPath "C:/Users/Personel/Desktop/FarmFury_Arcade" -logFile <path>.log
 
 # Rebuild Phase 2 prefabs/LevelData/scene wiring (safe to re-run)
 "C:/Program Files/Unity/Hub/Editor/6000.5.0f1/Editor/Unity.exe" -batchmode -quit \
-  -projectPath "C:/Users/Personel/FarmFuryArcade" \
+  -projectPath "C:/Users/Personel/Desktop/FarmFury_Arcade" \
   -executeMethod FarmFuryArcade.EditorTools.Phase2ProjectBuilder.BuildAll -logFile <path>.log
 
 # Rebuild Phase 3 robot prefabs/RobotData/LevelData_01+05/scene wiring (safe to re-run; run Phase 2 first)
 "C:/Program Files/Unity/Hub/Editor/6000.5.0f1/Editor/Unity.exe" -batchmode -quit \
-  -projectPath "C:/Users/Personel/FarmFuryArcade" \
+  -projectPath "C:/Users/Personel/Desktop/FarmFury_Arcade" \
   -executeMethod FarmFuryArcade.EditorTools.Phase3ProjectBuilder.BuildAll -logFile <path>.log
 
 # Rebuild Phase 4 character prefabs/CharacterData/ability sub-prefabs/LevelData_01 water/scene wiring
 # (safe to re-run; run Phase 2 first, Phase 3 not required at build time but expected at runtime)
 "C:/Program Files/Unity/Hub/Editor/6000.5.0f1/Editor/Unity.exe" -batchmode -quit \
-  -projectPath "C:/Users/Personel/FarmFuryArcade" \
+  -projectPath "C:/Users/Personel/Desktop/FarmFury_Arcade" \
   -executeMethod FarmFuryArcade.EditorTools.Phase4ProjectBuilder.BuildAll -logFile <path>.log
 
 # Rebuild Phase 5 UI screens/managers/scene wiring (safe to re-run, rebuilds the whole UI
 # hierarchy from scratch each time; run Phase 1+2 first)
 "C:/Program Files/Unity/Hub/Editor/6000.5.0f1/Editor/Unity.exe" -batchmode -quit \
-  -projectPath "C:/Users/Personel/FarmFuryArcade" \
+  -projectPath "C:/Users/Personel/Desktop/FarmFury_Arcade" \
   -executeMethod FarmFuryArcade.EditorTools.Phase5ProjectBuilder.BuildAll -logFile <path>.log
 
 # Play mode verification (note: no -quit — the method calls EditorApplication.Exit itself)
 "C:/Program Files/Unity/Hub/Editor/6000.5.0f1/Editor/Unity.exe" -batchmode \
-  -projectPath "C:/Users/Personel/FarmFuryArcade" \
+  -projectPath "C:/Users/Personel/Desktop/FarmFury_Arcade" \
   -executeMethod FarmFuryArcade.EditorTools.Phase1ProjectBuilder.RunPlayModeVerification -logFile <path>.log
 ```
 
