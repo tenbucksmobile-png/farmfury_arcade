@@ -190,11 +190,10 @@ really just "walls don't factor into its direction choice."
 corners (inset 1 tile from the border), classic-arcade style. `DrifterRobot`'s "retreat" target
 when close to the player reuses the same field (`scatterCornerPosition`).
 
-**No art yet:** `RobotVisual` swaps the placeholder `SpriteRenderer` colour for
-Vulnerable (blue, flashing white in the last 2s) / Defeated-or-Returning (pale) instead of
-swapping sprite sheets — same placeholder convention as everywhere else. Replace with real
-`Robot_Vulnerable_Walk`/`Robot_Defeated_Eyes` sprite swaps when art lands, then delete this
-component.
+**Art status:** `RobotVisual` now swaps in a real `RobotEyes.png` sprite for Defeated/Returning on
+all 6 robots (see "Art status" below), but Vulnerable still swaps the placeholder `SpriteRenderer`
+colour (blue, flashing white in the last 2s) since no dedicated vulnerable sprite has been
+uploaded yet. Replace with a real `Robot_Vulnerable_Walk` sprite swap when that art lands.
 
 **Chain scoring & power state:** `PowerPelletManager` (Core) owns the single global "frightened"
 countdown (`IsPowerActive`, `TimeRemaining`, `ActivatePower(duration)`, `OnPowerStateChanged`)
@@ -555,40 +554,83 @@ solid-color placeholder square generated at runtime by `Utilities/PlaceholderSpr
 values from the GDD's color palette where one exists (e.g. walls = Wall Brown `#4A2C1A`).
 
 **Wired so far:**
-- **Cluck** — `Cluck_front/back/left` cover Down/Up/Left; there's no Right art, so
-  `CharacterAnimator` flips the Left sprite horizontally (`spriteRenderer.flipX`) when facing
-  Right instead. Only one pose per direction exists (no walk-cycle frames yet), so
-  `CharacterData_Cluck.walkAnimationFrames`' 8 slots just repeat each direction's single sprite
-  twice — `CharacterAnimator`'s frame-toggle becomes a harmless no-op until a second walk frame
-  is added per direction.
-- **Harvester robot** — `HarvestorRobot_front/back` wired via `RobotVisual.SetDirectionalSprites`
-  (new, optional `frontSprite`/`backSprite` fields). Facing Up shows the back sprite, everything
-  else (including idle) shows front — there's no left/right robot art. Every other robot type
-  (Scout/Patrol/Drifter/Heavy/Drone) has no art yet and keeps the colour-tint-only placeholder
-  behaviour, since those fields stay null for them.
+- **Characters** — Cluck, Bessie, Woolly, and Percy each have front/back/left art wired into
+  their `CharacterData.walkAnimationFrames` (fixed order `[Up0,Up1,Down0,Down1,Left0,Left1,
+  Right0,Right1]`); there's no dedicated Right art for any of them, so `CharacterAnimator` flips
+  the Left sprite horizontally (`spriteRenderer.flipX`) when facing Right. Only one pose per
+  direction exists (no walk-cycle frames yet), so each direction's two slots repeat the same
+  sprite — `CharacterAnimator`'s frame-toggle is a harmless no-op until second frames land. Ducky
+  has front/back only (no left/right art uploaded for her); her Left/Right slots fall back to the
+  front sprite, so Left/Right facing won't read correctly for her until profile art exists —
+  documented inline in `ArtWiringBuilder.SetWalkFrames`. Horace, Gerald, and Billy still have no
+  art and remain solid-colour placeholders.
+- **Robots** — `RobotVisual.SetDirectionalSprites` now takes optional `left`/`right` sprites in
+  addition to `front`/`back` (extended from the Harvester-only front/back version). Patrol has a
+  full 4-direction set; Scout and Drifter have front/left/right (no back — Up falls back to
+  front); Heavy has front/back only (same pattern Harvester originally used); Harvester and Drone
+  still have no left/right art. Drone has no art at all yet and keeps the colour-tint-only
+  placeholder behaviour for its normal states.
+- **Robot Defeated state** — all 6 robot prefabs (including Drone) now have `RobotEyes.png` wired
+  via the new `RobotVisual.SetDefeatedSprite`; while Defeated/Returning, `RobotVisual.Update`
+  swaps to this sprite directly (skipping the old pale-tint placeholder) regardless of whether
+  that robot has directional art. Vulnerable state is still colour-tint-only — no dedicated
+  vulnerable sprite has been uploaded.
+- **Tint-vs-real-art fix:** `RobotVisual` used to apply `normalColor` (the placeholder tint) as a
+  multiply-colour on top of *any* sprite, including real uploaded art — harmless for Harvester
+  (already reddish) but would have washed out Scout's pink/Patrol's cyan/etc. to whatever solid
+  colour the placeholder used. Fixed via `BaseTintColor`: once a robot has real `frontSprite` art,
+  the "normal" tint is `Color.white` instead of `normalColor`; robots with no art yet still tint
+  the plain placeholder square as before. Same fix applies to the stun/knockback flash colour.
 - **Pickups** — crop kernel uses `CornKernel.png`, the single vegetable pickup uses `carrot.png`
   (3 other vegetable sprites — cabbage/pumpkin/tomato — were uploaded but aren't wired in; the
   architecture only supports one vegetable sprite per maze right now).
-- **Power pellets** — now spawn with a real tier instead of always Sunflower. `TileMapRenderer.
+- **Power pellets** — spawn with a real tier instead of always Sunflower. `TileMapRenderer.
   ConfigurePelletTier` rolls a weighted random tier per pellet (Sunflower 70% / GoldenWheat 20% /
   Rainbow 10%, matching the "RarePellets" art naming) and swaps in `sunflowerPelletSprite`
-  (`Power_1.png`, plain egg) / `goldenWheatPelletSprite` (`RarePellets_maize.png`) /
-  `rainbowPelletSprite` (`RarePellets_apple.png`) accordingly. `Power_1.png` is also the prefab's
-  static default sprite. Two other uploaded sprites — `CluckPower_2`/`CluckPower_3` (a cracking
-  egg / golden sunburst) — are intentionally **not** wired to anything; there's no "Cluck looks
-  different while powered up" feature in the code for them to hook into.
+  (now `RarePellets_sunflower.png` — a dedicated sunflower sprite replaced the earlier placeholder
+  use of `Power_1.png`, which is a Cluck power-up icon, not a pellet) / `goldenWheatPelletSprite`
+  (`RarePellets_maize.png`) / `rainbowPelletSprite` (`RarePellets_apple.png`) accordingly.
+  `Power_1.png`/`CluckPower_2`/`CluckPower_3` remain unwired — there's no "Cluck looks different
+  while powered up" feature in the code for them to hook into.
+- **Ability effects** — `Shockwave` (Bessie's Ground Slam) uses `BessieSlam.png`, `BounceTrail`
+  (Percy's Bounce Roll) uses `Percy_effect.png`, `WoollyClone` (Woolly's Triple Clone) uses
+  `Wooly_effect.png`. Cluck's Egg Drop (`Egg` prefab) still has no dedicated art.
 - **UI backgrounds** — `MainMenuScreen` uses `landing.png` (which has "FARM FURY ARCADE" baked
-  into the art), `WorldMapScreen` uses `Map.png`, `MatchupScreen` uses `World1_Cornfield.png`,
-  `LevelCompleteScreen`/`LevelFailedScreen` share `Wheatfield_background.png`. Because
+  into the art), `WorldMapScreen` uses `Map.png`, `MatchupScreen` uses `matchup.png`,
+  `LevelCompleteScreen`/`LevelFailedScreen`/`PauseOverlay` use dedicated `LevelComplete.png`/
+  `LevelFailed.png`/`Paused.png` panel art (previously these 3 all reused `World1_Cornfield.png`/
+  `Wheatfield_background.png` as stand-ins; those two files are now unused). Because
   `landing.png`'s logo sits centred in the upper half, `MainMenuScreen/Content` (the button stack)
   was re-anchored to the bottom of the screen (`anchorMin/Max = (0.5, 0)`, `pivot = (0.5, 0)`,
   `anchoredPosition = (0, 30)`) instead of screen-center, so it no longer overlaps the art's logo.
-  `LoadingScreen Background.png` was uploaded but isn't wired anywhere — there's no dedicated
-  loading screen in the current screen flow (see "Screens & scene flow").
+  `LoadingScreen Background.png` and `Logo.png` were uploaded but aren't wired anywhere — there's
+  no dedicated loading screen in the current screen flow, and `Logo.png` has no obvious slot since
+  `landing.png` already bakes the logo into Main Menu.
+- **Card frames** — `Card.png` wired onto `MatchupScreen`'s character/robot card `Image`s, the New
+  Character Unlock screen's card `Image`, and the `RosterCard` prefab's root `Image` — one shared
+  frame reused everywhere a character/robot portrait slot exists, since only one card-frame asset
+  was uploaded (the GDD's asset library specs separate wood/character vs. metal/robot frames).
+- **Buttons** — `Btn_play/pause/settings/quit/home/skip/back/plaque` wired onto their matching
+  buttons across every screen (Main Menu, World Map, Matchup, Gameplay HUD, Pause, Settings,
+  Store, Level Complete/Failed, Roster, Leaderboards) via `ArtWiringBuilder.WireButtons` —
+  buttons with no specific icon art (Swap, Ability, Restart, Replay, Retry, Store, Leaderboards,
+  Roster, Daily Challenge) share the generic `Btn_plaque.png` background. `Btn_nosound.png`
+  (muted-state icon) was uploaded but isn't wired — the Music toggle only has one icon slot
+  (`Btn_music.png`) and doesn't swap art on/off, just its checkmark.
 - **Coin icon** — `Collectable Coin.png` was added as a new `CoinIcon` Image next to
   `LevelCompleteScreen`'s existing "+N coins" text (that field never had an icon slot before, so
   `ArtWiringBuilder` wraps it in a new `CoinsRow` horizontal group rather than adding a dedicated
   serialized field for one icon).
+- **App icon** — `AppIcon.png` set as the Unity Player Settings icon (`PlayerSettings.
+  SetIconsForTargetGroup`, Standalone + the default/`Unknown` group) — a project-settings change,
+  not a scene/prefab one.
+
+**Still missing / not wired:** World 1 (or any world's) maze wall/ground tileset and gameplay
+background — the maze still renders with `PlaceholderSprite` colour squares for walls/ground and
+no gameplay backdrop; this is the single biggest gap versus the classic arcade look the game is
+meant to evoke. Also missing: Horace/Gerald/Billy character art, Drone robot art, a Vulnerable-state
+robot sprite, Cluck's Egg Drop effect art, and the branding Logo/Loading Screen background (both
+uploaded, neither wired — see above).
 
 **Texture import convention:** `ArtWiringBuilder.ConfigureSpriteImporters` sets every wired
 texture's `spritePixelsPerUnit` to that texture's own pixel width (via `TextureImporter.

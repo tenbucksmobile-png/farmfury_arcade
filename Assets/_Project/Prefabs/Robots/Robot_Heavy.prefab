@@ -85,7 +85,7 @@ SpriteRenderer:
   m_SortingLayer: 0
   m_SortingOrder: 5
   m_MaskInteraction: 0
-  m_Sprite: {fileID: 0}
+  m_Sprite: {fileID: 21300000, guid: d3539a2220f7d4844a0a1e75c795f080, type: 3}
   m_Color: {r: 1, g: 1, b: 1, a: 1}
   m_FlipX: 0
   m_FlipY: 0
@@ -93,7 +93,7 @@ SpriteRenderer:
   m_Size: {x: 1, y: 1}
   m_AdaptiveModeThreshold: 0.5
   m_SpriteTileMode: 0
-  m_WasSpriteAssigned: 0
+  m_WasSpriteAssigned: 1
   m_SpriteSortPoint: 0
   m_BlendShapeWeights: []
 --- !u!50 &4167171077416430536
@@ -187,3 +187,8 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::FarmFuryArcade.Enemies.RobotVisual
   normalColor: {r: 0.55, g: 0.55, b: 0.58, a: 1}
+  frontSprite: {fileID: 21300000, guid: d3539a2220f7d4844a0a1e75c795f080, type: 3}
+  backSprite: {fileID: 21300000, guid: 28364aa827386bd409b9a5aef0637967, type: 3}
+  leftSprite: {fileID: 0}
+  rightSprite: {fileID: 0}
+  defeatedSprite: {fileID: 21300000, guid: b73865f0aaea2bd47a239051d57383ff, type: 3}

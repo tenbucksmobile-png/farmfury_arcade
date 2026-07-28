@@ -10,23 +10,43 @@ using FarmFuryArcade.Enemies;
 namespace FarmFuryArcade.EditorTools
 {
     /// <summary>
-    /// One-off wiring of the first batch of uploaded art (Assets/_Project/Sprites/...) into the
-    /// prefabs/UI that Phase2-5's builders left as solid-colour placeholders. Unlike the
-    /// PhaseNProjectBuilders this isn't meant to be re-run as part of a "rebuild everything"
-    /// workflow — it's idempotent (safe to re-run, e.g. after adding more art under the same
-    /// paths) but only touches the specific fields listed below rather than regenerating prefabs
-    /// or screens from scratch.
+    /// One-off wiring of uploaded art (Assets/_Project/Sprites/...) into the prefabs/UI that
+    /// Phase2-5's builders left as solid-colour placeholders. Unlike the PhaseNProjectBuilders
+    /// this isn't meant to be re-run as part of a "rebuild everything" workflow — it's idempotent
+    /// (safe to re-run, e.g. after adding more art under the same paths) but only touches the
+    /// specific fields listed below rather than regenerating prefabs or screens from scratch.
     /// </summary>
     public static class ArtWiringBuilder
     {
         private const string ScenePath = "Assets/_Project/Scenes/Game.unity";
-        private const string CharacterDataPath = "Assets/_Project/ScriptableObjects/Resources/Characters/CharacterData_Cluck.asset";
-        private const string CluckPrefabPath = "Assets/_Project/Prefabs/Characters/Cluck.prefab";
-        private const string HarvesterPrefabPath = "Assets/_Project/Prefabs/Robots/Robot_Harvester.prefab";
-        private const string CropCornPrefabPath = "Assets/_Project/Prefabs/Blocks/Crop_Corn.prefab";
-        private const string CropVegetablePrefabPath = "Assets/_Project/Prefabs/Blocks/Crop_Vegetable.prefab";
-        private const string PowerPelletPrefabPath = "Assets/_Project/Prefabs/Blocks/Power_Sunflower.prefab";
 
+        // ---- Data / prefab paths --------------------------------------------------------------
+        private const string CharacterDataFolder = "Assets/_Project/ScriptableObjects/Resources/Characters";
+        private const string CharacterPrefabFolder = "Assets/_Project/Prefabs/Characters";
+        private const string RobotPrefabFolder = "Assets/_Project/Prefabs/Robots";
+        private const string AbilityPrefabFolder = "Assets/_Project/Prefabs/Abilities";
+        private const string BlockPrefabFolder = "Assets/_Project/Prefabs/Blocks";
+        private const string UIPrefabFolder = "Assets/_Project/Prefabs/UI";
+
+        private const string CluckPrefabPath = CharacterPrefabFolder + "/Cluck.prefab";
+        private const string HarvesterPrefabPath = RobotPrefabFolder + "/Robot_Harvester.prefab";
+        private const string ScoutPrefabPath = RobotPrefabFolder + "/Robot_Scout.prefab";
+        private const string PatrolPrefabPath = RobotPrefabFolder + "/Robot_Patrol.prefab";
+        private const string DrifterPrefabPath = RobotPrefabFolder + "/Robot_Drifter.prefab";
+        private const string HeavyPrefabPath = RobotPrefabFolder + "/Robot_Heavy.prefab";
+        private const string DronePrefabPath = RobotPrefabFolder + "/Robot_Drone.prefab";
+
+        private const string CropCornPrefabPath = BlockPrefabFolder + "/Crop_Corn.prefab";
+        private const string CropVegetablePrefabPath = BlockPrefabFolder + "/Crop_Vegetable.prefab";
+        private const string PowerPelletPrefabPath = BlockPrefabFolder + "/Power_Sunflower.prefab";
+
+        private const string ShockwavePrefabPath = AbilityPrefabFolder + "/Shockwave.prefab";
+        private const string BounceTrailPrefabPath = AbilityPrefabFolder + "/BounceTrail.prefab";
+        private const string WoollyClonePrefabPath = AbilityPrefabFolder + "/WoollyClone.prefab";
+
+        private const string RosterCardPrefabPath = UIPrefabFolder + "/RosterCard.prefab";
+
+        // ---- Sprite paths (existing, Cluck/Harvester/crops/pellets/UI backgrounds) -------------
         private const string CluckFront = "Assets/_Project/Sprites/Characters/Cluck_front.png";
         private const string CluckBack = "Assets/_Project/Sprites/Characters/Cluck_back.png";
         private const string CluckLeft = "Assets/_Project/Sprites/Characters/Cluck_left.png";
@@ -35,13 +55,58 @@ namespace FarmFuryArcade.EditorTools
         private const string CornKernel = "Assets/_Project/Sprites/Environment/CornKernel.png";
         private const string Carrot = "Assets/_Project/Sprites/Environment/carrot.png";
         private const string CoinIcon = "Assets/_Project/Sprites/Environment/Collectable Coin.png";
-        private const string SunflowerPellet = "Assets/_Project/Sprites/Characters/Power_1.png";
+        private const string SunflowerPellet = "Assets/_Project/Sprites/Environment/RarePellets_sunflower.png";
         private const string GoldenWheatPellet = "Assets/_Project/Sprites/Environment/RarePellets_maize.png";
         private const string RainbowPellet = "Assets/_Project/Sprites/Environment/RarePellets_apple.png";
         private const string LandingBackground = "Assets/_Project/Sprites/UI/landing.png";
         private const string MapBackground = "Assets/_Project/Sprites/UI/Map.png";
-        private const string CornfieldBackground = "Assets/_Project/Sprites/UI/World1_Cornfield.png";
-        private const string WheatfieldBackground = "Assets/_Project/Sprites/UI/Wheatfield_background.png";
+
+        // ---- Sprite paths (this batch) ----------------------------------------------------------
+        private const string BessieFront = "Assets/_Project/Sprites/Characters/Bessie_front.png";
+        private const string BessieBack = "Assets/_Project/Sprites/Characters/Bessie_back.png";
+        private const string BessieLeft = "Assets/_Project/Sprites/Characters/Bessie_left.png";
+        private const string WoollyFront = "Assets/_Project/Sprites/Characters/Wooly_front.png";
+        private const string WoollyBack = "Assets/_Project/Sprites/Characters/Wooly_back.png";
+        private const string WoollyLeft = "Assets/_Project/Sprites/Characters/Wooly_left.png";
+        private const string WoollyEffect = "Assets/_Project/Sprites/Characters/Wooly_effect.png";
+        private const string PercyFront = "Assets/_Project/Sprites/Characters/Percy_front.png";
+        private const string PercyBack = "Assets/_Project/Sprites/Characters/Percy_back.png";
+        private const string PercyLeft = "Assets/_Project/Sprites/Characters/Perccy_left.png"; // uploaded filename typo
+        private const string PercyEffect = "Assets/_Project/Sprites/Characters/Percy_effect.png";
+        private const string DuckyFront = "Assets/_Project/Sprites/Characters/Ducky_front.png";
+        private const string DuckyBack = "Assets/_Project/Sprites/Characters/Ducky_back.png";
+        private const string BessieSlam = "Assets/_Project/Sprites/Characters/BessieSlam.png";
+
+        private const string ScoutFront = "Assets/_Project/Sprites/Robots/ScoutRobot_front.png";
+        private const string ScoutLeft = "Assets/_Project/Sprites/Robots/ScoutRobot_left.png";
+        private const string ScoutRight = "Assets/_Project/Sprites/Robots/ScoutRobot_right.png";
+        private const string PatrolFront = "Assets/_Project/Sprites/Robots/PatrolRobot_Front.png";
+        private const string PatrolBack = "Assets/_Project/Sprites/Robots/PatrolRobot_back.png";
+        private const string PatrolLeft = "Assets/_Project/Sprites/Robots/PatrolRobot_left.png";
+        private const string PatrolRight = "Assets/_Project/Sprites/Robots/PatrolRobot_right.png";
+        private const string HeavyFront = "Assets/_Project/Sprites/Robots/HeavyRobot_front.png";
+        private const string HeavyBack = "Assets/_Project/Sprites/Robots/HeavyRobot_back.png";
+        private const string DrifterFront = "Assets/_Project/Sprites/Robots/DriftRobot_front.png";
+        private const string DrifterLeft = "Assets/_Project/Sprites/Robots/DriftRobot_left.png";
+        private const string DrifterRight = "Assets/_Project/Sprites/Robots/DriftRobot_right.png";
+        private const string RobotEyes = "Assets/_Project/Sprites/Robots/RobotEyes.png";
+
+        private const string LogoImage = "Assets/_Project/Sprites/UI/Logo.png";
+        private const string AppIconImage = "Assets/_Project/Sprites/UI/AppIcon.png";
+        private const string MatchupBackground = "Assets/_Project/Sprites/UI/matchup.png";
+        private const string LevelCompletePanel = "Assets/_Project/Sprites/UI/LevelComplete.png";
+        private const string LevelFailedPanel = "Assets/_Project/Sprites/UI/LevelFailed.png";
+        private const string PausedPanel = "Assets/_Project/Sprites/UI/Paused.png";
+        private const string CardFrame = "Assets/_Project/Sprites/UI/Card.png";
+        private const string BtnPlay = "Assets/_Project/Sprites/UI/Btn_play.png";
+        private const string BtnPause = "Assets/_Project/Sprites/UI/Btn_pause.png";
+        private const string BtnSettings = "Assets/_Project/Sprites/UI/Btn_settings.png";
+        private const string BtnQuit = "Assets/_Project/Sprites/UI/Btn_quit.png";
+        private const string BtnMusic = "Assets/_Project/Sprites/UI/Btn_music.png";
+        private const string BtnHome = "Assets/_Project/Sprites/UI/Btn_home.png";
+        private const string BtnSkip = "Assets/_Project/Sprites/UI/Btn_skip.png";
+        private const string BtnBack = "Assets/_Project/Sprites/UI/Btn_back.png";
+        private const string BtnPlaque = "Assets/_Project/Sprites/UI/Btn_plaque.png";
 
         [MenuItem("Farm Fury Arcade/Wire Uploaded Art")]
         public static void WireAll()
@@ -54,9 +119,16 @@ namespace FarmFuryArcade.EditorTools
             WireBackgroundsAndCoinIcon();
             RepositionMainMenuContent();
 
+            WireNewCharacters();
+            WireNewRobots();
+            WireAbilityEffects();
+            WireCardsAndPanels();
+            WireButtons();
+            WireAppIcon();
+
             AssetDatabase.SaveAssets();
             AssetDatabase.Refresh();
-            Debug.Log("[ArtWiringBuilder] Uploaded art wired into Cluck, Harvester, crops/pellets, and UI backgrounds.");
+            Debug.Log("[ArtWiringBuilder] Uploaded art wired into characters, robots, ability effects, cards/panels, and buttons.");
         }
 
         /// <summary>landing.png has "FARM FURY ARCADE" baked into the art itself, centred in the
@@ -86,8 +158,13 @@ namespace FarmFuryArcade.EditorTools
         private static readonly string[] SpritesToConfigure =
         {
             CluckFront, CluckBack, CluckLeft, HarvesterFront, HarvesterBack, CornKernel, Carrot,
-            CoinIcon, SunflowerPellet, GoldenWheatPellet, RainbowPellet, LandingBackground,
-            MapBackground, CornfieldBackground, WheatfieldBackground
+            CoinIcon, SunflowerPellet, GoldenWheatPellet, RainbowPellet, LandingBackground, MapBackground,
+            BessieFront, BessieBack, BessieLeft, WoollyFront, WoollyBack, WoollyLeft, WoollyEffect,
+            PercyFront, PercyBack, PercyLeft, PercyEffect, DuckyFront, DuckyBack, BessieSlam,
+            ScoutFront, ScoutLeft, ScoutRight, PatrolFront, PatrolBack, PatrolLeft, PatrolRight,
+            HeavyFront, HeavyBack, DrifterFront, DrifterLeft, DrifterRight, RobotEyes,
+            MatchupBackground, LevelCompletePanel, LevelFailedPanel, PausedPanel, CardFrame,
+            BtnPlay, BtnPause, BtnSettings, BtnQuit, BtnMusic, BtnHome, BtnSkip, BtnBack, BtnPlaque
         };
 
         private static void ConfigureSpriteImporters()
@@ -132,21 +209,7 @@ namespace FarmFuryArcade.EditorTools
             var back = Load(CluckBack);
             var left = Load(CluckLeft);
 
-            var data = AssetDatabase.LoadAssetAtPath<CharacterData>(CharacterDataPath);
-            if (data != null)
-            {
-                // Fixed order [Up0,Up1,Down0,Down1,Left0,Left1,Right0,Right1] per CharacterAnimator.
-                // Only one pose per direction exists (no walk-cycle frames yet), so each direction's
-                // two slots repeat the same sprite — CharacterAnimator's frame toggle just becomes a
-                // no-op until a second walk frame is added. Right reuses Left; CharacterAnimator
-                // flips it horizontally at runtime since there's no dedicated Right art.
-                data.walkAnimationFrames = new[] { back, back, front, front, left, left, left, left };
-                EditorUtility.SetDirty(data);
-            }
-            else
-            {
-                Debug.LogWarning($"[ArtWiringBuilder] CharacterData_Cluck not found at {CharacterDataPath}");
-            }
+            SetWalkFrames("Cluck", front, back, left);
 
             var contents = PrefabUtility.LoadPrefabContents(CluckPrefabPath);
             var sr = contents.GetComponent<SpriteRenderer>();
@@ -173,6 +236,7 @@ namespace FarmFuryArcade.EditorTools
             if (visual != null)
             {
                 visual.SetDirectionalSprites(front, back);
+                visual.SetDefeatedSprite(Load(RobotEyes));
             }
             PrefabUtility.SaveAsPrefabAsset(contents, HarvesterPrefabPath);
             PrefabUtility.UnloadPrefabContents(contents);
@@ -207,7 +271,7 @@ namespace FarmFuryArcade.EditorTools
 
         private static void SetPrefabSprite(string prefabPath, Sprite sprite)
         {
-            if (sprite == null)
+            if (sprite == null || !File.Exists(prefabPath))
             {
                 return;
             }
@@ -234,9 +298,6 @@ namespace FarmFuryArcade.EditorTools
 
             SetScreenBackground(canvasTransform, "MainMenuScreen", Load(LandingBackground));
             SetScreenBackground(canvasTransform, "WorldMapScreen", Load(MapBackground));
-            SetScreenBackground(canvasTransform, "MatchupScreen", Load(CornfieldBackground));
-            SetScreenBackground(canvasTransform, "LevelCompleteScreen", Load(WheatfieldBackground));
-            SetScreenBackground(canvasTransform, "LevelFailedScreen", Load(WheatfieldBackground));
 
             AddCoinIcon(canvasTransform);
 
@@ -295,6 +356,260 @@ namespace FarmFuryArcade.EditorTools
 
             coinsText.SetParent(row.transform, false);
             coinsText.SetSiblingIndex(1);
+        }
+
+        // ---- New characters (Bessie, Woolly, Percy, Ducky) -------------------------------------
+
+        /// <summary>Fixed order [Up0,Up1,Down0,Down1,Left0,Left1,Right0,Right1] per
+        /// CharacterAnimator. Only one pose per direction exists (no walk-cycle frames yet), so
+        /// each direction's two slots repeat the same sprite. Right reuses Left; CharacterAnimator
+        /// flips it horizontally at runtime since there's no dedicated Right art. If left is null
+        /// (Ducky has no profile art), front is used for Left/Right too — direction won't read
+        /// correctly for those two facings until profile art is added, but the character is never
+        /// left as a bare colour square.</summary>
+        private static void SetWalkFrames(string characterTypeName, Sprite front, Sprite back, Sprite left)
+        {
+            string path = $"{CharacterDataFolder}/CharacterData_{characterTypeName}.asset";
+            var data = AssetDatabase.LoadAssetAtPath<CharacterData>(path);
+            if (data == null)
+            {
+                Debug.LogWarning($"[ArtWiringBuilder] CharacterData_{characterTypeName} not found at {path}");
+                return;
+            }
+
+            Sprite leftOrFront = left != null ? left : front;
+            data.walkAnimationFrames = new[] { back, back, front, front, leftOrFront, leftOrFront, leftOrFront, leftOrFront };
+            EditorUtility.SetDirty(data);
+        }
+
+        private static void WireCharacterPrefabSprite(string prefabPath, Sprite front)
+        {
+            if (front == null || !File.Exists(prefabPath))
+            {
+                return;
+            }
+
+            var contents = PrefabUtility.LoadPrefabContents(prefabPath);
+            var sr = contents.GetComponent<SpriteRenderer>();
+            if (sr != null)
+            {
+                sr.sprite = front;
+            }
+            PrefabUtility.SaveAsPrefabAsset(contents, prefabPath);
+            PrefabUtility.UnloadPrefabContents(contents);
+        }
+
+        private static void WireNewCharacters()
+        {
+            var bessieFront = Load(BessieFront);
+            SetWalkFrames("Bessie", bessieFront, Load(BessieBack), Load(BessieLeft));
+            WireCharacterPrefabSprite($"{CharacterPrefabFolder}/Bessie.prefab", bessieFront);
+
+            var woollyFront = Load(WoollyFront);
+            SetWalkFrames("Woolly", woollyFront, Load(WoollyBack), Load(WoollyLeft));
+            WireCharacterPrefabSprite($"{CharacterPrefabFolder}/Woolly.prefab", woollyFront);
+
+            var percyFront = Load(PercyFront);
+            SetWalkFrames("Percy", percyFront, Load(PercyBack), Load(PercyLeft));
+            WireCharacterPrefabSprite($"{CharacterPrefabFolder}/Percy.prefab", percyFront);
+
+            var duckyFront = Load(DuckyFront);
+            SetWalkFrames("Ducky", duckyFront, Load(DuckyBack), null);
+            WireCharacterPrefabSprite($"{CharacterPrefabFolder}/Ducky.prefab", duckyFront);
+
+            // Horace, Gerald, Billy have no uploaded art yet — left as placeholder squares.
+        }
+
+        // ---- New robots (Scout, Patrol, Heavy, Drifter) + universal defeated eyes -------------
+
+        private static void WireRobotVisual(string prefabPath, Sprite front, Sprite back, Sprite left, Sprite right)
+        {
+            if (!File.Exists(prefabPath))
+            {
+                return;
+            }
+
+            var contents = PrefabUtility.LoadPrefabContents(prefabPath);
+            var sr = contents.GetComponent<SpriteRenderer>();
+            if (sr != null && front != null)
+            {
+                sr.sprite = front;
+            }
+            var visual = contents.GetComponent<RobotVisual>();
+            if (visual != null)
+            {
+                if (front != null)
+                {
+                    visual.SetDirectionalSprites(front, back, left, right);
+                }
+                visual.SetDefeatedSprite(Load(RobotEyes));
+            }
+            PrefabUtility.SaveAsPrefabAsset(contents, prefabPath);
+            PrefabUtility.UnloadPrefabContents(contents);
+        }
+
+        private static void WireNewRobots()
+        {
+            WireRobotVisual(ScoutPrefabPath, Load(ScoutFront), null, Load(ScoutLeft), Load(ScoutRight));
+            WireRobotVisual(PatrolPrefabPath, Load(PatrolFront), Load(PatrolBack), Load(PatrolLeft), Load(PatrolRight));
+            WireRobotVisual(HeavyPrefabPath, Load(HeavyFront), Load(HeavyBack), null, null);
+            WireRobotVisual(DrifterPrefabPath, Load(DrifterFront), null, Load(DrifterLeft), Load(DrifterRight));
+
+            // Drone has no uploaded art yet — still gets the universal defeated-eyes sprite.
+            WireRobotVisual(DronePrefabPath, null, null, null, null);
+        }
+
+        // ---- Ability effects ---------------------------------------------------------------
+
+        private static void WireAbilityEffects()
+        {
+            SetPrefabSprite(ShockwavePrefabPath, Load(BessieSlam));
+            SetPrefabSprite(BounceTrailPrefabPath, Load(PercyEffect));
+            SetPrefabSprite(WoollyClonePrefabPath, Load(WoollyEffect));
+        }
+
+        // ---- Cards and full-screen panels ----------------------------------------------------
+
+        private static void WireCardsAndPanels()
+        {
+            EditorSceneManager.OpenScene(ScenePath);
+            var canvasTransform = GameObject.Find("Canvas")?.transform;
+            if (canvasTransform == null)
+            {
+                Debug.LogWarning("[ArtWiringBuilder] Could not find Canvas — skipping card/panel wiring.");
+                return;
+            }
+
+            var matchup = Load(MatchupBackground);
+            SetScreenBackground(canvasTransform, "MatchupScreen", matchup);
+            SetScreenBackground(canvasTransform, "LevelCompleteScreen", Load(LevelCompletePanel));
+            SetScreenBackground(canvasTransform, "LevelFailedScreen", Load(LevelFailedPanel));
+            SetScreenBackground(canvasTransform, "PauseOverlay", Load(PausedPanel));
+
+            var card = Load(CardFrame);
+            if (card != null)
+            {
+                SetImageSprite(canvasTransform, "MatchupScreen/Content/VSRow/CharacterCard", card);
+                for (int i = 0; i < 3; i++)
+                {
+                    SetImageSprite(canvasTransform, $"MatchupScreen/Content/VSRow/RobotCards/RobotCard{i}", card);
+                }
+                SetImageSprite(canvasTransform, "LevelCompleteScreen/NewCharacterUnlockOverlay/UnlockContent/CharacterCard", card);
+            }
+
+            EditorSceneManager.SaveScene(EditorSceneManager.GetActiveScene());
+
+            // RosterCard is a prefab, not part of the scene hierarchy above.
+            if (card != null && File.Exists(RosterCardPrefabPath))
+            {
+                var contents = PrefabUtility.LoadPrefabContents(RosterCardPrefabPath);
+                var rootImage = contents.GetComponent<Image>();
+                if (rootImage != null)
+                {
+                    rootImage.sprite = card;
+                }
+                PrefabUtility.SaveAsPrefabAsset(contents, RosterCardPrefabPath);
+                PrefabUtility.UnloadPrefabContents(contents);
+            }
+        }
+
+        private static void SetImageSprite(Transform canvasTransform, string path, Sprite sprite)
+        {
+            var target = canvasTransform.Find(path);
+            var image = target != null ? target.GetComponent<Image>() : null;
+            if (image == null)
+            {
+                Debug.LogWarning($"[ArtWiringBuilder] Could not find Image at Canvas/{path} to wire.");
+                return;
+            }
+            image.sprite = sprite;
+        }
+
+        // ---- Buttons --------------------------------------------------------------------------
+
+        private static void WireButtons()
+        {
+            EditorSceneManager.OpenScene(ScenePath);
+            var canvasTransform = GameObject.Find("Canvas")?.transform;
+            if (canvasTransform == null)
+            {
+                Debug.LogWarning("[ArtWiringBuilder] Could not find Canvas — skipping button wiring.");
+                return;
+            }
+
+            var play = Load(BtnPlay);
+            var pause = Load(BtnPause);
+            var settings = Load(BtnSettings);
+            var quit = Load(BtnQuit);
+            var music = Load(BtnMusic);
+            var home = Load(BtnHome);
+            var skip = Load(BtnSkip);
+            var back = Load(BtnBack);
+            var plaque = Load(BtnPlaque);
+
+            SetImageSprite(canvasTransform, "MainMenuScreen/Content/PlayButton", play);
+            SetImageSprite(canvasTransform, "MainMenuScreen/Content/SettingsButton", settings);
+            SetImageSprite(canvasTransform, "MainMenuScreen/Content/CharacterRosterButton", plaque);
+            SetImageSprite(canvasTransform, "MainMenuScreen/Content/StoreButton", plaque);
+            SetImageSprite(canvasTransform, "MainMenuScreen/Content/LeaderboardsButton", plaque);
+            SetImageSprite(canvasTransform, "MainMenuScreen/Content/DailyChallengeRow/DailyChallengeButton", plaque);
+
+            SetImageSprite(canvasTransform, "WorldMapScreen/HomeButton", home);
+
+            SetImageSprite(canvasTransform, "MatchupScreen/Content/Buttons/BackButton", back);
+            SetImageSprite(canvasTransform, "MatchupScreen/Content/Buttons/PlayButton", play);
+
+            SetImageSprite(canvasTransform, "GameplayScreen/SwapButton", plaque);
+            SetImageSprite(canvasTransform, "GameplayScreen/AbilityButton", plaque);
+            SetImageSprite(canvasTransform, "GameplayScreen/PauseButton", pause);
+
+            SetImageSprite(canvasTransform, "PauseOverlay/Content/ResumeButton", play);
+            SetImageSprite(canvasTransform, "PauseOverlay/Content/SwapButton", plaque);
+            SetImageSprite(canvasTransform, "PauseOverlay/Content/RestartButton", plaque);
+            SetImageSprite(canvasTransform, "PauseOverlay/Content/SettingsButton", settings);
+            SetImageSprite(canvasTransform, "PauseOverlay/Content/QuitButton", quit);
+
+            SetImageSprite(canvasTransform, "SettingsOverlay/Content/TitleRow/CloseButton", back);
+            SetImageSprite(canvasTransform, "SettingsOverlay/Content/MusicToggle/MusicToggle_Box", music);
+
+            SetImageSprite(canvasTransform, "StoreComingSoonOverlay/Content/CloseButton", back);
+
+            SetImageSprite(canvasTransform, "LevelCompleteScreen/Content/Buttons/ReplayButton", plaque);
+            SetImageSprite(canvasTransform, "LevelCompleteScreen/Content/Buttons/NextLevelButton", skip);
+            SetImageSprite(canvasTransform, "LevelCompleteScreen/Content/Buttons/HomeButton", home);
+            SetImageSprite(canvasTransform, "LevelCompleteScreen/NewCharacterUnlockOverlay/UnlockContent/ContinueButton", play);
+
+            SetImageSprite(canvasTransform, "LevelFailedScreen/Content/Buttons/RetryButton", plaque);
+            SetImageSprite(canvasTransform, "LevelFailedScreen/Content/Buttons/HomeButton", home);
+
+            SetImageSprite(canvasTransform, "CharacterRosterScreen/BackButton", back);
+            SetImageSprite(canvasTransform, "LeaderboardsScreen/Content/BackButton", back);
+
+            EditorSceneManager.SaveScene(EditorSceneManager.GetActiveScene());
+        }
+
+        // ---- App icon ---------------------------------------------------------------------------
+
+        /// <summary>Sets the Unity Player Settings app icon (shown on iOS/Android home screens and
+        /// in the Standalone build's .exe) directly from the uploaded 1024x1024 icon — this is a
+        /// project-settings change, not a scene/prefab one, so it isn't gated behind ConfigureSpriteImporters.</summary>
+        private static void WireAppIcon()
+        {
+            if (!File.Exists(AppIconImage))
+            {
+                return;
+            }
+
+            var texture = AssetDatabase.LoadAssetAtPath<Texture2D>(AppIconImage);
+            if (texture == null)
+            {
+                Debug.LogWarning($"[ArtWiringBuilder] Could not load {AppIconImage} as a Texture2D for the app icon.");
+                return;
+            }
+
+            var textures = new[] { texture };
+            PlayerSettings.SetIconsForTargetGroup(BuildTargetGroup.Standalone, textures);
+            PlayerSettings.SetIconsForTargetGroup(BuildTargetGroup.Unknown, textures);
         }
     }
 }
