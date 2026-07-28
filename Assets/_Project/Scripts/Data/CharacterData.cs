@@ -25,5 +25,9 @@ namespace FarmFuryArcade.Data
         [Tooltip("Only Ducky sets this true — lets GridMovement treat water tiles (id 8) as " +
                  "walkable instead of a soft wall.")]
         public bool canCrossWater;
+
+        [Tooltip("True once dedicated Right-facing art exists in walkAnimationFrames[6]/[7]. " +
+                 "When false (the default), CharacterAnimator mirrors the Left frames instead.")]
+        public bool hasDedicatedRightArt;
     }
 }

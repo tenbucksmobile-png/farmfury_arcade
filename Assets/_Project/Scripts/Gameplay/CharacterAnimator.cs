@@ -42,8 +42,10 @@ namespace FarmFuryArcade.Gameplay
                 return;
             }
 
-            // No dedicated Right art — Right reuses the Left frames mirrored horizontally.
-            _spriteRenderer.flipX = dir == Direction.Right;
+            // Right reuses the Left frames mirrored horizontally unless this character has its
+            // own Right art (walkAnimationFrames[6]/[7]) — see CharacterData.hasDedicatedRightArt.
+            _spriteRenderer.flipX = dir == Direction.Right &&
+                (characterData == null || !characterData.hasDedicatedRightArt);
 
             bool moving = facing != Direction.None;
             if (!moving)

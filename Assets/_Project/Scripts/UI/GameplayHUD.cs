@@ -1,7 +1,6 @@
 using UnityEngine;
 using UnityEngine.UI;
 using TMPro;
-using FarmFuryArcade.Abilities;
 using FarmFuryArcade.Core;
 using FarmFuryArcade.Data;
 
@@ -13,6 +12,14 @@ namespace FarmFuryArcade.UI
     /// (Update keeps running even while Time.timeScale == 0 during Pause) whenever GameManager's
     /// state changes away from Playing, so it's the natural single place to react to that instead
     /// of scattering "watch for LevelComplete" checks across multiple controllers.
+    ///
+    /// Swap/Ability buttons were removed from the HUD in the gameplay-screen cleanup — Tab
+    /// (CharacterSwapUI) and Space (AbilityBase.OnAbilityActivateInput) still work directly via
+    /// InputController, so neither feature is actually gone, just no longer duplicated as on-screen
+    /// buttons here. Pause/Sound/Home are now a single bottom-left icon cluster instead of being
+    /// scattered across the screen; the vacant Btn_plaque backdrop on the right
+    /// (Phase5ProjectBuilder.BuildGameplayHUD's "SideBackdrop") is a placeholder for future
+    /// writing/navigation and isn't wired to anything yet.
     /// </summary>
     public class GameplayHUD : MonoBehaviour
     {
@@ -20,15 +27,16 @@ namespace FarmFuryArcade.UI
         [SerializeField] private TextMeshProUGUI levelText;
         [SerializeField] private TextMeshProUGUI timerText;
         [SerializeField] private Image characterPortrait;
-        [SerializeField] private Button abilityButton;
-        [SerializeField] private Image abilityCooldownRing;
-        [SerializeField] private Button swapButton;
         [SerializeField] private Button pauseButton;
+        [SerializeField] private Button soundButton;
+        [SerializeField] private Image soundButtonIcon;
+        [SerializeField] private Sprite soundOnSprite;
+        [SerializeField] private Sprite soundOffSprite;
+        [SerializeField] private Button homeButton;
         [SerializeField] private GameObject powerPelletTimerBar;
         [SerializeField] private Image powerPelletTimerFill;
         [SerializeField] private GameObject chainCounterRoot;
         [SerializeField] private TextMeshProUGUI chainCounterText;
-        [SerializeField] private CharacterSwapUI characterSwapUI;
         [SerializeField] private PauseMenuController pauseMenu;
         [SerializeField] private GameObject levelCompleteScreen;
         [SerializeField] private GameObject levelFailedScreen;
@@ -41,9 +49,9 @@ namespace FarmFuryArcade.UI
 
         private void Awake()
         {
-            abilityButton.onClick.AddListener(ActivateAbility);
-            swapButton.onClick.AddListener(() => characterSwapUI.ToggleOpen());
             pauseButton.onClick.AddListener(OpenPauseMenu);
+            soundButton.onClick.AddListener(ToggleSound);
+            homeButton.onClick.AddListener(QuitToHome);
         }
 
         private void OnEnable()
@@ -60,6 +68,7 @@ namespace FarmFuryArcade.UI
 
             _lastObservedState = GameState.Playing;
             RefreshPortrait();
+            RefreshSoundIcon();
             UpdateScoreText();
         }
 
@@ -99,7 +108,6 @@ namespace FarmFuryArcade.UI
 
             AnimateScoreTowardTarget();
             RefreshLevelAndTimerText();
-            UpdateAbilityCooldownRing();
             UpdatePowerPelletUI();
         }
 
@@ -168,19 +176,6 @@ namespace FarmFuryArcade.UI
             }
         }
 
-        private void UpdateAbilityCooldownRing()
-        {
-            if (abilityCooldownRing == null)
-            {
-                return;
-            }
-
-            var ability = GetActiveAbility();
-            abilityCooldownRing.fillAmount = ability != null && ability.TotalCooldown > 0f
-                ? ability.CooldownRemaining / ability.TotalCooldown
-                : 0f;
-        }
-
         private void UpdatePowerPelletUI()
         {
             bool active = PowerPelletManager.Instance != null && PowerPelletManager.Instance.IsPowerActive;
@@ -205,21 +200,48 @@ namespace FarmFuryArcade.UI
             }
         }
 
-        private void ActivateAbility()
-        {
-            GetActiveAbility()?.TryActivate();
-        }
-
-        private static AbilityBase GetActiveAbility()
-        {
-            var obj = CharacterManager.Instance != null ? CharacterManager.Instance.ActiveCharacterObject : null;
-            return obj != null ? obj.GetComponent<AbilityBase>() : null;
-        }
-
         private void OpenPauseMenu()
         {
             GameManager.Instance.PauseGame();
             pauseMenu.Show();
+        }
+
+        /// <summary>Single icon toggles both music and SFX together — the HUD only needs one
+        /// "sound on/off" concept, unlike SettingsPanel's separate Music/SFX toggles. Uses
+        /// SaveManager.MusicOn as the on/off state for the icon since both are muted/unmuted in
+        /// lockstep here.</summary>
+        private void ToggleSound()
+        {
+            bool goingOff = SaveManager.Instance != null && SaveManager.Instance.MusicOn;
+
+            if (AudioManager.Instance != null)
+            {
+                AudioManager.Instance.SetMusicMuted(goingOff);
+                AudioManager.Instance.SetSFXMuted(goingOff);
+            }
+
+            RefreshSoundIcon();
+        }
+
+        private void RefreshSoundIcon()
+        {
+            if (soundButtonIcon == null)
+            {
+                return;
+            }
+
+            bool on = SaveManager.Instance == null || SaveManager.Instance.MusicOn;
+            soundButtonIcon.sprite = on ? soundOnSprite : soundOffSprite;
+        }
+
+        /// <summary>Same semantics as PauseMenuController.QuitToMenu — quitting mid-run counts as
+        /// a failed attempt (EndLevel(false)); GameplayHUD's own state-change watcher then shows
+        /// LevelFailedController, whose own Home button is the one that actually returns to World
+        /// Map. This button just skips the pause-menu detour to get there.</summary>
+        private void QuitToHome()
+        {
+            Time.timeScale = 1f;
+            GameManager.Instance.EndLevel(false);
         }
     }
 }

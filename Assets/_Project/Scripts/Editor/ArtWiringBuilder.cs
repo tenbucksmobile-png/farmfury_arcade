@@ -6,6 +6,7 @@ using UnityEngine.UI;
 using FarmFuryArcade.Core;
 using FarmFuryArcade.Data;
 using FarmFuryArcade.Enemies;
+using FarmFuryArcade.UI;
 
 namespace FarmFuryArcade.EditorTools
 {
@@ -22,6 +23,7 @@ namespace FarmFuryArcade.EditorTools
 
         // ---- Data / prefab paths --------------------------------------------------------------
         private const string CharacterDataFolder = "Assets/_Project/ScriptableObjects/Resources/Characters";
+        private const string RobotDataFolder = "Assets/_Project/ScriptableObjects/Resources/Robots";
         private const string CharacterPrefabFolder = "Assets/_Project/Prefabs/Characters";
         private const string RobotPrefabFolder = "Assets/_Project/Prefabs/Robots";
         private const string AbilityPrefabFolder = "Assets/_Project/Prefabs/Abilities";
@@ -39,6 +41,9 @@ namespace FarmFuryArcade.EditorTools
         private const string CropCornPrefabPath = BlockPrefabFolder + "/Crop_Corn.prefab";
         private const string CropVegetablePrefabPath = BlockPrefabFolder + "/Crop_Vegetable.prefab";
         private const string PowerPelletPrefabPath = BlockPrefabFolder + "/Power_Sunflower.prefab";
+        private const string WallPrefabPath = BlockPrefabFolder + "/Wall_CornField.prefab";
+        private const string GroundPrefabPath = BlockPrefabFolder + "/Ground_CornField.prefab";
+        private const string WarpTunnelPrefabPath = BlockPrefabFolder + "/WarpTunnel.prefab";
 
         private const string ShockwavePrefabPath = AbilityPrefabFolder + "/Shockwave.prefab";
         private const string BounceTrailPrefabPath = AbilityPrefabFolder + "/BounceTrail.prefab";
@@ -76,6 +81,19 @@ namespace FarmFuryArcade.EditorTools
         private const string DuckyFront = "Assets/_Project/Sprites/Characters/Ducky_front.png";
         private const string DuckyBack = "Assets/_Project/Sprites/Characters/Ducky_back.png";
         private const string BessieSlam = "Assets/_Project/Sprites/Characters/BessieSlam.png";
+        private const string GeraldFront = "Assets/_Project/Sprites/Characters/Gerald_front.png";
+        private const string GeraldBack = "Assets/_Project/Sprites/Characters/Gerald_back.png";
+        private const string GeraldLeft = "Assets/_Project/Sprites/Characters/Gerald_left.png";
+
+        // ---- Sprite paths (this batch: Cluck 2nd-frame walk cycle + real Right art) ------------
+        private const string CluckRight = "Assets/_Project/Sprites/Characters/Cluck_right.png";
+        private const string CluckRightWalk2 = "Assets/_Project/Sprites/Characters/Cluck_rightwalk2.png";
+        private const string CluckLeftWalk = "Assets/_Project/Sprites/Characters/Cluck_LeftWalk.png";
+
+        // ---- Sprite paths (this batch: maze wall/floor/warp tunnel art) ------------------------
+        private const string WallCornTiles = "Assets/_Project/Sprites/UI/CornTiles.png";
+        private const string FloorTile = "Assets/_Project/Sprites/UI/FloorTile.png";
+        private const string WarpTile = "Assets/_Project/Sprites/UI/WarpTile.png";
 
         private const string ScoutFront = "Assets/_Project/Sprites/Robots/ScoutRobot_front.png";
         private const string ScoutLeft = "Assets/_Project/Sprites/Robots/ScoutRobot_left.png";
@@ -103,6 +121,7 @@ namespace FarmFuryArcade.EditorTools
         private const string BtnSettings = "Assets/_Project/Sprites/UI/Btn_settings.png";
         private const string BtnQuit = "Assets/_Project/Sprites/UI/Btn_quit.png";
         private const string BtnMusic = "Assets/_Project/Sprites/UI/Btn_music.png";
+        private const string BtnNoSound = "Assets/_Project/Sprites/UI/Btn_nosound.png";
         private const string BtnHome = "Assets/_Project/Sprites/UI/Btn_home.png";
         private const string BtnSkip = "Assets/_Project/Sprites/UI/Btn_skip.png";
         private const string BtnBack = "Assets/_Project/Sprites/UI/Btn_back.png";
@@ -116,8 +135,8 @@ namespace FarmFuryArcade.EditorTools
             WireCluck();
             WireHarvester();
             WireCropsAndPellets();
+            WireMazeTiles();
             WireBackgroundsAndCoinIcon();
-            RepositionMainMenuContent();
 
             WireNewCharacters();
             WireNewRobots();
@@ -128,32 +147,14 @@ namespace FarmFuryArcade.EditorTools
 
             AssetDatabase.SaveAssets();
             AssetDatabase.Refresh();
-            Debug.Log("[ArtWiringBuilder] Uploaded art wired into characters, robots, ability effects, cards/panels, and buttons.");
+            Debug.Log("[ArtWiringBuilder] Uploaded art wired into characters, robots, maze tiles, ability effects, cards/panels, and buttons.");
         }
 
-        /// <summary>landing.png has "FARM FURY ARCADE" baked into the art itself, centred in the
-        /// upper half — the button stack (and its own duplicate "Title" text) used to be centred
-        /// on screen too, directly on top of it. Re-anchors the whole Content group to the lower
-        /// portion of the screen, clear of the logo, without changing its internal layout.</summary>
-        [MenuItem("Farm Fury Arcade/Reposition Main Menu Buttons")]
-        public static void RepositionMainMenuContent()
-        {
-            EditorSceneManager.OpenScene(ScenePath);
-            var content = GameObject.Find("Canvas")?.transform.Find("MainMenuScreen/Content");
-            if (content == null)
-            {
-                Debug.LogWarning("[ArtWiringBuilder] Could not find MainMenuScreen/Content to reposition.");
-                return;
-            }
-
-            var rt = (RectTransform)content;
-            rt.anchorMin = new Vector2(0.5f, 0f);
-            rt.anchorMax = new Vector2(0.5f, 0f);
-            rt.pivot = new Vector2(0.5f, 0f);
-            rt.anchoredPosition = new Vector2(0f, 30f);
-
-            EditorSceneManager.SaveScene(EditorSceneManager.GetActiveScene());
-        }
+        // Main Menu no longer has a "Content" vertical stack or duplicate Title text to
+        // reposition around landing.png's baked-in logo — Phase5ProjectBuilder.BuildMainMenu now
+        // places just PlayButton/SettingsButton directly at the bottom corners. The
+        // "Reposition Main Menu Buttons" menu item this used to be is gone along with it; rerun
+        // Phase5ProjectBuilder.BuildAll if the Main Menu ever needs rebuilding from scratch.
 
         private static readonly string[] SpritesToConfigure =
         {
@@ -164,7 +165,10 @@ namespace FarmFuryArcade.EditorTools
             ScoutFront, ScoutLeft, ScoutRight, PatrolFront, PatrolBack, PatrolLeft, PatrolRight,
             HeavyFront, HeavyBack, DrifterFront, DrifterLeft, DrifterRight, RobotEyes,
             MatchupBackground, LevelCompletePanel, LevelFailedPanel, PausedPanel, CardFrame,
-            BtnPlay, BtnPause, BtnSettings, BtnQuit, BtnMusic, BtnHome, BtnSkip, BtnBack, BtnPlaque
+            BtnPlay, BtnPause, BtnSettings, BtnQuit, BtnMusic, BtnNoSound, BtnHome, BtnSkip, BtnBack, BtnPlaque,
+            GeraldFront, GeraldBack, GeraldLeft,
+            CluckRight, CluckRightWalk2, CluckLeftWalk,
+            WallCornTiles, FloorTile, WarpTile
         };
 
         private static void ConfigureSpriteImporters()
@@ -208,8 +212,34 @@ namespace FarmFuryArcade.EditorTools
             var front = Load(CluckFront);
             var back = Load(CluckBack);
             var left = Load(CluckLeft);
+            var leftWalk = Load(CluckLeftWalk);
+            var right = Load(CluckRight);
+            var rightWalk = Load(CluckRightWalk2);
 
-            SetWalkFrames("Cluck", front, back, left);
+            // Cluck is the only character with a real 2nd walk frame per direction and dedicated
+            // Right art so far — everyone else still repeats their single pose in both slots via
+            // SetWalkFrames. Cluck_rightwalk.png (the other uploaded right-walk frame) is left
+            // unused; rightwalk2 reads as a clearer mid-stride contrast against the idle Cluck_right.
+            string path = $"{CharacterDataFolder}/CharacterData_Cluck.asset";
+            var data = AssetDatabase.LoadAssetAtPath<CharacterData>(path);
+            if (data != null)
+            {
+                data.walkAnimationFrames = new[]
+                {
+                    back, back,                                   // Up0, Up1
+                    front, front,                                  // Down0, Down1
+                    left, leftWalk != null ? leftWalk : left,       // Left0, Left1
+                    right != null ? right : left,                   // Right0
+                    rightWalk != null ? rightWalk : (right != null ? right : left) // Right1
+                };
+                data.hasDedicatedRightArt = right != null;
+                data.portraitSprite = front;
+                EditorUtility.SetDirty(data);
+            }
+            else
+            {
+                Debug.LogWarning($"[ArtWiringBuilder] CharacterData_Cluck not found at {path}");
+            }
 
             var contents = PrefabUtility.LoadPrefabContents(CluckPrefabPath);
             var sr = contents.GetComponent<SpriteRenderer>();
@@ -240,6 +270,30 @@ namespace FarmFuryArcade.EditorTools
             }
             PrefabUtility.SaveAsPrefabAsset(contents, HarvesterPrefabPath);
             PrefabUtility.UnloadPrefabContents(contents);
+
+            SetRobotPortrait("Harvester", front);
+        }
+
+        /// <summary>RobotData.portraitSprite (used by MatchupScreenController's robot cards) was
+        /// unwired until now — every robot's front sprite doubles as its portrait, same convention
+        /// as CharacterData.portraitSprite in SetWalkFrames/WireCluck.</summary>
+        private static void SetRobotPortrait(string robotTypeName, Sprite front)
+        {
+            if (front == null)
+            {
+                return;
+            }
+
+            string path = $"{RobotDataFolder}/RobotData_{robotTypeName}.asset";
+            var data = AssetDatabase.LoadAssetAtPath<RobotData>(path);
+            if (data == null)
+            {
+                Debug.LogWarning($"[ArtWiringBuilder] RobotData_{robotTypeName} not found at {path}");
+                return;
+            }
+
+            data.portraitSprite = front;
+            EditorUtility.SetDirty(data);
         }
 
         private static void WireCropsAndPellets()
@@ -267,6 +321,17 @@ namespace FarmFuryArcade.EditorTools
             }
 
             EditorSceneManager.SaveScene(EditorSceneManager.GetActiveScene());
+        }
+
+        /// <summary>Wires the maze wall/ground/warp-tunnel tile art. All 3 prefabs are
+        /// instantiated per-cell by TileMapRenderer at scale 1 (same convention crops/pellets
+        /// already use), so a straight SpriteRenderer swap is enough — no tiling/atlas slicing,
+        /// since each uploaded file is a single complete tile image, not a tileset.</summary>
+        private static void WireMazeTiles()
+        {
+            SetPrefabSprite(WallPrefabPath, Load(WallCornTiles));
+            SetPrefabSprite(GroundPrefabPath, Load(FloorTile));
+            SetPrefabSprite(WarpTunnelPrefabPath, Load(WarpTile));
         }
 
         private static void SetPrefabSprite(string prefabPath, Sprite sprite)
@@ -379,6 +444,7 @@ namespace FarmFuryArcade.EditorTools
 
             Sprite leftOrFront = left != null ? left : front;
             data.walkAnimationFrames = new[] { back, back, front, front, leftOrFront, leftOrFront, leftOrFront, leftOrFront };
+            data.portraitSprite = front;
             EditorUtility.SetDirty(data);
         }
 
@@ -417,7 +483,16 @@ namespace FarmFuryArcade.EditorTools
             SetWalkFrames("Ducky", duckyFront, Load(DuckyBack), null);
             WireCharacterPrefabSprite($"{CharacterPrefabFolder}/Ducky.prefab", duckyFront);
 
-            // Horace, Gerald, Billy have no uploaded art yet — left as placeholder squares.
+            var geraldFront = Load(GeraldFront);
+            SetWalkFrames("Gerald", geraldFront, Load(GeraldBack), Load(GeraldLeft));
+            WireCharacterPrefabSprite($"{CharacterPrefabFolder}/Gerald.prefab", geraldFront);
+
+            // Gerald_effect.png is uploaded but unwired — PuffUpAbility has no spawned effect
+            // object (it just scales Gerald's own sprite 3x), unlike Bessie/Percy/Woolly's
+            // abilities which each spawn a dedicated effect prefab. Adding one is a gameplay
+            // change (a new prefab + a spawn call in PuffUpAbility), not just art wiring.
+
+            // Horace and Billy still have no uploaded art yet — left as placeholder squares.
         }
 
         // ---- New robots (Scout, Patrol, Heavy, Drifter) + universal defeated eyes -------------
@@ -450,12 +525,24 @@ namespace FarmFuryArcade.EditorTools
 
         private static void WireNewRobots()
         {
-            WireRobotVisual(ScoutPrefabPath, Load(ScoutFront), null, Load(ScoutLeft), Load(ScoutRight));
-            WireRobotVisual(PatrolPrefabPath, Load(PatrolFront), Load(PatrolBack), Load(PatrolLeft), Load(PatrolRight));
-            WireRobotVisual(HeavyPrefabPath, Load(HeavyFront), Load(HeavyBack), null, null);
-            WireRobotVisual(DrifterPrefabPath, Load(DrifterFront), null, Load(DrifterLeft), Load(DrifterRight));
+            var scoutFront = Load(ScoutFront);
+            WireRobotVisual(ScoutPrefabPath, scoutFront, null, Load(ScoutLeft), Load(ScoutRight));
+            SetRobotPortrait("Scout", scoutFront);
 
-            // Drone has no uploaded art yet — still gets the universal defeated-eyes sprite.
+            var patrolFront = Load(PatrolFront);
+            WireRobotVisual(PatrolPrefabPath, patrolFront, Load(PatrolBack), Load(PatrolLeft), Load(PatrolRight));
+            SetRobotPortrait("Patrol", patrolFront);
+
+            var heavyFront = Load(HeavyFront);
+            WireRobotVisual(HeavyPrefabPath, heavyFront, Load(HeavyBack), null, null);
+            SetRobotPortrait("Heavy", heavyFront);
+
+            var drifterFront = Load(DrifterFront);
+            WireRobotVisual(DrifterPrefabPath, drifterFront, null, Load(DrifterLeft), Load(DrifterRight));
+            SetRobotPortrait("Drifter", drifterFront);
+
+            // Drone has no uploaded art yet — still gets the universal defeated-eyes sprite and
+            // no portraitSprite, so its Matchup/robot-card slot stays a colour-tint placeholder.
             WireRobotVisual(DronePrefabPath, null, null, null, null);
         }
 
@@ -486,14 +573,14 @@ namespace FarmFuryArcade.EditorTools
             SetScreenBackground(canvasTransform, "LevelFailedScreen", Load(LevelFailedPanel));
             SetScreenBackground(canvasTransform, "PauseOverlay", Load(PausedPanel));
 
+            // Matchup's CharacterCard/RobotCards intentionally do NOT get the Card.png frame —
+            // matchup.png's background art already bakes in two wood-frame slots at those exact
+            // positions (see Phase5ProjectBuilder.BuildMatchup); adding Card.png on top would
+            // double up the framing. Card.png is still used for New Character Unlock and RosterCard,
+            // neither of which has a frame baked into their background.
             var card = Load(CardFrame);
             if (card != null)
             {
-                SetImageSprite(canvasTransform, "MatchupScreen/Content/VSRow/CharacterCard", card);
-                for (int i = 0; i < 3; i++)
-                {
-                    SetImageSprite(canvasTransform, $"MatchupScreen/Content/VSRow/RobotCards/RobotCard{i}", card);
-                }
                 SetImageSprite(canvasTransform, "LevelCompleteScreen/NewCharacterUnlockOverlay/UnlockContent/CharacterCard", card);
             }
 
@@ -525,6 +612,25 @@ namespace FarmFuryArcade.EditorTools
             image.sprite = sprite;
         }
 
+        /// <summary>GameplayHUD.soundOnSprite/soundOffSprite are plain Sprite fields (not an
+        /// Image on the button itself, which SetImageSprite already handles), swapped at runtime
+        /// by RefreshSoundIcon — the first uses of Btn_nosound.png, which was uploaded a while ago
+        /// but had no icon-swap feature to hook into until now.</summary>
+        private static void WireSoundIconSprites(Transform canvasTransform, Sprite music, Sprite noSound)
+        {
+            var hud = canvasTransform.Find("GameplayScreen")?.GetComponent<GameplayHUD>();
+            if (hud == null)
+            {
+                Debug.LogWarning("[ArtWiringBuilder] Could not find GameplayHUD to wire sound icon sprites.");
+                return;
+            }
+
+            var so = new SerializedObject(hud);
+            so.FindProperty("soundOnSprite").objectReferenceValue = music;
+            so.FindProperty("soundOffSprite").objectReferenceValue = noSound;
+            so.ApplyModifiedPropertiesWithoutUndo();
+        }
+
         // ---- Buttons --------------------------------------------------------------------------
 
         private static void WireButtons()
@@ -542,26 +648,25 @@ namespace FarmFuryArcade.EditorTools
             var settings = Load(BtnSettings);
             var quit = Load(BtnQuit);
             var music = Load(BtnMusic);
+            var noSound = Load(BtnNoSound);
             var home = Load(BtnHome);
             var skip = Load(BtnSkip);
             var back = Load(BtnBack);
             var plaque = Load(BtnPlaque);
 
-            SetImageSprite(canvasTransform, "MainMenuScreen/Content/PlayButton", play);
-            SetImageSprite(canvasTransform, "MainMenuScreen/Content/SettingsButton", settings);
-            SetImageSprite(canvasTransform, "MainMenuScreen/Content/CharacterRosterButton", plaque);
-            SetImageSprite(canvasTransform, "MainMenuScreen/Content/StoreButton", plaque);
-            SetImageSprite(canvasTransform, "MainMenuScreen/Content/LeaderboardsButton", plaque);
-            SetImageSprite(canvasTransform, "MainMenuScreen/Content/DailyChallengeRow/DailyChallengeButton", plaque);
+            SetImageSprite(canvasTransform, "MainMenuScreen/PlayButton", play);
+            SetImageSprite(canvasTransform, "MainMenuScreen/SettingsButton", settings);
 
             SetImageSprite(canvasTransform, "WorldMapScreen/HomeButton", home);
 
-            SetImageSprite(canvasTransform, "MatchupScreen/Content/Buttons/BackButton", back);
-            SetImageSprite(canvasTransform, "MatchupScreen/Content/Buttons/PlayButton", play);
+            SetImageSprite(canvasTransform, "MatchupScreen/PlayButton", play);
+            SetImageSprite(canvasTransform, "MatchupScreen/HomeButton", home);
 
-            SetImageSprite(canvasTransform, "GameplayScreen/SwapButton", plaque);
-            SetImageSprite(canvasTransform, "GameplayScreen/AbilityButton", plaque);
             SetImageSprite(canvasTransform, "GameplayScreen/PauseButton", pause);
+            SetImageSprite(canvasTransform, "GameplayScreen/SoundButton", music);
+            SetImageSprite(canvasTransform, "GameplayScreen/HomeButton", home);
+            SetImageSprite(canvasTransform, "GameplayScreen/SideBackdrop", plaque);
+            WireSoundIconSprites(canvasTransform, music, noSound);
 
             SetImageSprite(canvasTransform, "PauseOverlay/Content/ResumeButton", play);
             SetImageSprite(canvasTransform, "PauseOverlay/Content/SwapButton", plaque);

@@ -39,6 +39,12 @@ namespace FarmFuryArcade.Core
         private readonly HashSet<Vector2Int> _temporaryWalkableCells = new HashSet<Vector2Int>();
         private LevelData _currentLevel;
 
+        /// <summary>0 when no level is loaded. Used by CameraFollow to clamp the camera to the
+        /// maze bounds — GridToWorld has no offset, so world extents are simply [0, MazeWidth-1]
+        /// x [0, MazeHeight-1].</summary>
+        public int MazeWidth => _currentLevel != null ? _currentLevel.mazeWidth : 0;
+        public int MazeHeight => _currentLevel != null ? _currentLevel.mazeHeight : 0;
+
         public void RenderMaze(LevelData data)
         {
             ClearMaze();

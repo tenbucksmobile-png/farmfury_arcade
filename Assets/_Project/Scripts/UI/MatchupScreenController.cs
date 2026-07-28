@@ -10,11 +10,15 @@ using FarmFuryArcade.Data;
 namespace FarmFuryArcade.UI
 {
     /// <summary>
-    /// Level number/name, a character card (current/default character), up to 3 robot cards for
-    /// this level's distinct robot types, star rating from previous attempts, and the 3-2-1-GO
+    /// A character card (current/default character) and up to 3 robot cards for this level's
+    /// distinct robot types — overlaid directly on the two wood-frame slots baked into
+    /// matchup.png's background art — plus star rating from previous attempts and the 3-2-1-GO
     /// countdown into gameplay. GameManager.LoadLevel is deliberately NOT called until the
     /// countdown finishes — tapping a World Map marker only shows this screen, matching the
     /// spec's "On level marker tap: show Matchup Screen" / "Countdown sequence on play tap".
+    /// Level number/name/objective text was removed in the matchup-screen cleanup (see
+    /// Phase5ProjectBuilder.BuildMatchup) — level identity is already established by the World
+    /// Map marker the player just tapped.
     /// </summary>
     public class MatchupScreenController : MonoBehaviour
     {
@@ -31,9 +35,6 @@ namespace FarmFuryArcade.UI
             { RobotType.Drone, new Color(0.62f, 0.20f, 0.86f) },
         };
 
-        [SerializeField] private TextMeshProUGUI levelNumberText;
-        [SerializeField] private TextMeshProUGUI levelNameText;
-        [SerializeField] private TextMeshProUGUI objectiveText;
         [SerializeField] private StarDisplay starDisplay;
         [SerializeField] private Image characterCardImage;
         [SerializeField] private Image[] robotCardImages;
@@ -51,17 +52,12 @@ namespace FarmFuryArcade.UI
             backButton.onClick.AddListener(() => SceneTransitionManager.Instance.ShowOnly(worldMapScreen));
         }
 
-        public void ShowForLevel(int levelIndex, bool isDailyChallenge = false)
+        public void ShowForLevel(int levelIndex)
         {
             _levelIndex = levelIndex;
             var level = DataManager.Instance.GetLevelData(levelIndex);
 
-            levelNumberText.text = $"Level {levelIndex + 1}";
-            levelNameText.text = level != null ? level.levelName : "Unknown";
             starDisplay.SetStars(SaveManager.Instance.GetLevelStars(levelIndex));
-            objectiveText.text = isDailyChallenge && DailyChallengeManager.Instance != null
-                ? $"DAILY CHALLENGE: {DailyChallengeManager.Instance.GetObjectiveDescription()}"
-                : string.Empty;
             countdownText.text = string.Empty;
             playButton.interactable = true;
 
@@ -81,7 +77,12 @@ namespace FarmFuryArcade.UI
             // Matchup happens before the player GameObject spawns, so this reflects whichever
             // character was last selected (GameManager.CurrentCharacter), falling back to Cluck.
             var data = GameManager.Instance.CurrentCharacter ?? DataManager.Instance.GetCharacterData(CharacterType.Cluck);
-            characterCardImage.color = data != null ? new Color(1f, 0.84f, 0f) : Color.white;
+            var portrait = data != null ? data.portraitSprite : null;
+            characterCardImage.sprite = portrait;
+            // Only tint the placeholder square when there's no real portrait yet — tinting a real
+            // sprite would wash it out the same way RobotVisual's colour tint used to (see
+            // RobotVisual.BaseTintColor).
+            characterCardImage.color = portrait != null ? Color.white : (data != null ? new Color(1f, 0.84f, 0f) : Color.white);
         }
 
         private void SetRobotCards(LevelData level)
@@ -106,7 +107,12 @@ namespace FarmFuryArcade.UI
                 robotCardImages[i].gameObject.SetActive(hasRobot);
                 if (hasRobot)
                 {
-                    robotCardImages[i].color = RobotColors.TryGetValue(distinctTypes[i], out var color) ? color : Color.grey;
+                    var robotData = DataManager.Instance.GetRobotData(distinctTypes[i]);
+                    var portrait = robotData != null ? robotData.portraitSprite : null;
+                    robotCardImages[i].sprite = portrait;
+                    robotCardImages[i].color = portrait != null
+                        ? Color.white
+                        : (RobotColors.TryGetValue(distinctTypes[i], out var color) ? color : Color.grey);
                 }
             }
         }

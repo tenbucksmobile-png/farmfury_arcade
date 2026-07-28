@@ -147,27 +147,18 @@ namespace FarmFuryArcade.Core
                 hudGO.transform.Find("LevelText") != null &&
                 hudGO.transform.Find("TimerText") != null &&
                 hudGO.transform.Find("CharacterPortrait") != null &&
-                hudGO.transform.Find("AbilityButton") != null &&
-                hudGO.transform.Find("SwapButton") != null &&
-                hudGO.transform.Find("PauseButton") != null;
+                hudGO.transform.Find("PauseButton") != null &&
+                hudGO.transform.Find("SoundButton") != null &&
+                hudGO.transform.Find("HomeButton") != null;
 
             Debug.Log(allPresent
-                ? "[Phase5Test] PASS: all required HUD elements (score/level/timer/portrait/ability/swap/pause) exist."
+                ? "[Phase5Test] PASS: all required HUD elements (score/level/timer/portrait/pause/sound/home) exist."
                 : "[Phase5Test] FAIL: one or more required HUD elements are missing.");
 
+            // Ability/Swap are no longer HUD buttons (removed in the gameplay-screen cleanup —
+            // Space/Tab still activate them directly via InputController), so there's no on-screen
+            // cooldown ring left to assert against here.
             yield return null;
-
-            var abilityRing = hudGO.transform.Find("AbilityButton/CooldownRing")?.GetComponent<UnityEngine.UI.Image>();
-            var ability = CharacterManager.Instance?.ActiveCharacterObject?.GetComponent<Abilities.AbilityBase>();
-            if (ability != null)
-            {
-                ability.TryActivate();
-                yield return null;
-                bool ringShowsCooldown = abilityRing != null && abilityRing.fillAmount > 0f;
-                Debug.Log(ringShowsCooldown
-                    ? "[Phase5Test] PASS: ability cooldown ring fill reflects an active cooldown."
-                    : "[Phase5Test] FAIL: cooldown ring did not show fillAmount > 0 after activating the ability.");
-            }
         }
 
         private IEnumerator TestPauseFreezesTime()

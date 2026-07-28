@@ -143,14 +143,21 @@ check this setting first before assuming a logic bug. Every robot prefab carries
 Kinematic + `useFullKinematicContacts` Rigidbody2D for the same reason (so robots can trigger
 `WarpTunnel`, which has no Rigidbody2D of its own).
 
-**Camera:** there is no camera-follow script — the Main Camera is static, orthographic size `16`,
-positioned at `(14, 15, -10)`, sized to keep the entire 28×31 `LevelData_01` maze on screen at
-once (classic-arcade Pac-Man framing, not a scrolling/following camera). Orthographic size was
-originally `8` (only showing about half the maze's height), which made Cluck's spawn near the
-bottom of the maze (`playerStartPosition (14, 3)`) render clean off-screen — looked exactly like a
-missing-sprite bug but was actually a framing bug. If a future level's `mazeWidth`/`mazeHeight`
-is taller than `LevelData_01`'s, the camera won't automatically reframe to fit it (nothing recomputes
-orthographic size from `LevelData` today) — check this first if a new level's edges get clipped.
+**Camera:** `Utilities/CameraFollow` (added post-Phase-5, attached to Main Camera) tracks
+`CharacterManager.Instance.ActiveCharacterObject` every `LateUpdate` — read live, never cached,
+same convention as `RobotBase.playerMovement`, since swapping characters destroys/recreates that
+GameObject. Clamped to the maze bounds via `TileMapRenderer.MazeWidth`/`MazeHeight` (both 0 before
+a level loads, in which case `ClampToMazeBounds` no-ops) so the camera never shows past the maze
+edges. Orthographic size is `5` (zoomed in considerably from the original static `16`, which showed
+the entire 28×31 `LevelData_01` maze at once, classic-arcade style — that read as "too far/small"
+once real character art landed). `Utilities/CameraShake` (Bessie's Ground Slam feedback) now runs
+in `LateUpdate` with `[DefaultExecutionOrder(100)]` so it executes *after* `CameraFollow` and adds
+its jitter on top of that frame's follow position via `transform.position +=`, rather than caching
+an absolute "resting" position the way it did before there was a moving camera — a stale resting
+position would have snapped the camera back to wherever it was at scene load every time a shake
+ended. If a future level's `mazeWidth`/`mazeHeight` differs from `LevelData_01`'s, `CameraFollow`
+adapts automatically (no per-level camera tuning needed) since the clamp is computed from the
+loaded level's own dimensions each frame.
 
 ### Robot AI (`Scripts/Enemies`)
 
@@ -296,6 +303,51 @@ New Character Unlock layer on top of whatever's currently showing (almost always
 Level Complete) rather than replacing it, and manage their own `SetActive` directly. This is why
 `PauseMenuController`/`SettingsPanel` don't fade — they're instant show/hide, matching "semi-
 transparent overlay dims gameplay" from the spec more literally than a full-screen fade would.
+
+**Landing/Matchup/Gameplay-HUD cleanup (post-Phase-5):** once real art landed, three screens got
+stripped down from their original Phase 5 layouts:
+
+- **Main Menu** (`MainMenuController`) is now just two icon buttons directly on `landing.png`
+  (which already bakes in the "FARM FURY ARCADE" logo) — `PlayButton` bottom-left → World Map,
+  `SettingsButton` bottom-right → the Settings overlay. The old vertical button stack (Character
+  Roster/Daily Challenge/Store/Leaderboards) and its duplicate "Title" text are gone, along with
+  the `MainMenuScreen/Content` vertical group they lived in. Those four screens/systems still get
+  built by `Phase5ProjectBuilder.BuildAll` and still work — they just have no entry point from Main
+  Menu anymore, so reaching them today means calling `SceneTransitionManager.ShowOnly` on them
+  directly (nothing currently does). `CharacterRosterScreen`/`LeaderboardsScreen` keep their own
+  `mainMenuScreen` back-reference for their "Back" buttons regardless.
+- **Matchup** (`MatchupScreenController`) dropped `levelNumberText`/`levelNameText`/`objectiveText`
+  entirely (level identity is already established by the World Map marker the player just tapped)
+  and the old small colour-square `CharacterCard`/`RobotCard{i}` no longer get the `Card.png` frame
+  — `matchup.png`'s background art already bakes in two wood-frame slots + a "VS" graphic at fixed
+  positions, so `CharacterCard`/`RobotCards` are now sized/anchored to sit directly inside those two
+  frames instead. `RobotCards` is still a `HorizontalLayoutGroup` so 1-3 active robot cards
+  (`SetActive` per distinct robot type on the level, same as before) split the right frame's width
+  evenly. `CharacterData.portraitSprite`/`RobotData.portraitSprite` (previously unused fields — see
+  "Art status") now drive these cards' sprites; `characterCardImage.color`/`robotCardImages[i].color`
+  only get the placeholder gold/type-colour tint when there's no real portrait yet, same
+  tint-vs-real-art fix `RobotVisual.BaseTintColor` already used. Buttons are `PlayButton`
+  (bottom-left) / `HomeButton` (bottom-right, wired to the `backButton` field — same "return to
+  World Map" behaviour, just relabelled/repositioned).
+- **Gameplay HUD** (`GameplayHUD`) lost its `SwapButton`/`AbilityButton` (+cooldown ring) —
+  Tab (`CharacterSwapUI`) and Space (`AbilityBase.OnAbilityActivateInput`) still trigger both
+  directly via `InputController`, so removing the buttons didn't remove the features. In their
+  place: a `PauseButton`/`SoundButton`/`HomeButton` icon cluster, bottom-left. `SoundButton` toggles
+  `SaveManager.MusicOn`/`SfxOn` together via `AudioManager.SetMusicMuted`/`SetSFXMuted` and swaps
+  its own icon between `soundOnSprite`/`soundOffSprite` (`Btn_music.png`/`Btn_nosound.png` — the
+  latter uploaded a while ago but had no icon-swap feature to hook into until now).  `HomeButton`
+  mirrors `PauseMenuController.QuitToMenu`'s semantics (`EndLevel(false)`, i.e. quitting mid-run
+  counts as a failed attempt; `GameplayHUD`'s own state-watcher then shows `LevelFailedController`)
+  without the pause-menu detour. A `SideBackdrop` (`Btn_plaque.png`, vacant, right side of screen)
+  is a placeholder for future writing/navigation — not wired to anything yet.
+- Three always-on `OnGUI` debug overlays (`Phase1Test`/`Phase2Test`/`Phase3Test`/`Phase4Test` manual
+  test buttons, independent of their `runOnStart` flag) used to render on top of every screen in
+  every Play session. `Editor/SceneCleanupBuilder.DisableDebugTestOverlays` (`Farm Fury Arcade >
+  Disable Debug Test Overlays`) deactivates all 5 `Phase*Test` GameObjects — safe to re-run, and
+  also de-duplicates them (see that file's doc comment for the `GameObject.Find`-only-finds-active
+  bug this uncovered in `Phase5ProjectBuilder`'s own `Phase5Test` idempotency check, now fixed to
+  look up inactive instances too via `Resources.FindObjectsOfTypeAll`). Re-enable a specific one
+  (Inspector checkbox, or its `ContextMenu`) to run its manual test battery again.
 
 **Gameplay → Level Complete/Failed is push-triggered, not pulled:** `GameplayHUD.Update()` polls
 `GameManager.CurrentState` every frame (it keeps running during Pause, since `Time.timeScale`
@@ -470,15 +522,21 @@ phase made for art (solid-colour placeholders instead of real sprites).
 - **`ArtWiringBuilder`** (`Farm Fury Arcade > Wire Uploaded Art`) — not a PhaseNProjectBuilder and
   not meant to be part of a "rebuild everything" workflow. Wires whatever's currently under
   `Assets/_Project/Sprites/...` into the specific prefab/UI fields listed in "Art status" above
-  (Cluck, Harvester, crop/pellet prefabs, `TileMapRenderer`'s 3 pellet-tier sprites, UI screen
-  backgrounds, the Level Complete coin icon) — it does not regenerate prefabs or screens from
-  scratch, only sets sprite references (and configures each new texture's import settings —
-  Sprite type, `spritePixelsPerUnit` = texture width, alpha transparency — the first time it sees
-  a path). Safe to re-run; re-running with the same art already wired is a no-op except where it
-  intentionally always re-applies (e.g. sprite references). Also has a narrower
-  `Farm Fury Arcade > Reposition Main Menu Buttons` entry (`RepositionMainMenuContent`) that only
-  re-anchors `MainMenuScreen/Content`, for when just the layout needs adjusting without touching
-  sprite wiring.
+  (characters, robots, crop/pellet prefabs, maze wall/ground/warp-tunnel prefabs,
+  `TileMapRenderer`'s 3 pellet-tier sprites, `CharacterData`/`RobotData.portraitSprite`, UI screen
+  backgrounds/buttons, `GameplayHUD`'s sound-icon sprites, the Level Complete coin icon) — it does
+  not regenerate prefabs or screens from scratch, only sets sprite references (and configures each
+  new texture's import settings — Sprite type, `spritePixelsPerUnit` = texture width, alpha
+  transparency — the first time it sees a path). Safe to re-run; re-running with the same art
+  already wired is a no-op except where it intentionally always re-applies (e.g. sprite
+  references). No longer has a "Reposition Main Menu Buttons" entry — Main Menu has no `Content`
+  group to reposition since the landing-page cleanup (see "Landing/Matchup/Gameplay-HUD cleanup"
+  above); re-run `Phase5ProjectBuilder.BuildAll` if Main Menu ever needs rebuilding from scratch.
+- **`SceneCleanupBuilder`** (`Farm Fury Arcade > Disable Debug Test Overlays` /
+  `Farm Fury Arcade > Zoom In Gameplay Camera`) — small targeted scene-hygiene fixes that are
+  neither "wire art" nor "rebuild a phase's content." `DisableDebugTestOverlays` deactivates (and
+  de-duplicates) the 5 `Phase*Test` GameObjects; `ZoomInGameplayCamera` sets the Main Camera's
+  `orthographicSize` and ensures a `CameraFollow` component exists. Both safe to re-run.
 
 `Phase1Test.cs`/`Phase2Test.cs`/`Phase3Test.cs`/`Phase4Test.cs`/`Phase5Test.cs` (`Scripts/Core`) are verification
 harnesses, not gameplay — each auto-runs a battery of checks on `Start()` and logs `PASS`/`FAIL`/
@@ -536,13 +594,15 @@ spawned, buff flag cleared). The only real-time wait is ~2.3s for Harvester's `s
 entry points (`MatchupScreenController.ShowForLevel`, button `onClick.Invoke()` calls) rather than
 simulating real clicks/taps, verifying: only Main Menu active at startup; Main Menu → World Map →
 Matchup → (countdown) → Gameplay activates the right screen at each step and reaches
-`GameState.Playing`; all 7 required HUD elements exist and the ability cooldown ring's
-`fillAmount` reflects an active cooldown; Pause freezes `Time.timeScale` and shows/hides its
-overlay correctly; `GameManager.EndLevel(true)` produces a well-formed `LevelResult` (1-3 stars,
-positive score/coins) and `LevelCompleteScreen` activates automatically via `GameplayHUD`'s
-state-watch; `SaveManager.GetLevelBestScore` persists the result; and toggling
-`SaveManager.MusicOn` round-trips correctly. See the batch-mode timing gotcha above for why every
-wait is a poll, not a fixed duration.
+`GameState.Playing`; the 7 required HUD elements exist (score/level/timer/portrait/pause/sound/home
+— updated post-Phase-5 when Swap/Ability were removed from the HUD, see "Landing/Matchup/
+Gameplay-HUD cleanup" above; no on-screen ability-cooldown-ring assertion remains, since Space
+still activates the ability directly but there's no HUD element left to watch); Pause freezes
+`Time.timeScale` and shows/hides its overlay correctly; `GameManager.EndLevel(true)` produces a
+well-formed `LevelResult` (1-3 stars, positive score/coins) and `LevelCompleteScreen` activates
+automatically via `GameplayHUD`'s state-watch; `SaveManager.GetLevelBestScore` persists the result;
+and toggling `SaveManager.MusicOn` round-trips correctly. See the batch-mode timing gotcha above
+for why every wait is a poll, not a fixed duration.
 
 ## Art status
 
@@ -554,16 +614,22 @@ solid-color placeholder square generated at runtime by `Utilities/PlaceholderSpr
 values from the GDD's color palette where one exists (e.g. walls = Wall Brown `#4A2C1A`).
 
 **Wired so far:**
-- **Characters** — Cluck, Bessie, Woolly, and Percy each have front/back/left art wired into
-  their `CharacterData.walkAnimationFrames` (fixed order `[Up0,Up1,Down0,Down1,Left0,Left1,
-  Right0,Right1]`); there's no dedicated Right art for any of them, so `CharacterAnimator` flips
-  the Left sprite horizontally (`spriteRenderer.flipX`) when facing Right. Only one pose per
-  direction exists (no walk-cycle frames yet), so each direction's two slots repeat the same
-  sprite — `CharacterAnimator`'s frame-toggle is a harmless no-op until second frames land. Ducky
-  has front/back only (no left/right art uploaded for her); her Left/Right slots fall back to the
-  front sprite, so Left/Right facing won't read correctly for her until profile art exists —
-  documented inline in `ArtWiringBuilder.SetWalkFrames`. Horace, Gerald, and Billy still have no
-  art and remain solid-colour placeholders.
+- **Characters** — Cluck, Bessie, Woolly, Percy, and Gerald each have front/back/left art wired
+  into their `CharacterData.walkAnimationFrames` (fixed order `[Up0,Up1,Down0,Down1,Left0,Left1,
+  Right0,Right1]`). Cluck is now the one exception with real second-frame walk-cycle art and a
+  genuine dedicated Right pose (`Cluck_right.png`/`Cluck_rightwalk2.png` for Right0/Right1,
+  `Cluck_LeftWalk.png` for Left1) — `CharacterData.hasDedicatedRightArt` (new field) is `true` for
+  her, which tells `CharacterAnimator` to skip its usual `flipX` mirroring of the Left sprite for
+  Right-facing (every other character still has no dedicated Right art, so still gets mirrored).
+  Every other character has only one pose per direction (no walk-cycle frames yet), so each
+  direction's two slots repeat the same sprite — harmless no-op frame-toggle until second frames
+  land for them too. Ducky has front/back only (no left/right art uploaded for her); her Left/Right
+  slots fall back to the front sprite, so Left/Right facing won't read correctly for her until
+  profile art exists — documented inline in `ArtWiringBuilder.SetWalkFrames`. Horace and Billy still
+  have no art and remain solid-colour placeholders. `Gerald_effect.png` was uploaded but is unwired
+  — `PuffUpAbility` has no spawned effect object (it just scales Gerald's own sprite 3x), unlike
+  Bessie/Percy/Woolly's abilities, each of which spawns a dedicated effect prefab; wiring it in
+  would mean adding a new prefab + a spawn call in `PuffUpAbility`, a gameplay change, not just art.
 - **Robots** — `RobotVisual.SetDirectionalSprites` now takes optional `left`/`right` sprites in
   addition to `front`/`back` (extended from the Harvester-only front/back version). Patrol has a
   full 4-direction set; Scout and Drifter have front/left/right (no back — Up falls back to
@@ -606,17 +672,32 @@ values from the GDD's color palette where one exists (e.g. walls = Wall Brown `#
   `LoadingScreen Background.png` and `Logo.png` were uploaded but aren't wired anywhere — there's
   no dedicated loading screen in the current screen flow, and `Logo.png` has no obvious slot since
   `landing.png` already bakes the logo into Main Menu.
-- **Card frames** — `Card.png` wired onto `MatchupScreen`'s character/robot card `Image`s, the New
-  Character Unlock screen's card `Image`, and the `RosterCard` prefab's root `Image` — one shared
-  frame reused everywhere a character/robot portrait slot exists, since only one card-frame asset
-  was uploaded (the GDD's asset library specs separate wood/character vs. metal/robot frames).
+- **Maze wall/ground/warp-tunnel tiles** — `Wall_CornField`/`Ground_CornField`/`WarpTunnel`
+  prefabs (each instantiated per-cell by `TileMapRenderer` at scale 1, same convention crops/
+  pellets already used) now use `CornTiles.png`/`FloorTile.png`/`WarpTile.png` respectively instead
+  of `PlaceholderSprite` colour squares — each uploaded file is a single complete tile image, not a
+  tileset, so no atlas-slicing was needed.
+- **Card frames** — `Card.png` wired onto the New Character Unlock screen's card `Image` and the
+  `RosterCard` prefab's root `Image`. **Not** wired onto `MatchupScreen`'s character/robot cards
+  anymore — `matchup.png`'s background art bakes in its own two wood-frame slots at fixed
+  positions (see "Landing/Matchup/Gameplay-HUD cleanup" above), so adding `Card.png` there would
+  double up the framing.
+- **Character/robot portrait sprites** — `CharacterData.portraitSprite`/`RobotData.portraitSprite`
+  (fields that existed since Phase 4/3 but were never populated) now get each character/robot's
+  front sprite, wired alongside their walk-cycle/directional art in
+  `ArtWiringBuilder.SetWalkFrames`/`WireCluck`/`WireHarvester`/`WireNewRobots` (via the new
+  `SetRobotPortrait` helper). `MatchupScreenController`'s character/robot cards are the first
+  consumer of these.
 - **Buttons** — `Btn_play/pause/settings/quit/home/skip/back/plaque` wired onto their matching
   buttons across every screen (Main Menu, World Map, Matchup, Gameplay HUD, Pause, Settings,
   Store, Level Complete/Failed, Roster, Leaderboards) via `ArtWiringBuilder.WireButtons` —
-  buttons with no specific icon art (Swap, Ability, Restart, Replay, Retry, Store, Leaderboards,
-  Roster, Daily Challenge) share the generic `Btn_plaque.png` background. `Btn_nosound.png`
-  (muted-state icon) was uploaded but isn't wired — the Music toggle only has one icon slot
-  (`Btn_music.png`) and doesn't swap art on/off, just its checkmark.
+  buttons with no specific icon art (Restart, Replay, Retry, Store, Leaderboards, Roster, Daily
+  Challenge) share the generic `Btn_plaque.png` background (also now the vacant `SideBackdrop` on
+  the Gameplay HUD's right side — see "Landing/Matchup/Gameplay-HUD cleanup"). `Btn_nosound.png`
+  is wired now too, as `GameplayHUD`'s `soundOffSprite` (paired with `Btn_music.png` as
+  `soundOnSprite`) — the HUD's new `SoundButton` is the first place either sprite swaps at
+  runtime; `SettingsPanel`'s separate Music toggle still only has one icon slot and doesn't swap
+  art on/off, just its checkmark.
 - **Coin icon** — `Collectable Coin.png` was added as a new `CoinIcon` Image next to
   `LevelCompleteScreen`'s existing "+N coins" text (that field never had an icon slot before, so
   `ArtWiringBuilder` wraps it in a new `CoinsRow` horizontal group rather than adding a dedicated
@@ -625,12 +706,12 @@ values from the GDD's color palette where one exists (e.g. walls = Wall Brown `#
   SetIconsForTargetGroup`, Standalone + the default/`Unknown` group) — a project-settings change,
   not a scene/prefab one.
 
-**Still missing / not wired:** World 1 (or any world's) maze wall/ground tileset and gameplay
-background — the maze still renders with `PlaceholderSprite` colour squares for walls/ground and
-no gameplay backdrop; this is the single biggest gap versus the classic arcade look the game is
-meant to evoke. Also missing: Horace/Gerald/Billy character art, Drone robot art, a Vulnerable-state
-robot sprite, Cluck's Egg Drop effect art, and the branding Logo/Loading Screen background (both
-uploaded, neither wired — see above).
+**Still missing / not wired:** there's no gameplay backdrop behind the maze itself (wall/ground/
+warp-tunnel tiles are wired now — see above — but the empty space around/behind the maze grid has
+no background art). Also missing: Horace/Billy character art (Gerald now has art — see above),
+Drone robot art, a Vulnerable-state robot sprite, Cluck's Egg Drop effect art, Gerald's Puff Up
+effect art (`Gerald_effect.png`, uploaded but unwired — see above), and the branding Logo/Loading
+Screen background (both uploaded, neither wired — see above).
 
 **Texture import convention:** `ArtWiringBuilder.ConfigureSpriteImporters` sets every wired
 texture's `spritePixelsPerUnit` to that texture's own pixel width (via `TextureImporter.
@@ -722,10 +803,17 @@ and reopen the project normally to confirm nothing was corrupted.
 
 ## Known gaps / flagged for Phase 6
 
-- **`CharacterSwapUI` is still `OnGUI`**, not rebuilt as uGUI this phase — it works (both the HUD
-  and Pause swap buttons call its `ToggleOpen()`), but visually it's the debug-style panel from
-  Phase 4, not styled to match the rest of Phase 5's screens. Real fix: rebuild it as a proper
-  panel via `Phase5ProjectBuilder`/`UIBuilderHelpers` and delete the `OnGUI` version.
+- **`CharacterSwapUI` is still `OnGUI`**, not rebuilt as uGUI this phase — it works (Tab, and the
+  Pause overlay's Swap button, both call its `ToggleOpen()`; the Gameplay HUD's own Swap button was
+  removed in the later HUD cleanup, see "Landing/Matchup/Gameplay-HUD cleanup"), but visually it's
+  the debug-style panel from Phase 4, not styled to match the rest of Phase 5's screens. Real fix:
+  rebuild it as a proper panel via `Phase5ProjectBuilder`/`UIBuilderHelpers` and delete the `OnGUI`
+  version.
+- **Store, Character Roster, Leaderboards, and Daily Challenge have no Main Menu entry point** —
+  removed in the landing-page cleanup (see "Landing/Matchup/Gameplay-HUD cleanup" above) in favour
+  of just Play/Settings. All 4 screens/systems still exist and build correctly; reaching them today
+  requires calling `SceneTransitionManager.ShowOnly` (or, for Daily Challenge,
+  `MatchupScreenController.ShowForLevel`) directly, since nothing currently does.
 - **Store is a placeholder** ("coming in Phase 6" panel) per spec's own scope note — no cosmetics
   UI or IAP hookup exists.
 - **Restore Progress** (Settings) logs and does nothing — real implementation needs cloud save
@@ -743,10 +831,15 @@ and reopen the project normally to confirm nothing was corrupted.
   (only 2 `LevelData` assets exist against the GDD's 100-level target). The underlying system is
   level-count-agnostic, so hand-placing marker positions along the art's path later is a content
   change, not a rewrite.
-- **No character portrait/ability icon sprites** — HUD portrait, Matchup character/robot cards, and
-  Roster cards all use solid-colour placeholders (see "Art status").
+- **No ability icon sprites, and only partial portrait art** — Matchup's character/robot cards now
+  use `CharacterData`/`RobotData.portraitSprite` (front sprite) where a character/robot has real
+  art (see "Art status"); the HUD portrait (`GameplayHUD.characterPortrait`) and Roster cards still
+  use solid-colour placeholders, and no dedicated ability icons exist anywhere.
 - **AudioManager has zero real clips wired** — full API, fully wired to `SaveManager` settings, but
   silent until `AudioClip`s are imported and assigned.
+- **Gameplay HUD's `SideBackdrop`** (`Btn_plaque.png`, right side of screen) is a vacant panel with
+  no content or behaviour — reserved for future writing/navigation per the HUD cleanup, not wired
+  to anything yet.
 
 ## UX flow
 
@@ -766,10 +859,6 @@ Main Menu ──Play──▶ World Map ──tap unlocked level──▶ Matchu
     │                                                            Level Failed◀────────────────┘
     │                                                             (Pause ▸ Quit to Menu)
     │
-    ├──Character Roster──▶ (unlock progress, 8 cards) ──Back──▶ Main Menu
-    ├──Daily Challenge────▶ Matchup (LevelData_01, objective banner) ──▶ … same as above
-    ├──Store──────────────▶ "Coming in Phase 6" overlay ──Back──▶ Main Menu
-    ├──Leaderboards───────▶ (overall stats) ──Back──▶ Main Menu
     └──Settings (gear)────▶ modal overlay (music/sfx/volume/vibration/language/handedness,
                              reset progress w/ confirm) ──X──▶ wherever it was opened from
 ```
@@ -779,3 +868,10 @@ Pause and Settings are **overlays** (layer on top of whatever's showing, dim it,
 New Character Unlock is a special case: not reachable by navigation, it's triggered automatically
 by `LevelCompleteController` partway through its own celebration sequence, whenever
 `UnlockManager.LastUnlockedBatch` isn't empty.
+
+**Character Roster, Daily Challenge, Store, and Leaderboards are no longer reachable from Main
+Menu** (removed in the landing-page cleanup — see "Landing/Matchup/Gameplay-HUD cleanup" and the
+matching "Known gaps" entry). Each screen/system still exists and still works exactly as described
+above if shown directly (`SceneTransitionManager.ShowOnly` for the first/third/fourth,
+`MatchupScreenController.ShowForLevel` for Daily Challenge) — there's just no button anywhere that
+does so today.
