@@ -111,6 +111,7 @@ namespace FarmFuryArcade.EditorTools
 
         private const string LogoImage = "Assets/_Project/Sprites/UI/Logo.png";
         private const string AppIconImage = "Assets/_Project/Sprites/UI/AppIcon.png";
+        private const string WheatfieldBackdrop = "Assets/_Project/Sprites/UI/Wheatfield_background.png";
         private const string MatchupBackground = "Assets/_Project/Sprites/UI/matchup.png";
         private const string LevelCompletePanel = "Assets/_Project/Sprites/UI/LevelComplete.png";
         private const string LevelFailedPanel = "Assets/_Project/Sprites/UI/LevelFailed.png";
@@ -136,6 +137,7 @@ namespace FarmFuryArcade.EditorTools
             WireHarvester();
             WireCropsAndPellets();
             WireMazeTiles();
+            WireGameplayBackdrop();
             WireBackgroundsAndCoinIcon();
 
             WireNewCharacters();
@@ -147,7 +149,7 @@ namespace FarmFuryArcade.EditorTools
 
             AssetDatabase.SaveAssets();
             AssetDatabase.Refresh();
-            Debug.Log("[ArtWiringBuilder] Uploaded art wired into characters, robots, maze tiles, ability effects, cards/panels, and buttons.");
+            Debug.Log("[ArtWiringBuilder] Uploaded art wired into characters, robots, maze tiles, gameplay backdrop, ability effects, cards/panels, and buttons.");
         }
 
         // Main Menu no longer has a "Content" vertical stack or duplicate Title text to
@@ -168,7 +170,7 @@ namespace FarmFuryArcade.EditorTools
             BtnPlay, BtnPause, BtnSettings, BtnQuit, BtnMusic, BtnNoSound, BtnHome, BtnSkip, BtnBack, BtnPlaque,
             GeraldFront, GeraldBack, GeraldLeft,
             CluckRight, CluckRightWalk2, CluckLeftWalk,
-            WallCornTiles, FloorTile, WarpTile
+            WallCornTiles, FloorTile, WarpTile, WheatfieldBackdrop
         };
 
         private static void ConfigureSpriteImporters()
@@ -332,6 +334,59 @@ namespace FarmFuryArcade.EditorTools
             SetPrefabSprite(WallPrefabPath, Load(WallCornTiles));
             SetPrefabSprite(GroundPrefabPath, Load(FloorTile));
             SetPrefabSprite(WarpTunnelPrefabPath, Load(WarpTile));
+        }
+
+        /// <summary>Gameplay had no art behind the maze grid at all — just the camera's clear
+        /// color — a documented gap that became visible once SceneCleanupBuilder.
+        /// FitGameplayCameraToMaze widened the camera to fit the whole 28x31 board, since that
+        /// view is wider (16:9 at orthographic size 16) than the board itself and leaves margins
+        /// on either side. Wheatfield_background.png was uploaded early on but went unused once
+        /// LevelComplete/Failed/Pause got their own dedicated panel art — reused here instead of
+        /// uploading something new. One SpriteRenderer, scaled well past the fit-to-maze camera
+        /// view in both axes (its own aspect ratio preserved) and sorting-ordered below
+        /// Ground_CornField's -1, so tile art still draws over it everywhere inside the maze; it
+        /// only actually shows in the letterboxed margins outside the board's own footprint.
+        /// Centered on LevelData_01's own dimensions rather than TileMapRenderer.MazeWidth/Height,
+        /// since those are runtime-only (0 until a level is loaded in Play mode) and this runs in
+        /// the Editor at wiring time.</summary>
+        private static void WireGameplayBackdrop()
+        {
+            var sprite = Load(WheatfieldBackdrop);
+            if (sprite == null)
+            {
+                Debug.LogWarning($"[ArtWiringBuilder] {WheatfieldBackdrop} not found — skipping gameplay backdrop.");
+                return;
+            }
+
+            EditorSceneManager.OpenScene(ScenePath);
+
+            var level = AssetDatabase.LoadAssetAtPath<LevelData>(
+                "Assets/_Project/ScriptableObjects/Resources/Levels/LevelData_01.asset");
+            float centerX = level != null ? (level.mazeWidth - 1) / 2f : 13.5f;
+            float centerY = level != null ? (level.mazeHeight - 1) / 2f : 15f;
+
+            var mazeParent = GameObject.Find("MazeParent")?.transform;
+            var backdropGO = GameObject.Find("GameplayBackdrop");
+            if (backdropGO == null)
+            {
+                backdropGO = new GameObject("GameplayBackdrop");
+                backdropGO.AddComponent<SpriteRenderer>();
+            }
+            if (mazeParent != null)
+            {
+                backdropGO.transform.SetParent(mazeParent, false);
+            }
+
+            var sr = backdropGO.GetComponent<SpriteRenderer>();
+            sr.sprite = sprite;
+            sr.sortingOrder = -5;
+
+            float aspect = sprite.rect.height / sprite.rect.width;
+            const float widthUnits = 90f; // comfortably exceeds the fit-to-maze camera view (orthographic size 16 -> ~56.9 wide) in both axes
+            backdropGO.transform.localScale = new Vector3(widthUnits, widthUnits * aspect, 1f);
+            backdropGO.transform.position = new Vector3(centerX, centerY, 0f);
+
+            EditorSceneManager.SaveScene(EditorSceneManager.GetActiveScene());
         }
 
         private static void SetPrefabSprite(string prefabPath, Sprite sprite)
@@ -665,7 +720,6 @@ namespace FarmFuryArcade.EditorTools
             SetImageSprite(canvasTransform, "GameplayScreen/PauseButton", pause);
             SetImageSprite(canvasTransform, "GameplayScreen/SoundButton", music);
             SetImageSprite(canvasTransform, "GameplayScreen/HomeButton", home);
-            SetImageSprite(canvasTransform, "GameplayScreen/SideBackdrop", plaque);
             WireSoundIconSprites(canvasTransform, music, noSound);
 
             SetImageSprite(canvasTransform, "PauseOverlay/Content/ResumeButton", play);

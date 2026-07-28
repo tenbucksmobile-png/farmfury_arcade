@@ -16,10 +16,10 @@ namespace FarmFuryArcade.UI
     /// Swap/Ability buttons were removed from the HUD in the gameplay-screen cleanup — Tab
     /// (CharacterSwapUI) and Space (AbilityBase.OnAbilityActivateInput) still work directly via
     /// InputController, so neither feature is actually gone, just no longer duplicated as on-screen
-    /// buttons here. Pause/Sound/Home are now a single bottom-left icon cluster instead of being
-    /// scattered across the screen; the vacant Btn_plaque backdrop on the right
-    /// (Phase5ProjectBuilder.BuildGameplayHUD's "SideBackdrop") is a placeholder for future
-    /// writing/navigation and isn't wired to anything yet.
+    /// buttons here. Pause/Sound/Home are now a single bottom-left icon cluster (160x160 each,
+    /// matching the Main Menu's Play/Settings buttons) instead of being scattered across the
+    /// screen. The vacant Btn_plaque backdrop that used to run down the right side ("SideBackdrop")
+    /// was removed entirely — it had no behaviour and read as an oversized, unexplained button.
     /// </summary>
     public class GameplayHUD : MonoBehaviour
     {
@@ -163,16 +163,22 @@ namespace FarmFuryArcade.UI
 
         private void RefreshPortrait()
         {
-            if (characterPortrait == null)
+            if (characterPortrait == null || CharacterManager.Instance == null)
             {
                 return;
             }
 
-            var activeObject = CharacterManager.Instance != null ? CharacterManager.Instance.ActiveCharacterObject : null;
-            var sr = activeObject != null ? activeObject.GetComponent<SpriteRenderer>() : null;
-            if (sr != null)
+            // Used to just tint the placeholder square with the active character's SpriteRenderer
+            // color (near-white for every character, since art is wired via .sprite not .color) —
+            // that left a plain gold placeholder block on screen even after CharacterData.
+            // portraitSprite got wired for every character with real art (see ArtWiringBuilder).
+            // Same tint-vs-real-art convention as RobotVisual.BaseTintColor: show the real portrait
+            // at full white once one exists, otherwise fall back to the gold placeholder tint.
+            var data = DataManager.Instance != null ? DataManager.Instance.GetCharacterData(CharacterManager.Instance.ActiveCharacter) : null;
+            if (data != null && data.portraitSprite != null)
             {
-                characterPortrait.color = sr.color;
+                characterPortrait.sprite = data.portraitSprite;
+                characterPortrait.color = Color.white;
             }
         }
 

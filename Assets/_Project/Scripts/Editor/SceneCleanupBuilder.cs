@@ -45,14 +45,24 @@ namespace FarmFuryArcade.EditorTools
             Debug.Log("[SceneCleanupBuilder] Debug test overlay GameObjects deduplicated and disabled.");
         }
 
-        /// <summary>The Main Camera was static (no follow script) at orthographic size 16 —
-        /// sized to keep the whole 28x31 maze on screen at once, classic-arcade style, but that
-        /// reads as "very far and small" per feedback. Zooms in considerably (16 -> 5, roughly a
-        /// 3x zoom) and adds CameraFollow so the camera tracks the active character instead of
-        /// showing empty maze the player isn't near. Safe to re-run — just resets orthographicSize
-        /// and ensures exactly one CameraFollow component.</summary>
-        [MenuItem("Farm Fury Arcade/Zoom In Gameplay Camera")]
-        public static void ZoomInGameplayCamera()
+        /// <summary>The Main Camera was static (no follow script) at orthographic size 16 — sized
+        /// to keep the whole original 28x31 maze on screen at once, classic-arcade style — then
+        /// zoomed in to size 5 with CameraFollow tracking the active character. That close a
+        /// follow-cam read as "zoomed in too much" per feedback (only ~10 of the maze's 31 rows
+        /// visible at once, board not readable as a whole), so it went back to fitting the whole
+        /// board. But at 28x31 tiles, "the whole board" was itself too small on screen — the fix
+        /// for that was shrinking the maze to 14x16 (Phase2ProjectBuilder.BuildLevelData01) rather
+        /// than zooming in again (zooming in would crop the board instead of enlarging it relative
+        /// to the screen). Orthographic size 8 is sized the same way 16 was for the original board:
+        /// `2 * size >= mazeHeight - 1` (16 - 1 = 15, needs size >= 7.5). CameraFollow stays
+        /// attached rather than being removed — with the board fully in view,
+        /// ClampToMazeBounds' "camera FOV bigger than maze" branch (see that method) pins it
+        /// dead-center every frame, which is equivalent to a static camera but needs no separate
+        /// code path, and keeps the option open to zoom in again later without re-adding the
+        /// component. Safe to re-run — just resets orthographicSize and ensures exactly one
+        /// CameraFollow component.</summary>
+        [MenuItem("Farm Fury Arcade/Fit Gameplay Camera To Maze")]
+        public static void FitGameplayCameraToMaze()
         {
             EditorSceneManager.OpenScene(ScenePath);
 
@@ -64,7 +74,7 @@ namespace FarmFuryArcade.EditorTools
                 return;
             }
 
-            camera.orthographicSize = 5f;
+            camera.orthographicSize = 8f;
 
             if (cameraGO.GetComponent<CameraFollow>() == null)
             {
@@ -72,7 +82,7 @@ namespace FarmFuryArcade.EditorTools
             }
 
             EditorSceneManager.SaveScene(EditorSceneManager.GetActiveScene());
-            Debug.Log("[SceneCleanupBuilder] Gameplay camera zoomed in (orthographic size 16 -> 5) with CameraFollow added.");
+            Debug.Log("[SceneCleanupBuilder] Gameplay camera fit to the whole maze (orthographic size 8).");
         }
 
         private static void DedupeAndDisable<T>() where T : MonoBehaviour

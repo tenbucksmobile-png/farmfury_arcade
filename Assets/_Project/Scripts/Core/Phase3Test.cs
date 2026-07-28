@@ -145,7 +145,7 @@ namespace FarmFuryArcade.Core
                       $"{GameManager.Instance.CurrentLevel.playerStartPosition}.");
 
                 bool harvesterReset = harvester.CurrentState == RobotState.Chase &&
-                                       harvester.CurrentGridPosition == new Vector2Int(14, 15);
+                                       harvester.CurrentGridPosition == new Vector2Int(7, 7);
                 Debug.Log(harvesterReset
                     ? "[Phase3Test] PASS: Harvester was reset to its factory spawn on player death."
                     : "[Phase3Test] FAIL: Harvester was not reset to its factory spawn on player death.");

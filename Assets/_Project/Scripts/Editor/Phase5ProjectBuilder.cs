@@ -318,23 +318,28 @@ namespace FarmFuryArcade.EditorTools
         {
             var root = CreatePanel("MainMenuScreen", canvasTransform, new Color(0.12f, 0.14f, 0.10f));
 
-            var playButton = CreateButton("PlayButton", root.transform, string.Empty, new Color(0.3f, 0.75f, 0.35f), 32f, 120f, out _);
+            // 160x160 — thumb-sized tap target (240 read as oversized once it was actually laid
+            // out; 120 was the original, flagged as sitting on/outside the safe-area guide at a
+            // tight 40px inset). Insets keep both buttons clear of the rounded-corner /
+            // camera-cutout safe area on real devices — see the safe-area review screenshots
+            // (90/-110 inset still clipped the yellow guide slightly; pulled in further).
+            var playButton = CreateButton("PlayButton", root.transform, string.Empty, new Color(0.3f, 0.75f, 0.35f), 28f, 160f, out _);
             Object.DestroyImmediate(playButton.transform.Find("PlayButton_Label").gameObject);
             var playRect = (RectTransform)playButton.transform;
             playRect.anchorMin = new Vector2(0f, 0f);
             playRect.anchorMax = new Vector2(0f, 0f);
             playRect.pivot = new Vector2(0f, 0f);
-            playRect.sizeDelta = new Vector2(120f, 120f);
-            playRect.anchoredPosition = new Vector2(40f, 40f);
+            playRect.sizeDelta = new Vector2(160f, 160f);
+            playRect.anchoredPosition = new Vector2(130f, 70f);
 
-            var settingsButton = CreateButton("SettingsButton", root.transform, string.Empty, new Color(0.35f, 0.35f, 0.38f), 32f, 120f, out _);
+            var settingsButton = CreateButton("SettingsButton", root.transform, string.Empty, new Color(0.35f, 0.35f, 0.38f), 28f, 160f, out _);
             Object.DestroyImmediate(settingsButton.transform.Find("SettingsButton_Label").gameObject);
             var settingsRect = (RectTransform)settingsButton.transform;
             settingsRect.anchorMin = new Vector2(1f, 0f);
             settingsRect.anchorMax = new Vector2(1f, 0f);
             settingsRect.pivot = new Vector2(1f, 0f);
-            settingsRect.sizeDelta = new Vector2(120f, 120f);
-            settingsRect.anchoredPosition = new Vector2(-40f, 40f);
+            settingsRect.sizeDelta = new Vector2(160f, 160f);
+            settingsRect.anchoredPosition = new Vector2(-150f, 70f);
 
             var controller = root.AddComponent<MainMenuController>();
             var so = new SerializedObject(controller);
@@ -467,17 +472,18 @@ namespace FarmFuryArcade.EditorTools
             var root = CreateEmpty("GameplayScreen", canvasTransform);
             StretchFull((RectTransform)root.transform);
 
-            // Score (top-left)
+            // Score (top-left) — inset well clear of the rounded-corner safe area (20px used to
+            // clip under the yellow safe-area guide, same class of fix as the Main Menu buttons).
             var scoreText = CreateText("ScoreText", root.transform, "0", 40f, TextAlignmentOptions.TopLeft, 60f);
-            AnchorTopLeft((RectTransform)scoreText.transform, new Vector2(300f, 60f), new Vector2(20f, -20f));
+            AnchorTopLeft((RectTransform)scoreText.transform, new Vector2(300f, 60f), new Vector2(100f, -90f));
 
             // Level (top-centre)
             var levelText = CreateText("LevelText", root.transform, string.Empty, 28f, TextAlignmentOptions.Top, 50f);
             AnchorTopCenter((RectTransform)levelText.transform, new Vector2(500f, 50f), new Vector2(0f, -20f));
 
-            // Timer (top-right)
+            // Timer (top-right) — same safe-area inset as the score.
             var timerText = CreateText("TimerText", root.transform, "00:00", 32f, TextAlignmentOptions.TopRight, 50f);
-            AnchorTopRight((RectTransform)timerText.transform, new Vector2(200f, 50f), new Vector2(-20f, -20f));
+            AnchorTopRight((RectTransform)timerText.transform, new Vector2(200f, 50f), new Vector2(-100f, -90f));
 
             // Power pellet timer bar + chain counter (upper area, under the level text)
             var powerBarGO = CreatePanel("PowerPelletTimerBar", root.transform, new Color(0.2f, 0.2f, 0.22f));
@@ -507,41 +513,37 @@ namespace FarmFuryArcade.EditorTools
             bannerSO.FindProperty("canvasGroup").objectReferenceValue = bannerGroup;
             bannerSO.ApplyModifiedPropertiesWithoutUndo();
 
-            // Character portrait (bottom-left, above the button cluster)
-            var portrait = CreateImage("CharacterPortrait", root.transform, new Color(1f, 0.84f, 0f), 90f, 90f);
-            AnchorBottomLeft((RectTransform)portrait.transform, new Vector2(90f, 90f), new Vector2(20f, 110f));
-
             // Pause/Sound/Home icon cluster (bottom-left) — replaces the old scattered
             // Swap(bottom-left)/Ability(bottom-centre)/Pause(bottom-right) buttons. Tab
             // (CharacterSwapUI) and Space (ability activation) still work as direct keyboard
-            // input; this cluster is just pause, mute toggle, and quit-to-home.
-            const float clusterButtonSize = 80f;
-            const float clusterSpacing = 12f;
+            // input; this cluster is just pause, mute toggle, and quit-to-home. Sized/inset to
+            // match the Main Menu's Play/Settings buttons (160x160, safe-area inset) — the
+            // original 80x80 at a 20px inset both read as too small and sat outside the
+            // safe-area guide.
+            const float clusterButtonSize = 160f;
+            const float clusterSpacing = 24f;
+            const float clusterInsetX = 100f;
+            const float clusterInsetY = 70f;
 
-            var pauseButton = CreateButton("PauseButton", root.transform, string.Empty, new Color(0.35f, 0.35f, 0.38f), 20f, clusterButtonSize, out _);
+            var pauseButton = CreateButton("PauseButton", root.transform, string.Empty, new Color(0.35f, 0.35f, 0.38f), 28f, clusterButtonSize, out _);
             Object.DestroyImmediate(pauseButton.transform.Find("PauseButton_Label").gameObject);
-            AnchorBottomLeft((RectTransform)pauseButton.transform, new Vector2(clusterButtonSize, clusterButtonSize), new Vector2(20f, 20f));
+            AnchorBottomLeft((RectTransform)pauseButton.transform, new Vector2(clusterButtonSize, clusterButtonSize), new Vector2(clusterInsetX, clusterInsetY));
 
-            var soundButton = CreateButton("SoundButton", root.transform, string.Empty, new Color(0.35f, 0.35f, 0.38f), 20f, clusterButtonSize, out _);
+            var soundButton = CreateButton("SoundButton", root.transform, string.Empty, new Color(0.35f, 0.35f, 0.38f), 28f, clusterButtonSize, out _);
             Object.DestroyImmediate(soundButton.transform.Find("SoundButton_Label").gameObject);
             AnchorBottomLeft((RectTransform)soundButton.transform, new Vector2(clusterButtonSize, clusterButtonSize),
-                new Vector2(20f + (clusterButtonSize + clusterSpacing), 20f));
+                new Vector2(clusterInsetX + (clusterButtonSize + clusterSpacing), clusterInsetY));
             var soundIcon = soundButton.GetComponent<Image>();
 
-            var homeButton = CreateButton("HomeButton", root.transform, string.Empty, new Color(0.35f, 0.35f, 0.38f), 20f, clusterButtonSize, out _);
+            var homeButton = CreateButton("HomeButton", root.transform, string.Empty, new Color(0.35f, 0.35f, 0.38f), 28f, clusterButtonSize, out _);
             Object.DestroyImmediate(homeButton.transform.Find("HomeButton_Label").gameObject);
             AnchorBottomLeft((RectTransform)homeButton.transform, new Vector2(clusterButtonSize, clusterButtonSize),
-                new Vector2(20f + 2 * (clusterButtonSize + clusterSpacing), 20f));
+                new Vector2(clusterInsetX + 2 * (clusterButtonSize + clusterSpacing), clusterInsetY));
 
-            // Vacant Btn_plaque backdrop down the right side — a placeholder panel for future
-            // writing/navigation, not wired to any behaviour yet.
-            var sideBackdrop = CreateImage("SideBackdrop", root.transform, Color.clear, 280f, 700f);
-            var sideBackdropRect = (RectTransform)sideBackdrop.transform;
-            sideBackdropRect.anchorMin = new Vector2(1f, 0.5f);
-            sideBackdropRect.anchorMax = new Vector2(1f, 0.5f);
-            sideBackdropRect.pivot = new Vector2(1f, 0.5f);
-            sideBackdropRect.sizeDelta = new Vector2(280f, 700f);
-            sideBackdropRect.anchoredPosition = new Vector2(-20f, 0f);
+            // Character portrait — above the (now much taller) button cluster, left-aligned with it.
+            var portrait = CreateImage("CharacterPortrait", root.transform, new Color(1f, 0.84f, 0f), 90f, 90f);
+            AnchorBottomLeft((RectTransform)portrait.transform, new Vector2(90f, 90f),
+                new Vector2(clusterInsetX, clusterInsetY + clusterButtonSize + clusterSpacing));
 
             var hud = root.AddComponent<GameplayHUD>();
             var so = new SerializedObject(hud);

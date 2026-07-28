@@ -184,9 +184,14 @@ namespace FarmFuryArcade.EditorTools
         {
             var go = new GameObject("Egg");
             var sr = go.AddComponent<SpriteRenderer>();
-            sr.sprite = PlaceholderSprite.Get(new Color(0.92f, 0.87f, 0.72f));
+            // The old near-white/tan placeholder (0.92, 0.87, 0.72) blended straight into the real
+            // CornTiles.png ground art once that landed (both warm off-white/gold tones) — the
+            // ability worked (robots still got stunned on contact) but the egg itself read as
+            // invisible. Pure white plus a bigger scale gives it contrast against the ground until
+            // real egg art is wired.
+            sr.sprite = PlaceholderSprite.Get(Color.white);
             sr.sortingOrder = 2;
-            go.transform.localScale = Vector3.one * 0.4f;
+            go.transform.localScale = Vector3.one * 0.55f;
             var col = go.AddComponent<CircleCollider2D>();
             col.isTrigger = true;
             col.radius = 0.5f;
@@ -259,7 +264,7 @@ namespace FarmFuryArcade.EditorTools
 
         private static void BuildCharacterData()
         {
-            BuildCharacterDataAsset(CharacterType.Cluck, "Cluck", 5f, AbilityType.EggDrop, 15f,
+            BuildCharacterDataAsset(CharacterType.Cluck, "Cluck", 4.2f, AbilityType.EggDrop, 15f,
                 "Drops 3 eggs in her current lane that stun any robot walking over them for 3s.", 0, false);
             BuildCharacterDataAsset(CharacterType.Bessie, "Bessie", 4f, AbilityType.GroundSlam, 20f,
                 "Instant shockwave stuns every robot within 2 tiles.", 0, false);
@@ -305,9 +310,11 @@ namespace FarmFuryArcade.EditorTools
         // ---- LevelData_01 water tiles -------------------------------------------------------
 
         /// <summary>Adds one water tile pair to L01 at a row/columns chosen to sit clear of the
-        /// warp row (9), the robot factory box (x10-17, y13-18), and the procedural 2x2 wall
-        /// blocks (which only ever land on by = 3,9,15,21). Verifies both target cells are still
-        /// plain ground before overwriting so a future L01 redesign can't silently corrupt into an
+        /// warp row (5) and the robot factory box (x5-8, y6-9) — Phase2ProjectBuilder.
+        /// BuildLevelData01 reserves these exact cells with a -1 sentinel during maze generation so
+        /// they're guaranteed to still be plain ground (id 0) when this runs, regardless of what the
+        /// procedural corridor layout does elsewhere. Verifies both target cells are still plain
+        /// ground before overwriting anyway, so a future L01 redesign can't silently corrupt into an
         /// unreachable water tile — logs a warning and skips instead.</summary>
         private static void UpdateLevelData01Water()
         {
@@ -318,9 +325,9 @@ namespace FarmFuryArcade.EditorTools
                 return;
             }
 
-            const int waterRow = 25;
+            const int waterRow = 11;
             var waterA = new Vector2Int(3, waterRow);
-            var waterB = new Vector2Int(24, waterRow);
+            var waterB = new Vector2Int(10, waterRow);
 
             var grid = level.MazeLayout;
             if (grid[waterA.x, waterA.y] != 0 || grid[waterB.x, waterB.y] != 0)

@@ -138,9 +138,12 @@ namespace FarmFuryArcade.EditorTools
             PrefabUtility.UnloadPrefabContents(contents);
         }
 
-        /// <summary>Adds the 2 spawns spec'd for Phase 3 verification: Harvester at (14,15) after
-        /// 2s, Scout at (14,15) after 6s — inside LevelData_01's existing robot factory box. Only
-        /// touches the robotSpawns field, leaving the rest of the hand-tuned L01 maze untouched.</summary>
+        /// <summary>Adds the 2 spawns spec'd for Phase 3 verification: Harvester at (7,7) after
+        /// 2s, Scout at (7,7) after 6s — inside LevelData_01's existing robot factory box. Only
+        /// touches the robotSpawns field, leaving the rest of the hand-tuned L01 maze untouched.
+        /// (7,7) is Phase2ProjectBuilder.BuildLevelData01's factory box center (5..8, 6..9) plus a
+        /// +1 x offset, same relative position the original (28x31-maze) (14,15) spawn used against
+        /// its own factory box — rescaled here to match the maze being halved to 14x16.</summary>
         private static void UpdateLevelData01Robots()
         {
             var level = AssetDatabase.LoadAssetAtPath<LevelData>(LevelData01Path);
@@ -152,8 +155,8 @@ namespace FarmFuryArcade.EditorTools
 
             level.robotSpawns = new[]
             {
-                new RobotSpawnData { robotType = RobotType.Harvester, spawnDelay = 2f, spawnPosition = new Vector2Int(14, 15) },
-                new RobotSpawnData { robotType = RobotType.Scout, spawnDelay = 6f, spawnPosition = new Vector2Int(14, 15) }
+                new RobotSpawnData { robotType = RobotType.Harvester, spawnDelay = 2f, spawnPosition = new Vector2Int(7, 7) },
+                new RobotSpawnData { robotType = RobotType.Scout, spawnDelay = 6f, spawnPosition = new Vector2Int(7, 7) }
             };
 
             EditorUtility.SetDirty(level);

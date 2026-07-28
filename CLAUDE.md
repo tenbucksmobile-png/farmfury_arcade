@@ -148,16 +148,25 @@ Kinematic + `useFullKinematicContacts` Rigidbody2D for the same reason (so robot
 same convention as `RobotBase.playerMovement`, since swapping characters destroys/recreates that
 GameObject. Clamped to the maze bounds via `TileMapRenderer.MazeWidth`/`MazeHeight` (both 0 before
 a level loads, in which case `ClampToMazeBounds` no-ops) so the camera never shows past the maze
-edges. Orthographic size is `5` (zoomed in considerably from the original static `16`, which showed
-the entire 28×31 `LevelData_01` maze at once, classic-arcade style — that read as "too far/small"
-once real character art landed). `Utilities/CameraShake` (Bessie's Ground Slam feedback) now runs
-in `LateUpdate` with `[DefaultExecutionOrder(100)]` so it executes *after* `CameraFollow` and adds
-its jitter on top of that frame's follow position via `transform.position +=`, rather than caching
-an absolute "resting" position the way it did before there was a moving camera — a stale resting
-position would have snapped the camera back to wherever it was at scene load every time a shake
-ended. If a future level's `mazeWidth`/`mazeHeight` differs from `LevelData_01`'s, `CameraFollow`
-adapts automatically (no per-level camera tuning needed) since the clamp is computed from the
-loaded level's own dimensions each frame.
+edges. Orthographic size is `8` — briefly zoomed in to `5` (close player-follow, classic "camera
+tracks the hero" framing) but that read as "zoomed in too much" once actually played (only ~10 of
+the maze's rows visible at once, board unreadable as a whole), so it's back to fitting the entire
+`LevelData_01` board on screen at once, centered, classic-arcade style. `LevelData_01` itself is
+14×16 (halved from an original 28×31 — see `Phase2ProjectBuilder` under "Editor tooling" below).
+`ClampToMazeBounds` has a dedicated branch for this: when the camera's half-width/half-height
+exceeds the maze's own extent (`minX > maxX`, i.e. the whole board already fits), it centers on
+the maze's midpoint instead of running `Mathf.Clamp` — a plain clamp would collapse to `minX`
+(pinning the camera off to one side) in that case, which is the bug that first surfaced when the
+board-fits-on-screen size was tried. `Utilities/CameraShake` (Bessie's Ground Slam feedback) now
+runs in `LateUpdate` with `[DefaultExecutionOrder(100)]` so it executes *after* `CameraFollow` and
+adds its jitter on top of that frame's follow position via `transform.position +=`, rather than
+caching an absolute "resting" position the way it did before there was a moving camera — a stale
+resting position would have snapped the camera back to wherever it was at scene load every time a
+shake ended. If a future level's `mazeWidth`/`mazeHeight` differs from `LevelData_01`'s,
+`CameraFollow` adapts automatically (no per-level camera tuning needed) since the clamp is
+computed from the loaded level's own dimensions each frame. A `GameplayBackdrop` SpriteRenderer
+(`Wheatfield_background.png`, sorting order `-5`, centered on the maze, scaled well past the
+fit-to-maze camera view) fills the space around the board — see "Art status" below.
 
 ### Robot AI (`Scripts/Enemies`)
 
@@ -338,8 +347,12 @@ stripped down from their original Phase 5 layouts:
   latter uploaded a while ago but had no icon-swap feature to hook into until now).  `HomeButton`
   mirrors `PauseMenuController.QuitToMenu`'s semantics (`EndLevel(false)`, i.e. quitting mid-run
   counts as a failed attempt; `GameplayHUD`'s own state-watcher then shows `LevelFailedController`)
-  without the pause-menu detour. A `SideBackdrop` (`Btn_plaque.png`, vacant, right side of screen)
-  is a placeholder for future writing/navigation — not wired to anything yet.
+  without the pause-menu detour. The cluster buttons are `160x160` (matching the Main Menu's
+  Play/Settings buttons) at a safe-area inset, up from an original `80x80` at a `20px` inset that
+  read as both too small and clipped by the rounded-corner/camera-cutout safe area once actually
+  reviewed on a device frame. A vacant `Btn_plaque.png` backdrop ("SideBackdrop") used to run down
+  the right side as a placeholder for future writing/navigation — removed entirely after review,
+  since it had no behaviour and read as an oversized, unexplained button.
 - Three always-on `OnGUI` debug overlays (`Phase1Test`/`Phase2Test`/`Phase3Test`/`Phase4Test` manual
   test buttons, independent of their `runOnStart` flag) used to render on top of every screen in
   every Play session. `Editor/SceneCleanupBuilder.DisableDebugTestOverlays` (`Farm Fury Arcade >
@@ -471,10 +484,29 @@ phase made for art (solid-colour placeholders instead of real sprites).
   `-executeMethod ... -logFile ...` (no `-quit`, since Play mode needs the Editor's update loop).
 - **`Phase2ProjectBuilder`** (`Phase 2 > Build All`) — builds all placeholder prefabs (Cluck,
   walls, ground, crops, power pellet, warp tunnel), regenerates `LevelData_01` as a full
-  procedural 28×31 maze, creates `CharacterData_Cluck`, and rewires `Game.unity` with
+  procedural 14×16 maze, creates `CharacterData_Cluck`, and rewires `Game.unity` with
   `ScoreManager`/`TileMapRenderer`/`InputController` plus the Cluck prefab reference.
   **Idempotent** — safe to re-run after any prefab/data change instead of touching the scene by
-  hand.
+  hand. `BuildLevelData01`'s maze is a real Pac-Man-style corridor layout (1-tile-wide paths + wall
+  blocks), not the original sparse-2x2-walls-on-open-floor version — a deterministic (seeded)
+  randomized recursive backtracker carves the left half (x = 1..`leftHalfMax`, where
+  `leftHalfMax = (width - 2) / 2`) as a cell lattice, mirrors it onto the right half for a symmetric
+  arcade-maze look, then reopens ~22% of the remaining connector walls so the board has loops
+  instead of being a single spanning tree. The warp row (`y=5`), robot factory box (`x=5..8,
+  y=6..9`), and player-start clearing (around `(7,2)`) are stamped on top afterward at fixed
+  coordinates that Phase 3/4 also hardcode (robot spawn `(7,7)`, water tile cells `(3,11)`/`(10,11)`)
+  — those two builders must be updated together with this one if `width`/`height` or the feature
+  coordinates ever change again, since none of it is derived automatically across files. The water
+  cells specifically are reserved with a `-1` sentinel during generation so the "every remaining
+  floor tile becomes a crop kernel" pass doesn't consume them before Phase 4 gets to stamp water
+  tiles there. 4 power pellets (one per corner, found via nearest-open-floor search from each
+  target corner and mirrored) replace an original fixed 2; 2 small BFS-clumped vegetable patches
+  replace scattering single vegetables board-wide.
+  `width`/`height` were halved from an original 28×31 — fitting that entire board on screen (see
+  "Camera" above) still left individual tiles too small to read comfortably, and zooming in further
+  would have cropped the board rather than enlarging it, so the maze's own cell count was shrunk
+  instead (fewer, bigger tiles, whole board still fits on screen). `SceneCleanupBuilder.
+  FitGameplayCameraToMaze`'s orthographic size (`8`) is tuned to this 14×16 board specifically.
 - **`Phase3ProjectBuilder`** (`Phase 3 > Build All`) — the one you actually want day to day now.
   Builds the 6 robot prefabs + `RobotData` assets, adds `PlayerHealth` to the existing Cluck
   prefab, gives `LevelData_01` its 2 spec'd robot spawns (Harvester@2s, Scout@6s, both at (14,15)
@@ -523,8 +555,9 @@ phase made for art (solid-colour placeholders instead of real sprites).
   not meant to be part of a "rebuild everything" workflow. Wires whatever's currently under
   `Assets/_Project/Sprites/...` into the specific prefab/UI fields listed in "Art status" above
   (characters, robots, crop/pellet prefabs, maze wall/ground/warp-tunnel prefabs,
-  `TileMapRenderer`'s 3 pellet-tier sprites, `CharacterData`/`RobotData.portraitSprite`, UI screen
-  backgrounds/buttons, `GameplayHUD`'s sound-icon sprites, the Level Complete coin icon) — it does
+  `TileMapRenderer`'s 3 pellet-tier sprites, a `GameplayBackdrop` SpriteRenderer behind the maze,
+  `CharacterData`/`RobotData.portraitSprite`, UI screen backgrounds/buttons, `GameplayHUD`'s
+  sound-icon sprites, the Level Complete coin icon) — it does
   not regenerate prefabs or screens from scratch, only sets sprite references (and configures each
   new texture's import settings — Sprite type, `spritePixelsPerUnit` = texture width, alpha
   transparency — the first time it sees a path). Safe to re-run; re-running with the same art
@@ -533,10 +566,12 @@ phase made for art (solid-colour placeholders instead of real sprites).
   group to reposition since the landing-page cleanup (see "Landing/Matchup/Gameplay-HUD cleanup"
   above); re-run `Phase5ProjectBuilder.BuildAll` if Main Menu ever needs rebuilding from scratch.
 - **`SceneCleanupBuilder`** (`Farm Fury Arcade > Disable Debug Test Overlays` /
-  `Farm Fury Arcade > Zoom In Gameplay Camera`) — small targeted scene-hygiene fixes that are
+  `Farm Fury Arcade > Fit Gameplay Camera To Maze`) — small targeted scene-hygiene fixes that are
   neither "wire art" nor "rebuild a phase's content." `DisableDebugTestOverlays` deactivates (and
-  de-duplicates) the 5 `Phase*Test` GameObjects; `ZoomInGameplayCamera` sets the Main Camera's
-  `orthographicSize` and ensures a `CameraFollow` component exists. Both safe to re-run.
+  de-duplicates) the 5 `Phase*Test` GameObjects; `FitGameplayCameraToMaze` (renamed from
+  `ZoomInGameplayCamera` — it now does the opposite) sets the Main Camera's `orthographicSize` to
+  `16` so the whole board fits on screen and ensures a `CameraFollow` component exists. Both safe
+  to re-run.
 
 `Phase1Test.cs`/`Phase2Test.cs`/`Phase3Test.cs`/`Phase4Test.cs`/`Phase5Test.cs` (`Scripts/Core`) are verification
 harnesses, not gameplay — each auto-runs a battery of checks on `Start()` and logs `PASS`/`FAIL`/
@@ -650,6 +685,12 @@ values from the GDD's color palette where one exists (e.g. walls = Wall Brown `#
 - **Pickups** — crop kernel uses `CornKernel.png`, the single vegetable pickup uses `carrot.png`
   (3 other vegetable sprites — cabbage/pumpkin/tomato — were uploaded but aren't wired in; the
   architecture only supports one vegetable sprite per maze right now).
+- **Gameplay backdrop** — `Wheatfield_background.png` (uploaded early on, previously unused once
+  LevelComplete/Failed/Pause got their own dedicated panel art) is now a `GameplayBackdrop`
+  SpriteRenderer behind the maze (see "Camera" above) — fills the space the fit-to-maze camera
+  shows around the 14×16 board. Recenters/rescales itself off `LevelData_01`'s own
+  `mazeWidth`/`mazeHeight` each time `ArtWiringBuilder.WireAll` runs, so it doesn't need manual
+  retuning if the maze's dimensions ever change again.
 - **Power pellets** — spawn with a real tier instead of always Sunflower. `TileMapRenderer.
   ConfigurePelletTier` rolls a weighted random tier per pellet (Sunflower 70% / GoldenWheat 20% /
   Rainbow 10%, matching the "RarePellets" art naming) and swaps in `sunflowerPelletSprite`
@@ -660,7 +701,10 @@ values from the GDD's color palette where one exists (e.g. walls = Wall Brown `#
   while powered up" feature in the code for them to hook into.
 - **Ability effects** — `Shockwave` (Bessie's Ground Slam) uses `BessieSlam.png`, `BounceTrail`
   (Percy's Bounce Roll) uses `Percy_effect.png`, `WoollyClone` (Woolly's Triple Clone) uses
-  `Wooly_effect.png`. Cluck's Egg Drop (`Egg` prefab) still has no dedicated art.
+  `Wooly_effect.png`. Cluck's Egg Drop (`Egg` prefab) still has no dedicated art — its placeholder
+  is `Color.white` at `0.4` → `0.55` scale (bumped from a near-white/tan tint that blended straight
+  into `CornTiles.png`'s similarly warm-toned ground art once that landed; the ability worked the
+  whole time — robots still got stunned on contact — the egg itself just wasn't visible).
 - **UI backgrounds** — `MainMenuScreen` uses `landing.png` (which has "FARM FURY ARCADE" baked
   into the art), `WorldMapScreen` uses `Map.png`, `MatchupScreen` uses `matchup.png`,
   `LevelCompleteScreen`/`LevelFailedScreen`/`PauseOverlay` use dedicated `LevelComplete.png`/
@@ -686,14 +730,17 @@ values from the GDD's color palette where one exists (e.g. walls = Wall Brown `#
   (fields that existed since Phase 4/3 but were never populated) now get each character/robot's
   front sprite, wired alongside their walk-cycle/directional art in
   `ArtWiringBuilder.SetWalkFrames`/`WireCluck`/`WireHarvester`/`WireNewRobots` (via the new
-  `SetRobotPortrait` helper). `MatchupScreenController`'s character/robot cards are the first
-  consumer of these.
+  `SetRobotPortrait` helper). `MatchupScreenController`'s character/robot cards were the first
+  consumer of these; `GameplayHUD.RefreshPortrait` now also reads `CharacterData.portraitSprite`
+  (via `DataManager.GetCharacterData(CharacterManager.Instance.ActiveCharacter)`) instead of just
+  tinting the placeholder square with the active character's `SpriteRenderer.color` — the old
+  version left a plain gold placeholder block on screen even after portrait art existed, since
+  color tinting was never going to substitute for an actual portrait sprite.
 - **Buttons** — `Btn_play/pause/settings/quit/home/skip/back/plaque` wired onto their matching
   buttons across every screen (Main Menu, World Map, Matchup, Gameplay HUD, Pause, Settings,
   Store, Level Complete/Failed, Roster, Leaderboards) via `ArtWiringBuilder.WireButtons` —
   buttons with no specific icon art (Restart, Replay, Retry, Store, Leaderboards, Roster, Daily
-  Challenge) share the generic `Btn_plaque.png` background (also now the vacant `SideBackdrop` on
-  the Gameplay HUD's right side — see "Landing/Matchup/Gameplay-HUD cleanup"). `Btn_nosound.png`
+  Challenge) share the generic `Btn_plaque.png` background. `Btn_nosound.png`
   is wired now too, as `GameplayHUD`'s `soundOffSprite` (paired with `Btn_music.png` as
   `soundOnSprite`) — the HUD's new `SoundButton` is the first place either sprite swaps at
   runtime; `SettingsPanel`'s separate Music toggle still only has one icon slot and doesn't swap
@@ -706,12 +753,10 @@ values from the GDD's color palette where one exists (e.g. walls = Wall Brown `#
   SetIconsForTargetGroup`, Standalone + the default/`Unknown` group) — a project-settings change,
   not a scene/prefab one.
 
-**Still missing / not wired:** there's no gameplay backdrop behind the maze itself (wall/ground/
-warp-tunnel tiles are wired now — see above — but the empty space around/behind the maze grid has
-no background art). Also missing: Horace/Billy character art (Gerald now has art — see above),
-Drone robot art, a Vulnerable-state robot sprite, Cluck's Egg Drop effect art, Gerald's Puff Up
-effect art (`Gerald_effect.png`, uploaded but unwired — see above), and the branding Logo/Loading
-Screen background (both uploaded, neither wired — see above).
+**Still missing / not wired:** Horace/Billy character art (Gerald now has art — see above), Drone
+robot art, a Vulnerable-state robot sprite, Cluck's Egg Drop effect art, Gerald's Puff Up effect
+art (`Gerald_effect.png`, uploaded but unwired — see above), and the branding Logo/Loading Screen
+background (both uploaded, neither wired — see above).
 
 **Texture import convention:** `ArtWiringBuilder.ConfigureSpriteImporters` sets every wired
 texture's `spritePixelsPerUnit` to that texture's own pixel width (via `TextureImporter.
@@ -729,8 +774,9 @@ than creating new prefabs.
 Desktop: arrow keys or WASD. Mobile/Editor: swipe (or mouse-drag in Play mode) — 50px minimum
 distance, dominant axis wins for diagonals. Tunable parameters if movement doesn't feel right:
 
-- `GridMovement.speed` (comes from `CharacterData.movementSpeed` — 5 Cluck, 4 Bessie, 6 Percy,
-  5 Woolly, 5.5 Ducky, 5.5 Horace, 4.5 Gerald, 4.5 Billy)
+- `GridMovement.speed` (comes from `CharacterData.movementSpeed` — 4.2 Cluck [reduced from 5, read
+  as too fast once actually played], 4 Bessie, 6 Percy, 5 Woolly, 5.5 Ducky, 5.5 Horace, 4.5
+  Gerald, 4.5 Billy)
 - `GridMovement.AlignmentEpsilon` (0.02) — grid-center snap tolerance
 - `InputController.minSwipeDistancePixels` (50)
 - `CharacterAnimator.frameInterval` (0.15s baseline, scaled by speed)
@@ -831,15 +877,13 @@ and reopen the project normally to confirm nothing was corrupted.
   (only 2 `LevelData` assets exist against the GDD's 100-level target). The underlying system is
   level-count-agnostic, so hand-placing marker positions along the art's path later is a content
   change, not a rewrite.
-- **No ability icon sprites, and only partial portrait art** — Matchup's character/robot cards now
-  use `CharacterData`/`RobotData.portraitSprite` (front sprite) where a character/robot has real
-  art (see "Art status"); the HUD portrait (`GameplayHUD.characterPortrait`) and Roster cards still
-  use solid-colour placeholders, and no dedicated ability icons exist anywhere.
+- **No ability icon sprites, and only partial portrait art** — Matchup's character/robot cards and
+  the HUD portrait (`GameplayHUD.characterPortrait`, via `RefreshPortrait`) now use
+  `CharacterData`/`RobotData.portraitSprite` (front sprite) where a character/robot has real art
+  (see "Art status"); Roster cards still use solid-colour placeholders, and no dedicated ability
+  icons exist anywhere.
 - **AudioManager has zero real clips wired** — full API, fully wired to `SaveManager` settings, but
   silent until `AudioClip`s are imported and assigned.
-- **Gameplay HUD's `SideBackdrop`** (`Btn_plaque.png`, right side of screen) is a vacant panel with
-  no content or behaviour — reserved for future writing/navigation per the HUD cleanup, not wired
-  to anything yet.
 
 ## UX flow
 

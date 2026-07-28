@@ -56,12 +56,16 @@ namespace FarmFuryArcade.Utilities
             float halfWidth = halfHeight * _camera.aspect;
 
             float minX = halfWidth;
-            float maxX = Mathf.Max(minX, _tileMapRenderer.MazeWidth - 1 - halfWidth);
-            float minY = halfHeight;
-            float maxY = Mathf.Max(minY, _tileMapRenderer.MazeHeight - 1 - halfHeight);
+            float maxX = _tileMapRenderer.MazeWidth - 1 - halfWidth;
+            // When the camera's view is wider/taller than the maze itself (e.g. a "fit the whole
+            // board" orthographic size), minX > maxX and a plain Clamp would collapse to minX —
+            // pinning the camera off to one side instead of centering the board. Center on the
+            // maze's own midpoint in that case instead.
+            desired.x = minX <= maxX ? Mathf.Clamp(desired.x, minX, maxX) : (_tileMapRenderer.MazeWidth - 1) / 2f;
 
-            desired.x = Mathf.Clamp(desired.x, minX, maxX);
-            desired.y = Mathf.Clamp(desired.y, minY, maxY);
+            float minY = halfHeight;
+            float maxY = _tileMapRenderer.MazeHeight - 1 - halfHeight;
+            desired.y = minY <= maxY ? Mathf.Clamp(desired.y, minY, maxY) : (_tileMapRenderer.MazeHeight - 1) / 2f;
             return desired;
         }
     }
