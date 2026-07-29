@@ -32,7 +32,8 @@ namespace FarmFuryArcade.EditorTools
             GameObject groundPrefab = BuildGroundPrefab();
             GameObject cropKernelPrefab = BuildCropPrefab("Crop_Corn", CropType.Corn, 10, new Color(0.96f, 0.78f, 0.26f), 0.35f);
             GameObject cropVegetablePrefab = BuildCropPrefab("Crop_Vegetable", CropType.Vegetable, 50, new Color(0.30f, 0.69f, 0.31f), 0.5f);
-            GameObject powerPelletPrefab = BuildPowerPelletPrefab();
+            GameObject pelletCollectEffectPrefab = BuildPelletCollectEffectPrefab();
+            GameObject powerPelletPrefab = BuildPowerPelletPrefab(pelletCollectEffectPrefab);
             GameObject warpTunnelPrefab = BuildWarpTunnelPrefab();
             GameObject cluckPrefab = BuildCluckPrefab();
 
@@ -51,6 +52,7 @@ namespace FarmFuryArcade.EditorTools
             var go = new GameObject("Wall_CornField");
             var sr = go.AddComponent<SpriteRenderer>();
             sr.sprite = PlaceholderSprite.Get(new Color(0.29f, 0.17f, 0.10f)); // GDD Wall Brown #4A2C1A
+            go.transform.localScale = Vector3.one * TileMapRenderer.CellSize;
             go.AddComponent<BoxCollider2D>();
             return SaveAndDestroy(go, BlockPrefabFolder + "/Wall_CornField.prefab");
         }
@@ -61,6 +63,7 @@ namespace FarmFuryArcade.EditorTools
             var sr = go.AddComponent<SpriteRenderer>();
             sr.sprite = PlaceholderSprite.Get(new Color(0.18f, 0.12f, 0.08f)); // dark soil, visual only
             sr.sortingOrder = -1;
+            go.transform.localScale = Vector3.one * TileMapRenderer.CellSize;
             return SaveAndDestroy(go, BlockPrefabFolder + "/Ground_CornField.prefab");
         }
 
@@ -69,7 +72,7 @@ namespace FarmFuryArcade.EditorTools
             var go = new GameObject(name);
             var sr = go.AddComponent<SpriteRenderer>();
             sr.sprite = PlaceholderSprite.Get(color);
-            go.transform.localScale = Vector3.one * scale;
+            go.transform.localScale = Vector3.one * scale * TileMapRenderer.CellSize;
             var col = go.AddComponent<CircleCollider2D>();
             col.isTrigger = true;
             col.radius = 0.5f;
@@ -79,19 +82,31 @@ namespace FarmFuryArcade.EditorTools
             return SaveAndDestroy(go, BlockPrefabFolder + "/" + name + ".prefab");
         }
 
-        private static GameObject BuildPowerPelletPrefab()
+        private static GameObject BuildPowerPelletPrefab(GameObject collectEffectPrefab)
         {
             var go = new GameObject("Power_Sunflower");
             var sr = go.AddComponent<SpriteRenderer>();
             sr.sprite = PlaceholderSprite.Get(new Color(1f, 0.765f, 0f)); // GDD Power Sunflower #FFC300
-            go.transform.localScale = Vector3.one * 0.7f;
+            go.transform.localScale = Vector3.one * 0.7f * TileMapRenderer.CellSize;
             var col = go.AddComponent<CircleCollider2D>();
             col.isTrigger = true;
             col.radius = 0.5f;
             var pickup = go.AddComponent<PowerPelletPickup>();
             pickup.pelletType = PowerPelletType.Sunflower;
             pickup.points = 500;
+            pickup.SetCollectEffectPrefab(collectEffectPrefab);
             return SaveAndDestroy(go, BlockPrefabFolder + "/Power_Sunflower.prefab");
+        }
+
+        /// <summary>No dedicated sparkle/particle art exists yet for rare-pellet collection (see
+        /// CLAUDE.md "Art status") — PelletCollectBurst procedurally animates a small ring of
+        /// placeholder-coloured squares instead. This prefab just carries that component; the
+        /// visual rays are spawned as children at runtime by Configure().</summary>
+        private static GameObject BuildPelletCollectEffectPrefab()
+        {
+            var go = new GameObject("PelletCollectBurst");
+            go.AddComponent<PelletCollectBurst>();
+            return SaveAndDestroy(go, BlockPrefabFolder + "/PelletCollectBurst.prefab");
         }
 
         private static GameObject BuildWarpTunnelPrefab()
@@ -99,6 +114,7 @@ namespace FarmFuryArcade.EditorTools
             var go = new GameObject("WarpTunnel");
             var sr = go.AddComponent<SpriteRenderer>();
             sr.sprite = PlaceholderSprite.Get(new Color(0.55f, 0.27f, 0.68f)); // placeholder "barn door" purple
+            go.transform.localScale = Vector3.one * TileMapRenderer.CellSize;
             var col = go.AddComponent<BoxCollider2D>();
             col.isTrigger = true;
             col.size = Vector2.one * 0.9f;
@@ -112,6 +128,7 @@ namespace FarmFuryArcade.EditorTools
             var sr = go.AddComponent<SpriteRenderer>();
             sr.sprite = PlaceholderSprite.Get(new Color(1f, 0.843f, 0f)); // GDD Accent Gold #FFD700
             sr.sortingOrder = 5;
+            go.transform.localScale = Vector3.one * TileMapRenderer.CellSize;
             var rb = go.AddComponent<Rigidbody2D>();
             rb.bodyType = RigidbodyType2D.Kinematic;
             rb.gravityScale = 0f;
@@ -255,23 +272,44 @@ namespace FarmFuryArcade.EditorTools
             grid[waterA.x, waterA.y] = -1;
             grid[waterB.x, waterB.y] = -1;
 
-            // Four power pellets, one per corner, classic-Pac-Man style — found via a nearest-open-
-            // floor search from each left-half corner target, then mirrored to the right half so
-            // they land symmetrically (guaranteed open, since the right half is a copy of the left).
-            var pelletTopLeft = FindNearestFloor(grid, width, height, 2, 2);
-            var pelletBottomLeft = FindNearestFloor(grid, width, height, 2, height - 3);
-            var pelletTopRight = new Vector2Int(width - 1 - pelletTopLeft.x, pelletTopLeft.y);
-            var pelletBottomRight = new Vector2Int(width - 1 - pelletBottomLeft.x, pelletBottomLeft.y);
-            grid[pelletTopLeft.x, pelletTopLeft.y] = 4;
-            grid[pelletBottomLeft.x, pelletBottomLeft.y] = 4;
-            grid[pelletTopRight.x, pelletTopRight.y] = 4;
-            grid[pelletBottomRight.x, pelletBottomRight.y] = 4;
+            // Power pellets and vegetables are scattered randomly across every open floor tile
+            // (deterministically — same MazeSeed-derived RNG as corridor carving, so rebuilds stay
+            // reproducible) rather than fixed one-per-corner pellets / two hand-anchored BFS
+            // vegetable clusters. Every remaining open tile becomes a corn kernel in the fill pass
+            // below regardless, so this is really just "re-roll some of those kernel tiles as
+            // something rarer, picked at random."
+            var openFloor = new List<Vector2Int>();
+            for (int x = 1; x < width - 1; x++)
+            {
+                for (int y = 1; y < height - 1; y++)
+                {
+                    if (grid[x, y] == 0)
+                    {
+                        openFloor.Add(new Vector2Int(x, y));
+                    }
+                }
+            }
 
-            // Two small vegetable clusters (clumped via a short BFS from an anchor point, matching
-            // the reference art's grouped-vegetable look) rather than scattering single vegetables
-            // across the whole board.
-            ClusterVegetables(grid, width, height, new Vector2Int(2, 13), 6);
-            ClusterVegetables(grid, width, height, new Vector2Int(10, 2), 6);
+            var scatterRng = new System.Random(MazeSeed + 1);
+            for (int i = openFloor.Count - 1; i > 0; i--)
+            {
+                int j = scatterRng.Next(i + 1);
+                (openFloor[i], openFloor[j]) = (openFloor[j], openFloor[i]);
+            }
+
+            const int pelletCount = 4;
+            const int vegetableCount = 12;
+            int scatterIndex = 0;
+            for (int i = 0; i < pelletCount && scatterIndex < openFloor.Count; i++, scatterIndex++)
+            {
+                var c = openFloor[scatterIndex];
+                grid[c.x, c.y] = 4;
+            }
+            for (int i = 0; i < vegetableCount && scatterIndex < openFloor.Count; i++, scatterIndex++)
+            {
+                var c = openFloor[scatterIndex];
+                grid[c.x, c.y] = 3;
+            }
 
             // Every remaining open corridor tile gets a crop kernel — the classic "dot in every
             // lane" Pac-Man look, and simplest way to guarantee no leftover unused floor tiles.
@@ -381,84 +419,6 @@ namespace FarmFuryArcade.EditorTools
                     if (grid[x, y] == 1 && grid[x, y - 1] == 0 && grid[x, y + 1] == 0 && rng.NextDouble() < 0.22)
                     {
                         grid[x, y] = 0;
-                    }
-                }
-            }
-        }
-
-        /// <summary>Expanding-ring search for the nearest open (id 0) floor tile to a target
-        /// coordinate — used to place power pellets/vegetable clusters near a target spot without
-        /// assuming that exact tile survived maze generation as open floor.</summary>
-        private static Vector2Int FindNearestFloor(int[,] grid, int width, int height, int targetX, int targetY)
-        {
-            for (int r = 0; r < 12; r++)
-            {
-                for (int dx = -r; dx <= r; dx++)
-                {
-                    for (int dy = -r; dy <= r; dy++)
-                    {
-                        if (Mathf.Max(Mathf.Abs(dx), Mathf.Abs(dy)) != r)
-                        {
-                            continue;
-                        }
-                        int x = targetX + dx;
-                        int y = targetY + dy;
-                        if (x < 1 || x >= width - 1 || y < 1 || y >= height - 1)
-                        {
-                            continue;
-                        }
-                        if (grid[x, y] == 0)
-                        {
-                            return new Vector2Int(x, y);
-                        }
-                    }
-                }
-            }
-            return new Vector2Int(targetX, targetY);
-        }
-
-        /// <summary>BFS-clumps up to <paramref name="count"/> vegetables outward from the nearest
-        /// open floor tile to <paramref name="anchor"/>, so vegetables read as a small patch
-        /// (matching the reference art) instead of single tiles scattered across the whole maze.</summary>
-        private static void ClusterVegetables(int[,] grid, int width, int height, Vector2Int anchor, int count)
-        {
-            var start = FindNearestFloor(grid, width, height, anchor.x, anchor.y);
-            if (grid[start.x, start.y] != 0)
-            {
-                return;
-            }
-
-            var visited = new HashSet<Vector2Int>();
-            var queue = new Queue<Vector2Int>();
-            queue.Enqueue(start);
-            visited.Add(start);
-            Vector2Int[] dirs = { Vector2Int.up, Vector2Int.down, Vector2Int.left, Vector2Int.right };
-            int placed = 0;
-
-            while (queue.Count > 0 && placed < count)
-            {
-                var cur = queue.Dequeue();
-                if (grid[cur.x, cur.y] == 0)
-                {
-                    grid[cur.x, cur.y] = 3;
-                    placed++;
-                }
-
-                foreach (var d in dirs)
-                {
-                    var next = cur + d;
-                    if (next.x < 1 || next.x >= width - 1 || next.y < 1 || next.y >= height - 1)
-                    {
-                        continue;
-                    }
-                    if (visited.Contains(next))
-                    {
-                        continue;
-                    }
-                    visited.Add(next);
-                    if (grid[next.x, next.y] == 0)
-                    {
-                        queue.Enqueue(next);
                     }
                 }
             }

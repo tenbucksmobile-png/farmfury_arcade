@@ -8,6 +8,13 @@ namespace FarmFuryArcade.Data
         public CharacterType characterType;
         public string displayName;
         public Sprite portraitSprite;
+
+        [Tooltip("Framed 'animal card' art (Sprites/UI/{Name}_{Species}.png) shown by " +
+                 "ChooseCharacterScreen — distinct from portraitSprite, which is a plain front " +
+                 "sprite reused for the HUD/Matchup-era cards. Null falls back to a placeholder " +
+                 "square for any character without dedicated card art yet.")]
+        public Sprite selectCardArt;
+
         public Sprite[] walkAnimationFrames;
 
         [Range(1, 5)]

@@ -166,9 +166,12 @@ namespace FarmFuryArcade.Core
             set => PlayerPrefs.SetInt(SfxOnKey, value ? 1 : 0);
         }
 
+        // Default (before the player ever touches the Settings slider) is deliberately soft/
+        // background-level rather than full volume — the background music track is meant to sit
+        // behind gameplay, not compete with it.
         public float MusicVolume
         {
-            get => PlayerPrefs.GetFloat(MusicVolumeKey, 1f);
+            get => PlayerPrefs.GetFloat(MusicVolumeKey, 0.5f);
             set => PlayerPrefs.SetFloat(MusicVolumeKey, Mathf.Clamp01(value));
         }
 

@@ -5,11 +5,15 @@ using FarmFuryArcade.Utilities;
 namespace FarmFuryArcade.Core
 {
     /// <summary>
-    /// No audio clips exist yet (see CLAUDE.md "No art or audio") — this is the full playback API
-    /// and pooling/volume/mute plumbing, exercised in Phase5Test with synthetic AudioClips rather
-    /// than real content. Wire real music/SFX clips into CharacterData/LevelData/RobotData/UI
-    /// prefabs and call these same methods once art/audio lands; nothing here should need to
-    /// change shape.
+    /// Full playback API and pooling/volume/mute plumbing, exercised in Phase5Test with synthetic
+    /// AudioClips as well as real content. Background music (backgroundMusicClip, wired by
+    /// ArtWiringBuilder from Assets/_Project/Audio/Music/) plays only during an active run —
+    /// GameManager.LoadLevel starts it (ResumeBackgroundMusic) and EndLevel/QuitToMainMenu stop it
+    /// (StopMusic), so Main Menu/World Map stay silent and it never plays "at the landing page".
+    /// SFX clips under Assets/_Project/Audio/SFX/ are wired to specific gameplay triggers — see
+    /// PlayAnimalDeathSfx/PlayCornPickupSfx/PlayPowerReadySfx/PlayRarePelletPickupSfx/
+    /// PlayRobotRespawnSfx and their call sites (PlayerHealth, CropCollector, PowerPelletManager,
+    /// RobotBase respectively).
     /// </summary>
     public class AudioManager : Singleton<AudioManager>
     {
@@ -17,6 +21,21 @@ namespace FarmFuryArcade.Core
         [SerializeField] private AudioSource musicSourceB;
         [SerializeField] private AudioSource[] sfxPool;
         [SerializeField] private float musicCrossfadeSeconds = 0.6f;
+
+        [Tooltip("Looping background music, started once as soon as the app launches (GameManagers " +
+                 "is a persistent singleton, so this never restarts on scene/screen changes).")]
+        [SerializeField] private AudioClip backgroundMusicClip;
+
+        [Tooltip("Swapped in for the duration of a power pellet's effect (PowerPelletManager " +
+                 "crossfades to this and back via PlayEatRobotMusic/ResumeBackgroundMusic).")]
+        [SerializeField] private AudioClip eatRobotMusicClip;
+
+        [Header("SFX clips")]
+        [SerializeField] private AudioClip animalDeathClip;
+        [SerializeField] private AudioClip cornPickupClip;
+        [SerializeField] private AudioClip powerReadyClip;
+        [SerializeField] private AudioClip rarePelletPickupClip;
+        [SerializeField] private AudioClip robotRespawnClip;
 
         private int _sfxPoolCursor;
         private bool _usingSourceA = true;
@@ -94,6 +113,43 @@ namespace FarmFuryArcade.Core
             incoming.volume = MutedOrVolume(SaveManager.Instance != null && SaveManager.Instance.MusicOn, GetMusicVolume());
             incoming.Play();
             yield break;
+        }
+
+        /// <summary>Named SFX intents — one per gameplay trigger (PlayerHealth's death sequence,
+        /// CropCollector's corn/rare-pellet pickups, PowerPelletManager's power-on, RobotBase's
+        /// defeated-then-returned respawn) — so call sites read as what happened, not which clip
+        /// field to reach into.</summary>
+        public void PlayAnimalDeathSfx() => PlaySFX(animalDeathClip);
+        public void PlayCornPickupSfx() => PlaySFX(cornPickupClip);
+        public void PlayPowerReadySfx() => PlaySFX(powerReadyClip);
+        public void PlayRarePelletPickupSfx() => PlaySFX(rarePelletPickupClip);
+        public void PlayRobotRespawnSfx() => PlaySFX(robotRespawnClip);
+
+        /// <summary>Crossfades the looping music track to the "power active" cue for as long as a
+        /// power pellet's effect lasts — PowerPelletManager calls this on activation and
+        /// ResumeBackgroundMusic when the effect ends (including a fresh pellet refreshing an
+        /// already-active timer, which doesn't retrigger this — see its OnPowerStateChanged
+        /// call site).</summary>
+        public void PlayEatRobotMusic() => PlayMusic(eatRobotMusicClip);
+
+        /// <summary>Crossfades back to the regular background track — the counterpart to
+        /// PlayEatRobotMusic. Also what GameManager.LoadLevel calls to start the music in the first
+        /// place, since starting a level and "resuming the background track" are the same action.</summary>
+        public void ResumeBackgroundMusic() => PlayMusic(backgroundMusicClip);
+
+        /// <summary>Silences whichever music source is currently playing — used by GameManager
+        /// when leaving gameplay (EndLevel, QuitToMainMenu) so background music plays only during
+        /// an active run, never on Main Menu/World Map. Doesn't touch the SFX pool (unlike
+        /// StopAllAudio), since those two concerns are independent.</summary>
+        public void StopMusic()
+        {
+            if (_musicFadeRoutine != null)
+            {
+                StopCoroutine(_musicFadeRoutine);
+                _musicFadeRoutine = null;
+            }
+            if (musicSourceA != null) musicSourceA.Stop();
+            if (musicSourceB != null) musicSourceB.Stop();
         }
 
         public void PlaySFX(AudioClip clip, float volume = 1f)

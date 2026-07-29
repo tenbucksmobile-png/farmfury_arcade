@@ -19,10 +19,16 @@ namespace FarmFuryArcade.Gameplay
         /// event is safe here for the same reason it's safe on GridMovement.</summary>
         public static event Action OnAbilityActivateInput;
 
-        /// <summary>Tab — toggles CharacterSwapUI (Phase 4).</summary>
+        /// <summary>Tab — toggles ChooseCharacterScreen.</summary>
         public static event Action OnSwapMenuToggleInput;
 
         [SerializeField] private float minSwipeDistancePixels = 50f;
+
+        /// <summary>Raises OnDirectionInput exactly like a keyboard press or swipe would — the
+        /// on-screen directional pad (GameplayHUD's DirectionalPadController) calls this from each
+        /// button's onClick instead of duplicating the event/subscription mechanics GridMovement
+        /// already listens to.</summary>
+        public static void RaiseDirectionInput(Direction dir) => OnDirectionInput?.Invoke(dir);
 
         private Vector2 _pointerDownPosition;
         private bool _isPressed;

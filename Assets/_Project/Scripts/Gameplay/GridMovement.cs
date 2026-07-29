@@ -14,7 +14,6 @@ namespace FarmFuryArcade.Gameplay
     public class GridMovement : MonoBehaviour
     {
         [SerializeField] private float speed = 4f;
-        private const float AlignmentEpsilon = 0.02f;
 
         private TileMapRenderer _tileMap;
         private Direction _queuedDirection = Direction.None;
@@ -60,6 +59,16 @@ namespace FarmFuryArcade.Gameplay
             _canCrossWater = canCross;
         }
 
+        /// <summary>Advances up to a full frame's worth of movement, clamping exactly on any cell
+        /// boundary it crosses rather than sampling a small epsilon window once per frame. The old
+        /// approach compared distance-to-center against a fixed epsilon (0.02) that per-frame
+        /// movement (speed * deltaTime, easily 0.05-0.15 world units) could jump straight past —
+        /// intermittently skipping the walkability re-check entirely, which read as either the
+        /// character clipping through a wall (the check that should have stopped it never ran) or
+        /// freezing unresponsive to input (it stopped mid-frame off-center, so the "am I at a cell
+        /// center, can I accept a new queued direction" branch never became true again). Snapping
+        /// to the exact cell center the instant it's reached — and carrying over any leftover
+        /// distance into the next segment — makes this correct at any speed/frame-rate/cell size.</summary>
         private void Update()
         {
             if (_tileMap == null)
@@ -67,30 +76,59 @@ namespace FarmFuryArcade.Gameplay
                 return;
             }
 
-            Vector2Int cell = _tileMap.WorldToGrid(transform.position);
-            Vector3 cellCenter = _tileMap.GridToWorld(cell);
-            bool atCenter = Vector3.Distance(transform.position, cellCenter) < AlignmentEpsilon;
-
-            if (atCenter)
+            float remaining = speed * TileMapRenderer.CellSize * Time.deltaTime;
+            int guard = 0;
+            while (remaining > 0f && guard++ < 8)
             {
-                transform.position = cellCenter;
-                CurrentGridPosition = cell;
-
-                if (CanApplyDirection(cell, _queuedDirection))
+                if (CurrentDirection == Direction.None)
                 {
-                    CurrentDirection = _queuedDirection;
+                    Vector2Int cell = _tileMap.WorldToGrid(transform.position);
+                    transform.position = _tileMap.GridToWorld(cell);
+                    CurrentGridPosition = cell;
+
+                    if (CanApplyDirection(cell, _queuedDirection))
+                    {
+                        CurrentDirection = _queuedDirection;
+                        continue;
+                    }
+                    break;
                 }
 
-                if (CurrentDirection != Direction.None && !_tileMap.IsWalkable(cell + DirectionUtils.ToVector(CurrentDirection), _canCrossWater))
-                {
-                    CurrentDirection = Direction.None;
-                }
-            }
-
-            if (CurrentDirection != Direction.None)
-            {
+                Vector2Int fromCell = _tileMap.WorldToGrid(transform.position);
                 Vector2Int dirVector = DirectionUtils.ToVector(CurrentDirection);
-                transform.position += new Vector3(dirVector.x, dirVector.y, 0f) * speed * Time.deltaTime;
+                Vector2Int nextCell = fromCell + dirVector;
+
+                if (!_tileMap.IsWalkable(nextCell, _canCrossWater))
+                {
+                    transform.position = _tileMap.GridToWorld(fromCell);
+                    CurrentGridPosition = fromCell;
+                    CurrentDirection = Direction.None;
+                    break;
+                }
+
+                Vector3 targetCenter = _tileMap.GridToWorld(nextCell);
+                float distToTarget = Vector3.Distance(transform.position, targetCenter);
+
+                if (remaining >= distToTarget)
+                {
+                    transform.position = targetCenter;
+                    CurrentGridPosition = nextCell;
+                    remaining -= distToTarget;
+
+                    if (CanApplyDirection(nextCell, _queuedDirection))
+                    {
+                        CurrentDirection = _queuedDirection;
+                    }
+                    else if (!_tileMap.IsWalkable(nextCell + DirectionUtils.ToVector(CurrentDirection), _canCrossWater))
+                    {
+                        CurrentDirection = Direction.None;
+                    }
+                }
+                else
+                {
+                    transform.position += new Vector3(dirVector.x, dirVector.y, 0f) * remaining;
+                    remaining = 0f;
+                }
             }
         }
 

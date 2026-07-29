@@ -15,9 +15,9 @@ GameObject:
   - component: {fileID: 7681748874935571867}
   - component: {fileID: 8869355332589374064}
   - component: {fileID: 6012903213663039013}
-  - component: {fileID: 1734764557889762479}
-  - component: {fileID: 8109012189226213915}
-  - component: {fileID: 6783895040522422093}
+  - component: {fileID: 797450095471383200}
+  - component: {fileID: 4985681789366488157}
+  - component: {fileID: 5557972376151718094}
   m_Layer: 0
   m_Name: Cluck
   m_TagString: Untagged
@@ -35,7 +35,7 @@ Transform:
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
   m_LocalPosition: {x: 0, y: 0, z: 0}
-  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_LocalScale: {x: 2, y: 2, z: 2}
   m_ConstrainProportionsScale: 0
   m_Children: []
   m_Father: {fileID: 0}
@@ -202,7 +202,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::FarmFuryArcade.Gameplay.CharacterAnimator
   characterData: {fileID: 0}
   frameInterval: 0.15
---- !u!114 &1734764557889762479
+--- !u!114 &797450095471383200
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -216,7 +216,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::FarmFuryArcade.Gameplay.PlayerHealth
   inputLockSeconds: 1.5
   fadeOutSeconds: 0.6
---- !u!114 &8109012189226213915
+--- !u!114 &4985681789366488157
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -229,7 +229,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::FarmFuryArcade.Gameplay.CharacterBase
   characterType: 0
---- !u!114 &6783895040522422093
+--- !u!114 &5557972376151718094
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}

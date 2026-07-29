@@ -25,7 +25,6 @@ namespace FarmFuryArcade.Enemies
     [RequireComponent(typeof(Collider2D))]
     public abstract class RobotBase : MonoBehaviour
     {
-        private const float AlignmentEpsilon = 0.02f;
         private const float ChaseDurationSeconds = 20f;
         private const float ScatterDurationSeconds = 5f;
         private const float DefeatedPauseSeconds = 0.5f;
@@ -260,6 +259,11 @@ namespace FarmFuryArcade.Enemies
             CurrentState = CurrentState == RobotState.Chase ? RobotState.Scatter : RobotState.Chase;
         }
 
+        /// <summary>Same crossing/clamp movement approach as GridMovement (see its doc comment for
+        /// why the old fixed-epsilon "am I at the cell center" check was unreliable at real
+        /// per-frame speeds — it applies here identically, since RobotBase mirrors that algorithm).
+        /// Snaps exactly onto any cell boundary crossed this frame and carries over leftover
+        /// distance, instead of only sometimes sampling a narrow center window once per frame.</summary>
         protected virtual void UpdateMovement()
         {
             if (CurrentState == RobotState.Defeated)
@@ -267,38 +271,85 @@ namespace FarmFuryArcade.Enemies
                 return;
             }
 
-            Vector2Int cell = tileMap.WorldToGrid(transform.position);
-            Vector3 cellCenter = tileMap.GridToWorld(cell);
-            bool atCenter = Vector3.Distance(transform.position, cellCenter) < AlignmentEpsilon;
-
-            if (atCenter)
+            float remaining = CurrentSpeed * TileMapRenderer.CellSize * Time.deltaTime;
+            int guard = 0;
+            while (remaining > 0f && guard++ < 8)
             {
-                transform.position = cellCenter;
-                CurrentGridPosition = cell;
-
-                if (CurrentState == RobotState.Returning &&
-                    Vector2Int.Distance(cell, factoryPosition) <= FactoryArriveEpsilonTiles)
+                if (CurrentDirection == Direction.None)
                 {
-                    ArriveAtFactory();
-                    return;
+                    Vector2Int cell = tileMap.WorldToGrid(transform.position);
+                    transform.position = tileMap.GridToWorld(cell);
+                    CurrentGridPosition = cell;
+
+                    if (EvaluateArrivalAndDirection(cell))
+                    {
+                        return;
+                    }
+                    if (CurrentDirection == Direction.None)
+                    {
+                        break;
+                    }
+                    continue;
                 }
 
-                Direction desired = ComputeDesiredDirection(cell);
-                if (desired != Direction.None && IsWalkableForThisRobot(cell + DirectionUtils.ToVector(desired)))
-                {
-                    CurrentDirection = desired;
-                }
-                else if (CurrentDirection != Direction.None && !IsWalkableForThisRobot(cell + DirectionUtils.ToVector(CurrentDirection)))
-                {
-                    CurrentDirection = Direction.None;
-                }
-            }
-
-            if (CurrentDirection != Direction.None)
-            {
+                Vector2Int fromCell = tileMap.WorldToGrid(transform.position);
                 Vector2Int dirVector = DirectionUtils.ToVector(CurrentDirection);
-                transform.position += new Vector3(dirVector.x, dirVector.y, 0f) * CurrentSpeed * Time.deltaTime;
+                Vector2Int nextCell = fromCell + dirVector;
+
+                if (!IsWalkableForThisRobot(nextCell))
+                {
+                    transform.position = tileMap.GridToWorld(fromCell);
+                    CurrentGridPosition = fromCell;
+                    CurrentDirection = Direction.None;
+                    break;
+                }
+
+                Vector3 targetCenter = tileMap.GridToWorld(nextCell);
+                float distToTarget = Vector3.Distance(transform.position, targetCenter);
+
+                if (remaining >= distToTarget)
+                {
+                    transform.position = targetCenter;
+                    CurrentGridPosition = nextCell;
+                    remaining -= distToTarget;
+
+                    if (EvaluateArrivalAndDirection(nextCell))
+                    {
+                        return;
+                    }
+                }
+                else
+                {
+                    transform.position += new Vector3(dirVector.x, dirVector.y, 0f) * remaining;
+                    remaining = 0f;
+                }
             }
+        }
+
+        /// <summary>Runs on every cell-center arrival (and every loop iteration while stationary,
+        /// matching the old code's per-frame atCenter re-evaluation): Returning-state factory
+        /// arrival takes priority, then ComputeDesiredDirection picks (or fails to pick) a new
+        /// heading. Returns true if ArriveAtFactory fired — callers must stop immediately since
+        /// state has already been reset.</summary>
+        private bool EvaluateArrivalAndDirection(Vector2Int cell)
+        {
+            if (CurrentState == RobotState.Returning &&
+                Vector2Int.Distance(cell, factoryPosition) <= FactoryArriveEpsilonTiles)
+            {
+                ArriveAtFactory();
+                return true;
+            }
+
+            Direction desired = ComputeDesiredDirection(cell);
+            if (desired != Direction.None && IsWalkableForThisRobot(cell + DirectionUtils.ToVector(desired)))
+            {
+                CurrentDirection = desired;
+            }
+            else if (CurrentDirection != Direction.None && !IsWalkableForThisRobot(cell + DirectionUtils.ToVector(CurrentDirection)))
+            {
+                CurrentDirection = Direction.None;
+            }
+            return false;
         }
 
         protected virtual Direction ComputeDesiredDirection(Vector2Int cell)
@@ -424,6 +475,7 @@ namespace FarmFuryArcade.Enemies
             _healthPoints = InitialHealthPoints;
             _chaseScatterTimer = 0f;
             _exitingFactory = true;
+            AudioManager.Instance?.PlayRobotRespawnSfx();
         }
     }
 }

@@ -3,10 +3,12 @@ using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
 using UnityEngine.UI;
+using TMPro;
 using FarmFuryArcade.Core;
 using FarmFuryArcade.Data;
 using FarmFuryArcade.Enemies;
 using FarmFuryArcade.UI;
+using FarmFuryArcade.Utilities;
 
 namespace FarmFuryArcade.EditorTools
 {
@@ -112,11 +114,24 @@ namespace FarmFuryArcade.EditorTools
         private const string LogoImage = "Assets/_Project/Sprites/UI/Logo.png";
         private const string AppIconImage = "Assets/_Project/Sprites/UI/AppIcon.png";
         private const string WheatfieldBackdrop = "Assets/_Project/Sprites/UI/Wheatfield_background.png";
-        private const string MatchupBackground = "Assets/_Project/Sprites/UI/matchup.png";
+        private const string SettingsBackground = "Assets/_Project/Sprites/UI/LoadingScreen Background.png";
         private const string LevelCompletePanel = "Assets/_Project/Sprites/UI/LevelComplete.png";
         private const string LevelFailedPanel = "Assets/_Project/Sprites/UI/LevelFailed.png";
         private const string PausedPanel = "Assets/_Project/Sprites/UI/Paused.png";
         private const string CardFrame = "Assets/_Project/Sprites/UI/Card.png";
+        private const string BackgroundMusicClip = "Assets/_Project/Audio/Music/BackgroundMusic.mp3";
+        private const string AnimalDeathSfx = "Assets/_Project/Audio/SFX/Animal_death.mp3";
+        private const string CornPickupSfx = "Assets/_Project/Audio/SFX/CornPickup.mp3";
+        private const string PowerReadySfx = "Assets/_Project/Audio/SFX/PowerReady.mp3";
+        private const string RarePelletPickupSfx = "Assets/_Project/Audio/SFX/RarePellet_pickup.mp3";
+        private const string RobotSpawnSfx = "Assets/_Project/Audio/SFX/RobotSpawn.mp3";
+        private const string EatRobotMusicClip = "Assets/_Project/Audio/SFX/EatRobot.mp3";
+
+        /// <summary>Bundled with TMP's own "Examples & Extras" (Assets/TextMesh Pro/Examples &
+        /// Extras/...) — a bold comic/cartoon-style display face, already has its own correctly
+        /// generated SDF material (unlike Inter-Regular SDF's broken shader — see CLAUDE.md's TMP
+        /// bootstrap section), so no import/generation step is needed, just point .font at it.</summary>
+        private const string BangersFontPath = "Assets/TextMesh Pro/Examples & Extras/Resources/Fonts & Materials/Bangers SDF.asset";
         private const string BtnPlay = "Assets/_Project/Sprites/UI/Btn_play.png";
         private const string BtnPause = "Assets/_Project/Sprites/UI/Btn_pause.png";
         private const string BtnSettings = "Assets/_Project/Sprites/UI/Btn_settings.png";
@@ -127,6 +142,29 @@ namespace FarmFuryArcade.EditorTools
         private const string BtnSkip = "Assets/_Project/Sprites/UI/Btn_skip.png";
         private const string BtnBack = "Assets/_Project/Sprites/UI/Btn_back.png";
         private const string BtnPlaque = "Assets/_Project/Sprites/UI/Btn_plaque.png";
+        private const string RetryButtonArt = "Assets/_Project/Sprites/UI/Retry.png";
+        private const string MenuButtonArt = "Assets/_Project/Sprites/UI/Menu.png";
+        private const string ResumeButtonArt = "Assets/_Project/Sprites/UI/Resume.png";
+        private const string SwapCharacterButtonArt = "Assets/_Project/Sprites/UI/SwapCharacter.png";
+        private const string RestartButtonArt = "Assets/_Project/Sprites/UI/Restart.png";
+        private const string SettingsButtonArt = "Assets/_Project/Sprites/UI/Settings.png";
+        private const string QuitButtonArt = "Assets/_Project/Sprites/UI/Quit.png";
+
+        // ---- ChooseCharacterScreen card art (framed "animal card" portraits) -------------------
+        private const string CluckCard = "Assets/_Project/Sprites/UI/Cluck_Chicken.png";
+        private const string BessieCard = "Assets/_Project/Sprites/UI/Bessie_Cow.png";
+        private const string PercyCard = "Assets/_Project/Sprites/UI/Percy_Pig.png";
+        private const string WoollyCard = "Assets/_Project/Sprites/UI/Woolly_Sheep.png";
+        private const string DuckyCard = "Assets/_Project/Sprites/UI/Ducky_Duck.png";
+        private const string HoraceCard = "Assets/_Project/Sprites/UI/Horace_Horse.png";
+        private const string GeraldCard = "Assets/_Project/Sprites/UI/Gerald_Turkey.png";
+        private const string BillyCard = "Assets/_Project/Sprites/UI/Billy_Goat.png";
+
+        // ---- On-screen directional pad -----------------------------------------------------
+        private const string DPadUp = "Assets/_Project/Sprites/UI/up.png";
+        private const string DPadDown = "Assets/_Project/Sprites/UI/down.png";
+        private const string DPadLeft = "Assets/_Project/Sprites/UI/left.png";
+        private const string DPadRight = "Assets/_Project/Sprites/UI/right.png";
 
         [MenuItem("Farm Fury Arcade/Wire Uploaded Art")]
         public static void WireAll()
@@ -141,11 +179,14 @@ namespace FarmFuryArcade.EditorTools
             WireBackgroundsAndCoinIcon();
 
             WireNewCharacters();
+            WireCharacterSelectCards();
             WireNewRobots();
             WireAbilityEffects();
             WireCardsAndPanels();
             WireButtons();
             WireAppIcon();
+            WireAudio();
+            WireGameplayFont();
 
             AssetDatabase.SaveAssets();
             AssetDatabase.Refresh();
@@ -166,11 +207,15 @@ namespace FarmFuryArcade.EditorTools
             PercyFront, PercyBack, PercyLeft, PercyEffect, DuckyFront, DuckyBack, BessieSlam,
             ScoutFront, ScoutLeft, ScoutRight, PatrolFront, PatrolBack, PatrolLeft, PatrolRight,
             HeavyFront, HeavyBack, DrifterFront, DrifterLeft, DrifterRight, RobotEyes,
-            MatchupBackground, LevelCompletePanel, LevelFailedPanel, PausedPanel, CardFrame,
+            LevelCompletePanel, LevelFailedPanel, PausedPanel, CardFrame,
             BtnPlay, BtnPause, BtnSettings, BtnQuit, BtnMusic, BtnNoSound, BtnHome, BtnSkip, BtnBack, BtnPlaque,
+            RetryButtonArt, MenuButtonArt, ResumeButtonArt, SwapCharacterButtonArt, RestartButtonArt,
+            SettingsButtonArt, QuitButtonArt,
+            CluckCard, BessieCard, PercyCard, WoollyCard, DuckyCard, HoraceCard, GeraldCard, BillyCard,
+            DPadUp, DPadDown, DPadLeft, DPadRight,
             GeraldFront, GeraldBack, GeraldLeft,
             CluckRight, CluckRightWalk2, CluckLeftWalk,
-            WallCornTiles, FloorTile, WarpTile, WheatfieldBackdrop
+            WallCornTiles, FloorTile, WarpTile, WheatfieldBackdrop, SettingsBackground
         };
 
         private static void ConfigureSpriteImporters()
@@ -276,9 +321,9 @@ namespace FarmFuryArcade.EditorTools
             SetRobotPortrait("Harvester", front);
         }
 
-        /// <summary>RobotData.portraitSprite (used by MatchupScreenController's robot cards) was
-        /// unwired until now — every robot's front sprite doubles as its portrait, same convention
-        /// as CharacterData.portraitSprite in SetWalkFrames/WireCluck.</summary>
+        /// <summary>RobotData.portraitSprite was unwired until now — every robot's front sprite
+        /// doubles as its portrait, same convention as CharacterData.portraitSprite in
+        /// SetWalkFrames/WireCluck.</summary>
         private static void SetRobotPortrait(string robotTypeName, Sprite front)
         {
             if (front == null)
@@ -337,18 +382,26 @@ namespace FarmFuryArcade.EditorTools
         }
 
         /// <summary>Gameplay had no art behind the maze grid at all — just the camera's clear
-        /// color — a documented gap that became visible once SceneCleanupBuilder.
-        /// FitGameplayCameraToMaze widened the camera to fit the whole 28x31 board, since that
-        /// view is wider (16:9 at orthographic size 16) than the board itself and leaves margins
-        /// on either side. Wheatfield_background.png was uploaded early on but went unused once
-        /// LevelComplete/Failed/Pause got their own dedicated panel art — reused here instead of
-        /// uploading something new. One SpriteRenderer, scaled well past the fit-to-maze camera
-        /// view in both axes (its own aspect ratio preserved) and sorting-ordered below
-        /// Ground_CornField's -1, so tile art still draws over it everywhere inside the maze; it
-        /// only actually shows in the letterboxed margins outside the board's own footprint.
-        /// Centered on LevelData_01's own dimensions rather than TileMapRenderer.MazeWidth/Height,
-        /// since those are runtime-only (0 until a level is loaded in Play mode) and this runs in
-        /// the Editor at wiring time.</summary>
+        /// color, a documented gap. Wheatfield_background.png was uploaded early on but went
+        /// unused once LevelComplete/Failed/Pause got their own dedicated panel art — reused here
+        /// instead of uploading something new. One SpriteRenderer, sorting-ordered below
+        /// Ground_CornField's -1 so tile art still draws over it everywhere inside the maze.
+        ///
+        /// Sized as a "cover" fit against the maze's own world bounds (mazeWidth/Height *
+        /// TileMapRenderer.CellSize) rather than a fixed hardcoded width: scaled uniformly (so the
+        /// art's own aspect ratio is always preserved — never non-uniformly stretched) to just
+        /// barely cover the full area CameraFollow can ever pan across, picking whichever axis
+        /// needs more scale to do so. A fixed "90 units wide" constant (this image's previous
+        /// sizing, tuned back when 1 grid cell was 1 world unit) badly overshot that once
+        /// TileMapRenderer.CellSize made cells bigger — the same fixed pixel-to-world ratio now
+        /// spanned far more of the image than fits in view, reading as a zoomed-in crop instead of
+        /// the intended whole-picture backdrop. Deriving the size from the maze's actual current
+        /// world footprint keeps this correct if the maze or CellSize ever change again, and this
+        /// image's own aspect ratio (2720x1536, ~16:9) already closely matches the camera's, so in
+        /// practice this reads as "the whole picture, undistorted" exactly as intended rather than
+        /// an arbitrary zoom level. Centered on LevelData_01's own dimensions rather than
+        /// TileMapRenderer.MazeWidth/Height, since those are runtime-only (0 until a level is
+        /// loaded in Play mode) and this runs in the Editor at wiring time.</summary>
         private static void WireGameplayBackdrop()
         {
             var sprite = Load(WheatfieldBackdrop);
@@ -362,8 +415,10 @@ namespace FarmFuryArcade.EditorTools
 
             var level = AssetDatabase.LoadAssetAtPath<LevelData>(
                 "Assets/_Project/ScriptableObjects/Resources/Levels/LevelData_01.asset");
-            float centerX = level != null ? (level.mazeWidth - 1) / 2f : 13.5f;
-            float centerY = level != null ? (level.mazeHeight - 1) / 2f : 15f;
+            float mazeWorldWidth = level != null ? (level.mazeWidth - 1) * TileMapRenderer.CellSize : 26f;
+            float mazeWorldHeight = level != null ? (level.mazeHeight - 1) * TileMapRenderer.CellSize : 30f;
+            float centerX = mazeWorldWidth / 2f;
+            float centerY = mazeWorldHeight / 2f;
 
             var mazeParent = GameObject.Find("MazeParent")?.transform;
             var backdropGO = GameObject.Find("GameplayBackdrop");
@@ -381,9 +436,24 @@ namespace FarmFuryArcade.EditorTools
             sr.sprite = sprite;
             sr.sortingOrder = -5;
 
-            float aspect = sprite.rect.height / sprite.rect.width;
-            const float widthUnits = 90f; // comfortably exceeds the fit-to-maze camera view (orthographic size 16 -> ~56.9 wide) in both axes
-            backdropGO.transform.localScale = new Vector3(widthUnits, widthUnits * aspect, 1f);
+            // The backdrop must cover whichever is bigger: the maze's own world footprint, or the
+            // camera's view width (CameraFollow deliberately shows more width than the maze itself
+            // has — that's the whole point of WidthFillFraction, extra screen margin at the edges
+            // for backdrop art to show through). CameraFollow.TargetVisibleColumns/WidthFillFraction
+            // give a camera view width that's constant regardless of the runtime aspect ratio (only
+            // view HEIGHT varies with aspect, and that's bounded by mazeWorldHeight in all realistic
+            // landscape aspects) — see that script's own comment. A 1.3x safety margin on top covers
+            // any aspect extreme enough to break that assumption, without needing to know the actual
+            // runtime aspect at Editor-wiring time.
+            const float safetyMargin = 1.3f;
+            float targetCameraViewWidth = CameraFollow.TargetVisibleColumns * TileMapRenderer.CellSize / CameraFollow.WidthFillFraction;
+            float requiredWidth = Mathf.Max(mazeWorldWidth, targetCameraViewWidth) * safetyMargin;
+            float requiredHeight = mazeWorldHeight * safetyMargin;
+
+            float imageAspect = sprite.rect.width / sprite.rect.height; // width/height, e.g. ~1.77
+            float widthUnits = Mathf.Max(requiredWidth, requiredHeight * imageAspect);
+            float heightUnits = widthUnits / imageAspect;
+            backdropGO.transform.localScale = new Vector3(widthUnits, heightUnits, 1f);
             backdropGO.transform.position = new Vector3(centerX, centerY, 0f);
 
             EditorSceneManager.SaveScene(EditorSceneManager.GetActiveScene());
@@ -503,6 +573,42 @@ namespace FarmFuryArcade.EditorTools
             EditorUtility.SetDirty(data);
         }
 
+        /// <summary>ChooseCharacterScreen's card art — separate from portraitSprite/
+        /// walkAnimationFrames since these are dedicated framed "animal card" images (a wood-frame
+        /// border baked directly into each file), not a plain front-facing sprite. Covers all 8
+        /// characters in one pass regardless of which walk-cycle art they have (Horace/Billy have
+        /// dedicated card art despite still being solid-colour placeholders in actual gameplay).</summary>
+        private static void WireCharacterSelectCards()
+        {
+            SetSelectCardArt("Cluck", Load(CluckCard));
+            SetSelectCardArt("Bessie", Load(BessieCard));
+            SetSelectCardArt("Percy", Load(PercyCard));
+            SetSelectCardArt("Woolly", Load(WoollyCard));
+            SetSelectCardArt("Ducky", Load(DuckyCard));
+            SetSelectCardArt("Horace", Load(HoraceCard));
+            SetSelectCardArt("Gerald", Load(GeraldCard));
+            SetSelectCardArt("Billy", Load(BillyCard));
+        }
+
+        private static void SetSelectCardArt(string characterTypeName, Sprite cardArt)
+        {
+            if (cardArt == null)
+            {
+                return;
+            }
+
+            string path = $"{CharacterDataFolder}/CharacterData_{characterTypeName}.asset";
+            var data = AssetDatabase.LoadAssetAtPath<CharacterData>(path);
+            if (data == null)
+            {
+                Debug.LogWarning($"[ArtWiringBuilder] CharacterData_{characterTypeName} not found at {path}");
+                return;
+            }
+
+            data.selectCardArt = cardArt;
+            EditorUtility.SetDirty(data);
+        }
+
         private static void WireCharacterPrefabSprite(string prefabPath, Sprite front)
         {
             if (front == null || !File.Exists(prefabPath))
@@ -596,8 +702,8 @@ namespace FarmFuryArcade.EditorTools
             WireRobotVisual(DrifterPrefabPath, drifterFront, null, Load(DrifterLeft), Load(DrifterRight));
             SetRobotPortrait("Drifter", drifterFront);
 
-            // Drone has no uploaded art yet — still gets the universal defeated-eyes sprite and
-            // no portraitSprite, so its Matchup/robot-card slot stays a colour-tint placeholder.
+            // Drone has no uploaded art yet — still gets the universal defeated-eyes sprite, but
+            // no portraitSprite.
             WireRobotVisual(DronePrefabPath, null, null, null, null);
         }
 
@@ -622,17 +728,15 @@ namespace FarmFuryArcade.EditorTools
                 return;
             }
 
-            var matchup = Load(MatchupBackground);
-            SetScreenBackground(canvasTransform, "MatchupScreen", matchup);
             SetScreenBackground(canvasTransform, "LevelCompleteScreen", Load(LevelCompletePanel));
             SetScreenBackground(canvasTransform, "LevelFailedScreen", Load(LevelFailedPanel));
             SetScreenBackground(canvasTransform, "PauseOverlay", Load(PausedPanel));
+            SetScreenBackground(canvasTransform, "SettingsOverlay", Load(SettingsBackground));
+            SetImageSprite(canvasTransform, "SettingsOverlay/ContentBackdrop", Load(BtnPlaque));
+            SetScreenBackground(canvasTransform, "ChooseCharacterScreen", Load(SettingsBackground));
 
-            // Matchup's CharacterCard/RobotCards intentionally do NOT get the Card.png frame —
-            // matchup.png's background art already bakes in two wood-frame slots at those exact
-            // positions (see Phase5ProjectBuilder.BuildMatchup); adding Card.png on top would
-            // double up the framing. Card.png is still used for New Character Unlock and RosterCard,
-            // neither of which has a frame baked into their background.
+            // Card.png is used for New Character Unlock and RosterCard, neither of which has a
+            // frame baked into their background.
             var card = Load(CardFrame);
             if (card != null)
             {
@@ -667,25 +771,6 @@ namespace FarmFuryArcade.EditorTools
             image.sprite = sprite;
         }
 
-        /// <summary>GameplayHUD.soundOnSprite/soundOffSprite are plain Sprite fields (not an
-        /// Image on the button itself, which SetImageSprite already handles), swapped at runtime
-        /// by RefreshSoundIcon — the first uses of Btn_nosound.png, which was uploaded a while ago
-        /// but had no icon-swap feature to hook into until now.</summary>
-        private static void WireSoundIconSprites(Transform canvasTransform, Sprite music, Sprite noSound)
-        {
-            var hud = canvasTransform.Find("GameplayScreen")?.GetComponent<GameplayHUD>();
-            if (hud == null)
-            {
-                Debug.LogWarning("[ArtWiringBuilder] Could not find GameplayHUD to wire sound icon sprites.");
-                return;
-            }
-
-            var so = new SerializedObject(hud);
-            so.FindProperty("soundOnSprite").objectReferenceValue = music;
-            so.FindProperty("soundOffSprite").objectReferenceValue = noSound;
-            so.ApplyModifiedPropertiesWithoutUndo();
-        }
-
         // ---- Buttons --------------------------------------------------------------------------
 
         private static void WireButtons()
@@ -701,9 +786,7 @@ namespace FarmFuryArcade.EditorTools
             var play = Load(BtnPlay);
             var pause = Load(BtnPause);
             var settings = Load(BtnSettings);
-            var quit = Load(BtnQuit);
             var music = Load(BtnMusic);
-            var noSound = Load(BtnNoSound);
             var home = Load(BtnHome);
             var skip = Load(BtnSkip);
             var back = Load(BtnBack);
@@ -714,21 +797,19 @@ namespace FarmFuryArcade.EditorTools
 
             SetImageSprite(canvasTransform, "WorldMapScreen/HomeButton", home);
 
-            SetImageSprite(canvasTransform, "MatchupScreen/PlayButton", play);
-            SetImageSprite(canvasTransform, "MatchupScreen/HomeButton", home);
-
             SetImageSprite(canvasTransform, "GameplayScreen/PauseButton", pause);
-            SetImageSprite(canvasTransform, "GameplayScreen/SoundButton", music);
-            SetImageSprite(canvasTransform, "GameplayScreen/HomeButton", home);
-            WireSoundIconSprites(canvasTransform, music, noSound);
+            SetImageSprite(canvasTransform, "GameplayScreen/DPadUpButton", Load(DPadUp));
+            SetImageSprite(canvasTransform, "GameplayScreen/DPadDownButton", Load(DPadDown));
+            SetImageSprite(canvasTransform, "GameplayScreen/DPadLeftButton", Load(DPadLeft));
+            SetImageSprite(canvasTransform, "GameplayScreen/DPadRightButton", Load(DPadRight));
 
-            SetImageSprite(canvasTransform, "PauseOverlay/Content/ResumeButton", play);
-            SetImageSprite(canvasTransform, "PauseOverlay/Content/SwapButton", plaque);
-            SetImageSprite(canvasTransform, "PauseOverlay/Content/RestartButton", plaque);
-            SetImageSprite(canvasTransform, "PauseOverlay/Content/SettingsButton", settings);
-            SetImageSprite(canvasTransform, "PauseOverlay/Content/QuitButton", quit);
+            SetImageSprite(canvasTransform, "PauseOverlay/ResumeButton", Load(ResumeButtonArt));
+            SetImageSprite(canvasTransform, "PauseOverlay/SwapButton", Load(SwapCharacterButtonArt));
+            SetImageSprite(canvasTransform, "PauseOverlay/RestartButton", Load(RestartButtonArt));
+            SetImageSprite(canvasTransform, "PauseOverlay/SettingsButton", Load(SettingsButtonArt));
+            SetImageSprite(canvasTransform, "PauseOverlay/QuitButton", Load(QuitButtonArt));
 
-            SetImageSprite(canvasTransform, "SettingsOverlay/Content/TitleRow/CloseButton", back);
+            SetImageSprite(canvasTransform, "SettingsOverlay/BackButton", back);
             SetImageSprite(canvasTransform, "SettingsOverlay/Content/MusicToggle/MusicToggle_Box", music);
 
             SetImageSprite(canvasTransform, "StoreComingSoonOverlay/Content/CloseButton", back);
@@ -738,13 +819,104 @@ namespace FarmFuryArcade.EditorTools
             SetImageSprite(canvasTransform, "LevelCompleteScreen/Content/Buttons/HomeButton", home);
             SetImageSprite(canvasTransform, "LevelCompleteScreen/NewCharacterUnlockOverlay/UnlockContent/ContinueButton", play);
 
-            SetImageSprite(canvasTransform, "LevelFailedScreen/Content/Buttons/RetryButton", plaque);
-            SetImageSprite(canvasTransform, "LevelFailedScreen/Content/Buttons/HomeButton", home);
+            SetImageSprite(canvasTransform, "LevelFailedScreen/RetryButton", Load(RetryButtonArt));
+            SetImageSprite(canvasTransform, "LevelFailedScreen/MenuButton", Load(MenuButtonArt));
 
             SetImageSprite(canvasTransform, "CharacterRosterScreen/BackButton", back);
             SetImageSprite(canvasTransform, "LeaderboardsScreen/Content/BackButton", back);
+            SetImageSprite(canvasTransform, "ChooseCharacterScreen/BackButton", back);
 
             EditorSceneManager.SaveScene(EditorSceneManager.GetActiveScene());
+        }
+
+        // ---- Audio --------------------------------------------------------------------------------
+
+        /// <summary>Wires background music + the power-active music swap + all 5 SFX clips onto
+        /// AudioManager (on GameManagers). AudioManager.Start() plays the background music clip
+        /// immediately and loops it for the life of the app; PowerPelletManager crossfades to
+        /// eatRobotMusicClip for the duration of a power pellet's effect and back afterward
+        /// (PlayEatRobotMusic/ResumeBackgroundMusic). The SFX clips are played by their respective
+        /// gameplay triggers via AudioManager.PlayAnimalDeathSfx/PlayCornPickupSfx/
+        /// PlayPowerReadySfx/PlayRarePelletPickupSfx/PlayRobotRespawnSfx (see PlayerHealth,
+        /// CropCollector, PowerPelletManager, RobotBase respectively). AudioClip import settings
+        /// are left at Unity's defaults (no ConfigureSpriteImporters-style pass needed here, unlike
+        /// sprites) since the default compressed-in-memory settings are already reasonable for
+        /// these short clips and the two looping music tracks.</summary>
+        private static void WireAudio()
+        {
+            var musicClip = AssetDatabase.LoadAssetAtPath<AudioClip>(BackgroundMusicClip);
+            var animalDeath = AssetDatabase.LoadAssetAtPath<AudioClip>(AnimalDeathSfx);
+            var cornPickup = AssetDatabase.LoadAssetAtPath<AudioClip>(CornPickupSfx);
+            var powerReady = AssetDatabase.LoadAssetAtPath<AudioClip>(PowerReadySfx);
+            var rarePelletPickup = AssetDatabase.LoadAssetAtPath<AudioClip>(RarePelletPickupSfx);
+            var robotSpawn = AssetDatabase.LoadAssetAtPath<AudioClip>(RobotSpawnSfx);
+            var eatRobotMusic = AssetDatabase.LoadAssetAtPath<AudioClip>(EatRobotMusicClip);
+
+            if (musicClip == null)
+            {
+                Debug.LogWarning($"[ArtWiringBuilder] {BackgroundMusicClip} not found — skipping background music wiring.");
+            }
+
+            EditorSceneManager.OpenScene(ScenePath);
+
+            var managersGO = GameObject.Find("GameManagers");
+            var audioManager = managersGO != null ? managersGO.GetComponent<AudioManager>() : null;
+            if (audioManager == null)
+            {
+                Debug.LogWarning("[ArtWiringBuilder] Could not find AudioManager on GameManagers — skipping audio wiring.");
+                return;
+            }
+
+            var so = new SerializedObject(audioManager);
+            if (musicClip != null) so.FindProperty("backgroundMusicClip").objectReferenceValue = musicClip;
+            if (animalDeath != null) so.FindProperty("animalDeathClip").objectReferenceValue = animalDeath;
+            if (cornPickup != null) so.FindProperty("cornPickupClip").objectReferenceValue = cornPickup;
+            if (powerReady != null) so.FindProperty("powerReadyClip").objectReferenceValue = powerReady;
+            if (rarePelletPickup != null) so.FindProperty("rarePelletPickupClip").objectReferenceValue = rarePelletPickup;
+            if (robotSpawn != null) so.FindProperty("robotRespawnClip").objectReferenceValue = robotSpawn;
+            if (eatRobotMusic != null) so.FindProperty("eatRobotMusicClip").objectReferenceValue = eatRobotMusic;
+            so.ApplyModifiedPropertiesWithoutUndo();
+
+            EditorSceneManager.SaveScene(EditorSceneManager.GetActiveScene());
+        }
+
+        // ---- Gameplay HUD font ----------------------------------------------------------------
+
+        /// <summary>Score/Timer use Bangers SDF instead of the default LiberationSans SDF — a
+        /// cartoon/comic display face matching the rest of the game's title and button art (per
+        /// playtest feedback that plain default-font score/timer text looked out of place).</summary>
+        private static void WireGameplayFont()
+        {
+            var font = AssetDatabase.LoadAssetAtPath<TMP_FontAsset>(BangersFontPath);
+            if (font == null)
+            {
+                Debug.LogWarning($"[ArtWiringBuilder] {BangersFontPath} not found — skipping cartoon font wiring.");
+                return;
+            }
+
+            EditorSceneManager.OpenScene(ScenePath);
+            var canvasTransform = GameObject.Find("Canvas")?.transform;
+            if (canvasTransform == null)
+            {
+                Debug.LogWarning("[ArtWiringBuilder] Could not find Canvas — skipping cartoon font wiring.");
+                return;
+            }
+
+            SetFont(canvasTransform, "GameplayScreen/ScoreText", font);
+            SetFont(canvasTransform, "GameplayScreen/TimerText", font);
+
+            EditorSceneManager.SaveScene(EditorSceneManager.GetActiveScene());
+        }
+
+        private static void SetFont(Transform canvasTransform, string path, TMP_FontAsset font)
+        {
+            var text = canvasTransform.Find(path)?.GetComponent<TextMeshProUGUI>();
+            if (text == null)
+            {
+                Debug.LogWarning($"[ArtWiringBuilder] Could not find TextMeshProUGUI at Canvas/{path} to wire font.");
+                return;
+            }
+            text.font = font;
         }
 
         // ---- App icon ---------------------------------------------------------------------------

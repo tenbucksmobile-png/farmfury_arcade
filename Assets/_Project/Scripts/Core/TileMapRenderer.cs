@@ -27,6 +27,15 @@ namespace FarmFuryArcade.Core
         [SerializeField] private Sprite goldenWheatPelletSprite;
         [SerializeField] private Sprite rainbowPelletSprite;
 
+        /// <summary>World units per grid cell. Raised from 1 to make tiles/sprites read bigger on
+        /// screen without touching the camera's orthographicSize — since the camera's view stays a
+        /// fixed number of world units, doubling the world size of each cell means the same camera
+        /// view now covers proportionally less of the (now bigger) board, which is the "zoom in"
+        /// effect requested without changing the Camera component itself. Every prefab that's
+        /// supposed to fill exactly one tile has its localScale baked as CellSize * <the sprite's
+        /// own 1-unit-tile base scale> in Phase2/3/4ProjectBuilder — see those files' scale literals.</summary>
+        public const float CellSize = 2f;
+
         private const int TileWall = 1;
         private const int TileCropKernel = 2;
         private const int TileCropVegetable = 3;
@@ -40,8 +49,8 @@ namespace FarmFuryArcade.Core
         private LevelData _currentLevel;
 
         /// <summary>0 when no level is loaded. Used by CameraFollow to clamp the camera to the
-        /// maze bounds — GridToWorld has no offset, so world extents are simply [0, MazeWidth-1]
-        /// x [0, MazeHeight-1].</summary>
+        /// maze bounds — GridToWorld has no offset, so world extents are simply
+        /// [0, (MazeWidth-1)*CellSize] x [0, (MazeHeight-1)*CellSize].</summary>
         public int MazeWidth => _currentLevel != null ? _currentLevel.mazeWidth : 0;
         public int MazeHeight => _currentLevel != null ? _currentLevel.mazeHeight : 0;
 
@@ -215,12 +224,12 @@ namespace FarmFuryArcade.Core
 
         public Vector3 GridToWorld(Vector2Int grid)
         {
-            return new Vector3(grid.x, grid.y, 0f);
+            return new Vector3(grid.x * CellSize, grid.y * CellSize, 0f);
         }
 
         public Vector2Int WorldToGrid(Vector3 world)
         {
-            return new Vector2Int(Mathf.RoundToInt(world.x), Mathf.RoundToInt(world.y));
+            return new Vector2Int(Mathf.RoundToInt(world.x / CellSize), Mathf.RoundToInt(world.y / CellSize));
         }
 
         public bool IsWalkable(Vector2Int grid) => IsWalkable(grid, false);

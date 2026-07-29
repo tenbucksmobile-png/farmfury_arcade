@@ -14,25 +14,20 @@ namespace FarmFuryArcade.UI
     /// of scattering "watch for LevelComplete" checks across multiple controllers.
     ///
     /// Swap/Ability buttons were removed from the HUD in the gameplay-screen cleanup — Tab
-    /// (CharacterSwapUI) and Space (AbilityBase.OnAbilityActivateInput) still work directly via
-    /// InputController, so neither feature is actually gone, just no longer duplicated as on-screen
-    /// buttons here. Pause/Sound/Home are now a single bottom-left icon cluster (160x160 each,
-    /// matching the Main Menu's Play/Settings buttons) instead of being scattered across the
-    /// screen. The vacant Btn_plaque backdrop that used to run down the right side ("SideBackdrop")
-    /// was removed entirely — it had no behaviour and read as an oversized, unexplained button.
+    /// (ChooseCharacterScreen.ToggleOpen) and Space (AbilityBase.OnAbilityActivateInput) still work
+    /// directly via InputController, so neither feature is actually gone, just no longer duplicated as on-screen
+    /// buttons here. Sound and Home were removed from the HUD's icon cluster too (per playtest
+    /// feedback) — both are still reachable via the Pause menu (Settings' music/SFX toggles, and
+    /// Pause's own Quit button), so only PauseButton remains here now. The vacant Btn_plaque
+    /// backdrop that used to run down the right side ("SideBackdrop") was removed entirely — it had
+    /// no behaviour and read as an oversized, unexplained button.
     /// </summary>
     public class GameplayHUD : MonoBehaviour
     {
         [SerializeField] private TextMeshProUGUI scoreText;
-        [SerializeField] private TextMeshProUGUI levelText;
         [SerializeField] private TextMeshProUGUI timerText;
         [SerializeField] private Image characterPortrait;
         [SerializeField] private Button pauseButton;
-        [SerializeField] private Button soundButton;
-        [SerializeField] private Image soundButtonIcon;
-        [SerializeField] private Sprite soundOnSprite;
-        [SerializeField] private Sprite soundOffSprite;
-        [SerializeField] private Button homeButton;
         [SerializeField] private GameObject powerPelletTimerBar;
         [SerializeField] private Image powerPelletTimerFill;
         [SerializeField] private GameObject chainCounterRoot;
@@ -50,8 +45,6 @@ namespace FarmFuryArcade.UI
         private void Awake()
         {
             pauseButton.onClick.AddListener(OpenPauseMenu);
-            soundButton.onClick.AddListener(ToggleSound);
-            homeButton.onClick.AddListener(QuitToHome);
         }
 
         private void OnEnable()
@@ -68,7 +61,6 @@ namespace FarmFuryArcade.UI
 
             _lastObservedState = GameState.Playing;
             RefreshPortrait();
-            RefreshSoundIcon();
             UpdateScoreText();
         }
 
@@ -107,7 +99,7 @@ namespace FarmFuryArcade.UI
             }
 
             AnimateScoreTowardTarget();
-            RefreshLevelAndTimerText();
+            RefreshTimerText();
             UpdatePowerPelletUI();
         }
 
@@ -143,12 +135,8 @@ namespace FarmFuryArcade.UI
             }
         }
 
-        private void RefreshLevelAndTimerText()
+        private void RefreshTimerText()
         {
-            if (levelText != null && GameManager.Instance.CurrentLevel != null)
-            {
-                levelText.text = GameManager.Instance.CurrentLevel.levelName;
-            }
             if (timerText != null)
             {
                 timerText.text = FormatTime(GameManager.Instance.GetElapsedSeconds());
@@ -210,44 +198,6 @@ namespace FarmFuryArcade.UI
         {
             GameManager.Instance.PauseGame();
             pauseMenu.Show();
-        }
-
-        /// <summary>Single icon toggles both music and SFX together — the HUD only needs one
-        /// "sound on/off" concept, unlike SettingsPanel's separate Music/SFX toggles. Uses
-        /// SaveManager.MusicOn as the on/off state for the icon since both are muted/unmuted in
-        /// lockstep here.</summary>
-        private void ToggleSound()
-        {
-            bool goingOff = SaveManager.Instance != null && SaveManager.Instance.MusicOn;
-
-            if (AudioManager.Instance != null)
-            {
-                AudioManager.Instance.SetMusicMuted(goingOff);
-                AudioManager.Instance.SetSFXMuted(goingOff);
-            }
-
-            RefreshSoundIcon();
-        }
-
-        private void RefreshSoundIcon()
-        {
-            if (soundButtonIcon == null)
-            {
-                return;
-            }
-
-            bool on = SaveManager.Instance == null || SaveManager.Instance.MusicOn;
-            soundButtonIcon.sprite = on ? soundOnSprite : soundOffSprite;
-        }
-
-        /// <summary>Same semantics as PauseMenuController.QuitToMenu — quitting mid-run counts as
-        /// a failed attempt (EndLevel(false)); GameplayHUD's own state-change watcher then shows
-        /// LevelFailedController, whose own Home button is the one that actually returns to World
-        /// Map. This button just skips the pause-menu detour to get there.</summary>
-        private void QuitToHome()
-        {
-            Time.timeScale = 1f;
-            GameManager.Instance.EndLevel(false);
         }
     }
 }

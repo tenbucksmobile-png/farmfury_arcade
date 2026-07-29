@@ -39,8 +39,6 @@ Assets/_Project/
     Enemies/     Robot AI: RobotBase + 6 subclasses, RobotAI, RobotSpawner, RobotVisual, RobotState
     Abilities/   AbilityBase + 8 character abilities, EggHazard, ShockwaveEffect, WoollyClone
     UI/          Real uGUI screen controllers (Phase 5) — see "Screens & scene flow" below.
-                  CharacterSwapUI is still OnGUI (a Phase 4 leftover, not rebuilt this phase —
-                  see that section for why).
     Utilities/   Singleton<T>, PlaceholderSprite, CameraShake
     Editor/      Phase1-5ProjectBuilder, ArtWiringBuilder, UIBuilderHelpers (see below)
   ScriptableObjects/Resources/{Levels,Characters,Robots}   ScriptableObject assets
@@ -127,9 +125,13 @@ stored as a flat `int[]` (row-major) and exposed as `int[,]` through the `MazeLa
 is applied if walkable (`IsWalkable(cell, canCrossWater)` — see the water tile note above).
 Direction reversal is only allowed at intersections (3+ walkable neighbours) or dead ends (≤1) —
 a straight corridor/turn (exactly 2) ignores a queued 180° reversal. `InputController` raises a
-static `OnDirectionInput` event from keyboard (WASD/arrows, via Input System) and swipe/pointer
-gestures (works with mouse drag in the Editor too); `OnAbilityActivateInput` (Space) and
-`OnSwapMenuToggleInput` (Tab) were added in Phase 4. `GridMovement`/`AbilityBase` both subscribe
+static `OnDirectionInput` event from keyboard (WASD/arrows, via Input System), swipe/pointer
+gestures (works with mouse drag in the Editor too), and — the same event, via
+`InputController.RaiseDirectionInput` — an on-screen directional pad (`UI/DirectionalPadController`,
+Gameplay HUD's `up`/`down`/`left`/`right.png` buttons, diamond-laid-out on the right side). None of
+these three input sources know about each other; `GridMovement` just listens to whichever raises
+the event. `OnAbilityActivateInput` (Space) and `OnSwapMenuToggleInput` (Tab) were added in Phase 4.
+`GridMovement`/`AbilityBase` both subscribe
 directly to their static events rather than routing through a per-frame lookup — safe because
 `CharacterManager` guarantees only one character GameObject (and so only one subscriber of each)
 exists at a time, destroying the old one before creating the new one on every swap.
@@ -146,27 +148,40 @@ Kinematic + `useFullKinematicContacts` Rigidbody2D for the same reason (so robot
 **Camera:** `Utilities/CameraFollow` (added post-Phase-5, attached to Main Camera) tracks
 `CharacterManager.Instance.ActiveCharacterObject` every `LateUpdate` — read live, never cached,
 same convention as `RobotBase.playerMovement`, since swapping characters destroys/recreates that
-GameObject. Clamped to the maze bounds via `TileMapRenderer.MazeWidth`/`MazeHeight` (both 0 before
-a level loads, in which case `ClampToMazeBounds` no-ops) so the camera never shows past the maze
-edges. Orthographic size is `8` — briefly zoomed in to `5` (close player-follow, classic "camera
-tracks the hero" framing) but that read as "zoomed in too much" once actually played (only ~10 of
-the maze's rows visible at once, board unreadable as a whole), so it's back to fitting the entire
-`LevelData_01` board on screen at once, centered, classic-arcade style. `LevelData_01` itself is
-14×16 (halved from an original 28×31 — see `Phase2ProjectBuilder` under "Editor tooling" below).
-`ClampToMazeBounds` has a dedicated branch for this: when the camera's half-width/half-height
-exceeds the maze's own extent (`minX > maxX`, i.e. the whole board already fits), it centers on
-the maze's midpoint instead of running `Mathf.Clamp` — a plain clamp would collapse to `minX`
-(pinning the camera off to one side) in that case, which is the bug that first surfaced when the
-board-fits-on-screen size was tried. `Utilities/CameraShake` (Bessie's Ground Slam feedback) now
-runs in `LateUpdate` with `[DefaultExecutionOrder(100)]` so it executes *after* `CameraFollow` and
-adds its jitter on top of that frame's follow position via `transform.position +=`, rather than
-caching an absolute "resting" position the way it did before there was a moving camera — a stale
-resting position would have snapped the camera back to wherever it was at scene load every time a
-shake ended. If a future level's `mazeWidth`/`mazeHeight` differs from `LevelData_01`'s,
-`CameraFollow` adapts automatically (no per-level camera tuning needed) since the clamp is
-computed from the loaded level's own dimensions each frame. A `GameplayBackdrop` SpriteRenderer
-(`Wheatfield_background.png`, sorting order `-5`, centered on the maze, scaled well past the
-fit-to-maze camera view) fills the space around the board — see "Art status" below.
+GameObject. Clamped to the maze bounds via `TileMapRenderer.MazeWidth`/`MazeHeight` * `CellSize`
+(0 before a level loads, in which case `ClampToMazeBounds` no-ops) so the camera never shows past
+the maze edges. `ClampToMazeBounds` has a dedicated branch for when the camera's half-width/
+half-height exceeds the maze's own extent (`minX > maxX`): it centers on the maze's midpoint
+instead of running `Mathf.Clamp` — a plain clamp would collapse to `minX` (pinning the camera off
+to one side) in that case.
+
+`orthographicSize` is **not** a fixed value — `ApplyOrthographicSizeForAspect` (called every
+`LateUpdate`, before the follow logic) derives it purely from the camera's own live `aspect`, so
+`CameraFollow.TargetVisibleColumns` (10, of the maze's 14) always fills
+`CameraFollow.WidthFillFraction` (0.7) of the screen width regardless of the actual device/window
+aspect ratio. A fixed orthographicSize tuned by eye for one aspect (e.g. the Editor Game View's
+often near-square default) looked completely different once actually run at a true mobile
+landscape aspect — this was the direct cause of a "the maze isn't scaled/cropped like I asked"
+playtest report. Recomputed every frame (one division) rather than once in `Awake`, so a runtime
+window resize/orientation change stays correct too. `LevelData_01` itself is 14×16 (halved from an
+original 28×31 — see `Phase2ProjectBuilder` under "Editor tooling" below); `CameraFollow` adapts
+automatically to a different level's `mazeWidth`/`mazeHeight` since the clamp is computed from the
+loaded level's own dimensions each frame, and the orthographicSize formula doesn't depend on level
+data at all (only the camera's own aspect). `Utilities/CameraShake` (Bessie's Ground Slam
+feedback) runs in `LateUpdate` with `[DefaultExecutionOrder(100)]` so it executes *after*
+`CameraFollow` and adds its jitter on top of that frame's follow position via
+`transform.position +=`, rather than caching an absolute "resting" position — a stale resting
+position would snap the camera back to wherever it was at scene load every time a shake ended.
+
+A `GameplayBackdrop` SpriteRenderer (`Wheatfield_background.png`, sorting order `-5`, centered on
+the maze) fills the space around the board — see "Art status" below. Sized in
+`ArtWiringBuilder.WireGameplayBackdrop` to cover whichever is bigger: the maze's own world
+footprint, or `CameraFollow`'s target view width (constant regardless of aspect, by the same
+formula above) — plus a 1.3x safety margin for aspect extremes — since the camera deliberately
+shows more width than the maze has (that's the point of `WidthFillFraction`: extra screen margin
+at the edges for this backdrop art to show through). An earlier version sized this backdrop off
+only the maze's own bounds, which under-covered the camera's actual view once the 70%-width
+framing was added, showing the camera's clear (blue) background color at the screen edges.
 
 ### Robot AI (`Scripts/Enemies`)
 
@@ -223,7 +238,7 @@ and duration-per-tier lookup (`GetDuration`: Sunflower 8s / Golden Wheat 15s / R
 destroys the current one and instantiates the target prefab at the same grid cell/facing
 (`SpawnCharacterObject`), then fires `OnCharacterChanged` and `ComboSystem.RegisterCharacterSwap`.
 `CanSwapTo` only checks unlock status — the 1-coin cost (free if the player has 0) is deducted by
-`CharacterSwapUI` on confirm, so affordability never actually blocks a swap. A short fade-in
+`ChooseCharacterScreen` on selection, so affordability never actually blocks a swap. A short fade-in
 coroutine on the new sprite runs on `CharacterManager` itself (not the character), so it survives
 a rapid second swap instead of throwing on a destroyed `SpriteRenderer` — always null-check `sr`
 in that coroutine if you touch it.
@@ -286,9 +301,10 @@ instance — a flag on e.g. `BounceRollAbility` would be lost the moment Percy i
 (his GameObject is destroyed). Each affected ability calls the matching `Consume*` method at the
 top of its `Execute()`.
 
-**`CharacterSwapUI`** is deliberately `OnGUI`, not real uGUI — "functional even if not polished"
-per spec, matching every other test/debug overlay in this codebase; Phase 5 replaces it. Toggled
-by Tab.
+**`ChooseCharacterScreen`** (`Scripts/UI`) is the real uGUI character-swap panel — see "Screens &
+scene flow" below for its full description. The original Phase 4 `CharacterSwapUI` (`OnGUI`,
+"functional even if not polished" per spec) was retired once this replaced it. Toggled by Tab
+(via the same `InputController.OnSwapMenuToggleInput` event) or Pause's Swap Character button.
 
 ### Screens & scene flow (`Scripts/UI`, Phase 5)
 
@@ -299,8 +315,12 @@ of the existing `Canvas` GameObject (built by `Phase1ProjectBuilder`, upgraded b
 the "scale properly for different screen sizes" requirement) and is mutually exclusive with every
 other top-level screen.
 
-**Flow:** Main Menu → World Map → Matchup → Gameplay HUD → (Level Complete | Level Failed) → World
-Map. **`SceneTransitionManager`** (`Core`) is the single place this is orchestrated: `ShowOnly
+**Flow:** Main Menu → World Map → Gameplay HUD → (Level Complete | Level Failed) → World
+Map. Tapping an unlocked level marker on the World Map (`WorldMapController.OnMarkerTapped`) calls
+`GameManager.LoadLevel` and `SceneTransitionManager.ShowOnly` directly — there is no intermediate
+"VS" matchup screen and no countdown; gameplay starts immediately. (A `MatchupScreenController`
+screen existed here through Phase 5 but was removed later — see "Removed: Matchup screen" below.)
+**`SceneTransitionManager`** (`Core`) is the single place this is orchestrated: `ShowOnly
 (GameObject)` deactivates every screen in its `screenRoots` array and activates just the target,
 wrapped in a black-`CanvasGroup` fade (`TransitionTo(Action swapScreens)` is the more general form
 `ShowOnly` is built on, for cases — none currently — that need a custom swap instead of "hide all,
@@ -313,8 +333,19 @@ Level Complete) rather than replacing it, and manage their own `SetActive` direc
 `PauseMenuController`/`SettingsPanel` don't fade — they're instant show/hide, matching "semi-
 transparent overlay dims gameplay" from the spec more literally than a full-screen fade would.
 
-**Landing/Matchup/Gameplay-HUD cleanup (post-Phase-5):** once real art landed, three screens got
-stripped down from their original Phase 5 layouts:
+**Removed: Matchup screen.** The Phase 5 "VS" card screen (`MatchupScreenController`, shown between
+World Map and Gameplay — character card vs. up to 3 robot cards, plus a 3-2-1-GO countdown) was
+deleted entirely after playtesting — it read as tonally mismatched with the rest of the game.
+`WorldMapController.OnMarkerTapped` now calls `GameManager.LoadLevel` + `SceneTransitionManager
+.ShowOnly(gameplayScreen)` directly; there is no countdown replacement. `Phase5ProjectBuilder` no
+longer builds a `MatchupScreen` (removed from `screenRoots` and `WireCrossReferences`),
+`ArtWiringBuilder` no longer wires `matchup.png` or its buttons (the file itself is unused now —
+left on disk, not deleted), and `Phase5Test`'s World-Map-to-gameplay check calls
+`GameManager.LoadLevel`/`ShowOnly` directly instead of driving a Matchup Play button. If you're
+reading older commit history or design notes that mention "Matchup," they predate this removal.
+
+**Landing/Gameplay-HUD cleanup (post-Phase-5):** once real art landed, screens got stripped down
+from their original Phase 5 layouts:
 
 - **Main Menu** (`MainMenuController`) is now just two icon buttons directly on `landing.png`
   (which already bakes in the "FARM FURY ARCADE" logo) — `PlayButton` bottom-left → World Map,
@@ -325,34 +356,26 @@ stripped down from their original Phase 5 layouts:
   Menu anymore, so reaching them today means calling `SceneTransitionManager.ShowOnly` on them
   directly (nothing currently does). `CharacterRosterScreen`/`LeaderboardsScreen` keep their own
   `mainMenuScreen` back-reference for their "Back" buttons regardless.
-- **Matchup** (`MatchupScreenController`) dropped `levelNumberText`/`levelNameText`/`objectiveText`
-  entirely (level identity is already established by the World Map marker the player just tapped)
-  and the old small colour-square `CharacterCard`/`RobotCard{i}` no longer get the `Card.png` frame
-  — `matchup.png`'s background art already bakes in two wood-frame slots + a "VS" graphic at fixed
-  positions, so `CharacterCard`/`RobotCards` are now sized/anchored to sit directly inside those two
-  frames instead. `RobotCards` is still a `HorizontalLayoutGroup` so 1-3 active robot cards
-  (`SetActive` per distinct robot type on the level, same as before) split the right frame's width
-  evenly. `CharacterData.portraitSprite`/`RobotData.portraitSprite` (previously unused fields — see
-  "Art status") now drive these cards' sprites; `characterCardImage.color`/`robotCardImages[i].color`
-  only get the placeholder gold/type-colour tint when there's no real portrait yet, same
-  tint-vs-real-art fix `RobotVisual.BaseTintColor` already used. Buttons are `PlayButton`
-  (bottom-left) / `HomeButton` (bottom-right, wired to the `backButton` field — same "return to
-  World Map" behaviour, just relabelled/repositioned).
 - **Gameplay HUD** (`GameplayHUD`) lost its `SwapButton`/`AbilityButton` (+cooldown ring) —
-  Tab (`CharacterSwapUI`) and Space (`AbilityBase.OnAbilityActivateInput`) still trigger both
-  directly via `InputController`, so removing the buttons didn't remove the features. In their
-  place: a `PauseButton`/`SoundButton`/`HomeButton` icon cluster, bottom-left. `SoundButton` toggles
-  `SaveManager.MusicOn`/`SfxOn` together via `AudioManager.SetMusicMuted`/`SetSFXMuted` and swaps
-  its own icon between `soundOnSprite`/`soundOffSprite` (`Btn_music.png`/`Btn_nosound.png` — the
-  latter uploaded a while ago but had no icon-swap feature to hook into until now).  `HomeButton`
-  mirrors `PauseMenuController.QuitToMenu`'s semantics (`EndLevel(false)`, i.e. quitting mid-run
-  counts as a failed attempt; `GameplayHUD`'s own state-watcher then shows `LevelFailedController`)
-  without the pause-menu detour. The cluster buttons are `160x160` (matching the Main Menu's
-  Play/Settings buttons) at a safe-area inset, up from an original `80x80` at a `20px` inset that
-  read as both too small and clipped by the rounded-corner/camera-cutout safe area once actually
-  reviewed on a device frame. A vacant `Btn_plaque.png` backdrop ("SideBackdrop") used to run down
-  the right side as a placeholder for future writing/navigation — removed entirely after review,
-  since it had no behaviour and read as an oversized, unexplained button.
+  Tab (`ChooseCharacterScreen.ToggleOpen`) and Space (`AbilityBase.OnAbilityActivateInput`) still
+  trigger both directly via `InputController`, so removing the buttons didn't remove the features.
+  `SoundButton`/`HomeButton` were later removed too (per playtest feedback) — both are reachable via
+  Pause instead (Settings' music/SFX toggles, Pause's own Quit button) — leaving just a single
+  `160x160` `PauseButton`, bottom-left (matching the Main Menu's Play/Settings buttons, safe-area
+  inset). A vacant `Btn_plaque.png` backdrop ("SideBackdrop") used to run down the right side as a
+  placeholder for future writing/navigation — removed entirely after review, since it had no
+  behaviour and read as an oversized, unexplained button. `ScoreText`/`TimerText` were later pulled
+  further in from the screen edges (an original inset sat above/outside the backdrop art's own
+  safe-area guide once viewed on a device frame), enlarged, and given the `Bangers SDF` cartoon font
+  (`ArtWiringBuilder.WireGameplayFont` — bundled with TMP's own Examples & Extras, already has a
+  correctly-generated SDF material unlike `Inter-Regular SDF`'s broken shader, so no
+  import/generation step needed). `LevelText` (the level name header) was removed outright — it
+  duplicated what the World Map marker the player just tapped already established. An on-screen
+  **directional pad** (`UI/DirectionalPadController`, right side, diamond layout — `up`/`down`/
+  `left`/`right.png`, each already a complete rounded button with no separate background needed)
+  was added as a touch-friendly alternative to keyboard/swipe; each button calls
+  `InputController.RaiseDirectionInput`, the exact same static event keyboard/swipe already raise,
+  so `GridMovement` needs no awareness that a third input source exists.
 - Three always-on `OnGUI` debug overlays (`Phase1Test`/`Phase2Test`/`Phase3Test`/`Phase4Test` manual
   test buttons, independent of their `runOnStart` flag) used to render on top of every screen in
   every Play session. `Editor/SceneCleanupBuilder.DisableDebugTestOverlays` (`Farm Fury Arcade >
@@ -396,10 +419,24 @@ in `ComboSystem.ResetForNewMaze()`.
 `UnlockManager` needing to know anything about UI — it just records what
 `CheckUnlocksOnLevelComplete` unlocked on its most recent call.
 
-**`CharacterSwapUI` was not rebuilt as real uGUI this phase** — it's the one piece of Phase 4 that
-stays `OnGUI`, reused as-is by both `GameplayHUD`'s Swap button and `PauseMenuController`'s Swap
-button (both just call its now-public `ToggleOpen()`). Flagged as a real gap, not an oversight —
-see "Known gaps" below.
+**`ChooseCharacterScreen`** (real uGUI, `Scripts/UI/ChooseCharacterScreen.cs` +
+`CharacterSelectCard.cs`) replaced the Phase 4 `CharacterSwapUI` `OnGUI` panel. Not a
+`SceneTransitionManager` screen — like Pause/Settings, it's an overlay shown/hidden directly
+(`Show()`/`ToggleOpen()`), temporarily taking Pause's place on top of Gameplay and handing back to
+it afterward (`pauseMenuScreen` back-reference). Background is `LoadingScreen Background.png` (the
+same barn/night art used behind Settings). One `CharacterSelectCard` per `CharacterData.GetAllCharacterData()`
+entry lays out in a fixed 4-column `GridLayoutGroup` (`ChooseCharacterScreen.BuildChooseCharacterScreen`
+in `Phase5ProjectBuilder`), each showing `CharacterData.selectCardArt` — a dedicated framed "animal
+card" image per character (`Sprites/UI/{Name}_{Species}.png`, own wood-frame border baked in,
+distinct from the plain `portraitSprite` front sprite used elsewhere) — or a placeholder square for
+any character without one. Locked cards show a "LOCKED" overlay and their `Button.interactable` is
+`false`; the active character's card gets a gold glow (`activeHighlight`, a slightly larger Image
+behind the card so it peeks out around the edges) and is also non-interactable (can't "swap" to the
+character already active). Tapping an eligible card pops it (scale + `SetAsLastSibling`, avoiding a
+fight with the `GridLayoutGroup` repositioning it), deducts the same 1-coin cost `CharacterSwapUI`
+used to (free if the player has 0), calls `CharacterManager.SwapCharacter`, then closes back to
+Pause. Tab still toggles it too, via the same `InputController.OnSwapMenuToggleInput` event
+`CharacterSwapUI` used — nothing else needed to change to preserve that shortcut.
 
 **Daily Challenge** (`DailyChallengeManager`): today's `ChallengeType` is seeded from
 `DateTime.UtcNow` (`"yyyy-MM-dd").GetHashCode()`), so every player sees the same challenge on a
@@ -521,8 +558,9 @@ phase made for art (solid-colour placeholders instead of real sprites).
   (`Egg`, `Shockwave`, `BounceTrail`, `WoollyClone`, `WaterTile`), adds one water tile pair to
   `LevelData_01` (row 25, verified clear of the warp row/factory box/wall-block pattern before
   overwriting — logs a warning and skips instead of corrupting the maze if that ever stops being
-  true), and wires `CharacterManager`/`ComboSystem`/`UnlockManager`/`CharacterSwapUI`/
-  `CameraShake` into `Game.unity`. Also disables `Phase3Test`'s `runOnStart` (see below).
+  true), and wires `CharacterManager`/`ComboSystem`/`UnlockManager`/`CameraShake` into `Game.unity`
+  (`ChooseCharacterScreen`, the Phase 5 replacement for Phase 4's `CharacterSwapUI`, is wired by
+  `Phase5ProjectBuilder` instead). Also disables `Phase3Test`'s `runOnStart` (see below).
   **Idempotent** — safe to re-run. Depends on Phase 2 (Cluck prefab, `LevelData_01`).
   **Gotcha this phase actually hit:** setting fields via `SerializedObject` directly on the
   `GameObject` `PrefabUtility.SaveAsPrefabAsset` just returned does **not** reliably persist in
@@ -533,7 +571,7 @@ phase made for art (solid-colour placeholders instead of real sprites).
   successfully). If a future prefab-field edit silently doesn't stick, check this first.
 - **`Phase5ProjectBuilder`** (`Phase 5 > Build All`) — the one you actually want day to day now.
   Runs `EnsureTMPEssentials()` first (see above), then builds every UI screen under `Canvas`
-  (Main Menu, World Map + `LevelMarker` prefab, Matchup, Gameplay HUD + combo banner, Pause,
+  (Main Menu, World Map + `LevelMarker` prefab, Gameplay HUD + combo banner, Pause,
   Settings, Store "coming soon", Level Complete + New Character Unlock, Level Failed, Character
   Roster + `RosterCard` prefab, Leaderboards), wires `SceneTransitionManager`/`AudioManager`/
   `DailyChallengeManager`/`LeaderboardManager` onto `GameManagers`, and disables `Phase4Test`'s
@@ -563,14 +601,15 @@ phase made for art (solid-colour placeholders instead of real sprites).
   transparency — the first time it sees a path). Safe to re-run; re-running with the same art
   already wired is a no-op except where it intentionally always re-applies (e.g. sprite
   references). No longer has a "Reposition Main Menu Buttons" entry — Main Menu has no `Content`
-  group to reposition since the landing-page cleanup (see "Landing/Matchup/Gameplay-HUD cleanup"
+  group to reposition since the landing-page cleanup (see "Landing/Gameplay-HUD cleanup"
   above); re-run `Phase5ProjectBuilder.BuildAll` if Main Menu ever needs rebuilding from scratch.
+  Also no longer wires `matchup.png`/its buttons (see "Removed: Matchup screen").
 - **`SceneCleanupBuilder`** (`Farm Fury Arcade > Disable Debug Test Overlays` /
   `Farm Fury Arcade > Fit Gameplay Camera To Maze`) — small targeted scene-hygiene fixes that are
   neither "wire art" nor "rebuild a phase's content." `DisableDebugTestOverlays` deactivates (and
   de-duplicates) the 5 `Phase*Test` GameObjects; `FitGameplayCameraToMaze` (renamed from
   `ZoomInGameplayCamera` — it now does the opposite) sets the Main Camera's `orthographicSize` to
-  `16` so the whole board fits on screen and ensures a `CameraFollow` component exists. Both safe
+  `8` so the whole board fits on screen and ensures a `CameraFollow` component exists. Both safe
   to re-run.
 
 `Phase1Test.cs`/`Phase2Test.cs`/`Phase3Test.cs`/`Phase4Test.cs`/`Phase5Test.cs` (`Scripts/Core`) are verification
@@ -626,12 +665,14 @@ Cluck → Woolly swap triggers Feather Storm, consumed by the next Triple Clone 
 spawned, buff flag cleared). The only real-time wait is ~2.3s for Harvester's `spawnDelay`.
 
 **Phase 5 verification specifics:** `Phase5Test` drives the flow via each controller's public
-entry points (`MatchupScreenController.ShowForLevel`, button `onClick.Invoke()` calls) rather than
-simulating real clicks/taps, verifying: only Main Menu active at startup; Main Menu → World Map →
-Matchup → (countdown) → Gameplay activates the right screen at each step and reaches
-`GameState.Playing`; the 7 required HUD elements exist (score/level/timer/portrait/pause/sound/home
-— updated post-Phase-5 when Swap/Ability were removed from the HUD, see "Landing/Matchup/
-Gameplay-HUD cleanup" above; no on-screen ability-cooldown-ring assertion remains, since Space
+entry points and button `onClick.Invoke()` calls rather than simulating real clicks/taps,
+verifying: only Main Menu active at startup; Main Menu → World Map → Gameplay activates the right
+screen at each step and reaches `GameState.Playing` (since the Matchup screen's removal, this
+reproduces `WorldMapController.OnMarkerTapped`'s effect — `GameManager.LoadLevel` +
+`SceneTransitionManager.ShowOnly` — directly rather than hunting for a marker's Button inside the
+World Map's ScrollRect content); the 7 required HUD elements exist (score/level/timer/portrait/
+pause/sound/home — updated post-Phase-5 when Swap/Ability were removed from the HUD, see
+"Landing/Gameplay-HUD cleanup" above; no on-screen ability-cooldown-ring assertion remains, since Space
 still activates the ability directly but there's no HUD element left to watch); Pause freezes
 `Time.timeScale` and shows/hides its overlay correctly; `GameManager.EndLevel(true)` produces a
 well-formed `LevelResult` (1-3 stars, positive score/coins) and `LevelCompleteScreen` activates
@@ -698,18 +739,29 @@ values from the GDD's color palette where one exists (e.g. walls = Wall Brown `#
   use of `Power_1.png`, which is a Cluck power-up icon, not a pellet) / `goldenWheatPelletSprite`
   (`RarePellets_maize.png`) / `rainbowPelletSprite` (`RarePellets_apple.png`) accordingly.
   `Power_1.png`/`CluckPower_2`/`CluckPower_3` remain unwired — there's no "Cluck looks different
-  while powered up" feature in the code for them to hook into.
+  while powered up" feature in the code for them to hook into. Collecting a GoldenWheat or Rainbow
+  (i.e. non-Sunflower/"rare") pellet also spawns `PelletCollectBurst`
+  (`Gameplay/PelletCollectBurst.cs`, wired via `PowerPelletPickup.collectEffectPrefab` and called
+  from `CropCollector` right before the pellet is destroyed) — a procedural ring of
+  placeholder-coloured squares that fly outward and fade, since no dedicated sparkle/particle art
+  exists yet. Swap it for a real ParticleSystem/sprite-sheet burst once that art lands;
+  `PelletCollectBurst.Configure(PowerPelletType)` is the only method a replacement needs to keep.
 - **Ability effects** — `Shockwave` (Bessie's Ground Slam) uses `BessieSlam.png`, `BounceTrail`
   (Percy's Bounce Roll) uses `Percy_effect.png`, `WoollyClone` (Woolly's Triple Clone) uses
   `Wooly_effect.png`. Cluck's Egg Drop (`Egg` prefab) still has no dedicated art — its placeholder
-  is `Color.white` at `0.4` → `0.55` scale (bumped from a near-white/tan tint that blended straight
-  into `CornTiles.png`'s similarly warm-toned ground art once that landed; the ability worked the
-  whole time — robots still got stunned on contact — the egg itself just wasn't visible).
+  went through two rounds of "still not visible" playtest reports: a near-white/tan tint blended
+  into `CornTiles.png`'s similarly warm-toned ground art, and the pure-white follow-up fix still
+  had too little contrast against the real ground/corn art. It's now a saturated hot pink
+  (`#FF1493`), and its `sortingOrder` was raised above the character sprite's — the egg dropped at
+  offset 0 (see `EggDropAbility.TileOffsetsBehind`) spawns directly under Cluck's own feet, so it
+  needs to draw on top of her, not just the ground, to be visible there at all.
 - **UI backgrounds** — `MainMenuScreen` uses `landing.png` (which has "FARM FURY ARCADE" baked
-  into the art), `WorldMapScreen` uses `Map.png`, `MatchupScreen` uses `matchup.png`,
+  into the art), `WorldMapScreen` uses `Map.png`,
   `LevelCompleteScreen`/`LevelFailedScreen`/`PauseOverlay` use dedicated `LevelComplete.png`/
   `LevelFailed.png`/`Paused.png` panel art (previously these 3 all reused `World1_Cornfield.png`/
-  `Wheatfield_background.png` as stand-ins; those two files are now unused). Because
+  `Wheatfield_background.png` as stand-ins; those two files are now unused). `matchup.png` is also
+  now unused — left on disk, not deleted — after the Matchup screen's removal (see "Removed:
+  Matchup screen"). Because
   `landing.png`'s logo sits centred in the upper half, `MainMenuScreen/Content` (the button stack)
   was re-anchored to the bottom of the screen (`anchorMin/Max = (0.5, 0)`, `pivot = (0.5, 0)`,
   `anchoredPosition = (0, 30)`) instead of screen-center, so it no longer overlaps the art's logo.
@@ -717,27 +769,24 @@ values from the GDD's color palette where one exists (e.g. walls = Wall Brown `#
   no dedicated loading screen in the current screen flow, and `Logo.png` has no obvious slot since
   `landing.png` already bakes the logo into Main Menu.
 - **Maze wall/ground/warp-tunnel tiles** — `Wall_CornField`/`Ground_CornField`/`WarpTunnel`
-  prefabs (each instantiated per-cell by `TileMapRenderer` at scale 1, same convention crops/
-  pellets already used) now use `CornTiles.png`/`FloorTile.png`/`WarpTile.png` respectively instead
-  of `PlaceholderSprite` colour squares — each uploaded file is a single complete tile image, not a
-  tileset, so no atlas-slicing was needed.
+  prefabs (each instantiated per-cell by `TileMapRenderer` at scale `TileMapRenderer.CellSize`,
+  same convention crops/pellets already used) now use `CornTiles.png`/`FloorTile.png`/
+  `WarpTile.png` respectively instead of `PlaceholderSprite` colour squares — each uploaded file is
+  a single complete tile image, not a tileset, so no atlas-slicing was needed.
 - **Card frames** — `Card.png` wired onto the New Character Unlock screen's card `Image` and the
-  `RosterCard` prefab's root `Image`. **Not** wired onto `MatchupScreen`'s character/robot cards
-  anymore — `matchup.png`'s background art bakes in its own two wood-frame slots at fixed
-  positions (see "Landing/Matchup/Gameplay-HUD cleanup" above), so adding `Card.png` there would
-  double up the framing.
+  `RosterCard` prefab's root `Image`.
 - **Character/robot portrait sprites** — `CharacterData.portraitSprite`/`RobotData.portraitSprite`
   (fields that existed since Phase 4/3 but were never populated) now get each character/robot's
   front sprite, wired alongside their walk-cycle/directional art in
   `ArtWiringBuilder.SetWalkFrames`/`WireCluck`/`WireHarvester`/`WireNewRobots` (via the new
-  `SetRobotPortrait` helper). `MatchupScreenController`'s character/robot cards were the first
-  consumer of these; `GameplayHUD.RefreshPortrait` now also reads `CharacterData.portraitSprite`
+  `SetRobotPortrait` helper). `GameplayHUD.RefreshPortrait` reads `CharacterData.portraitSprite`
   (via `DataManager.GetCharacterData(CharacterManager.Instance.ActiveCharacter)`) instead of just
   tinting the placeholder square with the active character's `SpriteRenderer.color` — the old
   version left a plain gold placeholder block on screen even after portrait art existed, since
-  color tinting was never going to substitute for an actual portrait sprite.
+  color tinting was never going to substitute for an actual portrait sprite. (The Matchup screen
+  was an earlier consumer of these fields too, before its removal — see "Removed: Matchup screen".)
 - **Buttons** — `Btn_play/pause/settings/quit/home/skip/back/plaque` wired onto their matching
-  buttons across every screen (Main Menu, World Map, Matchup, Gameplay HUD, Pause, Settings,
+  buttons across every screen (Main Menu, World Map, Gameplay HUD, Pause, Settings,
   Store, Level Complete/Failed, Roster, Leaderboards) via `ArtWiringBuilder.WireButtons` —
   buttons with no specific icon art (Restart, Replay, Retry, Store, Leaderboards, Roster, Daily
   Challenge) share the generic `Btn_plaque.png` background. `Btn_nosound.png`
@@ -765,18 +814,45 @@ fill exactly one maze grid cell (1 world unit), matching `PlaceholderSprite`'s 1
 convention that every prefab's existing `localScale` (e.g. crop 0.35, pellet 0.7) was already
 tuned around, so no prefab scale values needed to change when real art went in.
 
-`Audio/` is still empty — no audio pipeline yet. When more art lands, wire it into the existing
-prefabs (`Prefabs/Characters/`, `Prefabs/Robots/`, `Prefabs/Blocks/`) via `ArtWiringBuilder` rather
-than creating new prefabs.
+**Audio** — `Audio/Music/BackgroundMusic.mp3` is wired onto `AudioManager.backgroundMusicClip`
+(`ArtWiringBuilder.WireAudio`) and starts looping automatically in `AudioManager.Start()` as soon
+as the app launches (no fade-in — that's reserved for switching tracks later, not the initial
+start). `SaveManager.MusicVolume`'s default was lowered from `1f` to `0.5f` so it plays soft/
+background-level out of the box rather than at full volume; still fully overridable via the
+Settings slider.
+
+`Audio/SFX/EatRobot.mp3` (despite living in the SFX folder, it's used as a second **music** track,
+not a one-shot) plays for the exact duration a power pellet is active — `PowerPelletManager`
+crossfades to it via `AudioManager.PlayEatRobotMusic()` on the `false → true` activation edge, and
+crossfades back to the regular background track via `ResumeBackgroundMusic()` when the countdown
+reaches zero (`PowerPelletManager.CountDown`'s end). Both go through the same `PlayMusic`
+crossfade `AudioManager` already had — no new fade logic needed, just two named entry points.
+
+All 5 SFX clips under `Audio/SFX/` are wired to a specific gameplay trigger, each via a named
+`AudioManager` method (`PlayXSfx()`, not a raw `PlaySFX(clip)` call, so call sites read as what
+happened rather than which clip field to reach into):
+
+| Clip | Method | Fires from |
+|---|---|---|
+| `Animal_death.mp3` | `PlayAnimalDeathSfx` | `PlayerHealth.DeathSequence` (start of the death sequence) |
+| `CornPickup.mp3` | `PlayCornPickupSfx` | `CropCollector`, only when `CropPickup.cropType == CropType.Corn` (not Vegetable) |
+| `PowerReady.mp3` | `PlayPowerReadySfx` | `PowerPelletManager.ActivatePower`, only on the `false → true` edge (a pellet eaten while power is already active just refreshes the duration, doesn't replay the cue) |
+| `RarePellet_pickup.mp3` | `PlayRarePelletPickupSfx` | `CropCollector`, only when `pellet.pelletType != PowerPelletType.Sunflower` — same "rare tier" gate `PelletCollectBurst` uses |
+| `RobotSpawn.mp3` | `PlayRobotRespawnSfx` | `RobotBase.ArriveAtFactory` — a defeated robot's respawn back to Chase, not `RobotSpawner`'s initial level-start spawns |
+
+When more art lands, wire it into the existing prefabs (`Prefabs/Characters/`, `Prefabs/Robots/`,
+`Prefabs/Blocks/`) via `ArtWiringBuilder` rather than creating new prefabs.
 
 ## Testing
 
 Desktop: arrow keys or WASD. Mobile/Editor: swipe (or mouse-drag in Play mode) — 50px minimum
 distance, dominant axis wins for diagonals. Tunable parameters if movement doesn't feel right:
 
-- `GridMovement.speed` (comes from `CharacterData.movementSpeed` — 4.2 Cluck [reduced from 5, read
-  as too fast once actually played], 4 Bessie, 6 Percy, 5 Woolly, 5.5 Ducky, 5.5 Horace, 4.5
-  Gerald, 4.5 Billy)
+- `GridMovement.speed` (comes from `CharacterData.movementSpeed` — 3.2 Cluck, 3.0 Bessie, 4.6 Percy,
+  3.8 Woolly, 4.2 Ducky, 4.2 Horace, 3.4 Gerald, 3.4 Billy; all ~0.76x their original values —
+  movement still read as too fast after `CellSize` scaling even accounting for its effect on
+  perceived speed. The originals for Percy/Ducky/Horace (6, 5.5, 5.5) also exceeded
+  `movementSpeed`'s own `[Range(1,5)]` inspector hint; the scaled-down values now fit inside it)
 - `GridMovement.AlignmentEpsilon` (0.02) — grid-center snap tolerance
 - `InputController.minSwipeDistancePixels` (50)
 - `CharacterAnimator.frameInterval` (0.15s baseline, scaled by speed)
@@ -839,8 +915,9 @@ and reopen the project normally to confirm nothing was corrupted.
 - **Phase 4** (characters & abilities): all 8 characters with unique `AbilityBase` subclasses,
   character swapping (`CharacterManager`, destroy/recreate at the same grid cell), the 8-combo
   `ComboSystem`, character unlocks on level complete (`UnlockManager`), a functional-not-polished
-  swap UI (`CharacterSwapUI`, Tab to open) — done.
-- **Phase 5** (progression & UI): full screen flow (Main Menu → World Map → Matchup → Gameplay →
+  swap UI (`CharacterSwapUI`, Tab to open) — done. (`CharacterSwapUI` was later replaced by the
+  real uGUI `ChooseCharacterScreen` — see that entry above.)
+- **Phase 5** (progression & UI): full screen flow (Main Menu → World Map → Gameplay →
   Level Complete/Failed, plus Character Roster/Leaderboards/Settings/a Store placeholder) as real
   uGUI with TextMeshPro, `SceneTransitionManager`-driven fades, score breakdown + star rating +
   coin reward on level complete, automatic New Character Unlock celebration, `AudioManager`
@@ -848,18 +925,16 @@ and reopen the project normally to confirm nothing was corrupted.
   reuses `LevelData_01` rather than a distinct maze), local `LeaderboardManager` — done.
 
 ## Known gaps / flagged for Phase 6
-
-- **`CharacterSwapUI` is still `OnGUI`**, not rebuilt as uGUI this phase — it works (Tab, and the
-  Pause overlay's Swap button, both call its `ToggleOpen()`; the Gameplay HUD's own Swap button was
-  removed in the later HUD cleanup, see "Landing/Matchup/Gameplay-HUD cleanup"), but visually it's
-  the debug-style panel from Phase 4, not styled to match the rest of Phase 5's screens. Real fix:
-  rebuild it as a proper panel via `Phase5ProjectBuilder`/`UIBuilderHelpers` and delete the `OnGUI`
-  version.
-- **Store, Character Roster, Leaderboards, and Daily Challenge have no Main Menu entry point** —
-  removed in the landing-page cleanup (see "Landing/Matchup/Gameplay-HUD cleanup" above) in favour
-  of just Play/Settings. All 4 screens/systems still exist and build correctly; reaching them today
-  requires calling `SceneTransitionManager.ShowOnly` (or, for Daily Challenge,
-  `MatchupScreenController.ShowForLevel`) directly, since nothing currently does.
+- **Store, Character Roster, and Leaderboards have no Main Menu entry point** — removed in the
+  landing-page cleanup (see "Landing/Gameplay-HUD cleanup" above) in favour of just Play/Settings.
+  All 3 screens still exist and build correctly; reaching them today requires calling
+  `SceneTransitionManager.ShowOnly` directly, since nothing currently does. Daily Challenge is
+  different: it isn't a separate screen, just an objective overlaid on `LevelData_01` (index
+  `DailyChallengeLevelIndex`, 0) — since that's the same level the normal World Map flow already
+  plays, `DailyChallengeManager.CheckCompletionOnLevelEnd` fires on any ordinary playthrough of
+  level 0, no special entry point needed. (Before the Matchup screen's removal, that screen's
+  `ShowForLevel` was one way to jump straight to a given level for testing; that shortcut is gone,
+  but Daily Challenge completion never depended on it.)
 - **Store is a placeholder** ("coming in Phase 6" panel) per spec's own scope note — no cosmetics
   UI or IAP hookup exists.
 - **Restore Progress** (Settings) logs and does nothing — real implementation needs cloud save
@@ -877,18 +952,15 @@ and reopen the project normally to confirm nothing was corrupted.
   (only 2 `LevelData` assets exist against the GDD's 100-level target). The underlying system is
   level-count-agnostic, so hand-placing marker positions along the art's path later is a content
   change, not a rewrite.
-- **No ability icon sprites, and only partial portrait art** — Matchup's character/robot cards and
-  the HUD portrait (`GameplayHUD.characterPortrait`, via `RefreshPortrait`) now use
-  `CharacterData`/`RobotData.portraitSprite` (front sprite) where a character/robot has real art
-  (see "Art status"); Roster cards still use solid-colour placeholders, and no dedicated ability
-  icons exist anywhere.
-- **AudioManager has zero real clips wired** — full API, fully wired to `SaveManager` settings, but
-  silent until `AudioClip`s are imported and assigned.
+- **No ability icon sprites, and only partial portrait art** — the HUD portrait
+  (`GameplayHUD.characterPortrait`, via `RefreshPortrait`) uses `CharacterData.portraitSprite`
+  (front sprite) where a character has real art (see "Art status"); Roster cards still use
+  solid-colour placeholders, and no dedicated ability icons exist anywhere.
 
 ## UX flow
 
 ```
-Main Menu ──Play──▶ World Map ──tap unlocked level──▶ Matchup ──Play (3,2,1,GO!)──▶ Gameplay HUD
+Main Menu ──Play──▶ World Map ──tap unlocked level (straight in, no countdown)──▶ Gameplay HUD
     │                    │▲                                                            │▲  │
     │                    ││ Home                                          Pause(P)────▶│└──┼─▶ Resume
     │                    │└─────────────────────────────────────────────────────────────┘  │
@@ -907,15 +979,18 @@ Main Menu ──Play──▶ World Map ──tap unlocked level──▶ Matchu
                              reset progress w/ confirm) ──X──▶ wherever it was opened from
 ```
 
+(A Matchup "VS" card screen with a 3-2-1-GO countdown used to sit between World Map and Gameplay
+HUD — removed entirely; see "Removed: Matchup screen" above.)
+
 Pause and Settings are **overlays** (layer on top of whatever's showing, dim it, don't replace it)
 — everything else in this diagram is a **screen swap** through `SceneTransitionManager.ShowOnly`.
 New Character Unlock is a special case: not reachable by navigation, it's triggered automatically
 by `LevelCompleteController` partway through its own celebration sequence, whenever
 `UnlockManager.LastUnlockedBatch` isn't empty.
 
-**Character Roster, Daily Challenge, Store, and Leaderboards are no longer reachable from Main
-Menu** (removed in the landing-page cleanup — see "Landing/Matchup/Gameplay-HUD cleanup" and the
-matching "Known gaps" entry). Each screen/system still exists and still works exactly as described
-above if shown directly (`SceneTransitionManager.ShowOnly` for the first/third/fourth,
-`MatchupScreenController.ShowForLevel` for Daily Challenge) — there's just no button anywhere that
-does so today.
+**Character Roster, Store, and Leaderboards are no longer reachable from Main
+Menu** (removed in the landing-page cleanup — see "Landing/Gameplay-HUD cleanup" and the
+matching "Known gaps" entry). Each screen still exists and still works exactly as described
+above if shown directly via `SceneTransitionManager.ShowOnly` — there's just no button anywhere
+that does so today. Daily Challenge is unaffected, since it isn't a separate screen — see the
+matching "Known gaps" entry.

@@ -9,8 +9,8 @@ namespace FarmFuryArcade.Core
     /// Only this harness's runOnStart is left enabled (Phase4ProjectBuilder's precedent: each new
     /// phase disables the previous test's auto-run to avoid racing on GameManager.LoadLevel).
     /// Drives the screen flow directly via each controller's public Show()/ShowOnly() entry
-    /// points rather than simulating clicks, verifying: initial screen state, World Map -> Matchup
-    /// -> Gameplay navigation, HUD element wiring, pause freezing Time.timeScale, level completion
+    /// points rather than simulating clicks, verifying: initial screen state, World Map -> Gameplay
+    /// navigation, HUD element wiring, pause freezing Time.timeScale, level completion
     /// producing a LevelResult with correct-shape stars/score, SaveManager persistence, and
     /// settings mutating SaveManager/AudioManager state.
     /// </summary>
@@ -37,7 +37,7 @@ namespace FarmFuryArcade.Core
             Debug.Log("[Phase5Test] --- Starting Phase 5 verification ---");
 
             VerifyMainMenuIsInitialScreen();
-            yield return TestWorldMapToMatchupToGameplay();
+            yield return TestWorldMapToGameplay();
             yield return TestHudElementsPresent();
             yield return TestPauseFreezesTime();
             yield return TestLevelCompleteFlow();
@@ -71,7 +71,7 @@ namespace FarmFuryArcade.Core
                 : "[Phase5Test] FAIL: expected only MainMenuScreen active at startup.");
         }
 
-        private IEnumerator TestWorldMapToMatchupToGameplay()
+        private IEnumerator TestWorldMapToGameplay()
         {
             var mainMenuGO = Find("MainMenuScreen");
             var mainMenu = mainMenuGO != null ? mainMenuGO.GetComponent<MainMenuController>() : null;
@@ -89,47 +89,18 @@ namespace FarmFuryArcade.Core
                 ? "[Phase5Test] PASS: Play navigates Main Menu -> World Map."
                 : "[Phase5Test] FAIL: World Map did not become the active screen.");
 
-            var matchupGO = Find("MatchupScreen");
-            var matchup = matchupGO != null ? matchupGO.GetComponent<MatchupScreenController>() : null;
-            if (matchup == null)
-            {
-                Debug.LogError("[Phase5Test] FAIL: MatchupScreenController not found.");
-                yield break;
-            }
-
-            matchup.ShowForLevel(0);
+            // The Matchup (VS card) screen was removed — tapping an unlocked level marker now
+            // goes straight into gameplay (WorldMapController.OnMarkerTapped). Reproduce that same
+            // effect directly rather than hunting for a marker's Button deep inside the World Map's
+            // ScrollRect content, which the test has no stable path into.
+            GameManager.Instance.LoadLevel(0);
+            SceneTransitionManager.Instance.ShowOnly(Find("GameplayScreen"));
             yield return WaitForTransition();
-
-            bool matchupShown = matchupGO.activeSelf;
-            Debug.Log(matchupShown
-                ? "[Phase5Test] PASS: Tapping a level marker shows the Matchup screen."
-                : "[Phase5Test] FAIL: Matchup screen did not activate.");
-
-            // Drive the countdown-then-play button directly rather than waiting the full
-            // 4-step-at-0.6s countdown in real time twice across this battery.
-            var playButton = matchupGO.transform.Find("Content/Buttons/PlayButton")?.GetComponent<UnityEngine.UI.Button>();
-            if (playButton == null)
-            {
-                Debug.LogError("[Phase5Test] FAIL: Matchup Play button not found in hierarchy.");
-                yield break;
-            }
-            playButton.onClick.Invoke();
-
-            // Countdown itself uses WaitForSecondsRealtime (4 steps * 0.6s ~= 2.4s nominal); poll
-            // for Playing rather than guessing, same reasoning as WaitForTransition.
-            const float countdownTimeoutSeconds = 20f;
-            float elapsed = 0f;
-            while (GameManager.Instance.CurrentState != GameState.Playing && elapsed < countdownTimeoutSeconds)
-            {
-                elapsed += Time.unscaledDeltaTime;
-                yield return null;
-            }
-            yield return WaitForTransition(); // let the final ShowOnly(gameplayScreen) fade finish too
 
             bool gameplayShown = Find("GameplayScreen").activeSelf;
             bool isPlaying = GameManager.Instance.CurrentState == GameState.Playing;
             Debug.Log(gameplayShown && isPlaying
-                ? "[Phase5Test] PASS: Matchup's Play button counts down and starts gameplay."
+                ? "[Phase5Test] PASS: Tapping a level marker goes straight into gameplay (no Matchup screen)."
                 : $"[Phase5Test] FAIL: gameplayShown={gameplayShown}, state={GameManager.Instance.CurrentState} (expected true/Playing).");
         }
 

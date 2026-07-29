@@ -57,6 +57,7 @@ namespace FarmFuryArcade.EditorTools
             var sr = go.AddComponent<SpriteRenderer>();
             sr.sprite = PlaceholderSprite.Get(color);
             sr.sortingOrder = 5;
+            go.transform.localScale = Vector3.one * TileMapRenderer.CellSize;
 
             var rb = go.AddComponent<Rigidbody2D>();
             rb.bodyType = RigidbodyType2D.Kinematic;

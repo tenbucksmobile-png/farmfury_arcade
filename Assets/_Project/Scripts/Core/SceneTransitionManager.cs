@@ -6,8 +6,8 @@ using FarmFuryArcade.Utilities;
 namespace FarmFuryArcade.Core
 {
     /// <summary>
-    /// Central fade-transition helper for the screen flow (Main Menu -> World Map -> Matchup ->
-    /// Gameplay -> Level Complete -> World Map). This project stays single-scene (see CLAUDE.md
+    /// Central fade-transition helper for the screen flow (Main Menu -> World Map -> Gameplay ->
+    /// Level Complete -> World Map). This project stays single-scene (see CLAUDE.md
     /// architecture note) — "scene transitions" here means fading a full-screen black Image to
     /// opaque, running the caller's show/hide swap (each screen controller owns its own
     /// GameObject's active state), then fading back. Every screen controller's Play/Back/Home
@@ -19,7 +19,7 @@ namespace FarmFuryArcade.Core
         [SerializeField] private CanvasGroup fadeGroup;
         [SerializeField] private float fadeSeconds = 0.25f;
 
-        /// <summary>Every top-level, mutually-exclusive screen (Main Menu, World Map, Matchup,
+        /// <summary>Every top-level, mutually-exclusive screen (Main Menu, World Map,
         /// Gameplay HUD, Level Complete, Level Failed, Character Roster, Leaderboards) — wired by
         /// Phase5ProjectBuilder. Overlays that layer on top of Gameplay instead of replacing it
         /// (Pause, Settings, New Character Unlock, the combo banner) manage their own visibility

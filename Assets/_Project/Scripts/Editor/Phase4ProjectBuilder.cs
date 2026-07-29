@@ -6,7 +6,6 @@ using FarmFuryArcade.Abilities;
 using FarmFuryArcade.Core;
 using FarmFuryArcade.Data;
 using FarmFuryArcade.Gameplay;
-using FarmFuryArcade.UI;
 using FarmFuryArcade.Utilities;
 using Object = UnityEngine.Object;
 
@@ -16,8 +15,9 @@ namespace FarmFuryArcade.EditorTools
     /// Phase 4 scaffolding: builds CharacterData for all 8 characters, adds CharacterBase +
     /// EggDropAbility to the existing Cluck prefab, builds the 7 remaining character prefabs plus
     /// every ability's sub-prefab (egg, shockwave, wool clone, water tile), adds water tiles to
-    /// LevelData_01, and wires CharacterManager/ComboSystem/UnlockManager/CharacterSwapUI/
-    /// CameraShake into Game.unity. Safe to re-run. Depends on Phase 2 (Cluck prefab, LevelData_01)
+    /// LevelData_01, and wires CharacterManager/ComboSystem/UnlockManager/CameraShake into
+    /// Game.unity (ChooseCharacterScreen, its Phase 5 replacement, is wired by
+    /// Phase5ProjectBuilder instead). Safe to re-run. Depends on Phase 2 (Cluck prefab, LevelData_01)
     /// and Phase 3 (robot types, for RearKick/PuffUp/GroundSlam to find at runtime — no direct
     /// build-time dependency).
     /// </summary>
@@ -105,6 +105,7 @@ namespace FarmFuryArcade.EditorTools
             var sr = go.AddComponent<SpriteRenderer>();
             sr.sprite = PlaceholderSprite.Get(color);
             sr.sortingOrder = 5;
+            go.transform.localScale = Vector3.one * TileMapRenderer.CellSize;
 
             var rb = go.AddComponent<Rigidbody2D>();
             rb.bodyType = RigidbodyType2D.Kinematic;
@@ -184,14 +185,17 @@ namespace FarmFuryArcade.EditorTools
         {
             var go = new GameObject("Egg");
             var sr = go.AddComponent<SpriteRenderer>();
-            // The old near-white/tan placeholder (0.92, 0.87, 0.72) blended straight into the real
-            // CornTiles.png ground art once that landed (both warm off-white/gold tones) — the
-            // ability worked (robots still got stunned on contact) but the egg itself read as
-            // invisible. Pure white plus a bigger scale gives it contrast against the ground until
-            // real egg art is wired.
-            sr.sprite = PlaceholderSprite.Get(Color.white);
-            sr.sortingOrder = 2;
-            go.transform.localScale = Vector3.one * 0.55f;
+            // Pure white at sortingOrder 2 (Phase 4 original) still wasn't visible once real
+            // ground/corn art landed — those textures read light/warm enough that a plain white
+            // square has poor contrast, the same failure mode as the earlier tan placeholder just
+            // with real art instead of a placeholder ground colour. Switched to a saturated hot
+            // pink no farm-themed ground art is likely to ever match, and raised sortingOrder above
+            // the character sprite (5) rather than just above ground — the offset-0 egg spawns
+            // directly under Cluck's own feet (see EggDropAbility's TileOffsetsBehind including 0),
+            // so it needs to draw on TOP of her sprite to be visible at all at that position.
+            sr.sprite = PlaceholderSprite.Get(new Color(1f, 0.08f, 0.58f));
+            sr.sortingOrder = 6;
+            go.transform.localScale = Vector3.one * 0.55f * TileMapRenderer.CellSize;
             var col = go.AddComponent<CircleCollider2D>();
             col.isTrigger = true;
             col.radius = 0.5f;
@@ -205,6 +209,7 @@ namespace FarmFuryArcade.EditorTools
             var sr = go.AddComponent<SpriteRenderer>();
             sr.sprite = PlaceholderSprite.Get(new Color(1f, 1f, 1f, 0.6f));
             sr.sortingOrder = 6;
+            go.transform.localScale = Vector3.one * TileMapRenderer.CellSize;
             go.AddComponent<ShockwaveEffect>();
             return SaveAndDestroy(go, $"{AbilityPrefabFolder}/Shockwave.prefab");
         }
@@ -215,7 +220,7 @@ namespace FarmFuryArcade.EditorTools
             var sr = go.AddComponent<SpriteRenderer>();
             sr.sprite = PlaceholderSprite.Get(new Color(0.3f, 0.9f, 0.95f, 0.5f));
             sr.sortingOrder = 4;
-            go.transform.localScale = Vector3.one * 0.6f;
+            go.transform.localScale = Vector3.one * 0.6f * TileMapRenderer.CellSize;
             return SaveAndDestroy(go, $"{AbilityPrefabFolder}/BounceTrail.prefab");
         }
 
@@ -225,7 +230,7 @@ namespace FarmFuryArcade.EditorTools
             var sr = go.AddComponent<SpriteRenderer>();
             sr.sprite = PlaceholderSprite.Get(new Color(0.92f, 0.90f, 0.80f));
             sr.sortingOrder = 5;
-            go.transform.localScale = Vector3.one * 0.7f; // "smaller Woolly" per spec
+            go.transform.localScale = Vector3.one * 0.7f * TileMapRenderer.CellSize; // "smaller Woolly" per spec
 
             var rb = go.AddComponent<Rigidbody2D>();
             rb.bodyType = RigidbodyType2D.Kinematic;
@@ -248,6 +253,7 @@ namespace FarmFuryArcade.EditorTools
             var sr = go.AddComponent<SpriteRenderer>();
             sr.sprite = PlaceholderSprite.Get(new Color(0.20f, 0.50f, 0.90f));
             sr.sortingOrder = -1;
+            go.transform.localScale = Vector3.one * TileMapRenderer.CellSize;
             go.AddComponent<WaterTile>();
             return SaveAndDestroy(go, $"{AbilityPrefabFolder}/WaterTile.prefab");
         }
@@ -262,23 +268,27 @@ namespace FarmFuryArcade.EditorTools
 
         // ---- CharacterData ------------------------------------------------------------------
 
+        // Speeds below are ~0.76x the original values (4.2->3.2 etc.) — playtest feedback said
+        // movement still read as too fast even after accounting for CellSize's effect on perceived
+        // speed. Percy/Ducky/Horace's originals (6, 5.5, 5.5) also exceeded CharacterData.
+        // movementSpeed's own [Range(1,5)] inspector hint; the scaled-down values now fit inside it.
         private static void BuildCharacterData()
         {
-            BuildCharacterDataAsset(CharacterType.Cluck, "Cluck", 4.2f, AbilityType.EggDrop, 15f,
+            BuildCharacterDataAsset(CharacterType.Cluck, "Cluck", 3.2f, AbilityType.EggDrop, 15f,
                 "Drops 3 eggs in her current lane that stun any robot walking over them for 3s.", 0, false);
-            BuildCharacterDataAsset(CharacterType.Bessie, "Bessie", 4f, AbilityType.GroundSlam, 20f,
+            BuildCharacterDataAsset(CharacterType.Bessie, "Bessie", 3.0f, AbilityType.GroundSlam, 20f,
                 "Instant shockwave stuns every robot within 2 tiles.", 0, false);
-            BuildCharacterDataAsset(CharacterType.Percy, "Percy", 6f, AbilityType.BounceRoll, 30f,
+            BuildCharacterDataAsset(CharacterType.Percy, "Percy", 4.6f, AbilityType.BounceRoll, 30f,
                 "The next wall Percy hits becomes walkable for 2 seconds.", 5, false);
-            BuildCharacterDataAsset(CharacterType.Woolly, "Woolly", 5f, AbilityType.TripleClone, 25f,
+            BuildCharacterDataAsset(CharacterType.Woolly, "Woolly", 3.8f, AbilityType.TripleClone, 25f,
                 "Spawns 2 AI-controlled clones that wander, collect crops, and fade after 10s.", 10, false);
-            BuildCharacterDataAsset(CharacterType.Ducky, "Ducky", 5.5f, AbilityType.SkipShot, 2f,
+            BuildCharacterDataAsset(CharacterType.Ducky, "Ducky", 4.2f, AbilityType.SkipShot, 2f,
                 "Teleports across an adjacent water tile pair — once per pair per maze.", 15, true);
-            BuildCharacterDataAsset(CharacterType.Horace, "Horace", 5.5f, AbilityType.RearKick, 18f,
+            BuildCharacterDataAsset(CharacterType.Horace, "Horace", 4.2f, AbilityType.RearKick, 18f,
                 "Kicks the nearest robot within 3 tiles back 4 tiles and stuns it on landing.", 20, false);
-            BuildCharacterDataAsset(CharacterType.Gerald, "Gerald", 4.5f, AbilityType.PuffUp, 45f,
+            BuildCharacterDataAsset(CharacterType.Gerald, "Gerald", 3.4f, AbilityType.PuffUp, 45f,
                 "Inflates to 3x size for 5s — any robot touched is instantly defeated. Half speed, no warp tunnels while puffed.", 30, false);
-            BuildCharacterDataAsset(CharacterType.Billy, "Billy", 4.5f, AbilityType.HeadbuttThrough, 40f,
+            BuildCharacterDataAsset(CharacterType.Billy, "Billy", 3.4f, AbilityType.HeadbuttThrough, 40f,
                 "Permanently destroys the next 3 walls he headbutts.", 40, false);
         }
 
@@ -392,11 +402,6 @@ namespace FarmFuryArcade.EditorTools
             if (mainCameraGO != null && mainCameraGO.GetComponent<CameraShake>() == null)
             {
                 mainCameraGO.AddComponent<CameraShake>();
-            }
-
-            if (GameObject.Find("CharacterSwapUI") == null)
-            {
-                new GameObject("CharacterSwapUI").AddComponent<CharacterSwapUI>();
             }
 
             if (GameObject.Find("Phase4Test") == null)

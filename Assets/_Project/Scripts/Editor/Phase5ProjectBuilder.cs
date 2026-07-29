@@ -46,6 +46,7 @@ namespace FarmFuryArcade.EditorTools
 
             ConfigureCanvasScaler(canvas);
             RemoveExistingUIScreens(canvas.transform);
+            RemoveObsoleteCharacterSwapUI();
 
             AddManagers(managersGO);
 
@@ -56,7 +57,6 @@ namespace FarmFuryArcade.EditorTools
 
             var mainMenu = BuildMainMenu(canvas.transform);
             var worldMap = BuildWorldMap(canvas.transform, levelMarkerPrefab);
-            var matchup = BuildMatchup(canvas.transform);
             var (gameplay, comboBanner) = BuildGameplayHUD(canvas.transform);
             var pause = BuildPauseMenu(canvas.transform);
             var settings = BuildSettingsPanel(canvas.transform);
@@ -66,17 +66,17 @@ namespace FarmFuryArcade.EditorTools
             var roster = BuildCharacterRoster(canvas.transform, rosterCardPrefab);
             var leaderboards = BuildLeaderboards(canvas.transform);
 
-            var characterSwapUIGO = GameObject.Find("CharacterSwapUI");
-            var characterSwapUI = characterSwapUIGO != null ? characterSwapUIGO.GetComponent<CharacterSwapUI>() : null;
+            var characterSelectCardPrefab = BuildCharacterSelectCardPrefab();
+            var chooseCharacter = BuildChooseCharacterScreen(canvas.transform, characterSelectCardPrefab);
 
-            WireCrossReferences(mainMenu, worldMap, matchup, gameplay, pause, settings,
-                levelComplete, unlockScreen, levelFailed, roster, leaderboards, characterSwapUI, comboBanner);
+            WireCrossReferences(mainMenu, worldMap, gameplay, pause, settings,
+                levelComplete, unlockScreen, levelFailed, roster, leaderboards, chooseCharacter, comboBanner);
 
             var transitionManager = managersGO.GetComponent<SceneTransitionManager>();
             var transitionSO = new SerializedObject(transitionManager);
             transitionSO.FindProperty("fadeGroup").objectReferenceValue = fadeGroup;
             var screenRootsProp = transitionSO.FindProperty("screenRoots");
-            var screens = new[] { mainMenu, worldMap, matchup.gameObject, gameplay, levelComplete, levelFailed, roster, leaderboards };
+            var screens = new[] { mainMenu, worldMap, gameplay, levelComplete, levelFailed, roster, leaderboards };
             screenRootsProp.arraySize = screens.Length;
             for (int i = 0; i < screens.Length; i++)
             {
@@ -92,6 +92,7 @@ namespace FarmFuryArcade.EditorTools
             pause.SetActive(false);
             settings.SetActive(false);
             storeComingSoon.SetActive(false);
+            chooseCharacter.gameObject.SetActive(false);
             unlockScreen.gameObject.SetActive(false); // BuildLevelComplete already does this too; explicit for clarity
 
             // GameObject.Find only searches active objects (same gotcha Phase5Test itself works
@@ -222,12 +223,81 @@ namespace FarmFuryArcade.EditorTools
             }
         }
 
+        /// <summary>One-time migration cleanup: Phase4ProjectBuilder used to create a standalone
+        /// "CharacterSwapUI" GameObject (the old OnGUI debug panel, now replaced by
+        /// ChooseCharacterScreen). Older scenes built before that removal still have it lying
+        /// around as a dangling GameObject with a Missing Script reference, since deleting the .cs
+        /// file doesn't retroactively clean up scenes that already referenced it. Safe to call
+        /// even if it's already gone.</summary>
+        private static void RemoveObsoleteCharacterSwapUI()
+        {
+            var go = GameObject.Find("CharacterSwapUI");
+            if (go != null)
+            {
+                Object.DestroyImmediate(go);
+            }
+        }
+
+        private const int SfxPoolSize = 6;
+
         private static void AddManagers(GameObject managersGO)
         {
             if (managersGO.GetComponent<SceneTransitionManager>() == null) managersGO.AddComponent<SceneTransitionManager>();
-            if (managersGO.GetComponent<AudioManager>() == null) managersGO.AddComponent<AudioManager>();
+            var audioManager = managersGO.GetComponent<AudioManager>();
+            if (audioManager == null) audioManager = managersGO.AddComponent<AudioManager>();
+            WireAudioSources(managersGO, audioManager);
             if (managersGO.GetComponent<DailyChallengeManager>() == null) managersGO.AddComponent<DailyChallengeManager>();
             if (managersGO.GetComponent<LeaderboardManager>() == null) managersGO.AddComponent<LeaderboardManager>();
+        }
+
+        /// <summary>AudioManager's musicSourceA/musicSourceB/sfxPool were never actually assigned
+        /// anywhere — the component existed with a full playback API, but with those fields null,
+        /// PlayMusic/PlaySFX silently no-op (`if (incoming == null) return;` / an empty pool), so no
+        /// audio played at all despite clips being correctly wired. Find-or-create two dedicated
+        /// AudioSource children for music (PlayMusic swaps between them to crossfade) and a pool of
+        /// AudioSources for overlapping SFX one-shots. Safe to re-run — reuses existing children by
+        /// name instead of duplicating them.</summary>
+        private static void WireAudioSources(GameObject managersGO, AudioManager audioManager)
+        {
+            var musicA = FindOrCreateAudioSourceChild(managersGO.transform, "MusicSourceA");
+            var musicB = FindOrCreateAudioSourceChild(managersGO.transform, "MusicSourceB");
+
+            var sfxSources = new AudioSource[SfxPoolSize];
+            for (int i = 0; i < SfxPoolSize; i++)
+            {
+                sfxSources[i] = FindOrCreateAudioSourceChild(managersGO.transform, $"SfxSource{i}");
+            }
+
+            var so = new SerializedObject(audioManager);
+            so.FindProperty("musicSourceA").objectReferenceValue = musicA;
+            so.FindProperty("musicSourceB").objectReferenceValue = musicB;
+            var poolProp = so.FindProperty("sfxPool");
+            poolProp.arraySize = sfxSources.Length;
+            for (int i = 0; i < sfxSources.Length; i++)
+            {
+                poolProp.GetArrayElementAtIndex(i).objectReferenceValue = sfxSources[i];
+            }
+            so.ApplyModifiedPropertiesWithoutUndo();
+        }
+
+        private static AudioSource FindOrCreateAudioSourceChild(Transform parent, string name)
+        {
+            var existing = parent.Find(name);
+            GameObject go = existing != null ? existing.gameObject : new GameObject(name);
+            if (existing == null)
+            {
+                go.transform.SetParent(parent, false);
+            }
+
+            var source = go.GetComponent<AudioSource>();
+            if (source == null)
+            {
+                source = go.AddComponent<AudioSource>();
+            }
+            source.playOnAwake = false;
+            source.loop = false;
+            source.spatialBlend = 0f; // 2D — UI/music shouldn't attenuate with listener distance
+            return source;
         }
 
         // ---- Fade overlay + reusable small prefabs -------------------------------------------
@@ -381,90 +451,6 @@ namespace FarmFuryArcade.EditorTools
             return root;
         }
 
-        // ---- Matchup ----------------------------------------------------------------------------
-
-        /// <summary>matchup.png (wired as this screen's background by ArtWiringBuilder) already
-        /// bakes in the two wood-frame card slots and a "VS" graphic — CharacterCard/RobotCards
-        /// sit directly on top of those two frames instead of the old abstract vertical stack of
-        /// Level/Name/Objective text + a duplicate "VS" text + colour-square cards. RobotCards is
-        /// still a HorizontalLayoutGroup so 1-3 active robot cards split the right frame's width
-        /// evenly regardless of how many distinct robot types this level has (inactive slots are
-        /// skipped by the layout). Play/Home are plain icon buttons at the bottom corners, same
-        /// convention as the Main Menu cleanup.</summary>
-        private static MatchupScreenController BuildMatchup(Transform canvasTransform)
-        {
-            var root = CreatePanel("MatchupScreen", canvasTransform, new Color(0.14f, 0.12f, 0.16f));
-
-            var characterCard = CreateImage("CharacterCard", root.transform, Color.clear, 370f, 430f);
-            var characterCardRect = characterCard.rectTransform;
-            characterCardRect.anchorMin = new Vector2(0.5f, 0.5f);
-            characterCardRect.anchorMax = new Vector2(0.5f, 0.5f);
-            characterCardRect.pivot = new Vector2(0.5f, 0.5f);
-            characterCardRect.sizeDelta = new Vector2(370f, 430f);
-            characterCardRect.anchoredPosition = new Vector2(-640f, 70f);
-
-            var robotCardsRow = CreateHorizontalGroup("RobotCards", root.transform, 6f);
-            var robotRowRect = (RectTransform)robotCardsRow.transform;
-            robotRowRect.anchorMin = new Vector2(0.5f, 0.5f);
-            robotRowRect.anchorMax = new Vector2(0.5f, 0.5f);
-            robotRowRect.pivot = new Vector2(0.5f, 0.5f);
-            robotRowRect.sizeDelta = new Vector2(370f, 430f);
-            robotRowRect.anchoredPosition = new Vector2(640f, 70f);
-            var robotCards = new Image[3];
-            for (int i = 0; i < 3; i++)
-            {
-                robotCards[i] = CreateImage($"RobotCard{i}", robotCardsRow.transform, Color.clear, 110f, 150f);
-            }
-
-            var starDisplayGO = CreateStarDisplay("Stars", root.transform, 24);
-            var starsRect = (RectTransform)starDisplayGO.transform;
-            starsRect.anchorMin = new Vector2(0.5f, 1f);
-            starsRect.anchorMax = new Vector2(0.5f, 1f);
-            starsRect.pivot = new Vector2(0.5f, 1f);
-            starsRect.anchoredPosition = new Vector2(0f, -24f);
-
-            var countdownText = CreateText("Countdown", root.transform, string.Empty, 72f, TextAlignmentOptions.Center, 90f);
-            var countdownRect = (RectTransform)countdownText.transform;
-            countdownRect.anchorMin = new Vector2(0.5f, 0.5f);
-            countdownRect.anchorMax = new Vector2(0.5f, 0.5f);
-            countdownRect.pivot = new Vector2(0.5f, 0.5f);
-            countdownRect.sizeDelta = new Vector2(400f, 120f);
-            countdownRect.anchoredPosition = Vector2.zero;
-
-            var playButton = CreateButton("PlayButton", root.transform, string.Empty, new Color(0.3f, 0.75f, 0.35f), 32f, 120f, out _);
-            Object.DestroyImmediate(playButton.transform.Find("PlayButton_Label").gameObject);
-            var playRect = (RectTransform)playButton.transform;
-            playRect.anchorMin = new Vector2(0f, 0f);
-            playRect.anchorMax = new Vector2(0f, 0f);
-            playRect.pivot = new Vector2(0f, 0f);
-            playRect.sizeDelta = new Vector2(120f, 120f);
-            playRect.anchoredPosition = new Vector2(40f, 40f);
-
-            var homeButton = CreateButton("HomeButton", root.transform, string.Empty, new Color(0.35f, 0.35f, 0.38f), 32f, 120f, out _);
-            Object.DestroyImmediate(homeButton.transform.Find("HomeButton_Label").gameObject);
-            var homeRect = (RectTransform)homeButton.transform;
-            homeRect.anchorMin = new Vector2(1f, 0f);
-            homeRect.anchorMax = new Vector2(1f, 0f);
-            homeRect.pivot = new Vector2(1f, 0f);
-            homeRect.sizeDelta = new Vector2(120f, 120f);
-            homeRect.anchoredPosition = new Vector2(-40f, 40f);
-
-            var controller = root.AddComponent<MatchupScreenController>();
-            var so = new SerializedObject(controller);
-            so.FindProperty("starDisplay").objectReferenceValue = starDisplayGO.GetComponent<StarDisplay>();
-            so.FindProperty("characterCardImage").objectReferenceValue = characterCard;
-            var robotCardsProp = so.FindProperty("robotCardImages");
-            robotCardsProp.arraySize = 3;
-            for (int i = 0; i < 3; i++) robotCardsProp.GetArrayElementAtIndex(i).objectReferenceValue = robotCards[i];
-            so.FindProperty("countdownText").objectReferenceValue = countdownText;
-            so.FindProperty("playButton").objectReferenceValue = playButton;
-            so.FindProperty("backButton").objectReferenceValue = homeButton;
-            so.ApplyModifiedPropertiesWithoutUndo();
-
-            root.SetActive(false);
-            return controller;
-        }
-
         // ---- Gameplay HUD -----------------------------------------------------------------------
 
         private static (GameObject root, ComboNotificationBanner banner) BuildGameplayHUD(Transform canvasTransform)
@@ -472,18 +458,19 @@ namespace FarmFuryArcade.EditorTools
             var root = CreateEmpty("GameplayScreen", canvasTransform);
             StretchFull((RectTransform)root.transform);
 
-            // Score (top-left) — inset well clear of the rounded-corner safe area (20px used to
-            // clip under the yellow safe-area guide, same class of fix as the Main Menu buttons).
-            var scoreText = CreateText("ScoreText", root.transform, "0", 40f, TextAlignmentOptions.TopLeft, 60f);
-            AnchorTopLeft((RectTransform)scoreText.transform, new Vector2(300f, 60f), new Vector2(100f, -90f));
+            // Score (top-left) and Timer (top-right) — no more "LevelText" header (the level name
+            // duplicated what the World Map marker the player just tapped already established, and
+            // read as a redundant white text banner over the maze art). Pulled further in from an
+            // original (100,-90) inset — that sat above/outside the backdrop art's own safe-area
+            // guide once actually viewed on a device frame — and enlarged (40->56 / 32->46) per
+            // feedback that they were too small. Font is wired to Bangers SDF (a cartoon/comic
+            // bundled with TMP's Examples & Extras) by ArtWiringBuilder.WireGameplayFont, matching
+            // the "same cartoon font" as the rest of the game's title/button art.
+            var scoreText = CreateText("ScoreText", root.transform, "0", 56f, TextAlignmentOptions.TopLeft, 70f);
+            AnchorTopLeft((RectTransform)scoreText.transform, new Vector2(320f, 70f), new Vector2(140f, -140f));
 
-            // Level (top-centre)
-            var levelText = CreateText("LevelText", root.transform, string.Empty, 28f, TextAlignmentOptions.Top, 50f);
-            AnchorTopCenter((RectTransform)levelText.transform, new Vector2(500f, 50f), new Vector2(0f, -20f));
-
-            // Timer (top-right) — same safe-area inset as the score.
-            var timerText = CreateText("TimerText", root.transform, "00:00", 32f, TextAlignmentOptions.TopRight, 50f);
-            AnchorTopRight((RectTransform)timerText.transform, new Vector2(200f, 50f), new Vector2(-100f, -90f));
+            var timerText = CreateText("TimerText", root.transform, "00:00", 46f, TextAlignmentOptions.TopRight, 70f);
+            AnchorTopRight((RectTransform)timerText.transform, new Vector2(240f, 70f), new Vector2(-140f, -140f));
 
             // Power pellet timer bar + chain counter (upper area, under the level text)
             var powerBarGO = CreatePanel("PowerPelletTimerBar", root.transform, new Color(0.2f, 0.2f, 0.22f));
@@ -513,13 +500,12 @@ namespace FarmFuryArcade.EditorTools
             bannerSO.FindProperty("canvasGroup").objectReferenceValue = bannerGroup;
             bannerSO.ApplyModifiedPropertiesWithoutUndo();
 
-            // Pause/Sound/Home icon cluster (bottom-left) — replaces the old scattered
-            // Swap(bottom-left)/Ability(bottom-centre)/Pause(bottom-right) buttons. Tab
-            // (CharacterSwapUI) and Space (ability activation) still work as direct keyboard
-            // input; this cluster is just pause, mute toggle, and quit-to-home. Sized/inset to
-            // match the Main Menu's Play/Settings buttons (160x160, safe-area inset) — the
-            // original 80x80 at a 20px inset both read as too small and sat outside the
-            // safe-area guide.
+            // Pause icon (bottom-left) — Sound and Home were removed from this cluster per
+            // playtest feedback; both are still reachable via the Pause menu itself (Settings'
+            // music/SFX toggles, Pause's own Quit button), so a single Pause button is all this
+            // needs now. Sized/inset to match the Main Menu's Play/Settings buttons (160x160,
+            // safe-area inset) — an original 80x80 at a 20px inset both read as too small and sat
+            // outside the safe-area guide.
             const float clusterButtonSize = 160f;
             const float clusterSpacing = 24f;
             const float clusterInsetX = 100f;
@@ -529,32 +515,57 @@ namespace FarmFuryArcade.EditorTools
             Object.DestroyImmediate(pauseButton.transform.Find("PauseButton_Label").gameObject);
             AnchorBottomLeft((RectTransform)pauseButton.transform, new Vector2(clusterButtonSize, clusterButtonSize), new Vector2(clusterInsetX, clusterInsetY));
 
-            var soundButton = CreateButton("SoundButton", root.transform, string.Empty, new Color(0.35f, 0.35f, 0.38f), 28f, clusterButtonSize, out _);
-            Object.DestroyImmediate(soundButton.transform.Find("SoundButton_Label").gameObject);
-            AnchorBottomLeft((RectTransform)soundButton.transform, new Vector2(clusterButtonSize, clusterButtonSize),
-                new Vector2(clusterInsetX + (clusterButtonSize + clusterSpacing), clusterInsetY));
-            var soundIcon = soundButton.GetComponent<Image>();
-
-            var homeButton = CreateButton("HomeButton", root.transform, string.Empty, new Color(0.35f, 0.35f, 0.38f), 28f, clusterButtonSize, out _);
-            Object.DestroyImmediate(homeButton.transform.Find("HomeButton_Label").gameObject);
-            AnchorBottomLeft((RectTransform)homeButton.transform, new Vector2(clusterButtonSize, clusterButtonSize),
-                new Vector2(clusterInsetX + 2 * (clusterButtonSize + clusterSpacing), clusterInsetY));
-
-            // Character portrait — above the (now much taller) button cluster, left-aligned with it.
+            // Character portrait — above the button, left-aligned with it.
             var portrait = CreateImage("CharacterPortrait", root.transform, new Color(1f, 0.84f, 0f), 90f, 90f);
             AnchorBottomLeft((RectTransform)portrait.transform, new Vector2(90f, 90f),
                 new Vector2(clusterInsetX, clusterInsetY + clusterButtonSize + clusterSpacing));
 
+            // Directional pad (right side, diamond/D-pad layout) — up.png/down.png/left.png/
+            // right.png (wired by ArtWiringBuilder) already look like complete rounded buttons on
+            // their own, so each is just a plain Image+Button, no separate background needed.
+            // Positioned around a shared centre point rather than each anchored independently, so
+            // the diamond shape (Up above centre, Down below, Left/Right to the sides) is easy to
+            // read and re-tune as one unit.
+            const float dpadButtonSize = 120f;
+            const float dpadSpacing = 130f;
+            const float dpadInsetX = 200f;
+            const float dpadInsetY = 220f;
+            Vector2 dpadCenter = new Vector2(-dpadInsetX, dpadInsetY);
+
+            var upButton = CreateButton("DPadUpButton", root.transform, string.Empty, Color.clear, out _);
+            Object.DestroyImmediate(upButton.transform.Find("DPadUpButton_Label").gameObject);
+            AnchorBottomRight((RectTransform)upButton.transform, new Vector2(dpadButtonSize, dpadButtonSize),
+                dpadCenter + new Vector2(0f, dpadSpacing));
+
+            var downButton = CreateButton("DPadDownButton", root.transform, string.Empty, Color.clear, out _);
+            Object.DestroyImmediate(downButton.transform.Find("DPadDownButton_Label").gameObject);
+            AnchorBottomRight((RectTransform)downButton.transform, new Vector2(dpadButtonSize, dpadButtonSize),
+                dpadCenter + new Vector2(0f, -dpadSpacing));
+
+            var leftButton = CreateButton("DPadLeftButton", root.transform, string.Empty, Color.clear, out _);
+            Object.DestroyImmediate(leftButton.transform.Find("DPadLeftButton_Label").gameObject);
+            AnchorBottomRight((RectTransform)leftButton.transform, new Vector2(dpadButtonSize, dpadButtonSize),
+                dpadCenter + new Vector2(-dpadSpacing, 0f));
+
+            var rightButton = CreateButton("DPadRightButton", root.transform, string.Empty, Color.clear, out _);
+            Object.DestroyImmediate(rightButton.transform.Find("DPadRightButton_Label").gameObject);
+            AnchorBottomRight((RectTransform)rightButton.transform, new Vector2(dpadButtonSize, dpadButtonSize),
+                dpadCenter + new Vector2(dpadSpacing, 0f));
+
+            var dpad = root.AddComponent<DirectionalPadController>();
+            var dpadSO = new SerializedObject(dpad);
+            dpadSO.FindProperty("upButton").objectReferenceValue = upButton;
+            dpadSO.FindProperty("downButton").objectReferenceValue = downButton;
+            dpadSO.FindProperty("leftButton").objectReferenceValue = leftButton;
+            dpadSO.FindProperty("rightButton").objectReferenceValue = rightButton;
+            dpadSO.ApplyModifiedPropertiesWithoutUndo();
+
             var hud = root.AddComponent<GameplayHUD>();
             var so = new SerializedObject(hud);
             so.FindProperty("scoreText").objectReferenceValue = scoreText;
-            so.FindProperty("levelText").objectReferenceValue = levelText;
             so.FindProperty("timerText").objectReferenceValue = timerText;
             so.FindProperty("characterPortrait").objectReferenceValue = portrait;
             so.FindProperty("pauseButton").objectReferenceValue = pauseButton;
-            so.FindProperty("soundButton").objectReferenceValue = soundButton;
-            so.FindProperty("soundButtonIcon").objectReferenceValue = soundIcon;
-            so.FindProperty("homeButton").objectReferenceValue = homeButton;
             so.FindProperty("powerPelletTimerBar").objectReferenceValue = powerBarGO;
             so.FindProperty("powerPelletTimerFill").objectReferenceValue = powerFillImage;
             so.FindProperty("chainCounterRoot").objectReferenceValue = chainRoot;
@@ -566,17 +577,35 @@ namespace FarmFuryArcade.EditorTools
 
         // ---- Pause Menu -------------------------------------------------------------------------
 
+        /// <summary>Paused.png bakes in the "PAUSED" title and all 5 button-row backgrounds at
+        /// fixed positions — Resume/SwapCharacter/Restart/Settings/Quit.png (real button art wired
+        /// by ArtWiringBuilder) sit exactly on top of those five baked-in rows instead of generic
+        /// CreateButton rectangles + a redundant "PAUSED" text. Anchor fractions below were
+        /// measured directly off Paused.png (a 2048x2048 square image, stretched to fill this
+        /// full-screen overlay) — same reasoning as BuildLevelFailed's SetAnchorRect comment.</summary>
         private static GameObject BuildPauseMenu(Transform canvasTransform)
         {
             var root = CreatePanel("PauseOverlay", canvasTransform, new Color(0f, 0f, 0f, 0.75f));
-            var group = CreateVerticalGroup("Content", root.transform, 14f, 30);
 
-            CreateText("Title", group.transform, "PAUSED", 44f, TextAlignmentOptions.Center, 60f);
-            var resumeButton = CreateButton("ResumeButton", group.transform, "Resume", new Color(0.3f, 0.75f, 0.35f), 26f, 70f, out _);
-            var swapButton = CreateButton("SwapButton", group.transform, "Swap Character", new Color(0.35f, 0.45f, 0.75f), out _);
-            var restartButton = CreateButton("RestartButton", group.transform, "Restart Level", new Color(0.75f, 0.55f, 0.2f), out _);
-            var settingsButton = CreateButton("SettingsButton", group.transform, "Settings", new Color(0.35f, 0.35f, 0.38f), out _);
-            var quitButton = CreateButton("QuitButton", group.transform, "Quit to Menu", new Color(0.75f, 0.25f, 0.25f), out _);
+            var resumeButton = CreateButton("ResumeButton", root.transform, string.Empty, Color.clear, out _);
+            Object.DestroyImmediate(resumeButton.transform.Find("ResumeButton_Label").gameObject);
+            SetAnchorRect((RectTransform)resumeButton.transform, 0.325f, 0.6f, 0.675f, 0.6825f);
+
+            var swapButton = CreateButton("SwapButton", root.transform, string.Empty, Color.clear, out _);
+            Object.DestroyImmediate(swapButton.transform.Find("SwapButton_Label").gameObject);
+            SetAnchorRect((RectTransform)swapButton.transform, 0.2625f, 0.495f, 0.735f, 0.5775f);
+
+            var restartButton = CreateButton("RestartButton", root.transform, string.Empty, Color.clear, out _);
+            Object.DestroyImmediate(restartButton.transform.Find("RestartButton_Label").gameObject);
+            SetAnchorRect((RectTransform)restartButton.transform, 0.325f, 0.3925f, 0.675f, 0.4725f);
+
+            var settingsButton = CreateButton("SettingsButton", root.transform, string.Empty, Color.clear, out _);
+            Object.DestroyImmediate(settingsButton.transform.Find("SettingsButton_Label").gameObject);
+            SetAnchorRect((RectTransform)settingsButton.transform, 0.325f, 0.29f, 0.675f, 0.37f);
+
+            var quitButton = CreateButton("QuitButton", root.transform, string.Empty, Color.clear, out _);
+            Object.DestroyImmediate(quitButton.transform.Find("QuitButton_Label").gameObject);
+            SetAnchorRect((RectTransform)quitButton.transform, 0.3675f, 0.195f, 0.635f, 0.27f);
 
             var controller = root.AddComponent<PauseMenuController>();
             var so = new SerializedObject(controller);
@@ -642,15 +671,40 @@ namespace FarmFuryArcade.EditorTools
 
         // ---- Settings ---------------------------------------------------------------------------
 
+        /// <summary>Root background is "LoadingScreen Background.png" (a night barn/starfield
+        /// scene, wired by ArtWiringBuilder), shown behind everything whenever the Settings
+        /// (gear) button is pressed from Main Menu or Pause. ContentBackdrop sits directly behind
+        /// the "Content" vertical group using Btn_plaque.png as a framed-panel look for the actual
+        /// controls, since no dedicated settings-panel art exists — sized a bit larger than
+        /// Content's own fixed 700-wide layout so it reads as a proper backing card rather than a
+        /// tight outline.</summary>
         private static GameObject BuildSettingsPanel(Transform canvasTransform)
         {
             var root = CreatePanel("SettingsOverlay", canvasTransform, new Color(0f, 0f, 0f, 0.8f));
+
+            // Height brought down from an original 900 to match the controls' corrected (much
+            // smaller, post-CreateSlider/CreateToggle-fix) real height — 900 was sized to
+            // accommodate sliders/toggles that were rendering ~3x taller than intended, leaving a
+            // lot of empty plaque below the controls once that bug was fixed.
+            var contentBackdrop = CreateImage("ContentBackdrop", root.transform, Color.clear, 780f, 680f);
+            var backdropRect = contentBackdrop.rectTransform;
+            backdropRect.anchorMin = new Vector2(0.5f, 0.5f);
+            backdropRect.anchorMax = new Vector2(0.5f, 0.5f);
+            backdropRect.pivot = new Vector2(0.5f, 0.5f);
+            backdropRect.sizeDelta = new Vector2(780f, 680f);
+            backdropRect.anchoredPosition = Vector2.zero;
+
             var group = CreateVerticalGroup("Content", root.transform, 10f, 30);
 
-            var titleRow = CreateHorizontalGroup("TitleRow", group.transform, 10f);
-            CreateText("Title", titleRow.transform, "SETTINGS", 36f, TextAlignmentOptions.Left, 50f);
-            var closeButton = CreateButton("CloseButton", titleRow.transform, "X", new Color(0.6f, 0.2f, 0.2f), 22f, 50f, out _);
-            closeButton.GetComponent<LayoutElement>().preferredWidth = 50f;
+            CreateText("Title", group.transform, "SETTINGS", 36f, TextAlignmentOptions.Center, 50f);
+
+            // Back button lives outside "Content" (screen-corner anchored, same convention as
+            // WorldMap's Home / CharacterRosterScreen's Back) rather than the old inline "X" —
+            // wired to the same closeButton field/Hide() behaviour, just reskinned with Btn_back.png
+            // and moved somewhere a player expects a back button to be.
+            var closeButton = CreateButton("BackButton", root.transform, string.Empty, Color.clear, out _);
+            Object.DestroyImmediate(closeButton.transform.Find("BackButton_Label").gameObject);
+            AnchorTopLeft((RectTransform)closeButton.transform, new Vector2(120f, 120f), new Vector2(20f, -20f));
 
             var musicToggle = CreateToggle("MusicToggle", group.transform, "Music", out _);
             var musicSlider = CreateSlider("MusicVolumeSlider", group.transform, 1f);
@@ -793,28 +847,46 @@ namespace FarmFuryArcade.EditorTools
 
         // ---- Level Failed -----------------------------------------------------------------------
 
+        /// <summary>LevelFailed.png bakes in the "TRY AGAIN!" banner, "SCORE"/"BEST" labels, and
+        /// its own RETRY/MENU button graphics at fixed positions — Retry.png/Menu.png (real button
+        /// art wired by ArtWiringBuilder) sit exactly on top of those two baked-in positions
+        /// instead of generic CreateButton rectangles, and there's no dynamic Title/Score/Tip text
+        /// anymore since the art already reads as a complete screen on its own. Anchor fractions
+        /// below were measured directly off LevelFailed.png (a 2048x2048 square image, stretched
+        /// to fill this full-screen panel) — anchoring as a fractional sub-rect (rather than a
+        /// fixed pixel size/position) keeps the buttons aligned with the art regardless of how
+        /// non-uniformly that stretch scales the square source into the canvas's own aspect.</summary>
         private static GameObject BuildLevelFailed(Transform canvasTransform)
         {
             var root = CreatePanel("LevelFailedScreen", canvasTransform, new Color(0.16f, 0.12f, 0.10f));
-            var group = CreateVerticalGroup("Content", root.transform, 14f, 30);
 
-            CreateText("Title", group.transform, "Try Again!", 44f, TextAlignmentOptions.Center, 60f);
-            var scoreText = CreateText("ScoreText", group.transform, "Score: 0", 26f, TextAlignmentOptions.Center, 40f);
-            var tipText = CreateText("TipText", group.transform, string.Empty, 20f, TextAlignmentOptions.Center, 60f);
+            var retryButton = CreateButton("RetryButton", root.transform, string.Empty, Color.clear, out _);
+            Object.DestroyImmediate(retryButton.transform.Find("RetryButton_Label").gameObject);
+            SetAnchorRect((RectTransform)retryButton.transform, 0.215f, 0.27f, 0.4275f, 0.355f);
 
-            var buttonRow = CreateHorizontalGroup("Buttons", group.transform, 14f);
-            var retryButton = CreateButton("RetryButton", buttonRow.transform, "Retry", new Color(0.3f, 0.75f, 0.35f), out _);
-            var homeButton = CreateButton("HomeButton", buttonRow.transform, "Home", new Color(0.35f, 0.45f, 0.75f), out _);
+            var menuButton = CreateButton("MenuButton", root.transform, string.Empty, Color.clear, out _);
+            Object.DestroyImmediate(menuButton.transform.Find("MenuButton_Label").gameObject);
+            SetAnchorRect((RectTransform)menuButton.transform, 0.5325f, 0.27f, 0.7475f, 0.355f);
 
             var controller = root.AddComponent<LevelFailedController>();
             var so = new SerializedObject(controller);
-            so.FindProperty("scoreText").objectReferenceValue = scoreText;
-            so.FindProperty("tipText").objectReferenceValue = tipText;
             so.FindProperty("retryButton").objectReferenceValue = retryButton;
-            so.FindProperty("homeButton").objectReferenceValue = homeButton;
+            so.FindProperty("menuButton").objectReferenceValue = menuButton;
             so.ApplyModifiedPropertiesWithoutUndo();
 
             return root;
+        }
+
+        /// <summary>Anchors a RectTransform to an exact fractional sub-rect of its parent (stretch
+        /// to fill, no fixed offset) — used for overlaying button art onto specific positions baked
+        /// into a background image, where the parent panel may itself be stretched to a different
+        /// aspect ratio than the source art.</summary>
+        private static void SetAnchorRect(RectTransform rect, float xMin, float yMin, float xMax, float yMax)
+        {
+            rect.anchorMin = new Vector2(xMin, yMin);
+            rect.anchorMax = new Vector2(xMax, yMax);
+            rect.offsetMin = Vector2.zero;
+            rect.offsetMax = Vector2.zero;
         }
 
         // ---- Character Roster ---------------------------------------------------------------
@@ -861,12 +933,92 @@ namespace FarmFuryArcade.EditorTools
             return root;
         }
 
+        // ---- Choose Character (Phase 5 replacement for the old OnGUI CharacterSwapUI) ---------
+
+        /// <summary>One card's tappable area: an Image for the card art/placeholder, a lock-icon
+        /// overlay, and an active-highlight glow (a slightly larger Image behind the card, first
+        /// sibling so it peeks out around the edges rather than covering the art) — all driven by
+        /// CharacterSelectCard.Initialize.</summary>
+        private static GameObject BuildCharacterSelectCardPrefab()
+        {
+            var go = new GameObject("CharacterSelectCard", typeof(RectTransform), typeof(Image), typeof(Button));
+            var rt = (RectTransform)go.transform;
+            rt.sizeDelta = new Vector2(380f, 380f);
+            go.GetComponent<Image>().sprite = PlaceholderSprite.Get(Color.white);
+
+            var activeHighlight = CreateImage("ActiveHighlight", go.transform, new Color(1f, 0.84f, 0f, 0.85f), 410f, 410f);
+            var highlightRect = (RectTransform)activeHighlight.transform;
+            highlightRect.anchorMin = highlightRect.anchorMax = new Vector2(0.5f, 0.5f);
+            highlightRect.pivot = new Vector2(0.5f, 0.5f);
+            highlightRect.sizeDelta = new Vector2(410f, 410f);
+            highlightRect.anchoredPosition = Vector2.zero;
+            activeHighlight.transform.SetAsFirstSibling();
+
+            var lockIcon = CreateImage("LockIcon", go.transform, new Color(0f, 0f, 0f, 0.8f), 140f, 60f);
+            var lockRect = (RectTransform)lockIcon.transform;
+            lockRect.anchorMin = lockRect.anchorMax = new Vector2(0.5f, 0.5f);
+            lockRect.pivot = new Vector2(0.5f, 0.5f);
+            lockRect.sizeDelta = new Vector2(140f, 60f);
+            lockRect.anchoredPosition = Vector2.zero;
+            var lockLabel = CreateText("LockLabel", lockIcon.transform, "LOCKED", 22f, TextAlignmentOptions.Center, 60f);
+            StretchFull((RectTransform)lockLabel.transform);
+
+            var card = go.AddComponent<CharacterSelectCard>();
+            var cardSO = new SerializedObject(card);
+            cardSO.FindProperty("cardImage").objectReferenceValue = go.GetComponent<Image>();
+            cardSO.FindProperty("lockIcon").objectReferenceValue = lockIcon.gameObject;
+            cardSO.FindProperty("activeHighlight").objectReferenceValue = activeHighlight.gameObject;
+            cardSO.FindProperty("button").objectReferenceValue = go.GetComponent<Button>();
+            cardSO.ApplyModifiedPropertiesWithoutUndo();
+
+            return SaveAndDestroy(go, $"{UIPrefabFolder}/CharacterSelectCard.prefab");
+        }
+
+        /// <summary>LoadingScreen Background.png (the same barn/night art used behind Settings)
+        /// fills the screen; a GridLayoutGroup lays out one CharacterSelectCard per CharacterData,
+        /// evenly spaced in a fixed 4-column grid regardless of unlock state. Not part of
+        /// screenRoots — like Pause/Settings, it's an overlay shown/hidden directly rather than
+        /// routed through SceneTransitionManager.ShowOnly.</summary>
+        private static ChooseCharacterScreen BuildChooseCharacterScreen(Transform canvasTransform, GameObject cardPrefab)
+        {
+            var root = CreatePanel("ChooseCharacterScreen", canvasTransform, new Color(0.08f, 0.08f, 0.12f));
+
+            var backButton = CreateButton("BackButton", root.transform, "Back", new Color(0.35f, 0.35f, 0.38f), 22f, 50f, out _);
+            AnchorTopLeft((RectTransform)backButton.transform, new Vector2(160f, 50f), new Vector2(20f, -20f));
+
+            var gridGO = new GameObject("CardGrid", typeof(RectTransform), typeof(GridLayoutGroup));
+            gridGO.transform.SetParent(root.transform, false);
+            var gridRect = (RectTransform)gridGO.transform;
+            gridRect.anchorMin = new Vector2(0.5f, 0.5f);
+            gridRect.anchorMax = new Vector2(0.5f, 0.5f);
+            gridRect.pivot = new Vector2(0.5f, 0.5f);
+            gridRect.sizeDelta = new Vector2(1700f, 820f);
+            gridRect.anchoredPosition = new Vector2(0f, -20f);
+
+            var grid = gridGO.GetComponent<GridLayoutGroup>();
+            grid.cellSize = new Vector2(380f, 380f);
+            grid.spacing = new Vector2(30f, 30f);
+            grid.childAlignment = TextAnchor.MiddleCenter;
+            grid.constraint = GridLayoutGroup.Constraint.FixedColumnCount;
+            grid.constraintCount = 4;
+
+            var controller = root.AddComponent<ChooseCharacterScreen>();
+            var so = new SerializedObject(controller);
+            so.FindProperty("cardContainer").objectReferenceValue = gridGO.transform;
+            so.FindProperty("cardPrefab").objectReferenceValue = cardPrefab;
+            so.FindProperty("gridLayoutGroup").objectReferenceValue = grid;
+            so.FindProperty("backButton").objectReferenceValue = backButton;
+            so.ApplyModifiedPropertiesWithoutUndo();
+
+            return controller;
+        }
+
         // ---- Cross-references (built after every screen exists) -------------------------------
 
-        private static void WireCrossReferences(GameObject mainMenu, GameObject worldMap, MatchupScreenController matchup,
+        private static void WireCrossReferences(GameObject mainMenu, GameObject worldMap,
             GameObject gameplay, GameObject pause, GameObject settings,
             GameObject levelComplete, NewCharacterUnlockScreen unlockScreen, GameObject levelFailed,
-            GameObject roster, GameObject leaderboards, CharacterSwapUI characterSwapUI, ComboNotificationBanner comboBanner)
+            GameObject roster, GameObject leaderboards, ChooseCharacterScreen chooseCharacterScreen, ComboNotificationBanner comboBanner)
         {
             var settingsPanel = settings.GetComponent<SettingsPanel>();
 
@@ -874,10 +1026,7 @@ namespace FarmFuryArcade.EditorTools
                 ("worldMapScreen", worldMap), ("settingsPanel", settingsPanel));
 
             SetRefs(worldMap.GetComponent<WorldMapController>(),
-                ("mainMenuScreen", mainMenu), ("matchupScreen", matchup));
-
-            SetRefs(matchup,
-                ("gameplayScreen", gameplay), ("worldMapScreen", worldMap));
+                ("mainMenuScreen", mainMenu), ("gameplayScreen", gameplay));
 
             var hud = gameplay.GetComponent<GameplayHUD>();
             SetRefs(hud,
@@ -885,13 +1034,15 @@ namespace FarmFuryArcade.EditorTools
                 ("levelCompleteScreen", levelComplete), ("levelFailedScreen", levelFailed));
 
             SetRefs(pause.GetComponent<PauseMenuController>(),
-                ("characterSwapUI", characterSwapUI), ("settingsPanel", settingsPanel));
+                ("chooseCharacterScreen", chooseCharacterScreen), ("settingsPanel", settingsPanel), ("mainMenuScreen", mainMenu));
+
+            SetRefs(chooseCharacterScreen, ("pauseMenuScreen", pause));
 
             SetRefs(levelComplete.GetComponent<LevelCompleteController>(),
                 ("worldMapScreen", worldMap), ("gameplayScreen", gameplay), ("unlockScreen", unlockScreen));
 
             SetRefs(levelFailed.GetComponent<LevelFailedController>(),
-                ("gameplayScreen", gameplay), ("worldMapScreen", worldMap));
+                ("gameplayScreen", gameplay), ("mainMenuScreen", mainMenu));
 
             SetRefs(roster.GetComponent<CharacterRosterScreen>(),
                 ("mainMenuScreen", mainMenu));

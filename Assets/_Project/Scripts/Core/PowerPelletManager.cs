@@ -44,6 +44,8 @@ namespace FarmFuryArcade.Core
             {
                 IsPowerActive = true;
                 OnPowerStateChanged?.Invoke(true);
+                AudioManager.Instance?.PlayPowerReadySfx();
+                AudioManager.Instance?.PlayEatRobotMusic();
             }
 
             if (_countdownRoutine != null)
@@ -77,6 +79,7 @@ namespace FarmFuryArcade.Core
             _countdownRoutine = null;
             OnPowerStateChanged?.Invoke(false);
             ChaseScoreManager.Instance?.ResetChain();
+            AudioManager.Instance?.ResumeBackgroundMusic();
         }
     }
 }

@@ -146,6 +146,11 @@ namespace FarmFuryArcade.EditorTools
         {
             var go = new GameObject(name, typeof(RectTransform), typeof(HorizontalLayoutGroup), typeof(LayoutElement));
             go.transform.SetParent(parent, false);
+            // Explicit height here matters even though LayoutElement.preferredHeight is also 40 —
+            // whichever layout group this ends up parented under (e.g. Settings' "Content", which
+            // has childControlHeight=false so it never applies preferredHeight to the child rect)
+            // would otherwise leave this at Unity's ~100px default RectTransform height instead.
+            ((RectTransform)go.transform).sizeDelta = new Vector2(0f, 40f);
             var hlg = go.GetComponent<HorizontalLayoutGroup>();
             hlg.spacing = 10f;
             hlg.childControlHeight = true;
@@ -154,7 +159,7 @@ namespace FarmFuryArcade.EditorTools
 
             var checkboxGO = new GameObject(name + "_Box", typeof(RectTransform), typeof(Image), typeof(Toggle), typeof(LayoutElement));
             checkboxGO.transform.SetParent(go.transform, false);
-            checkboxGO.GetComponent<Image>().sprite = PlaceholderSprite.Get(new Color(0.25f, 0.25f, 0.28f));
+            checkboxGO.GetComponent<Image>().sprite = PlaceholderSprite.Get(new Color(0.25f, 0.2f, 0.15f));
             checkboxGO.GetComponent<LayoutElement>().preferredWidth = 40f;
 
             var checkmarkGO = new GameObject("Checkmark", typeof(RectTransform), typeof(Image));
@@ -164,7 +169,9 @@ namespace FarmFuryArcade.EditorTools
             checkmarkRect.anchorMax = new Vector2(0.8f, 0.8f);
             checkmarkRect.offsetMin = Vector2.zero;
             checkmarkRect.offsetMax = Vector2.zero;
-            checkmarkGO.GetComponent<Image>().sprite = PlaceholderSprite.Get(new Color(0.3f, 0.85f, 0.4f));
+            // Warm gold instead of the original bright green — reads as "on" without clashing with
+            // the wood/parchment plaque backdrop behind it.
+            checkmarkGO.GetComponent<Image>().sprite = PlaceholderSprite.Get(new Color(0.85f, 0.65f, 0.2f));
 
             var toggle = checkboxGO.GetComponent<Toggle>();
             toggle.targetGraphic = checkboxGO.GetComponent<Image>();
@@ -180,17 +187,23 @@ namespace FarmFuryArcade.EditorTools
         {
             var go = new GameObject(name, typeof(RectTransform), typeof(Slider), typeof(LayoutElement));
             go.transform.SetParent(parent, false);
+            // Same reasoning as CreateToggle above — an explicit height is needed regardless of
+            // LayoutElement.preferredHeight, since Settings' "Content" group has
+            // childControlHeight=false and won't otherwise shrink this down from Unity's ~100px
+            // RectTransform default. This was the direct cause of the oversized slider bars.
+            ((RectTransform)go.transform).sizeDelta = new Vector2(0f, 30f);
             go.GetComponent<LayoutElement>().preferredHeight = 30f;
 
-            var bgGO = CreatePanel(name + "_Background", go.transform, new Color(0.2f, 0.2f, 0.22f));
+            var bgGO = CreatePanel(name + "_Background", go.transform, new Color(0.25f, 0.2f, 0.15f));
 
             var fillAreaGO = CreateEmpty(name + "_FillArea", go.transform);
             StretchFull((RectTransform)fillAreaGO.transform);
-            var fillGO = CreatePanel(name + "_Fill", fillAreaGO.transform, new Color(0.3f, 0.75f, 0.4f));
+            // Warm gold fill instead of the original bright green, matching CreateToggle's checkmark.
+            var fillGO = CreatePanel(name + "_Fill", fillAreaGO.transform, new Color(0.85f, 0.65f, 0.2f));
 
             var handleAreaGO = CreateEmpty(name + "_HandleArea", go.transform);
             StretchFull((RectTransform)handleAreaGO.transform);
-            var handleGO = CreateImage(name + "_Handle", handleAreaGO.transform, Color.white, 20f, 20f);
+            var handleGO = CreateImage(name + "_Handle", handleAreaGO.transform, new Color(0.95f, 0.9f, 0.78f), 20f, 20f);
 
             var slider = go.GetComponent<Slider>();
             slider.fillRect = (RectTransform)fillGO.transform;
@@ -228,9 +241,13 @@ namespace FarmFuryArcade.EditorTools
             hlg.spacing = 20f;
             hlg.padding = new RectOffset(40, 40, 20, 20);
             hlg.childControlWidth = false;
-            hlg.childControlHeight = true;
+            // false on both: a "true" control/expand pair here stretches every child (LevelMarker,
+            // RosterCard) to fill the full viewport height regardless of its own prefab-set size —
+            // this is what turned 140x140 level markers and 200x220 roster cards into full-height
+            // vertical bars. false leaves each child exactly the size its own prefab defines.
+            hlg.childControlHeight = false;
             hlg.childForceExpandWidth = false;
-            hlg.childForceExpandHeight = true;
+            hlg.childForceExpandHeight = false;
             contentGO.GetComponent<ContentSizeFitter>().horizontalFit = ContentSizeFitter.FitMode.PreferredSize;
 
             var scrollRect = viewportParentGO.GetComponent<ScrollRect>();

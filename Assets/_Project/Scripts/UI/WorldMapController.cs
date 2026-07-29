@@ -19,7 +19,7 @@ namespace FarmFuryArcade.UI
         [SerializeField] private ScrollRect scrollRect;
         [SerializeField] private Button homeButton;
         [SerializeField] private GameObject mainMenuScreen;
-        [SerializeField] private MatchupScreenController matchupScreen;
+        [SerializeField] private GameObject gameplayScreen;
 
         private readonly List<LevelMarker> _markers = new List<LevelMarker>();
 
@@ -90,7 +90,10 @@ namespace FarmFuryArcade.UI
                 return;
             }
 
-            matchupScreen.ShowForLevel(levelIndex);
+            // The Matchup (VS card) screen was removed — tapping an unlocked level goes straight
+            // into gameplay, no countdown.
+            GameManager.Instance.LoadLevel(levelIndex);
+            SceneTransitionManager.Instance.ShowOnly(gameplayScreen);
         }
     }
 }

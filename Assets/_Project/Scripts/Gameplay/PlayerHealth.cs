@@ -64,6 +64,7 @@ namespace FarmFuryArcade.Gameplay
         {
             IsRespawning = true;
             GameManager.Instance?.NotifyPlayerDeath();
+            AudioManager.Instance?.PlayAnimalDeathSfx();
             _movement.enabled = false;
             _movement.QueueInputDirection(Direction.None);
 

@@ -66,6 +66,7 @@ namespace FarmFuryArcade.Core
             DeathCountThisMaze = 0;
             _levelStartTime = Time.time;
             CurrentState = GameState.Playing;
+            AudioManager.Instance?.ResumeBackgroundMusic();
 
             _sceneController.LoadLevelContent(level);
         }
@@ -128,10 +129,23 @@ namespace FarmFuryArcade.Core
             Time.timeScale = 1f;
         }
 
+        /// <summary>Abandons the current run without recording a level-failed result — used by
+        /// PauseMenuController's Quit button, which returns straight to Main Menu. Deliberately
+        /// distinct from EndLevel(false): that path sets GameState.LevelFailed, which GameplayHUD's
+        /// state-watcher reacts to by showing the Level Failed ("Try Again") screen — not what a
+        /// deliberate quit should do.</summary>
+        public void QuitToMainMenu()
+        {
+            CurrentState = GameState.MainMenu;
+            Time.timeScale = 1f;
+            AudioManager.Instance?.StopMusic();
+        }
+
         public void EndLevel(bool success)
         {
             float elapsed = Time.time - _levelStartTime;
             CurrentState = success ? GameState.LevelComplete : GameState.LevelFailed;
+            AudioManager.Instance?.StopMusic();
 
             if (success && CurrentLevel != null && SaveManager.Instance != null)
             {

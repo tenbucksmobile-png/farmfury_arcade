@@ -1,5 +1,6 @@
 using UnityEngine;
 using FarmFuryArcade.Core;
+using FarmFuryArcade.Data;
 
 namespace FarmFuryArcade.Gameplay
 {
@@ -16,6 +17,10 @@ namespace FarmFuryArcade.Gameplay
             {
                 ScoreManager.Instance.AddCropPoints(crop.points);
                 GameManager.Instance.NotifyCropCollected();
+                if (crop.cropType == CropType.Corn)
+                {
+                    AudioManager.Instance?.PlayCornPickupSfx();
+                }
                 Destroy(other.gameObject);
                 return;
             }
@@ -26,6 +31,11 @@ namespace FarmFuryArcade.Gameplay
                 ScoreManager.Instance.AddCropPoints(pellet.points);
                 GameManager.Instance.NotifyCropCollected();
                 PowerPelletManager.Instance?.ActivatePower(PowerPelletManager.GetDuration(pellet.pelletType));
+                pellet.SpawnCollectEffectIfRare();
+                if (pellet.pelletType != PowerPelletType.Sunflower)
+                {
+                    AudioManager.Instance?.PlayRarePelletPickupSfx();
+                }
                 Destroy(other.gameObject);
             }
         }
