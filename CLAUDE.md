@@ -316,10 +316,12 @@ the "scale properly for different screen sizes" requirement) and is mutually exc
 other top-level screen.
 
 **Flow:** Main Menu → World Map → Gameplay HUD → (Level Complete | Level Failed) → World
-Map. Tapping an unlocked level marker on the World Map (`WorldMapController.OnMarkerTapped`) calls
-`GameManager.LoadLevel` and `SceneTransitionManager.ShowOnly` directly — there is no intermediate
-"VS" matchup screen and no countdown; gameplay starts immediately. (A `MatchupScreenController`
-screen existed here through Phase 5 but was removed later — see "Removed: Matchup screen" below.)
+Map. World Map itself is just Map.png with two bottom-corner icon buttons (Play/Home, same
+convention as Main Menu's own Play/Settings — see the World Map bullet under "Landing/
+Gameplay-HUD cleanup" below); tapping Play (`WorldMapController.OnPlayTapped`) calls `GameManager.LoadLevel` and
+`SceneTransitionManager.ShowOnly` directly — there is no intermediate "VS" matchup screen and no
+countdown; gameplay starts immediately. (A `MatchupScreenController` screen existed here through
+Phase 5 but was removed later — see "Removed: Matchup screen" below.)
 **`SceneTransitionManager`** (`Core`) is the single place this is orchestrated: `ShowOnly
 (GameObject)` deactivates every screen in its `screenRoots` array and activates just the target,
 wrapped in a black-`CanvasGroup` fade (`TransitionTo(Action swapScreens)` is the more general form
@@ -336,7 +338,7 @@ transparent overlay dims gameplay" from the spec more literally than a full-scre
 **Removed: Matchup screen.** The Phase 5 "VS" card screen (`MatchupScreenController`, shown between
 World Map and Gameplay — character card vs. up to 3 robot cards, plus a 3-2-1-GO countdown) was
 deleted entirely after playtesting — it read as tonally mismatched with the rest of the game.
-`WorldMapController.OnMarkerTapped` now calls `GameManager.LoadLevel` + `SceneTransitionManager
+`WorldMapController.OnPlayTapped` now calls `GameManager.LoadLevel` + `SceneTransitionManager
 .ShowOnly(gameplayScreen)` directly; there is no countdown replacement. `Phase5ProjectBuilder` no
 longer builds a `MatchupScreen` (removed from `screenRoots` and `WireCrossReferences`),
 `ArtWiringBuilder` no longer wires `matchup.png` or its buttons (the file itself is unused now —
@@ -356,6 +358,18 @@ from their original Phase 5 layouts:
   Menu anymore, so reaching them today means calling `SceneTransitionManager.ShowOnly` on them
   directly (nothing currently does). `CharacterRosterScreen`/`LeaderboardsScreen` keep their own
   `mainMenuScreen` back-reference for their "Back" buttons regardless.
+- **World Map** (`WorldMapController`) similarly lost its top-left `HomeButton` + horizontally-
+  scrolling level-marker strip (`LevelMarker`/`StarDisplay`, built via `CreateHorizontalScrollView`)
+  — with only 2 `LevelData` assets authored so far, that strip rendered as an unstyled green
+  swatch overlapping `Map.png`'s own baked-in "THE FARM" title, with no real per-level layout to
+  speak of yet (see "Known gaps" below on the marker-to-path-art alignment that was never
+  finished). Replaced with the same bottom-left/right icon-button convention as Main Menu — `Play`
+  (bottom-left) calls `OnPlayTapped`, which picks the same "next available" level `CenterOnLevel`
+  used to just scroll to (first unlocked level with 0 stars, falling back to the highest level
+  reached) and jumps straight into it; `Home` (bottom-right) returns to Main Menu.
+  `Phase5ProjectBuilder.BuildLevelMarkerPrefab`/`LevelMarker.cs`/`StarDisplay.cs` are still built —
+  same "kept for future re-wiring" treatment as Roster/Store/Leaderboards — for whenever the
+  100-level target from the GDD needs a real level-select screen again.
 - **Gameplay HUD** (`GameplayHUD`) lost its `SwapButton`/`AbilityButton` (+cooldown ring) —
   Tab (`ChooseCharacterScreen.ToggleOpen`) and Space (`AbilityBase.OnAbilityActivateInput`) still
   trigger both directly via `InputController`, so removing the buttons didn't remove the features.
@@ -668,9 +682,9 @@ spawned, buff flag cleared). The only real-time wait is ~2.3s for Harvester's `s
 entry points and button `onClick.Invoke()` calls rather than simulating real clicks/taps,
 verifying: only Main Menu active at startup; Main Menu → World Map → Gameplay activates the right
 screen at each step and reaches `GameState.Playing` (since the Matchup screen's removal, this
-reproduces `WorldMapController.OnMarkerTapped`'s effect — `GameManager.LoadLevel` +
-`SceneTransitionManager.ShowOnly` — directly rather than hunting for a marker's Button inside the
-World Map's ScrollRect content); the 7 required HUD elements exist (score/level/timer/portrait/
+reproduces `WorldMapController.OnPlayTapped`'s effect — `GameManager.LoadLevel` +
+`SceneTransitionManager.ShowOnly` — directly rather than driving the World Map's own Play button);
+the 7 required HUD elements exist (score/level/timer/portrait/
 pause/sound/home — updated post-Phase-5 when Swap/Ability were removed from the HUD, see
 "Landing/Gameplay-HUD cleanup" above; no on-screen ability-cooldown-ring assertion remains, since Space
 still activates the ability directly but there's no HUD element left to watch); Pause freezes
@@ -768,6 +782,29 @@ values from the GDD's color palette where one exists (e.g. walls = Wall Brown `#
   `LoadingScreen Background.png` and `Logo.png` were uploaded but aren't wired anywhere — there's
   no dedicated loading screen in the current screen flow, and `Logo.png` has no obvious slot since
   `landing.png` already bakes the logo into Main Menu.
+- **`Paused.png` is on its own aspect-locked child, not the overlay root.** `Paused.png` is a
+  square (2048x2048) parchment/frame card with its 5 button rows (Resume/Swap Character/Restart/
+  Settings/Quit) baked directly into the art. It used to be set as `PauseOverlay`'s own root
+  `Image`, which stretches full-screen — on a real landscape aspect that non-uniformly stretched
+  the square art, squashing its baked-in rows together and dragging the separately-wired button
+  art (`Resume.png` etc., positioned by hand-tuned fractions) out of alignment with them.
+  `Phase5ProjectBuilder.BuildPauseMenu` now parents a `PanelArt` child under the root, locked to a
+  1:1 aspect via `AspectRatioFitter` (`FitInParent`) so it stays centred and undistorted at any
+  screen aspect; the root's own `Image` goes back to being the plain full-screen black dim every
+  other overlay uses. All 5 buttons moved under `PanelArt` so their fractions stay aligned with it.
+- **Settings uses one `Btn_plaque.png` per control row, not one stretched behind everything.**
+  `Btn_plaque.png` is a small wide rounded-pill button graphic; an earlier version stretched a
+  single instance of it behind the *entire* control stack (toggles, sliders, dropdown, buttons),
+  which distorted it into an unreadable blob with every control floating over it unframed.
+  `Phase5ProjectBuilder.WrapInPlaqueRow` now gives each row (Music, SFX, Vibration, Left-Handed,
+  Language) its own plaque, 9-sliced (`ArtWiringBuilder` computes `spriteBorder` for `Btn_plaque.png`
+  as a fraction of its own pixel size, and `SetImageSprite` applies `Image.Type.Sliced` to every
+  wired button sprite — a no-op for sprites with no configured border, so this didn't need to be
+  special-cased per call site) so the pill's rounded caps survive being stretched much wider than
+  the source art's own aspect. Settings text was also left on TMP's default `LiberationSans SDF`
+  font (see "TextMeshPro bootstrap" below) — `ArtWiringBuilder.WireSettingsFont` now wires the same
+  `Bangers SDF` cartoon font Gameplay HUD's score/timer use, so Settings reads consistently with
+  the rest of the UI.
 - **Maze wall/ground/warp-tunnel tiles** — `Wall_CornField`/`Ground_CornField`/`WarpTunnel`
   prefabs (each instantiated per-cell by `TileMapRenderer` at scale `TileMapRenderer.CellSize`,
   same convention crops/pellets already used) now use `CornTiles.png`/`FloorTile.png`/
@@ -944,14 +981,15 @@ and reopen the project normally to confirm nothing was corrupted.
   player can freely swap characters during a Character-Locked daily challenge; the run just won't
   register as completed if more than one character was used. Real enforcement needs
   `CharacterManager.CanSwapTo` to know about the active challenge.
-- **World Map is still a horizontal scroll strip of numbered markers layered on top of real
-  background art** (`Map.png`, an isometric winding-path farm illustration, wired as
-  `WorldMapScreen`'s background) — the markers themselves are **not** yet repositioned to align
-  with the path drawn in that art; they still lay out via `WorldMapController`/`LevelMarker`'s
-  horizontal scroll, independent of the background. There's no hand-placed path-node data yet
-  (only 2 `LevelData` assets exist against the GDD's 100-level target). The underlying system is
-  level-count-agnostic, so hand-placing marker positions along the art's path later is a content
-  change, not a rewrite.
+- **World Map has no visible level-select UI at all** — it dropped the horizontal scroll strip of
+  numbered markers entirely (see the World Map bullet under "Landing/Gameplay-HUD cleanup") in
+  favor of a single Play button that jumps straight to the next available level, since with only
+  2 `LevelData` assets against the GDD's 100-level target there was no real per-level layout for
+  markers to align with anyway. `Map.png` (an isometric winding-path farm illustration) is still
+  `WorldMapScreen`'s background purely as decoration now. `LevelMarker`/`StarDisplay`/
+  `Phase5ProjectBuilder.BuildLevelMarkerPrefab` are kept built but unwired — reconnecting a real
+  level-select screen (with markers hand-placed along the art's path) is content-authoring scope
+  once there are enough levels to need one, not a rewrite.
 - **No ability icon sprites, and only partial portrait art** — the HUD portrait
   (`GameplayHUD.characterPortrait`, via `RefreshPortrait`) uses `CharacterData.portraitSprite`
   (front sprite) where a character has real art (see "Art status"); Roster cards still use
@@ -960,7 +998,7 @@ and reopen the project normally to confirm nothing was corrupted.
 ## UX flow
 
 ```
-Main Menu ──Play──▶ World Map ──tap unlocked level (straight in, no countdown)──▶ Gameplay HUD
+Main Menu ──Play──▶ World Map ──Play (next available level, no countdown)──▶ Gameplay HUD
     │                    │▲                                                            │▲  │
     │                    ││ Home                                          Pause(P)────▶│└──┼─▶ Resume
     │                    │└─────────────────────────────────────────────────────────────┘  │
