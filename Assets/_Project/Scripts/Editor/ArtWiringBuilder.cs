@@ -187,6 +187,7 @@ namespace FarmFuryArcade.EditorTools
             WireAppIcon();
             WireAudio();
             WireGameplayFont();
+            WireSettingsFont();
 
             AssetDatabase.SaveAssets();
             AssetDatabase.Refresh();
@@ -245,8 +246,22 @@ namespace FarmFuryArcade.EditorTools
                 // Pixels-per-unit = texture width so a sprite at localScale 1 fills exactly one
                 // maze grid cell (1 world unit), matching PlaceholderSprite's 1px==1unit@scale1
                 // convention that every existing prefab's localScale was already tuned around.
-                importer.GetSourceTextureWidthAndHeight(out int width, out _);
+                importer.GetSourceTextureWidthAndHeight(out int width, out int height);
                 importer.spritePixelsPerUnit = width > 0 ? width : 100;
+
+                // Btn_plaque.png is a wide rounded-pill button graphic reused as a per-row
+                // background on the Settings screen (see Phase5ProjectBuilder.WrapInPlaqueRow),
+                // where rows are much wider/shorter than the source art's own aspect. A plain
+                // Simple-type stretch would smear its rounded caps into straight corners; a 9-slice
+                // border (computed as a fraction of its own pixel size, since exact dimensions
+                // aren't hardcoded anywhere else) keeps the caps crisp when SetImageSprite applies
+                // Image.Type.Sliced.
+                if (path == BtnPlaque && width > 0 && height > 0)
+                {
+                    float borderX = width * 0.30f;
+                    float borderY = height * 0.42f;
+                    importer.spriteBorder = new Vector4(borderX, borderY, borderX, borderY);
+                }
 
                 importer.SaveAndReimport();
             }
@@ -730,9 +745,11 @@ namespace FarmFuryArcade.EditorTools
 
             SetScreenBackground(canvasTransform, "LevelCompleteScreen", Load(LevelCompletePanel));
             SetScreenBackground(canvasTransform, "LevelFailedScreen", Load(LevelFailedPanel));
-            SetScreenBackground(canvasTransform, "PauseOverlay", Load(PausedPanel));
+            // PanelArt (not the PauseOverlay root) carries the art — see BuildPauseMenu's comment
+            // on why the square Paused.png needs its own aspect-locked child instead of stretching
+            // to fill the full-screen dim panel.
+            SetImageSprite(canvasTransform, "PauseOverlay/PanelArt", Load(PausedPanel));
             SetScreenBackground(canvasTransform, "SettingsOverlay", Load(SettingsBackground));
-            SetImageSprite(canvasTransform, "SettingsOverlay/ContentBackdrop", Load(BtnPlaque));
             SetScreenBackground(canvasTransform, "ChooseCharacterScreen", Load(SettingsBackground));
 
             // Card.png is used for New Character Unlock and RosterCard, neither of which has a
@@ -769,6 +786,10 @@ namespace FarmFuryArcade.EditorTools
                 return;
             }
             image.sprite = sprite;
+            // Sliced is a no-op visually for sprites with no configured border (behaves exactly
+            // like Simple), so this is safe to apply blanket rather than special-casing it only
+            // for Btn_plaque — see the border comment in ConfigureSpriteImporters.
+            image.type = Image.Type.Sliced;
         }
 
         // ---- Buttons --------------------------------------------------------------------------
@@ -795,6 +816,7 @@ namespace FarmFuryArcade.EditorTools
             SetImageSprite(canvasTransform, "MainMenuScreen/PlayButton", play);
             SetImageSprite(canvasTransform, "MainMenuScreen/SettingsButton", settings);
 
+            SetImageSprite(canvasTransform, "WorldMapScreen/PlayButton", play);
             SetImageSprite(canvasTransform, "WorldMapScreen/HomeButton", home);
 
             SetImageSprite(canvasTransform, "GameplayScreen/PauseButton", pause);
@@ -803,14 +825,22 @@ namespace FarmFuryArcade.EditorTools
             SetImageSprite(canvasTransform, "GameplayScreen/DPadLeftButton", Load(DPadLeft));
             SetImageSprite(canvasTransform, "GameplayScreen/DPadRightButton", Load(DPadRight));
 
-            SetImageSprite(canvasTransform, "PauseOverlay/ResumeButton", Load(ResumeButtonArt));
-            SetImageSprite(canvasTransform, "PauseOverlay/SwapButton", Load(SwapCharacterButtonArt));
-            SetImageSprite(canvasTransform, "PauseOverlay/RestartButton", Load(RestartButtonArt));
-            SetImageSprite(canvasTransform, "PauseOverlay/SettingsButton", Load(SettingsButtonArt));
-            SetImageSprite(canvasTransform, "PauseOverlay/QuitButton", Load(QuitButtonArt));
+            SetImageSprite(canvasTransform, "PauseOverlay/PanelArt/ResumeButton", Load(ResumeButtonArt));
+            SetImageSprite(canvasTransform, "PauseOverlay/PanelArt/SwapButton", Load(SwapCharacterButtonArt));
+            SetImageSprite(canvasTransform, "PauseOverlay/PanelArt/RestartButton", Load(RestartButtonArt));
+            SetImageSprite(canvasTransform, "PauseOverlay/PanelArt/SettingsButton", Load(SettingsButtonArt));
+            SetImageSprite(canvasTransform, "PauseOverlay/PanelArt/QuitButton", Load(QuitButtonArt));
 
             SetImageSprite(canvasTransform, "SettingsOverlay/BackButton", back);
-            SetImageSprite(canvasTransform, "SettingsOverlay/Content/MusicToggle/MusicToggle_Box", music);
+            SetImageSprite(canvasTransform, "SettingsOverlay/Content/MusicRow_Plaque/MusicRow/MusicToggle/MusicToggle_Box", music);
+
+            // One Btn_plaque.png per control row (Phase5ProjectBuilder.WrapInPlaqueRow), not one
+            // giant stretch behind the whole panel — see that method's doc comment.
+            SetImageSprite(canvasTransform, "SettingsOverlay/Content/MusicRow_Plaque", plaque);
+            SetImageSprite(canvasTransform, "SettingsOverlay/Content/SfxRow_Plaque", plaque);
+            SetImageSprite(canvasTransform, "SettingsOverlay/Content/VibrationToggle_Plaque", plaque);
+            SetImageSprite(canvasTransform, "SettingsOverlay/Content/LeftHandedToggle_Plaque", plaque);
+            SetImageSprite(canvasTransform, "SettingsOverlay/Content/LanguageDropdown_Plaque", plaque);
 
             SetImageSprite(canvasTransform, "StoreComingSoonOverlay/Content/CloseButton", back);
 
@@ -904,6 +934,40 @@ namespace FarmFuryArcade.EditorTools
 
             SetFont(canvasTransform, "GameplayScreen/ScoreText", font);
             SetFont(canvasTransform, "GameplayScreen/TimerText", font);
+
+            EditorSceneManager.SaveScene(EditorSceneManager.GetActiveScene());
+        }
+
+        /// <summary>Settings text was left on TMP's default LiberationSans SDF font (see the TMP
+        /// bootstrap section in CLAUDE.md) — every other screen's headline/button text uses the
+        /// same Bangers cartoon font as Gameplay HUD's score/timer, so Settings read as visually
+        /// inconsistent with the rest of the game.</summary>
+        private static void WireSettingsFont()
+        {
+            var font = AssetDatabase.LoadAssetAtPath<TMP_FontAsset>(BangersFontPath);
+            if (font == null)
+            {
+                Debug.LogWarning($"[ArtWiringBuilder] {BangersFontPath} not found — skipping Settings font wiring.");
+                return;
+            }
+
+            EditorSceneManager.OpenScene(ScenePath);
+            var canvasTransform = GameObject.Find("Canvas")?.transform;
+            if (canvasTransform == null)
+            {
+                Debug.LogWarning("[ArtWiringBuilder] Could not find Canvas — skipping Settings font wiring.");
+                return;
+            }
+
+            SetFont(canvasTransform, "SettingsOverlay/Content/Title", font);
+            SetFont(canvasTransform, "SettingsOverlay/Content/MusicRow_Plaque/MusicRow/MusicToggle/MusicToggle_Label", font);
+            SetFont(canvasTransform, "SettingsOverlay/Content/SfxRow_Plaque/SfxRow/SfxToggle/SfxToggle_Label", font);
+            SetFont(canvasTransform, "SettingsOverlay/Content/VibrationToggle_Plaque/VibrationToggle/VibrationToggle_Label", font);
+            SetFont(canvasTransform, "SettingsOverlay/Content/LeftHandedToggle_Plaque/LeftHandedToggle/LeftHandedToggle_Label", font);
+            SetFont(canvasTransform, "SettingsOverlay/Content/LanguageDropdown_Plaque/LanguageDropdown/Label", font);
+            SetFont(canvasTransform, "SettingsOverlay/Content/RestoreProgressButton/RestoreProgressButton_Label", font);
+            SetFont(canvasTransform, "SettingsOverlay/Content/ResetProgressButton/ResetProgressButton_Label", font);
+            SetFont(canvasTransform, "SettingsOverlay/Content/VersionText", font);
 
             EditorSceneManager.SaveScene(EditorSceneManager.GetActiveScene());
         }

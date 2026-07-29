@@ -50,13 +50,15 @@ namespace FarmFuryArcade.EditorTools
 
             AddManagers(managersGO);
 
-            GameObject levelMarkerPrefab = BuildLevelMarkerPrefab();
+            // Still built (available for future multi-level content) even though WorldMapScreen no
+            // longer wires a marker strip — see BuildWorldMap.
+            BuildLevelMarkerPrefab();
             GameObject rosterCardPrefab = BuildRosterCardPrefab();
 
             var fadeGroup = BuildFadeOverlay(canvas.transform);
 
             var mainMenu = BuildMainMenu(canvas.transform);
-            var worldMap = BuildWorldMap(canvas.transform, levelMarkerPrefab);
+            var worldMap = BuildWorldMap(canvas.transform);
             var (gameplay, comboBanner) = BuildGameplayHUD(canvas.transform);
             var pause = BuildPauseMenu(canvas.transform);
             var settings = BuildSettingsPanel(canvas.transform);
@@ -422,29 +424,33 @@ namespace FarmFuryArcade.EditorTools
 
         // ---- World Map --------------------------------------------------------------------------
 
-        private static GameObject BuildWorldMap(Transform canvasTransform, GameObject levelMarkerPrefab)
+        private static GameObject BuildWorldMap(Transform canvasTransform)
         {
             var root = CreatePanel("WorldMapScreen", canvasTransform, new Color(0.10f, 0.16f, 0.10f));
 
-            var homeButton = CreateButton("HomeButton", root.transform, "Home", new Color(0.35f, 0.35f, 0.38f), 22f, 50f, out _);
-            var homeRect = (RectTransform)homeButton.transform;
-            homeRect.anchorMin = new Vector2(0f, 1f);
-            homeRect.anchorMax = new Vector2(0f, 1f);
-            homeRect.pivot = new Vector2(0f, 1f);
-            homeRect.sizeDelta = new Vector2(160f, 50f);
-            homeRect.anchoredPosition = new Vector2(20f, -20f);
+            // Bottom-left Play / bottom-right Home — same 160x160 safe-area-inset icon-button
+            // convention as Main Menu's Play/Settings and Gameplay HUD's PauseButton. Replaces an
+            // earlier top-left HomeButton + horizontally-scrolling level-marker strip: with only a
+            // couple of LevelData assets authored so far, that strip rendered as an unstyled green
+            // swatch overlapping Map.png's own baked-in "THE FARM" title (see the World Map "known
+            // gap" note in CLAUDE.md — markers were never aligned to the background art's path
+            // either). Play jumps straight into whichever level the player would naturally
+            // continue on, the same target CenterOnLevel used to just scroll to.
+            const float navButtonSize = 160f;
+            const float navInsetX = 100f;
+            const float navInsetY = 70f;
 
-            var scrollRect = CreateHorizontalScrollView("MarkerScrollView", root.transform, out var content);
-            var scrollGO = ((Component)scrollRect).gameObject;
-            var scrollRectTransform = (RectTransform)scrollGO.transform;
-            scrollRectTransform.offsetMin = new Vector2(0f, 0f);
-            scrollRectTransform.offsetMax = new Vector2(0f, -100f);
+            var playButton = CreateButton("PlayButton", root.transform, string.Empty, new Color(0.3f, 0.75f, 0.35f), 28f, navButtonSize, out _);
+            Object.DestroyImmediate(playButton.transform.Find("PlayButton_Label").gameObject);
+            AnchorBottomLeft((RectTransform)playButton.transform, new Vector2(navButtonSize, navButtonSize), new Vector2(navInsetX, navInsetY));
+
+            var homeButton = CreateButton("HomeButton", root.transform, string.Empty, new Color(0.35f, 0.35f, 0.38f), 28f, navButtonSize, out _);
+            Object.DestroyImmediate(homeButton.transform.Find("HomeButton_Label").gameObject);
+            AnchorBottomRight((RectTransform)homeButton.transform, new Vector2(navButtonSize, navButtonSize), new Vector2(navInsetX, navInsetY));
 
             var controller = root.AddComponent<WorldMapController>();
             var so = new SerializedObject(controller);
-            so.FindProperty("markerContainer").objectReferenceValue = content;
-            so.FindProperty("levelMarkerPrefab").objectReferenceValue = levelMarkerPrefab;
-            so.FindProperty("scrollRect").objectReferenceValue = scrollRect;
+            so.FindProperty("playButton").objectReferenceValue = playButton;
             so.FindProperty("homeButton").objectReferenceValue = homeButton;
             so.ApplyModifiedPropertiesWithoutUndo();
 
@@ -587,23 +593,46 @@ namespace FarmFuryArcade.EditorTools
         {
             var root = CreatePanel("PauseOverlay", canvasTransform, new Color(0f, 0f, 0f, 0.75f));
 
-            var resumeButton = CreateButton("ResumeButton", root.transform, string.Empty, Color.clear, out _);
+            // Paused.png is a SQUARE (2048x2048) parchment/frame card with its 5 button rows baked
+            // into the art. Its old wiring set it directly as the root panel's own Image — the root
+            // stretches full-screen (StretchFull), so on a real landscape device aspect the square
+            // art got non-uniformly stretched, squashing the baked-in button rows together and
+            // making the separately-wired button art (Resume.png etc, positioned by the fractions
+            // below) drift out of alignment with them / off the visible card entirely. "PanelArt" is
+            // a child that stays centred and square via AspectRatioFitter (FitInParent), so it never
+            // exceeds the overlay's bounds regardless of device aspect; the root's own Image stays
+            // the plain black dim behind it (matching every other overlay's "dim gameplay, don't
+            // replace it" behaviour). The 5 buttons move under PanelArt so their fractions — tuned
+            // against the art's own baked button positions — line up with it at any aspect.
+            var panelArtGO = new GameObject("PanelArt", typeof(RectTransform), typeof(Image), typeof(AspectRatioFitter));
+            panelArtGO.transform.SetParent(root.transform, false);
+            var panelArtRect = (RectTransform)panelArtGO.transform;
+            panelArtRect.anchorMin = Vector2.zero;
+            panelArtRect.anchorMax = Vector2.one;
+            panelArtRect.offsetMin = Vector2.zero;
+            panelArtRect.offsetMax = Vector2.zero;
+            panelArtGO.GetComponent<Image>().sprite = PlaceholderSprite.Get(Color.clear);
+            var panelArtFitter = panelArtGO.GetComponent<AspectRatioFitter>();
+            panelArtFitter.aspectMode = AspectRatioFitter.AspectMode.FitInParent;
+            panelArtFitter.aspectRatio = 1f;
+
+            var resumeButton = CreateButton("ResumeButton", panelArtGO.transform, string.Empty, Color.clear, out _);
             Object.DestroyImmediate(resumeButton.transform.Find("ResumeButton_Label").gameObject);
             SetAnchorRect((RectTransform)resumeButton.transform, 0.325f, 0.6f, 0.675f, 0.6825f);
 
-            var swapButton = CreateButton("SwapButton", root.transform, string.Empty, Color.clear, out _);
+            var swapButton = CreateButton("SwapButton", panelArtGO.transform, string.Empty, Color.clear, out _);
             Object.DestroyImmediate(swapButton.transform.Find("SwapButton_Label").gameObject);
             SetAnchorRect((RectTransform)swapButton.transform, 0.2625f, 0.495f, 0.735f, 0.5775f);
 
-            var restartButton = CreateButton("RestartButton", root.transform, string.Empty, Color.clear, out _);
+            var restartButton = CreateButton("RestartButton", panelArtGO.transform, string.Empty, Color.clear, out _);
             Object.DestroyImmediate(restartButton.transform.Find("RestartButton_Label").gameObject);
             SetAnchorRect((RectTransform)restartButton.transform, 0.325f, 0.3925f, 0.675f, 0.4725f);
 
-            var settingsButton = CreateButton("SettingsButton", root.transform, string.Empty, Color.clear, out _);
+            var settingsButton = CreateButton("SettingsButton", panelArtGO.transform, string.Empty, Color.clear, out _);
             Object.DestroyImmediate(settingsButton.transform.Find("SettingsButton_Label").gameObject);
             SetAnchorRect((RectTransform)settingsButton.transform, 0.325f, 0.29f, 0.675f, 0.37f);
 
-            var quitButton = CreateButton("QuitButton", root.transform, string.Empty, Color.clear, out _);
+            var quitButton = CreateButton("QuitButton", panelArtGO.transform, string.Empty, Color.clear, out _);
             Object.DestroyImmediate(quitButton.transform.Find("QuitButton_Label").gameObject);
             SetAnchorRect((RectTransform)quitButton.transform, 0.3675f, 0.195f, 0.635f, 0.27f);
 
@@ -671,32 +700,79 @@ namespace FarmFuryArcade.EditorTools
 
         // ---- Settings ---------------------------------------------------------------------------
 
+        /// <summary>Packs 2 LayoutElement-bearing GameObjects (e.g. a toggle root + a slider root)
+        /// into one horizontal row — the first item at a fixed width, the rest sharing whatever
+        /// width remains. Used to fit a "Music"/"SFX" toggle and its volume slider on one plaque
+        /// row instead of two.</summary>
+        private static GameObject CombineRow(string name, Transform parent, GameObject fixedWidthItem, GameObject flexibleItem)
+        {
+            var row = new GameObject(name, typeof(RectTransform), typeof(HorizontalLayoutGroup), typeof(LayoutElement));
+            row.transform.SetParent(parent, false);
+            var hlg = row.GetComponent<HorizontalLayoutGroup>();
+            hlg.spacing = 16f;
+            hlg.childAlignment = TextAnchor.MiddleLeft;
+            hlg.childControlWidth = true;
+            hlg.childControlHeight = true;
+            hlg.childForceExpandWidth = false;
+            hlg.childForceExpandHeight = true;
+            row.GetComponent<LayoutElement>().preferredHeight = 40f;
+            ((RectTransform)row.transform).sizeDelta = new Vector2(0f, 40f);
+
+            var fixedLE = fixedWidthItem.GetComponent<LayoutElement>();
+            fixedLE.preferredWidth = 220f;
+            fixedLE.flexibleWidth = 0f;
+            var flexLE = flexibleItem.GetComponent<LayoutElement>();
+            flexLE.flexibleWidth = 1f;
+
+            fixedWidthItem.transform.SetParent(row.transform, false);
+            flexibleItem.transform.SetParent(row.transform, false);
+            return row;
+        }
+
+        /// <summary>Sits a control (toggle/slider row, dropdown, ...) centred on its own
+        /// Btn_plaque.png-backed row instead of floating with no framing — see BuildSettingsPanel's
+        /// doc comment for why one giant stretched plaque behind everything doesn't work. The
+        /// plaque GameObject is named "&lt;content.name&gt;_Plaque" so ArtWiringBuilder.WireButtons
+        /// can address it by a predictable path.</summary>
+        private static GameObject WrapInPlaqueRow(GameObject content, float height)
+        {
+            var parent = content.transform.parent;
+            int siblingIndex = content.transform.GetSiblingIndex();
+
+            var plaqueGO = new GameObject(content.name + "_Plaque", typeof(RectTransform), typeof(Image), typeof(LayoutElement));
+            plaqueGO.transform.SetParent(parent, false);
+            plaqueGO.transform.SetSiblingIndex(siblingIndex);
+            plaqueGO.GetComponent<Image>().sprite = PlaceholderSprite.Get(new Color(0.55f, 0.35f, 0.15f));
+            var le = plaqueGO.GetComponent<LayoutElement>();
+            le.preferredHeight = height;
+            ((RectTransform)plaqueGO.transform).sizeDelta = new Vector2(0f, height);
+
+            content.transform.SetParent(plaqueGO.transform, false);
+            var contentRect = (RectTransform)content.transform;
+            contentRect.anchorMin = new Vector2(0f, 0.5f);
+            contentRect.anchorMax = new Vector2(1f, 0.5f);
+            contentRect.pivot = new Vector2(0.5f, 0.5f);
+            contentRect.sizeDelta = new Vector2(-100f, height - 24f);
+            contentRect.anchoredPosition = Vector2.zero;
+
+            return plaqueGO;
+        }
+
         /// <summary>Root background is "LoadingScreen Background.png" (a night barn/starfield
         /// scene, wired by ArtWiringBuilder), shown behind everything whenever the Settings
-        /// (gear) button is pressed from Main Menu or Pause. ContentBackdrop sits directly behind
-        /// the "Content" vertical group using Btn_plaque.png as a framed-panel look for the actual
-        /// controls, since no dedicated settings-panel art exists — sized a bit larger than
-        /// Content's own fixed 700-wide layout so it reads as a proper backing card rather than a
-        /// tight outline.</summary>
+        /// (gear) button is pressed from Main Menu or Pause. Each control row sits on its own
+        /// Btn_plaque.png background (wired by ArtWiringBuilder via WrapInPlaqueRow's predictable
+        /// naming) — an earlier version stretched one single Btn_plaque.png (a small wide pill
+        /// shape) behind the *entire* control stack at once, which distorted it into an unreadable
+        /// blob and left every toggle/slider/dropdown floating over it with no framing of its own.</summary>
         private static GameObject BuildSettingsPanel(Transform canvasTransform)
         {
             var root = CreatePanel("SettingsOverlay", canvasTransform, new Color(0f, 0f, 0f, 0.8f));
 
-            // Height brought down from an original 900 to match the controls' corrected (much
-            // smaller, post-CreateSlider/CreateToggle-fix) real height — 900 was sized to
-            // accommodate sliders/toggles that were rendering ~3x taller than intended, leaving a
-            // lot of empty plaque below the controls once that bug was fixed.
-            var contentBackdrop = CreateImage("ContentBackdrop", root.transform, Color.clear, 780f, 680f);
-            var backdropRect = contentBackdrop.rectTransform;
-            backdropRect.anchorMin = new Vector2(0.5f, 0.5f);
-            backdropRect.anchorMax = new Vector2(0.5f, 0.5f);
-            backdropRect.pivot = new Vector2(0.5f, 0.5f);
-            backdropRect.sizeDelta = new Vector2(780f, 680f);
-            backdropRect.anchoredPosition = Vector2.zero;
+            var group = CreateVerticalGroup("Content", root.transform, 14f, 30);
+            ((RectTransform)group.transform).sizeDelta = new Vector2(640f, 0f);
 
-            var group = CreateVerticalGroup("Content", root.transform, 10f, 30);
-
-            CreateText("Title", group.transform, "SETTINGS", 36f, TextAlignmentOptions.Center, 50f);
+            CreateText("Title", group.transform, "SETTINGS", 44f, TextAlignmentOptions.Center, 60f);
 
             // Back button lives outside "Content" (screen-corner anchored, same convention as
             // WorldMap's Home / CharacterRosterScreen's Back) rather than the old inline "X" —
@@ -706,26 +782,35 @@ namespace FarmFuryArcade.EditorTools
             Object.DestroyImmediate(closeButton.transform.Find("BackButton_Label").gameObject);
             AnchorTopLeft((RectTransform)closeButton.transform, new Vector2(120f, 120f), new Vector2(20f, -20f));
 
+            const float rowHeight = 68f;
+
             var musicToggle = CreateToggle("MusicToggle", group.transform, "Music", out _);
             var musicSlider = CreateSlider("MusicVolumeSlider", group.transform, 1f);
+            WrapInPlaqueRow(CombineRow("MusicRow", group.transform, musicToggle.transform.parent.gameObject, musicSlider.gameObject), rowHeight);
+
             var sfxToggle = CreateToggle("SfxToggle", group.transform, "SFX", out _);
             var sfxSlider = CreateSlider("SfxVolumeSlider", group.transform, 1f);
-            var vibrationToggle = CreateToggle("VibrationToggle", group.transform, "Vibration", out _);
-            var leftHandedToggle = CreateToggle("LeftHandedToggle", group.transform, "Left-Handed", out _);
+            WrapInPlaqueRow(CombineRow("SfxRow", group.transform, sfxToggle.transform.parent.gameObject, sfxSlider.gameObject), rowHeight);
 
-            var languageDropdownGO = new GameObject("LanguageDropdown", typeof(RectTransform), typeof(Image), typeof(TMP_Dropdown), typeof(LayoutElement));
+            var vibrationToggle = CreateToggle("VibrationToggle", group.transform, "Vibration", out _);
+            WrapInPlaqueRow(vibrationToggle.transform.parent.gameObject, rowHeight);
+
+            var leftHandedToggle = CreateToggle("LeftHandedToggle", group.transform, "Left-Handed", out _);
+            WrapInPlaqueRow(leftHandedToggle.transform.parent.gameObject, rowHeight);
+
+            var languageDropdownGO = new GameObject("LanguageDropdown", typeof(RectTransform), typeof(Image), typeof(TMP_Dropdown));
             languageDropdownGO.transform.SetParent(group.transform, false);
-            languageDropdownGO.GetComponent<Image>().sprite = PlaceholderSprite.Get(new Color(0.25f, 0.25f, 0.28f));
-            languageDropdownGO.GetComponent<LayoutElement>().preferredHeight = 44f;
+            languageDropdownGO.GetComponent<Image>().sprite = PlaceholderSprite.Get(Color.clear);
             var languageDropdown = languageDropdownGO.GetComponent<TMP_Dropdown>();
             languageDropdown.options.Clear();
             languageDropdown.options.Add(new TMP_Dropdown.OptionData("English"));
-            var langLabel = CreateText("Label", languageDropdownGO.transform, "English", 20f, TextAlignmentOptions.Left, 44f);
+            var langLabel = CreateText("Label", languageDropdownGO.transform, "English", 24f, TextAlignmentOptions.Left, 44f);
             StretchFull((RectTransform)langLabel.transform);
             languageDropdown.captionText = langLabel;
+            WrapInPlaqueRow(languageDropdownGO, rowHeight);
 
-            var restoreButton = CreateButton("RestoreProgressButton", group.transform, "Restore Progress (Phase 6)", new Color(0.35f, 0.35f, 0.38f), out _);
-            var resetButton = CreateButton("ResetProgressButton", group.transform, "Reset Progress", new Color(0.75f, 0.25f, 0.25f), out _);
+            var restoreButton = CreateButton("RestoreProgressButton", group.transform, "Restore Progress (Phase 6)", new Color(0.35f, 0.35f, 0.38f), 22f, rowHeight, out _);
+            var resetButton = CreateButton("ResetProgressButton", group.transform, "Reset Progress", new Color(0.75f, 0.25f, 0.25f), 24f, rowHeight, out _);
 
             var versionText = CreateText("VersionText", group.transform, "v0.1", 16f, TextAlignmentOptions.Center, 24f);
 
