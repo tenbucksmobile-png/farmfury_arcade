@@ -17,6 +17,10 @@ namespace FarmFuryArcade.UI
         [SerializeField] private GameObject activeHighlight;
         [SerializeField] private Button button;
 
+        /// <summary>Same multiply-tint LevelSelectController uses for a locked world badge — kept
+        /// in sync so "locked" reads consistently across both carousels.</summary>
+        private static readonly Color LockedTint = new Color(0.35f, 0.35f, 0.35f, 1f);
+
         public CharacterType CharacterType { get; private set; }
 
         public void Initialize(CharacterData data, bool unlocked, bool isActive, Action<CharacterSelectCard> onSelected)
@@ -25,7 +29,8 @@ namespace FarmFuryArcade.UI
 
             bool hasCardArt = data.selectCardArt != null;
             cardImage.sprite = hasCardArt ? data.selectCardArt : PlaceholderSprite.Get(new Color(0.5f, 0.5f, 0.55f));
-            cardImage.color = hasCardArt ? Color.white : new Color(0.5f, 0.5f, 0.55f);
+            Color baseColor = hasCardArt ? Color.white : new Color(0.5f, 0.5f, 0.55f);
+            cardImage.color = unlocked ? baseColor : baseColor * LockedTint;
 
             if (lockIcon != null)
             {

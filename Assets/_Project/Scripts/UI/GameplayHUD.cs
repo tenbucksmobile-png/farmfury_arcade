@@ -29,6 +29,7 @@ namespace FarmFuryArcade.UI
         [SerializeField] private TextMeshProUGUI scoreText;
         [SerializeField] private TextMeshProUGUI timerText;
         [SerializeField] private Image characterPortrait;
+        [SerializeField] private Image abilityCooldownRing;
         [SerializeField] private Button abilityButton;
         [SerializeField] private Button pauseButton;
         [SerializeField] private GameObject powerPelletTimerBar;
@@ -218,9 +219,16 @@ namespace FarmFuryArcade.UI
             else
             {
                 characterPortrait.color = _portraitReadyColor;
+                if (abilityCooldownRing != null)
+                {
+                    abilityCooldownRing.fillAmount = 1f;
+                }
             }
         }
 
+        /// <summary>Portrait greys out the instant the ability is used and returns to full colour
+        /// only once the cooldown reaches zero; the ring fills in step with it (empty right after
+        /// use, full when ready) so the two cues always agree.</summary>
         private void HandleAbilityCooldownChanged(float remaining, float total)
         {
             if (characterPortrait == null)
@@ -229,6 +237,11 @@ namespace FarmFuryArcade.UI
             }
 
             characterPortrait.color = remaining > 0f ? AbilityCooldownTint : _portraitReadyColor;
+
+            if (abilityCooldownRing != null)
+            {
+                abilityCooldownRing.fillAmount = total > 0f ? Mathf.Clamp01(1f - remaining / total) : 1f;
+            }
         }
 
         private void UpdatePowerPelletUI()

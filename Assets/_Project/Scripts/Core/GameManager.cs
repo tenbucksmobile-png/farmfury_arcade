@@ -130,13 +130,14 @@ namespace FarmFuryArcade.Core
         }
 
         /// <summary>Abandons the current run without recording a level-failed result — used by
-        /// PauseMenuController's Quit button, which returns straight to Main Menu. Deliberately
+        /// PauseMenuController's Quit button, which returns to Level Select (not Main Menu — one
+        /// step back to where the player picked this level from, not all the way out). Deliberately
         /// distinct from EndLevel(false): that path sets GameState.LevelFailed, which GameplayHUD's
         /// state-watcher reacts to by showing the Level Failed ("Try Again") screen — not what a
         /// deliberate quit should do.</summary>
-        public void QuitToMainMenu()
+        public void QuitToLevelSelect()
         {
-            CurrentState = GameState.MainMenu;
+            CurrentState = GameState.LevelSelect;
             Time.timeScale = 1f;
             AudioManager.Instance?.StopMusic();
         }

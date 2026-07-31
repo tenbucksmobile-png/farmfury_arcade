@@ -22,10 +22,11 @@ namespace FarmFuryArcade.UI
         [SerializeField] private Toggle leftHandedToggle;
         [SerializeField] private TextMeshProUGUI versionText;
         [SerializeField] private Button closeButton;
+        [SerializeField] private GameObject mainMenuScreen;
 
         private void Awake()
         {
-            closeButton.onClick.AddListener(Hide);
+            closeButton.onClick.AddListener(HandleHomeTapped);
             musicToggle.onValueChanged.AddListener(HandleMusicToggle);
             sfxToggle.onValueChanged.AddListener(HandleSfxToggle);
             vibrationToggle.onValueChanged.AddListener(v => SaveManager.Instance.VibrationOn = v);
@@ -44,7 +45,17 @@ namespace FarmFuryArcade.UI
             gameObject.SetActive(true);
         }
 
-        private void Hide() => gameObject.SetActive(false);
+        /// <summary>Btn_home always returns to the landing page (Main Menu), regardless of whether
+        /// Settings was opened from Main Menu or from Pause — matching the button's "home" icon
+        /// rather than just closing back to wherever it was opened from.</summary>
+        private void HandleHomeTapped()
+        {
+            gameObject.SetActive(false);
+            if (mainMenuScreen != null)
+            {
+                SceneTransitionManager.Instance.ShowOnly(mainMenuScreen);
+            }
+        }
 
         private void HandleMusicToggle(bool on)
         {

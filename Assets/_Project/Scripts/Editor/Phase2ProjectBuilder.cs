@@ -239,20 +239,22 @@ namespace FarmFuryArcade.EditorTools
         /// even `width` splits cleanly into two equal halves with no leftover center column. A
         /// handful of extra connector walls are re-opened afterward so the board has loops
         /// (multiple routes around robots) rather than being a single spanning tree with only one
-        /// path anywhere. The warp row, robot factory box, and player-start clearing are then
-        /// stamped on top, exactly where Phase 3/4's hardcoded coordinates (robot spawn, water tile
-        /// cells) expect them, so those builders don't need touching when only this method's own
-        /// constants change — but they DO need to change together whenever `width`/`height` change,
-        /// since those coordinates aren't derived from these constants automatically.
+        /// path anywhere. The two warp rows, robot factory box, and player-start clearing are then
+        /// stamped on top, exactly where Phase3ProjectBuilder.UpdateLevelData01Robots's hardcoded
+        /// robot spawn position expects them, so that builder doesn't need touching when only this
+        /// method's own constants change — but it DOES need to change together whenever
+        /// `width`/`height` change, since that coordinate isn't derived from these constants
+        /// automatically.
         ///
-        /// `width`/`height` were halved from the original 28x31 (14x16) — the board fit the screen
-        /// either way, but at 28x31 each tile read as too small to be a satisfying arcade board;
-        /// halving the cell count (not just zooming the camera in, which would crop the board
-        /// instead of shrinking it) makes each tile occupy roughly twice the screen space while the
-        /// whole maze still fits on screen. See `SceneCleanupBuilder.FitGameplayCameraToMaze` for
-        /// the matching camera orthographic size, and Phase3ProjectBuilder.UpdateLevelData01Robots /
-        /// Phase4ProjectBuilder.UpdateLevelData01Water for the coordinates that were rescaled to
-        /// match.</summary>
+        /// `width`/`height` are 12x9, this game's fixed maze size for every level (hardcoded here,
+        /// not a per-level choice) — reduced from 14x16 without compensating by enlarging each
+        /// tile, unlike the earlier 28x31 -> 14x16 halving, which doubled tile size specifically to
+        /// keep the board's total footprint the same. This time the board is deliberately smaller on
+        /// screen, showing more of GameplayBackdrop's art around it. Tile size itself doesn't
+        /// actually depend on these constants at all — CameraFollow.ApplyOrthographicSizeForAspect
+        /// derives orthographicSize purely from CellScreenHeightFraction, a fixed tile-size-to-
+        /// screen-height ratio independent of maze dimensions — so no camera-side changes were
+        /// needed for this resize.</summary>
         private static void BuildLevelData01()
         {
             Directory.CreateDirectory(Path.GetDirectoryName(LevelDataPath)!);
@@ -263,8 +265,8 @@ namespace FarmFuryArcade.EditorTools
                 AssetDatabase.CreateAsset(level, LevelDataPath);
             }
 
-            const int width = 14;
-            const int height = 16;
+            const int width = 12;
+            const int height = 9;
             var grid = new int[width, height];
             for (int x = 0; x < width; x++)
             {
@@ -286,15 +288,25 @@ namespace FarmFuryArcade.EditorTools
                 }
             }
 
-            const int warpRow = 5;
-            for (int x = 1; x < width - 1; x++)
+            // GridToWorld maps grid.y directly to world Y with no flip, so higher y is higher on
+            // screen — row N counting from the top is y = height - N. Rows 3 and 7 from the top
+            // (spec'd directly, not derived) land on y=6 and y=2: one above the robot factory box,
+            // one below it, each with a warp-tunnel edge (id 5) at both x=0 and x=width-1.
+            int warpRowTop = height - 3;
+            int warpRowBottom = height - 7;
+            foreach (int warpRow in new[] { warpRowTop, warpRowBottom })
             {
-                grid[x, warpRow] = 0;
+                for (int x = 1; x < width - 1; x++)
+                {
+                    grid[x, warpRow] = 0;
+                }
+                grid[0, warpRow] = 5;
+                grid[width - 1, warpRow] = 5;
             }
-            grid[0, warpRow] = 5;
-            grid[width - 1, warpRow] = 5;
 
-            const int fx0 = 5, fx1 = 8, fy0 = 6, fy1 = 9;
+            // Sits strictly between the two warp rows (y=3..5, vs warp rows at y=2/y=6) so stamping
+            // it doesn't overwrite either tunnel edge.
+            const int fx0 = 4, fx1 = 7, fy0 = 3, fy1 = 5;
             for (int x = fx0; x <= fx1; x++)
             {
                 for (int y = fy0; y <= fy1; y++)
@@ -303,26 +315,15 @@ namespace FarmFuryArcade.EditorTools
                 }
             }
 
-            var playerStart = new Vector2Int(7, 2);
-            for (int x = 6; x <= 8; x++)
+            // Bottommost interior row (y=1, just above the y=0 wall row) — the only row left once
+            // the factory box and both warp rows claim the rest of this much shorter 7-interior-row
+            // board.
+            var playerStart = new Vector2Int(6, 1);
+            for (int x = 5; x <= 7; x++)
             {
-                for (int y = 1; y <= 3; y++)
-                {
-                    grid[x, y] = 0;
-                }
+                grid[x, 1] = 0;
             }
             grid[playerStart.x, playerStart.y] = 7;
-
-            // Reserved as plain ground (not a kernel) for Phase4ProjectBuilder.UpdateLevelData01Water,
-            // which stamps a water tile pair onto these exact cells and requires them to still read
-            // as id 0 at that point — same coordinates that method has always used. Both are odd/odd
-            // cell-lattice positions so CarveMazeCorridors always carves them open; sentinel -1 keeps
-            // them out of the pellet/vegetable/kernel placement below, then gets folded back to 0 in
-            // the final fill loop.
-            var waterA = new Vector2Int(3, 11);
-            var waterB = new Vector2Int(width - 1 - 3, 11);
-            grid[waterA.x, waterA.y] = -1;
-            grid[waterB.x, waterB.y] = -1;
 
             // Power pellets and vegetables are scattered randomly across every open floor tile
             // (deterministically — same MazeSeed-derived RNG as corridor carving, so rebuilds stay
@@ -376,9 +377,6 @@ namespace FarmFuryArcade.EditorTools
                             grid[x, y] = 2;
                             kernels++;
                             break;
-                        case -1:
-                            grid[x, y] = 0; // reserved water-tile cell — plain ground, not a kernel
-                            break;
                         case 2:
                             kernels++;
                             break;
@@ -401,11 +399,11 @@ namespace FarmFuryArcade.EditorTools
             level.baseCharacterSpeed = 4.0f;
             level.baseRobotSpeed = 3.5f;
             level.robotSpawns = new RobotSpawnData[0]; // No robots yet — Phase 3
-            level.warpTunnelRows = new[] { warpRow };
+            level.warpTunnelRows = new[] { warpRowTop, warpRowBottom };
             // Explicitly cleared, not just left untouched — UpdateLevelData01Water used to set
-            // this to stamp the (now-removed) water gate at row 11; without resetting it here, a
-            // full regeneration would otherwise carry that stale value forward forever (this method
-            // rebuilds the grid from scratch, but never used to touch this particular field).
+            // this to stamp a (now-removed, dead-code, never-called) water gate; without resetting
+            // it here, a full regeneration would otherwise carry a stale value forward forever
+            // (this method rebuilds the grid from scratch, but never used to touch this field).
             level.waterTeleportRows = new int[0];
             level.totalCropsRequired = kernels + vegetables + pellets;
 

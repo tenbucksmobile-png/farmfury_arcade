@@ -156,32 +156,34 @@ instead of running `Mathf.Clamp` — a plain clamp would collapse to `minX` (pin
 to one side) in that case.
 
 `orthographicSize` is **not** a fixed value — `ApplyOrthographicSizeForAspect` (called every
-`LateUpdate`, before the follow logic) derives it purely from the camera's own live `aspect`, so
-`CameraFollow.TargetVisibleColumns` (10, of the maze's 14) always fills
-`CameraFollow.WidthFillFraction` (0.7) of the screen width regardless of the actual device/window
-aspect ratio. A fixed orthographicSize tuned by eye for one aspect (e.g. the Editor Game View's
-often near-square default) looked completely different once actually run at a true mobile
-landscape aspect — this was the direct cause of a "the maze isn't scaled/cropped like I asked"
-playtest report. Recomputed every frame (one division) rather than once in `Awake`, so a runtime
-window resize/orientation change stays correct too. `LevelData_01` itself is 14×16 (halved from an
-original 28×31 — see `Phase2ProjectBuilder` under "Editor tooling" below); `CameraFollow` adapts
-automatically to a different level's `mazeWidth`/`mazeHeight` since the clamp is computed from the
-loaded level's own dimensions each frame, and the orthographicSize formula doesn't depend on level
-data at all (only the camera's own aspect). `Utilities/CameraShake` (Bessie's Ground Slam
-feedback) runs in `LateUpdate` with `[DefaultExecutionOrder(100)]` so it executes *after*
-`CameraFollow` and adds its jitter on top of that frame's follow position via
-`transform.position +=`, rather than caching an absolute "resting" position — a stale resting
-position would snap the camera back to wherever it was at scene load every time a shake ended.
+`LateUpdate`, before the follow logic) derives it purely from `CameraFollow.CellScreenHeightFraction`
+(0.105, a fixed tile-size-to-screen-height ratio) and `TileMapRenderer.CellSize` — deliberately
+**not** from the camera's `aspect` at all (an earlier aspect-driven formula controlled visible
+*columns* instead, which left height uncontrolled and only ~50% of a tall maze's rows ever on
+screen). Every device therefore renders each tile at the exact same on-screen size and shows the
+same number of rows; a wider device just reveals more columns (and more `GameplayBackdrop` bleed
+at the sides) rather than changing zoom. This also means tile size is completely independent of
+maze width/height — resizing the maze (see below) never requires retuning the camera.
+`LevelData_01` itself is **12×9, hardcoded as the fixed size for every maze** (`Phase2ProjectBuilder.
+BuildLevelData01`'s `width`/`height` consts — not a per-level choice) — reduced from an earlier
+14×16 without compensating by enlarging tiles (unlike that 14×16's own 28×31→14×16 halving, which
+doubled tile size specifically to keep the board's total footprint the same); this time the board
+is deliberately smaller on screen. `CameraFollow` adapts automatically to whatever
+`mazeWidth`/`mazeHeight` a level declares, since `ClampToMazeBounds` reads them live each frame.
+`Utilities/CameraShake` (Bessie's Ground Slam feedback) runs in `LateUpdate` with
+`[DefaultExecutionOrder(100)]` so it executes *after* `CameraFollow` and adds its jitter on top of
+that frame's follow position via `transform.position +=`, rather than caching an absolute
+"resting" position — a stale resting position would snap the camera back to wherever it was at
+scene load every time a shake ended.
 
-A `GameplayBackdrop` SpriteRenderer (`Wheatfield_background.png`, sorting order `-5`, centered on
-the maze) fills the space around the board — see "Art status" below. Sized in
-`ArtWiringBuilder.WireGameplayBackdrop` to cover whichever is bigger: the maze's own world
-footprint, or `CameraFollow`'s target view width (constant regardless of aspect, by the same
-formula above) — plus a 1.3x safety margin for aspect extremes — since the camera deliberately
-shows more width than the maze has (that's the point of `WidthFillFraction`: extra screen margin
-at the edges for this backdrop art to show through). An earlier version sized this backdrop off
-only the maze's own bounds, which under-covered the camera's actual view once the 70%-width
-framing was added, showing the camera's clear (blue) background color at the screen edges.
+A `GameplayBackdrop` SpriteRenderer (`World1_Cornfield.png` — swapped from `Wheatfield_background.png`
+per a gameplay review, since `LevelData_01` is `MazeType.CornField` and this ties the backdrop to
+the world it's actually set in; sorting order `-5`, centered on the maze) fills the space around
+the board — see "Art status" below. Sized in `ArtWiringBuilder.WireGameplayBackdrop` to cover
+whichever is bigger: the maze's own world footprint, or the camera's view width (derived from the
+same `CellScreenHeightFraction` formula × `CameraFollow.MaxSupportedAspect`, the widest landscape
+aspect worth planning for) — plus a 1.6x safety margin — uniformly scaled so the art's own aspect
+ratio is always preserved (never non-uniformly stretched/zoomed).
 
 ### Robot AI (`Scripts/Enemies`)
 
@@ -375,9 +377,15 @@ from their original Phase 5 layouts:
   `Phase5ProjectBuilder.BuildLevelMarkerPrefab`/`LevelMarker.cs`/`StarDisplay.cs` are still built —
   same "kept for future re-wiring" treatment as Roster/Store/Leaderboards — for whenever the
   100-level target from the GDD needs a real level-select screen again.
-- **Gameplay HUD** (`GameplayHUD`) lost its `SwapButton`/`AbilityButton` (+cooldown ring) —
-  Tab (`ChooseCharacterScreen.ToggleOpen`) and Space (`AbilityBase.OnAbilityActivateInput`) still
-  trigger both directly via `InputController`, so removing the buttons didn't remove the features.
+- **Gameplay HUD** (`GameplayHUD`) lost its `SwapButton` — Tab (`ChooseCharacterScreen.ToggleOpen`)
+  still triggers it directly via `InputController`, so removing the button didn't remove the
+  feature. `AbilityButton` survives as the character portrait itself (see below) and does have a
+  cooldown ring again as of a later gameplay review — `AbilityCooldownRing`, a radial-filled
+  (`Image.Type.Filled`, `Radial360`) Image behind the portrait, `fillAmount` driven by
+  `GameplayHUD.HandleAbilityCooldownChanged` in lockstep with the portrait's existing grey-out-on-
+  cooldown tint (empty right after use, full once ready). No dedicated ring art exists yet —
+  `PlaceholderSprite`'s plain square still shows the radial sweep correctly, it just won't look
+  like a ring until real art replaces it.
   `SoundButton`/`HomeButton` were later removed too (per playtest feedback) — both are reachable via
   Pause instead (Settings' music/SFX toggles, Pause's own Quit button) — leaving just a single
   `160x160` `PauseButton`, bottom-left (matching the Main Menu's Play/Settings buttons, safe-area
@@ -593,33 +601,42 @@ phase made for art (solid-colour placeholders instead of real sprites).
   `-executeMethod ... -logFile ...` (no `-quit`, since Play mode needs the Editor's update loop).
 - **`Phase2ProjectBuilder`** (`Phase 2 > Build All`) — builds all placeholder prefabs (Cluck,
   walls, ground, crops, power pellet, warp tunnel), regenerates `LevelData_01` as a full
-  procedural 14×16 maze, creates `CharacterData_Cluck`, and rewires `Game.unity` with
+  procedural **12×9** maze (this game's fixed, hardcoded maze size for every level — not a
+  per-level choice; see "Camera" above for why resizing it never requires retuning the camera),
+  creates `CharacterData_Cluck`, and rewires `Game.unity` with
   `ScoreManager`/`TileMapRenderer`/`InputController` plus the Cluck prefab reference.
   **Idempotent** — safe to re-run after any prefab/data change instead of touching the scene by
   hand. `BuildLevelData01`'s maze is a real Pac-Man-style corridor layout (1-tile-wide paths + wall
   blocks), not the original sparse-2x2-walls-on-open-floor version — a deterministic (seeded)
   randomized recursive backtracker carves the left half (x = 1..`leftHalfMax`, where
   `leftHalfMax = (width - 2) / 2`) as a cell lattice, mirrors it onto the right half for a symmetric
-  arcade-maze look, then reopens ~22% of the remaining connector walls so the board has loops
-  instead of being a single spanning tree. The warp row (`y=5`), robot factory box (`x=5..8,
-  y=6..9`), and player-start clearing (around `(7,2)`) are stamped on top afterward at fixed
-  coordinates that Phase 3/4 also hardcode (robot spawn `(7,7)`, water tile cells `(3,11)`/`(10,11)`)
-  — those two builders must be updated together with this one if `width`/`height` or the feature
-  coordinates ever change again, since none of it is derived automatically across files. The water
-  cells specifically are reserved with a `-1` sentinel during generation so the "every remaining
-  floor tile becomes a crop kernel" pass doesn't consume them before Phase 4 gets to stamp water
-  tiles there. 4 power pellets (one per corner, found via nearest-open-floor search from each
-  target corner and mirrored) replace an original fixed 2; 2 small BFS-clumped vegetable patches
-  replace scattering single vegetables board-wide.
-  `width`/`height` were halved from an original 28×31 — fitting that entire board on screen (see
-  "Camera" above) still left individual tiles too small to read comfortably, and zooming in further
-  would have cropped the board rather than enlarging it, so the maze's own cell count was shrunk
-  instead (fewer, bigger tiles, whole board still fits on screen). `SceneCleanupBuilder.
-  FitGameplayCameraToMaze`'s orthographic size (`8`) is tuned to this 14×16 board specifically.
+  arcade-maze look, then reopens ~5% of the remaining connector walls so the board has a few loops
+  instead of being a single spanning tree (dropped from 22%: robots reading as "falling into one
+  long straight run" with the higher value — see `LoopReopenChance`'s own doc comment). Two warp
+  rows (`y=6` and `y=2` — "row 3 and row 7 counting from the top," since `GridToWorld` maps grid y
+  directly to world Y with no flip, so row N from the top is `y = height - N`), a robot factory box
+  (`x=4..7, y=3..5`, sitting strictly between the two warp rows), and a player-start clearing
+  (`(6,1)`, the one interior row left once the factory box and both warp rows claim the rest of
+  this much shorter board) are stamped on top afterward at fixed coordinates that
+  `Phase3ProjectBuilder.UpdateLevelData01Robots` also hardcodes (robot spawn `(5,4)`, the factory
+  box's own center) — that builder must be updated together with this one if the maze's fixed size
+  or the factory box ever change again, since the coordinate isn't derived automatically across
+  files. 4 power pellets and 12 vegetables are scattered randomly (deterministically, same
+  MazeSeed-derived RNG) across whatever floor tiles the maze happened to carve open, rather than
+  fixed one-per-corner pellets or hand-anchored vegetable clusters; every remaining open corridor
+  tile becomes a crop kernel.
+  `width`/`height` went 28×31 → 14×16 → 12×9 across two separate passes for two different reasons:
+  the first halving doubled tile size to keep the board's total footprint the same (individual
+  tiles at 28×31 read as too small); the second (12×9) deliberately did **not** compensate by
+  enlarging tiles — the board is now physically smaller on screen on purpose, showing more
+  `GameplayBackdrop` art around it, per a gameplay review. `SceneCleanupBuilder.
+  FitGameplayCameraToMaze`'s orthographic size (`8`) is a stale Editor-time-only initial value —
+  `CameraFollow.ApplyOrthographicSizeForAspect` overrides it every frame at runtime regardless
+  (see "Camera" above), so this constant no longer needs to track the maze's actual size.
 - **`Phase3ProjectBuilder`** (`Phase 3 > Build All`) — the one you actually want day to day now.
   Builds the 6 robot prefabs + `RobotData` assets, adds `PlayerHealth` to the existing Cluck
-  prefab, gives `LevelData_01` its 2 spec'd robot spawns (Harvester@2s, Scout@6s, both at (14,15)
-  in the factory box), creates `LevelData_05` (levelNumber 4 — a smaller 20×20 maze with 3 robots:
+  prefab, gives `LevelData_01` its 2 spec'd robot spawns (Harvester@2s, Scout@6s, both at (5,4),
+  the factory box's own center), creates `LevelData_05` (levelNumber 4 — a smaller 20×20 maze with 3 robots:
   Harvester/Scout/Patrol) for isolated multi-robot testing, and wires `RobotSpawner`/
   `PowerPelletManager`/`ChaseScoreManager` onto `GameManagers`. Also disables `Phase1Test`'s and
   `Phase2Test`'s `runOnStart` (see below for why). **Idempotent** — safe to re-run. Depends on
@@ -627,10 +644,11 @@ phase made for art (solid-colour placeholders instead of real sprites).
 - **`Phase4ProjectBuilder`** (`Phase 4 > Build All`) — the one you actually want day to day now.
   Builds `CharacterData` for all 8 characters, adds `CharacterBase`+`EggDropAbility` to the
   existing Cluck prefab, builds the 7 remaining character prefabs plus every ability's sub-prefab
-  (`Egg`, `Shockwave`, `BounceTrail`, `WoollyClone`, `WaterTile`), adds one water tile pair to
-  `LevelData_01` (row 25, verified clear of the warp row/factory box/wall-block pattern before
-  overwriting — logs a warning and skips instead of corrupting the maze if that ever stops being
-  true), and wires `CharacterManager`/`ComboSystem`/`UnlockManager`/`CameraShake` into `Game.unity`
+  (`Egg`, `Shockwave`, `BounceTrail`, `WoollyClone`, `WaterTile` — the `WaterTile` prefab is built
+  but no longer stamped onto `LevelData_01`; `UpdateLevelData01Water()` still exists but is no
+  longer called — the water gate it used to add rendered as a plain blue placeholder square, since
+  no real water art was ever uploaded, and read as an invisible wall/bug rather than a Ducky-only
+  crossing), and wires `CharacterManager`/`ComboSystem`/`UnlockManager`/`CameraShake` into `Game.unity`
   (`ChooseCharacterScreen`, the Phase 5 replacement for Phase 4's `CharacterSwapUI`, is wired by
   `Phase5ProjectBuilder` instead). Also disables `Phase3Test`'s `runOnStart` (see below).
   **Idempotent** — safe to re-run. Depends on Phase 2 (Cluck prefab, `LevelData_01`).
@@ -798,12 +816,14 @@ values from the GDD's color palette where one exists (e.g. walls = Wall Brown `#
 - **Pickups** — crop kernel uses `CornKernel.png`, the single vegetable pickup uses `carrot.png`
   (3 other vegetable sprites — cabbage/pumpkin/tomato — were uploaded but aren't wired in; the
   architecture only supports one vegetable sprite per maze right now).
-- **Gameplay backdrop** — `Wheatfield_background.png` (uploaded early on, previously unused once
-  LevelComplete/Failed/Pause got their own dedicated panel art) is now a `GameplayBackdrop`
-  SpriteRenderer behind the maze (see "Camera" above) — fills the space the fit-to-maze camera
-  shows around the 14×16 board. Recenters/rescales itself off `LevelData_01`'s own
-  `mazeWidth`/`mazeHeight` each time `ArtWiringBuilder.WireAll` runs, so it doesn't need manual
-  retuning if the maze's dimensions ever change again.
+- **Gameplay backdrop** — `World1_Cornfield.png` (swapped from `Wheatfield_background.png` per a
+  gameplay review — `LevelData_01` is `MazeType.CornField`, so this ties the backdrop to the world
+  it's actually set in; `Wheatfield_background.png` is unused again as a result) is a
+  `GameplayBackdrop` SpriteRenderer behind the maze (see "Camera" above) — fills the space around
+  the 12×9 board, uniformly scaled (never stretched/zoomed) to cover whichever is bigger: the
+  maze's own world footprint, or the camera's view width. Recenters/rescales itself off
+  `LevelData_01`'s own `mazeWidth`/`mazeHeight` each time `ArtWiringBuilder.WireAll` runs, so it
+  doesn't need manual retuning if the maze's dimensions ever change again.
 - **Power pellets** — spawn with a real tier instead of always Sunflower. `TileMapRenderer.
   ConfigurePelletTier` rolls a weighted random tier per pellet (Sunflower 70% / GoldenWheat 20% /
   Rainbow 10%, matching the "RarePellets" art naming) and swaps in `sunflowerPelletSprite`
@@ -913,6 +933,66 @@ values from the GDD's color palette where one exists (e.g. walls = Wall Brown `#
   got dropped from display (not from the underlying computation). The coin icon that used to sit
   next to a "+N coins" text (`ArtWiringBuilder.AddCoinIcon`) was removed along with that text —
   `Collectable Coin.png` is currently unwired again.
+- **Device-frame screenshot review pass (2026-08-01)**, following up on the 2026-07-31 mockups
+  above with actual on-device sizing/positioning corrections, screen by screen:
+  - **Settings** — title banner enlarged (~1.23x, `TitleImage`) but kept at its original top
+    position; the 2x3 plaque grid shrunk (cells 420x150 → 210x60) with larger auto-sizing label
+    text (20–56pt) so longer labels ("Left-Handed") still fit; `Logo`/`Btn_home` insets widened
+    (40→100) to clear the yellow safe-area guide. `TMP_Dropdown.template` was never assigned on
+    the Language cell, throwing on tap — `Phase5ProjectBuilder.CreateDropdownTemplate` builds the
+    minimal required Template/Viewport/Content/Item hierarchy now.
+  - **Level Select (world-select state)** — all 4 world badges are now always instantiated
+    (`ShowWorldSelect`, previously skipped locked ones entirely); a locked badge gets
+    `LevelSelectController.LockedWorldTint` (grey) and `Button.interactable = false` instead of
+    being omitted. Badge size ~2.6x (340x360 → 897x950, `itemSpacing` scaled to match), carousel
+    container re-centred to the screen's true vertical midpoint (symmetric 200px top/bottom
+    margin, was an asymmetric -100 offset). `TitleImage` moved off the `Header` strip onto the
+    screen root directly (matching Settings' title treatment) — remember this if adding new
+    `Find("LevelSelectScreen/Header/...")` lookups, the title is no longer under `Header`.
+  - **Level Select (tile-grid state)** — tile spacing widened (20→45px, cell size unchanged per
+    explicit "don't resize the tiles" instruction) inside the same already-scrollable
+    `ScrollRect`/`ContentSizeFitter`. `CurrentWorldIndicator` enlarged (220→340) and inset further
+    from the corner. `BackButton` now toggles between `Btn_home` (world-select — leaves the
+    screen) and `Btn_back` (a world's tiles showing — `OnBackButtonClicked` calls
+    `ShowWorldSelect()` instead, going back one step rather than exiting) via
+    `LevelSelectController.SetBackButtonSprite`. `StarCounter` (the "0 ★" that read as a stray
+    clipped number top-right) and each tile's level-number text overlay (redundant with the tile
+    art's own "?"/lock icon) were both removed outright, not just hidden.
+  - **Pause** — `Logo` inset widened (40→100); all 5 button rects (Resume/Swap/Restart/Settings/
+    Quit) widened slightly (~0.015 horiz/~0.004 vert as anchor fractions) so the button art fully
+    covers Paused.png's baked-in row shapes instead of leaving a sliver visible. Quit now goes to
+    Level Select, not Main Menu — `GameManager.QuitToMainMenu()` renamed to `QuitToLevelSelect()`
+    (sets the previously-unused `GameState.LevelSelect` instead of `GameState.MainMenu`),
+    `PauseMenuController` holds a `levelSelectScreen` reference instead of `mainMenuScreen`.
+  - **Choose Character** — found and fixed the actual bug behind a large yellow block covering the
+    active/centred card: `ActiveHighlight` was a *child* of the same GameObject holding the card's
+    own `Image` — in uGUI a child always renders in front of its own parent's Image regardless of
+    sibling order, so the highlight (larger, 85%-opaque gold) always drew on top of, not behind,
+    the card art. Fixed by moving the card art onto its own child (`CardArt`), leaving the root
+    Image invisible/raycast-only, so `ActiveHighlight` (added first) now genuinely sits behind it.
+    `itemSpacing` tightened (380→300, per-instance override, same pattern as Level Select's world
+    carousel). Locked characters now grey-tint (`CharacterSelectCard.LockedTint`, matching
+    `LevelSelectController.LockedWorldTint`) in addition to the existing "LOCKED" label. Back
+    button icon changed `Btn_home`→`Btn_back` (it returns to Pause, not a "home" destination).
+    Selecting a character now auto-resumes gameplay directly (`GameManager.ResumeGame()`) instead
+    of landing back on the Pause menu — the Back button still correctly returns to Pause.
+  - **`CreateRoundBackButton` had a sign bug**, found while fixing the above: its `bottomRight`
+    branch reused `AnchorBottomLeft`'s positive-X-is-inward offset convention, but for a
+    right-pivoted anchor a *positive* X pushes the element further right/off-screen — negative X
+    moves it inward. This left `Btn_home` (Settings/Level Select), `WorldMapScreen/HomeButton`,
+    and `LevelCompleteScreen/SkipButton` all mostly clipped off the right edge (only ~60 of 160px
+    on-screen). Fixed at all three call sites; `CreateRoundBackButton`'s `bottomRight` inset is now
+    `-150` (a bit more breathing room than a bare sign-fix `-100` would give).
+  - **Landing music no longer cuts to silence when Play is tapped.** `MainMenuController.OnDisable`
+    used to call `AudioManager.StopMusic()` unconditionally — since Play now opens Level Select
+    (not gameplay directly), this left Level Select browsing with no music at all until a level
+    was actually chosen. `OnDisable` no longer stops music; the landing track keeps playing until
+    `GameManager.LoadLevel`'s own `ResumeBackgroundMusic()` crossfade takes over.
+  - **Cluck/Bessie walk-frame wiring corrected** against the actual uploaded art (`ArtWiringBuilder.
+    WireCluck`/`WireBessie`): Cluck's Up/Down/Right directions and her idle pose all use
+    `Cluck_back.png`, with `Cluck_LeftWalk.png` as Left1 only (no dedicated Up/Right art exists
+    yet). Bessie's Right-walk frame order was reversed (`right2` plays first, then `right`) — every
+    other Bessie mapping already matched.
 - **Maze wall/ground/warp-tunnel tiles** — `Wall_CornField`/`Ground_CornField`/`WarpTunnel`
   prefabs (each instantiated per-cell by `TileMapRenderer` at scale `TileMapRenderer.CellSize`,
   same convention crops/pellets already used) now use `CornTiles.png`/`FloorTile.png`/
@@ -1116,7 +1196,7 @@ Main Menu ──Play──▶ World Map ──Play──▶ Level Select ──t
     │                                                                          │   collected)
     │                                                          Level Failed◀───┘
     │                                                          (Retry loops back to Gameplay,
-    │                                                           or Pause ▸ Quit to Menu)
+    │                                                           or Pause ▸ Quit to Level Select)
     │
     └──Settings (gear)────▶ modal overlay (2x3 plaque grid: music/sfx/vibration/left-handed/
                              language) ──back (round icon)──▶ wherever it was opened from

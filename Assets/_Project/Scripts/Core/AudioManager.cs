@@ -8,10 +8,13 @@ namespace FarmFuryArcade.Core
     /// Full playback API and pooling/volume/mute plumbing, exercised in Phase5Test with synthetic
     /// AudioClips as well as real content. Background music (backgroundMusicClip, wired by
     /// ArtWiringBuilder from Assets/_Project/Audio/Music/) plays only during an active run —
-    /// GameManager.LoadLevel starts it (ResumeBackgroundMusic) and EndLevel/QuitToMainMenu stop it
+    /// GameManager.LoadLevel starts it (ResumeBackgroundMusic) and EndLevel/QuitToLevelSelect stop it
     /// (StopMusic). Main Menu instead plays its own dedicated track (landingMusicClip via
-    /// PlayLandingMusic, hooked to MainMenuController.OnEnable/OnDisable) — the two never overlap
-    /// since one always stops (via StopMusic or a crossfade) before the other starts.
+    /// PlayLandingMusic, hooked to MainMenuController.OnEnable only — OnDisable deliberately
+    /// doesn't stop it, so the landing track keeps playing through Level Select browsing instead
+    /// of cutting to silence the moment Play is tapped). The two tracks still never overlap:
+    /// PlayMusic's crossfade always fades the previous track out as the new one fades in, whichever
+    /// two call sites are involved.
     /// SFX clips under Assets/_Project/Audio/SFX/ are wired to specific gameplay triggers — see
     /// PlayAnimalDeathSfx/PlayCornPickupSfx/PlayPowerReadySfx/PlayRarePelletPickupSfx/
     /// PlayRobotRespawnSfx and their call sites (PlayerHealth, CropCollector, PowerPelletManager,
@@ -32,9 +35,9 @@ namespace FarmFuryArcade.Core
                  "crossfades to this and back via PlayEatRobotMusic/ResumeBackgroundMusic).")]
         [SerializeField] private AudioClip eatRobotMusicClip;
 
-        [Tooltip("Plays while Main Menu is showing (MainMenuController.OnEnable/OnDisable) — " +
-                 "crossfades out when Play is tapped, since backgroundMusicClip takes over once " +
-                 "gameplay starts.")]
+        [Tooltip("Starts on Main Menu (MainMenuController.OnEnable) and keeps playing through " +
+                 "Level Select browsing — crossfades out once a level actually starts, since " +
+                 "backgroundMusicClip takes over then (GameManager.LoadLevel).")]
         [SerializeField] private AudioClip landingMusicClip;
 
         [Header("SFX clips")]
@@ -150,7 +153,7 @@ namespace FarmFuryArcade.Core
         public void ResumeBackgroundMusic() => PlayMusic(backgroundMusicClip);
 
         /// <summary>Silences whichever music source is currently playing — used by GameManager
-        /// when leaving gameplay (EndLevel, QuitToMainMenu) so background music plays only during
+        /// when leaving gameplay (EndLevel, QuitToLevelSelect) so background music plays only during
         /// an active run, never on Main Menu/World Map. Doesn't touch the SFX pool (unlike
         /// StopAllAudio), since those two concerns are independent.</summary>
         public void StopMusic()

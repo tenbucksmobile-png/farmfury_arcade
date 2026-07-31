@@ -1,7 +1,6 @@
 using System;
 using UnityEngine;
 using UnityEngine.UI;
-using TMPro;
 using FarmFuryArcade.Utilities;
 
 namespace FarmFuryArcade.UI
@@ -17,7 +16,6 @@ namespace FarmFuryArcade.UI
     {
         [SerializeField] private Button button;
         [SerializeField] private Image tileBackground;
-        [SerializeField] private TextMeshProUGUI levelNumberText;
         [SerializeField] private Sprite spriteLocked;
         [SerializeField] private Sprite spriteUnlocked;
         [SerializeField] private Sprite sprite1Star;
@@ -46,25 +44,21 @@ namespace FarmFuryArcade.UI
             UpdateVisualState();
         }
 
-        /// <summary>Re-reads UnlockProgression/save data and refreshes the tile's sprite/number —
-        /// called by Initialise, and again by LevelSelectController whenever the screen re-opens
-        /// (e.g. after completing a level) so newly-earned stars/unlocks show up without needing to
-        /// rebuild the whole grid. There used to be a separate LockedIcon overlay here too, but
+        /// <summary>Re-reads UnlockProgression/save data and refreshes the tile's sprite — called by
+        /// Initialise, and again by LevelSelectController whenever the screen re-opens (e.g. after
+        /// completing a level) so newly-earned stars/unlocks show up without needing to rebuild the
+        /// whole grid. There used to be a separate LockedIcon overlay here too, but
         /// LevelTile_Locked.png already bakes the padlock into the tile background art itself — the
         /// overlay was a leftover placeholder square (never wired to any sprite) sitting on top of
         /// the correctly-rendering background, which is what actually caused the "black tiles"
         /// bug (confirmed via LevelSelectTest's runtime diagnostic: sprite/colour/size on
-        /// tileBackground were all correct — lockedIcon was the opaque unwired square on top).</summary>
+        /// tileBackground were all correct — lockedIcon was the opaque unwired square on top). A
+        /// level-number text overlay was removed the same way — the "?" already baked into
+        /// LevelTile_unlocked-notplayed.png made a redundant "1" read as visual clutter.</summary>
         public void UpdateVisualState()
         {
             bool unlocked = UnlockProgression.IsLevelUnlocked(LevelIndex);
             int stars = UnlockProgression.GetStarsForLevel(LevelIndex);
-
-            if (levelNumberText != null)
-            {
-                levelNumberText.gameObject.SetActive(unlocked);
-                levelNumberText.text = (LevelIndex + 1).ToString();
-            }
 
             if (tileBackground == null)
             {

@@ -2,7 +2,6 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
-using TMPro;
 using FarmFuryArcade.Core;
 using FarmFuryArcade.Utilities;
 
@@ -10,10 +9,11 @@ namespace FarmFuryArcade.UI
 {
     /// <summary>
     /// Level Select screen. Opens into a "world select" state showing a horizontally flickable
-    /// carousel (CardCarouselController) of world badges — one per currently-available world (Corn
-    /// Field only, on a fresh save — Vegetable Patch/Orchard/Wheat Field badges only appear once
-    /// their gate level, per UnlockProgression, has 2+ stars). Flicking cycles which badge sits
-    /// centred/full-scale; tapping the already-centred badge reveals that world's level tile grid
+    /// carousel (CardCarouselController) of all 4 world badges — Corn Field is always coloured and
+    /// tappable; Vegetable Patch/Orchard/Wheat Field render greyed out and non-interactable until
+    /// their gate level (per UnlockProgression) has 2+ stars, so the player can see/flick past the
+    /// whole world roadmap even before it's unlocked. Flicking cycles which badge sits
+    /// centred/full-scale; tapping the already-centred (unlocked) badge reveals that world's level tile grid
     /// and shrinks the badge down into a small persistent indicator top-left of the screen; tapping
     /// that indicator again returns to world select. Reached from World Map's Play button (see
     /// WorldMapController.levelSelectScreen) instead of jumping straight into gameplay.
@@ -29,10 +29,12 @@ namespace FarmFuryArcade.UI
     {
         [SerializeField] private GameObject levelTilePrefab;
         [SerializeField] private RectTransform contentParent;
-        [SerializeField] private TextMeshProUGUI starCounter;
         [SerializeField] private ScrollRect scrollRect;
         [SerializeField] private LockedHintPanel lockedHintPanel;
         [SerializeField] private Button backButton;
+        [SerializeField] private Image backButtonImage;
+        [SerializeField] private Sprite backButtonWorldSelectSprite;
+        [SerializeField] private Sprite backButtonTileGridSprite;
         [SerializeField] private GameObject mainMenuScreen;
         [SerializeField] private GameObject gameplayScreen;
 
@@ -56,8 +58,12 @@ namespace FarmFuryArcade.UI
         private const float ScrollTweenSeconds = 0.5f;
         private const float ShieldRevealSeconds = 0.45f;
 
+        /// <summary>Multiply-tint applied to a locked world's badge Image — dark/desaturated enough
+        /// to read as "not yet playable" against the coloured art of an unlocked badge.</summary>
+        private static readonly Color LockedWorldTint = new Color(0.35f, 0.35f, 0.35f, 1f);
+
         private readonly Dictionary<int, LevelTileController> _tilesByIndex = new Dictionary<int, LevelTileController>();
-        private readonly List<int> _availableWorlds = new List<int>();
+        private readonly List<int> _shownWorlds = new List<int>();
         private readonly List<GameObject> _shieldObjects = new List<GameObject>();
         private Coroutine _scrollRoutine;
         private Coroutine _shieldRevealRoutine;
@@ -77,19 +83,21 @@ namespace FarmFuryArcade.UI
         /// <summary>Entry point called every time the screen becomes active (wired to OnEnable, not
         /// just Awake, so re-opening this screen after playing a level always reflects the latest
         /// save data). Always re-opens into world select rather than remembering the last-viewed
-        /// world — the star counter and which world shields are available can both have changed
-        /// since the player was last here.</summary>
+        /// world — which world shields are available can have changed since the player was last
+        /// here.</summary>
         public void OpenLevelSelect()
         {
-            UpdateStarCounter();
             ShowWorldSelect();
         }
 
-        /// <summary>Shows one badge per currently-available world in the carousel and hides the tile
-        /// grid. World 0 (Corn Field) is always available; world N beyond that only once its gate
-        /// level (the last level of world N-1) has 2+ stars — the same threshold
+        /// <summary>Shows all 4 world badges in the carousel (not just unlocked ones) and hides the
+        /// tile grid. World 0 (Corn Field) is always available; world N beyond that only once its
+        /// gate level (the last level of world N-1) has 2+ stars — the same threshold
         /// UnlockProgression.IsLevelUnlocked already gates level access on, so "the world is
-        /// selectable" and "its levels are reachable" never disagree.</summary>
+        /// selectable" and "its levels are reachable" never disagree. Locked worlds still get a
+        /// badge (greyed out, non-interactable) so the player can see/flick past all 4 worlds and
+        /// understand there's more content coming, rather than the carousel just not existing for
+        /// worlds they haven't reached yet — only unlocked worlds are coloured and tappable.</summary>
         public void ShowWorldSelect()
         {
             if (_shieldRevealRoutine != null)
@@ -101,6 +109,7 @@ namespace FarmFuryArcade.UI
             _selectedWorld = null;
             currentWorldIndicator.gameObject.SetActive(false);
             scrollRect.gameObject.SetActive(false);
+            SetBackButtonSprite(backButtonWorldSelectSprite);
 
             foreach (Transform child in worldShieldContainer)
             {
@@ -108,21 +117,22 @@ namespace FarmFuryArcade.UI
             }
             worldCarousel.enabled = true;
             worldCarousel.ClearItems();
-            _availableWorlds.Clear();
+            _shownWorlds.Clear();
             _shieldObjects.Clear();
             worldShieldContainer.gameObject.SetActive(true);
 
             int worldCount = Mathf.CeilToInt((float)UnlockProgression.TotalLevels / UnlockProgression.LevelsPerWorld);
             for (int world = 0; world < worldCount; world++)
             {
-                if (!IsWorldAvailable(world))
-                {
-                    continue;
-                }
+                bool unlocked = IsWorldAvailable(world);
 
                 var shieldGO = Instantiate(worldShieldPrefab, worldShieldContainer);
-                SetWorldSignSprite(shieldGO.GetComponent<Image>(), world);
-                _availableWorlds.Add(world);
+                var shieldImage = shieldGO.GetComponent<Image>();
+                SetWorldSignSprite(shieldImage, world);
+                shieldImage.color = unlocked ? Color.white : LockedWorldTint;
+                shieldGO.GetComponent<Button>().interactable = unlocked;
+
+                _shownWorlds.Add(world);
                 _shieldObjects.Add(shieldGO);
             }
 
@@ -138,23 +148,26 @@ namespace FarmFuryArcade.UI
             // where the player left off" intent ScrollToCurrentLevel already applies to the tile
             // grid, just one level up (which world, not which level).
             int highestWorld = UnlockProgression.GetHighestUnlockedLevel() / UnlockProgression.LevelsPerWorld;
-            int startLocalIndex = Mathf.Max(0, _availableWorlds.IndexOf(Mathf.Clamp(highestWorld, 0, worldCount - 1)));
+            int startLocalIndex = Mathf.Max(0, _shownWorlds.IndexOf(Mathf.Clamp(highestWorld, 0, worldCount - 1)));
             worldCarousel.SetItems(rects, buttons, startLocalIndex, OnCarouselCenterTapped);
         }
 
         private void OnCarouselCenterTapped(int localIndex)
         {
-            if (localIndex < 0 || localIndex >= _availableWorlds.Count)
+            if (localIndex < 0 || localIndex >= _shownWorlds.Count)
             {
                 return;
             }
-            SelectWorld(_availableWorlds[localIndex], _shieldObjects[localIndex]);
+            // A locked badge's Button.interactable is false, so its onClick (and therefore this
+            // callback) never fires for it via CardCarouselController's tap-to-select path — no
+            // extra guard needed here beyond the bounds check above.
+            SelectWorld(_shownWorlds[localIndex], _shieldObjects[localIndex]);
         }
 
         /// <summary>World 0 is always available. World N (N>0) becomes available once the last
         /// level of world N-1 has 2+ stars — matching UnlockProgression's own world-gate threshold
-        /// for level access, so a shield is never shown for a world whose levels are actually still
-        /// locked.</summary>
+        /// for level access, so a badge is never coloured/tappable for a world whose levels are
+        /// actually still locked.</summary>
         private static bool IsWorldAvailable(int world)
         {
             if (world <= 0)
@@ -205,6 +218,7 @@ namespace FarmFuryArcade.UI
 
             _selectedWorld = world;
             worldShieldContainer.gameObject.SetActive(false);
+            SetBackButtonSprite(backButtonTileGridSprite);
 
             SetWorldSignSprite(currentWorldIndicatorImage, world);
             currentWorldIndicator.gameObject.SetActive(true);
@@ -244,7 +258,7 @@ namespace FarmFuryArcade.UI
             section.transform.SetParent(contentParent, false);
             var grid = section.AddComponent<GridLayoutGroup>();
             grid.cellSize = new Vector2(150f, 150f);
-            grid.spacing = new Vector2(20f, 20f);
+            grid.spacing = new Vector2(45f, 45f);
             grid.childAlignment = TextAnchor.UpperCenter;
             grid.constraint = GridLayoutGroup.Constraint.FixedColumnCount;
             grid.constraintCount = 4;
@@ -274,14 +288,6 @@ namespace FarmFuryArcade.UI
         private void OnTileLockedTapped(int levelIndex)
         {
             lockedHintPanel?.Show(UnlockProgression.GetUnlockHint(levelIndex));
-        }
-
-        public void UpdateStarCounter()
-        {
-            if (starCounter != null)
-            {
-                starCounter.text = $"{UnlockProgression.GetTotalStars()} ★";
-            }
         }
 
         /// <summary>Smoothly scrolls so the highest-unlocked level within the given world sits
@@ -349,10 +355,27 @@ namespace FarmFuryArcade.UI
             _scrollRoutine = null;
         }
 
+        /// <summary>One step back at a time, not always straight to Main Menu: from the tile grid
+        /// (a world selected — Btn_back icon) it returns to world select; from world select itself
+        /// (Btn_home icon) it leaves the screen entirely, same as before.</summary>
         public void OnBackButtonClicked()
         {
+            if (_selectedWorld.HasValue)
+            {
+                ShowWorldSelect();
+                return;
+            }
+
             SaveManager.Instance?.SaveProgress();
             SceneTransitionManager.Instance.ShowOnly(mainMenuScreen);
+        }
+
+        private void SetBackButtonSprite(Sprite sprite)
+        {
+            if (backButtonImage != null && sprite != null)
+            {
+                backButtonImage.sprite = sprite;
+            }
         }
     }
 }

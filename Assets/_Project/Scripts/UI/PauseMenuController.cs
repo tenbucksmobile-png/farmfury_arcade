@@ -9,9 +9,10 @@ namespace FarmFuryArcade.UI
     /// Time.timeScale — this just shows/hides the panel and calls them. Paused.png bakes in the
     /// "PAUSED" title and all 5 button-row backgrounds itself, so this screen has no dynamic text
     /// of its own — just the 5 real button-art images (Resume/SwapCharacter/Restart/Settings/
-    /// Quit.png) overlaid exactly on top of where the background art draws them. "Quit" returns
-    /// straight to Main Menu (GameManager.QuitToMainMenu) rather than going through the Level
-    /// Failed screen — see that method's doc comment for why.</summary>
+    /// Quit.png) overlaid exactly on top of where the background art draws them. "Quit" returns to
+    /// Level Select (GameManager.QuitToLevelSelect) — one step back to where the player picked this
+    /// level from — rather than going through the Level Failed screen or all the way to Main Menu;
+    /// see that method's doc comment for why.</summary>
     public class PauseMenuController : MonoBehaviour
     {
         [SerializeField] private Button resumeButton;
@@ -21,7 +22,7 @@ namespace FarmFuryArcade.UI
         [SerializeField] private Button quitToMenuButton;
         [SerializeField] private ChooseCharacterScreen chooseCharacterScreen;
         [SerializeField] private SettingsPanel settingsPanel;
-        [SerializeField] private GameObject mainMenuScreen;
+        [SerializeField] private GameObject levelSelectScreen;
 
         private void Awake()
         {
@@ -54,8 +55,8 @@ namespace FarmFuryArcade.UI
         private void QuitToMenu()
         {
             gameObject.SetActive(false);
-            GameManager.Instance.QuitToMainMenu();
-            SceneTransitionManager.Instance.ShowOnly(mainMenuScreen);
+            GameManager.Instance.QuitToLevelSelect();
+            SceneTransitionManager.Instance.ShowOnly(levelSelectScreen);
         }
     }
 }

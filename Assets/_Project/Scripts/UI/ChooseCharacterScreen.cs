@@ -141,8 +141,10 @@ namespace FarmFuryArcade.UI
         }
 
         /// <summary>Pop-scales the tapped card in place so the player can see which one was picked,
-        /// then swaps and auto-closes back to Pause. Deliberately doesn't reposition to screen-centre
-        /// — the card is already centred (only the centred card's tap reaches this point at all, per
+        /// then swaps and auto-resumes gameplay directly — deliberately skips landing back on the
+        /// Pause menu (unlike the Back button, which does return there): picking a character is
+        /// itself the "I'm done, let's go" action. Doesn't reposition to screen-centre — the card is
+        /// already centred (only the centred card's tap reaches this point at all, per
         /// CardCarouselController's gating) — scaling in place is enough to read as "this one got
         /// picked" without fighting the carousel's own per-frame layout pass.</summary>
         private IEnumerator SelectRoutine(CharacterSelectCard card)
@@ -175,7 +177,15 @@ namespace FarmFuryArcade.UI
 
             yield return new WaitForSecondsRealtime(HoldAfterSelectSeconds);
 
-            Close();
+            gameObject.SetActive(false);
+            if (pauseMenuScreen != null)
+            {
+                pauseMenuScreen.SetActive(false);
+            }
+            if (GameManager.Instance != null && GameManager.Instance.CurrentState == GameState.Paused)
+            {
+                GameManager.Instance.ResumeGame();
+            }
         }
     }
 }

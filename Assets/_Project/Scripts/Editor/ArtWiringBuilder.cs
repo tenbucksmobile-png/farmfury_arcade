@@ -310,32 +310,34 @@ namespace FarmFuryArcade.EditorTools
 
         private static Sprite Load(string path) => AssetDatabase.LoadAssetAtPath<Sprite>(path);
 
+        /// <summary>Frame mapping below was confirmed directly against the actual uploaded art
+        /// (2026 review pass), not inferred: Cluck_back.png is her standing-still pose (CharacterAnimator
+        /// shows Down0 when not moving — see its own doc comment) and doubles as every direction's
+        /// frames except Left1, which is Cluck_LeftWalk.png (the only distinct second walk frame
+        /// specified). No dedicated Up/Right art exists yet, so those directions just repeat
+        /// Cluck_back.png rather than mirroring Left — Right0/Right1 are set explicitly (not left to
+        /// CharacterAnimator's flipX-mirror-Left fallback) so hasDedicatedRightArt stays true and
+        /// they render un-mirrored. Cluck_left.png/_right.png/_rightwalk.png/_rightwalk2.png are no
+        /// longer referenced here — kept on disk (and in ExpectedTexturePaths for import-settings
+        /// configuration) in case dedicated per-direction walk art lands later.</summary>
         private static void WireCluck()
         {
             var front = Load(CluckFront);
             var back = Load(CluckBack);
-            var left = Load(CluckLeft);
             var leftWalk = Load(CluckLeftWalk);
-            var right = Load(CluckRight);
-            var rightWalk = Load(CluckRightWalk2);
 
-            // Cluck is the only character with a real 2nd walk frame per direction and dedicated
-            // Right art so far — everyone else still repeats their single pose in both slots via
-            // SetWalkFrames. Cluck_rightwalk.png (the other uploaded right-walk frame) is left
-            // unused; rightwalk2 reads as a clearer mid-stride contrast against the idle Cluck_right.
             string path = $"{CharacterDataFolder}/CharacterData_Cluck.asset";
             var data = AssetDatabase.LoadAssetAtPath<CharacterData>(path);
             if (data != null)
             {
                 data.walkAnimationFrames = new[]
                 {
-                    back, back,                                   // Up0, Up1
-                    front, front,                                  // Down0, Down1
-                    left, leftWalk != null ? leftWalk : left,       // Left0, Left1
-                    right != null ? right : left,                   // Right0
-                    rightWalk != null ? rightWalk : (right != null ? right : left) // Right1
+                    back, back,                              // Up0, Up1
+                    back, back,                               // Down0, Down1 (standing still)
+                    back, leftWalk != null ? leftWalk : back,  // Left0, Left1
+                    back, back                                 // Right0, Right1
                 };
-                data.hasDedicatedRightArt = right != null;
+                data.hasDedicatedRightArt = true;
                 data.portraitSprite = front;
                 EditorUtility.SetDirty(data);
             }
@@ -346,9 +348,9 @@ namespace FarmFuryArcade.EditorTools
 
             var contents = PrefabUtility.LoadPrefabContents(CluckPrefabPath);
             var sr = contents.GetComponent<SpriteRenderer>();
-            if (sr != null && front != null)
+            if (sr != null && back != null)
             {
-                sr.sprite = front;
+                sr.sprite = back;
             }
             PrefabUtility.SaveAsPrefabAsset(contents, CluckPrefabPath);
             PrefabUtility.UnloadPrefabContents(contents);
@@ -372,13 +374,15 @@ namespace FarmFuryArcade.EditorTools
             var data = AssetDatabase.LoadAssetAtPath<CharacterData>(path);
             if (data != null)
             {
+                // Right frame order confirmed against the actual uploaded art (2026 review pass):
+                // right2 plays first, then right — the reverse of Left's left-then-left2 order.
                 data.walkAnimationFrames = new[]
                 {
                     back, back,                                    // Up0, Up1
                     front, front,                                   // Down0, Down1
                     left, left2 != null ? left2 : left,             // Left0, Left1
-                    right != null ? right : left,                   // Right0
-                    right2 != null ? right2 : (right != null ? right : left) // Right1
+                    right2 != null ? right2 : (right != null ? right : left), // Right0
+                    right != null ? right : left                    // Right1
                 };
                 data.hasDedicatedRightArt = right != null;
                 data.portraitSprite = front;
@@ -476,9 +480,10 @@ namespace FarmFuryArcade.EditorTools
         }
 
         /// <summary>Gameplay had no art behind the maze grid at all — just the camera's clear
-        /// color, a documented gap. Wheatfield_background.png was uploaded early on but went
-        /// unused once LevelComplete/Failed/Pause got their own dedicated panel art — reused here
-        /// instead of uploading something new. One SpriteRenderer, sorting-ordered below
+        /// color, a documented gap. World1_Cornfield.png (already used as Pause/Choose Character's
+        /// backdrop) replaced Wheatfield_background.png here per a gameplay review — LevelData_01
+        /// is MazeType.CornField, so this specifically ties the backdrop to the world it's actually
+        /// set in, rather than a generic wheatfield. One SpriteRenderer, sorting-ordered below
         /// Ground_CornField's -1 so tile art still draws over it everywhere inside the maze.
         ///
         /// Sized as a "cover" fit against the maze's own world bounds (mazeWidth/Height *
@@ -498,10 +503,10 @@ namespace FarmFuryArcade.EditorTools
         /// loaded in Play mode) and this runs in the Editor at wiring time.</summary>
         private static void WireGameplayBackdrop()
         {
-            var sprite = Load(WheatfieldBackdrop);
+            var sprite = Load(PauseBackground); // World1_Cornfield.png — see doc comment above
             if (sprite == null)
             {
-                Debug.LogWarning($"[ArtWiringBuilder] {WheatfieldBackdrop} not found — skipping gameplay backdrop.");
+                Debug.LogWarning($"[ArtWiringBuilder] {PauseBackground} not found — skipping gameplay backdrop.");
                 return;
             }
 
@@ -914,9 +919,10 @@ namespace FarmFuryArcade.EditorTools
             SetImageSprite(canvasTransform, "CharacterRosterScreen/BackButton", back);
             SetImageSprite(canvasTransform, "LeaderboardsScreen/BackButton", back);
             // The Choose Character mockup's round back icon is a triangle/mountain glyph with no
-            // matching uploaded asset — substituted with Btn_home.png, same as every other round
-            // back button in the game (Settings, Level Select), rather than leaving it unwired.
-            SetImageSprite(canvasTransform, "ChooseCharacterScreen/BackButton", home);
+            // matching uploaded asset — substituted with Btn_back.png (it navigates back to Pause,
+            // not to a home/landing destination, so Btn_back reads correctly here, unlike Settings/
+            // Level Select's Btn_home, which actually is a "go home" action).
+            SetImageSprite(canvasTransform, "ChooseCharacterScreen/BackButton", back);
             // Round Btn_home.png, not Btn_back.png — same mockup-driven deviation as Settings (see
             // CreateRoundBackButton's doc comment); Level Select's back button is bottom-right.
             SetImageSprite(canvasTransform, "LevelSelectScreen/BackButton", home);
@@ -927,10 +933,12 @@ namespace FarmFuryArcade.EditorTools
         // ---- Level Select ---------------------------------------------------------------------
 
         /// <summary>Wires the LevelSelectScreen background, the (unused, kept-built) WorldDivider
-        /// prefab's banner, the 5 LevelTile.prefab state sprites, the SELECT LEVEL title sign, and
-        /// the 4 world badge sprites (LevelSelectController.worldSignSprites) — the back button icon
-        /// (Btn_home.png, not Btn_back.png — see CreateRoundBackButton) is handled by WireButtons
-        /// instead, same as every other screen's back button.</summary>
+        /// prefab's banner, the 5 LevelTile.prefab state sprites, the SELECT LEVEL title sign, the 4
+        /// world badge sprites (LevelSelectController.worldSignSprites), and the back button's two
+        /// toggle sprites (Btn_home for world-select, Btn_back for a world's tile grid — see
+        /// LevelSelectController.SetBackButtonSprite). The button's initial sprite (Btn_home, not
+        /// Btn_back — see CreateRoundBackButton) is still set by WireButtons, same as every other
+        /// screen's back button.</summary>
         private static void WireLevelSelect()
         {
             EditorSceneManager.OpenScene(ScenePath);
@@ -986,8 +994,10 @@ namespace FarmFuryArcade.EditorTools
                 PrefabUtility.UnloadPrefabContents(tileContents);
             }
 
-            // "SELECT LEVEL" word-art replacing the old TMP title text.
-            var titleImage = canvasTransform.Find("LevelSelectScreen/Header/TitleImage")?.GetComponent<Image>();
+            // "SELECT LEVEL" word-art replacing the old TMP title text. TitleImage moved out of
+            // Header onto LevelSelectScreen's root directly (to match Settings' title sizing/
+            // position) — this path must track that or the sprite silently fails to wire.
+            var titleImage = canvasTransform.Find("LevelSelectScreen/TitleImage")?.GetComponent<Image>();
             var titleSprite = Load(SelectLevelText);
             if (titleImage != null && titleSprite != null)
             {
@@ -1013,6 +1023,13 @@ namespace FarmFuryArcade.EditorTools
                 {
                     arrayProp.GetArrayElementAtIndex(i).objectReferenceValue = worldSigns[i];
                 }
+
+                // BackButton icon swaps between these two depending on state (world-select vs a
+                // world's tile grid) — see LevelSelectController.SetBackButtonSprite. WireButtons
+                // sets the Image's initial sprite (home, matching the world-select state Level
+                // Select opens into); these are the two states it can toggle between afterward.
+                lsSo.FindProperty("backButtonWorldSelectSprite").objectReferenceValue = Load(BtnHome);
+                lsSo.FindProperty("backButtonTileGridSprite").objectReferenceValue = Load(BtnBack);
                 lsSo.ApplyModifiedPropertiesWithoutUndo();
             }
 

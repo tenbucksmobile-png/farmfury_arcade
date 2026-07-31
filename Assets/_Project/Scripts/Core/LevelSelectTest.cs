@@ -46,7 +46,6 @@ namespace FarmFuryArcade.Core
             TestLockedAndUnlockedVisualState();
             yield return TestTappingUnlockedTileLoadsLevel();
             yield return TestTappingLockedTileShowsHint();
-            TestStarCounterReflectsSaveData();
             yield return TestCurrentWorldIndicatorReturnsToWorldSelect();
             yield return TestBackButtonReturnsToMainMenu();
 
@@ -97,9 +96,11 @@ namespace FarmFuryArcade.Core
         }
 
         /// <summary>Level Select should open into world-select, not straight into a tile grid — the
-        /// grid (ScrollView) should be hidden, WorldShieldContainer active, and (on a fresh/low-
-        /// progress save) exactly one shield present, since only Corn Field (world 0) is available
-        /// until world 0's gate level reaches 2+ stars.</summary>
+        /// grid (ScrollView) should be hidden, WorldShieldContainer active, and all 4 world shields
+        /// present (locked worlds still get a badge, just greyed out/non-interactable — see
+        /// LevelSelectController.ShowWorldSelect). On a fresh/low-progress save, exactly 1 of those
+        /// 4 should be interactable (Corn Field), since only it is available until world 0's gate
+        /// level reaches 2+ stars.</summary>
         private void TestWorldSelectShowsOnlyAvailableWorlds()
         {
             var levelSelect = Find("LevelSelectScreen");
@@ -122,17 +123,32 @@ namespace FarmFuryArcade.Core
                 ? "[LevelSelectTest] PASS: Level Select opens into world-select (tile grid hidden, shields shown)."
                 : $"[LevelSelectTest] FAIL: expected grid hidden/shields shown, got gridActive={scrollView.gameObject.activeSelf}, shieldsActive={shieldContainer.gameObject.activeSelf}.");
 
+            int worldCount = Mathf.CeilToInt((float)UnlockProgression.TotalLevels / UnlockProgression.LevelsPerWorld);
             int shieldCount = shieldContainer.childCount;
+            Debug.Log(shieldCount == worldCount
+                ? $"[LevelSelectTest] PASS: all {worldCount} world shields are shown (locked ones greyed out, not omitted)."
+                : $"[LevelSelectTest] FAIL: expected {worldCount} world shields shown, found {shieldCount}.");
+
+            int interactableCount = 0;
+            foreach (Transform child in shieldContainer)
+            {
+                var button = child.GetComponent<Button>();
+                if (button != null && button.interactable)
+                {
+                    interactableCount++;
+                }
+            }
+
             bool onlyCornFieldAvailable = UnlockProgression.GetStarsForLevel(UnlockProgression.LevelsPerWorld - 1) < 2;
             if (onlyCornFieldAvailable)
             {
-                Debug.Log(shieldCount == 1
-                    ? "[LevelSelectTest] PASS: exactly 1 world shield shown (Corn Field only, fresh/low-progress save)."
-                    : $"[LevelSelectTest] FAIL: expected 1 world shield on a fresh save, found {shieldCount}.");
+                Debug.Log(interactableCount == 1
+                    ? "[LevelSelectTest] PASS: exactly 1 world shield is interactable/coloured (Corn Field only, fresh/low-progress save)."
+                    : $"[LevelSelectTest] FAIL: expected 1 interactable world shield on a fresh save, found {interactableCount}.");
             }
             else
             {
-                Debug.Log($"[LevelSelectTest] INFO: {shieldCount} world shield(s) shown — save has progress past Corn Field's gate, more than 1 is expected here.");
+                Debug.Log($"[LevelSelectTest] INFO: {interactableCount} world shield(s) interactable — save has progress past Corn Field's gate, more than 1 is expected here.");
             }
         }
 
@@ -181,7 +197,7 @@ namespace FarmFuryArcade.Core
                 ? "[LevelSelectTest] PASS: revealed tile indices are exactly 0..LevelsPerWorld-1 with no gaps/duplicates."
                 : "[LevelSelectTest] FAIL: revealed tile indices are missing entries or contain duplicates.");
 
-            var indicator = levelSelect.transform.Find("Header/CurrentWorldIndicator");
+            var indicator = levelSelect.transform.Find("CurrentWorldIndicator");
             bool indicatorShown = indicator != null && indicator.gameObject.activeSelf;
             bool shieldsHidden = !shieldContainer.gameObject.activeSelf;
             Debug.Log(indicatorShown && shieldsHidden
@@ -312,31 +328,12 @@ namespace FarmFuryArcade.Core
                 : "[LevelSelectTest] FAIL: LockedHintPanel did not appear after tapping a locked tile.");
         }
 
-        private void TestStarCounterReflectsSaveData()
-        {
-            var levelSelect = Find("LevelSelectScreen");
-            var starCounter = levelSelect != null ? levelSelect.transform.Find("Header/StarCounter")?.GetComponent<TMPro.TextMeshProUGUI>() : null;
-            if (starCounter == null)
-            {
-                Debug.LogWarning("[LevelSelectTest] SKIP star counter test: StarCounter text not found.");
-                return;
-            }
-
-            var controller = levelSelect.GetComponent<LevelSelectController>();
-            controller.UpdateStarCounter();
-
-            string expected = $"{UnlockProgression.GetTotalStars()} ★";
-            Debug.Log(starCounter.text == expected
-                ? $"[LevelSelectTest] PASS: star counter reads '{starCounter.text}', matching UnlockProgression.GetTotalStars()."
-                : $"[LevelSelectTest] FAIL: star counter reads '{starCounter.text}', expected '{expected}'.");
-        }
-
         /// <summary>Tapping the small CurrentWorldIndicator (top-left of the header, only visible
         /// once a world's tiles are showing) should hide the grid and bring world-select back.</summary>
         private IEnumerator TestCurrentWorldIndicatorReturnsToWorldSelect()
         {
             var levelSelect = Find("LevelSelectScreen");
-            var indicatorButton = levelSelect != null ? levelSelect.transform.Find("Header/CurrentWorldIndicator")?.GetComponent<Button>() : null;
+            var indicatorButton = levelSelect != null ? levelSelect.transform.Find("CurrentWorldIndicator")?.GetComponent<Button>() : null;
             if (indicatorButton == null || !indicatorButton.gameObject.activeSelf)
             {
                 Debug.LogWarning("[LevelSelectTest] SKIP current-world-indicator test: indicator not active (a world tile grid isn't currently showing).");
