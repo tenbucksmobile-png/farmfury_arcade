@@ -101,6 +101,19 @@ namespace FarmFuryArcade.Core
             }
         }
 
+        /// <summary>Sum of stars across every level slot up to MaxLevelsForReset — used by the
+        /// Level Select star counter. Levels never played simply contribute 0 (GetLevelStars'
+        /// default), same convention ResetAllProgress's per-level sweep already relies on.</summary>
+        public int GetTotalStars()
+        {
+            int total = 0;
+            for (int i = 0; i < MaxLevelsForReset; i++)
+            {
+                total += GetLevelStars(i);
+            }
+            return total;
+        }
+
         public bool IsCharacterUnlocked(CharacterType type)
         {
             return PlayerPrefs.GetInt(CharacterUnlockedKeyPrefix + type, 0) == 1;

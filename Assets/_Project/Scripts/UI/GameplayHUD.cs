@@ -1,8 +1,10 @@
 using UnityEngine;
 using UnityEngine.UI;
 using TMPro;
+using FarmFuryArcade.Abilities;
 using FarmFuryArcade.Core;
 using FarmFuryArcade.Data;
+using FarmFuryArcade.Gameplay;
 
 namespace FarmFuryArcade.UI
 {
@@ -27,6 +29,7 @@ namespace FarmFuryArcade.UI
         [SerializeField] private TextMeshProUGUI scoreText;
         [SerializeField] private TextMeshProUGUI timerText;
         [SerializeField] private Image characterPortrait;
+        [SerializeField] private Button abilityButton;
         [SerializeField] private Button pauseButton;
         [SerializeField] private GameObject powerPelletTimerBar;
         [SerializeField] private Image powerPelletTimerFill;
@@ -38,13 +41,25 @@ namespace FarmFuryArcade.UI
 
         private static readonly int[] ChainPoints = { 200, 400, 800, 1600 };
 
+        /// <summary>Portrait tint while its ability is on cooldown — the "greying out" cue for the
+        /// on-screen ability button (see RefreshPortrait/RefreshActiveAbility). Distinct from the
+        /// "ready" colour, which is white for a wired real portraitSprite or the gold placeholder
+        /// tint otherwise (see RefreshPortrait's own comment on that).</summary>
+        private static readonly Color AbilityCooldownTint = new Color(0.4f, 0.4f, 0.4f, 1f);
+
         private int _displayedScore;
         private int _targetScore;
         private GameState _lastObservedState;
+        private AbilityBase _activeAbility;
+        private Color _portraitReadyColor = Color.white;
 
         private void Awake()
         {
             pauseButton.onClick.AddListener(OpenPauseMenu);
+            // The portrait doubles as the on-screen ability button (Space has no touch
+            // equivalent) — wired here, not in the editor-script builder, since a listener added
+            // directly from editor-script code doesn't survive a scene save/reload.
+            abilityButton.onClick.AddListener(InputController.RaiseAbilityActivateInput);
         }
 
         private void OnEnable()
@@ -73,6 +88,10 @@ namespace FarmFuryArcade.UI
             if (CharacterManager.Instance != null)
             {
                 CharacterManager.Instance.OnCharacterChanged -= HandleCharacterChanged;
+            }
+            if (_activeAbility != null)
+            {
+                _activeAbility.OnCooldownChanged -= HandleAbilityCooldownChanged;
             }
         }
 
@@ -166,8 +185,50 @@ namespace FarmFuryArcade.UI
             if (data != null && data.portraitSprite != null)
             {
                 characterPortrait.sprite = data.portraitSprite;
-                characterPortrait.color = Color.white;
             }
+
+            // Image.color (the tint this ability-cooldown indicator multiplies) defaults to white
+            // regardless of whether a real portraitSprite or the gold-tinted placeholder texture is
+            // showing — the placeholder's gold comes from the sprite's own pixels, not Image.color.
+            _portraitReadyColor = Color.white;
+            RefreshActiveAbility();
+        }
+
+        /// <summary>The portrait doubles as the on-screen ability button (see Phase5ProjectBuilder's
+        /// BuildGameplayHUD — Space has no touch equivalent, so this is the only way to activate an
+        /// ability on a device with no keyboard). AbilityBase lives on the active character's
+        /// GameObject, which CharacterManager destroys/recreates on every swap, so it's re-fetched
+        /// live here rather than cached across swaps — same convention as CameraFollow's target and
+        /// RobotBase.playerMovement.</summary>
+        private void RefreshActiveAbility()
+        {
+            if (_activeAbility != null)
+            {
+                _activeAbility.OnCooldownChanged -= HandleAbilityCooldownChanged;
+            }
+
+            var characterObject = CharacterManager.Instance != null ? CharacterManager.Instance.ActiveCharacterObject : null;
+            _activeAbility = characterObject != null ? characterObject.GetComponent<AbilityBase>() : null;
+
+            if (_activeAbility != null)
+            {
+                _activeAbility.OnCooldownChanged += HandleAbilityCooldownChanged;
+                HandleAbilityCooldownChanged(_activeAbility.CooldownRemaining, _activeAbility.TotalCooldown);
+            }
+            else
+            {
+                characterPortrait.color = _portraitReadyColor;
+            }
+        }
+
+        private void HandleAbilityCooldownChanged(float remaining, float total)
+        {
+            if (characterPortrait == null)
+            {
+                return;
+            }
+
+            characterPortrait.color = remaining > 0f ? AbilityCooldownTint : _portraitReadyColor;
         }
 
         private void UpdatePowerPelletUI()

@@ -1,5 +1,6 @@
 using System;
 using UnityEngine;
+using UnityEngine.EventSystems;
 using UnityEngine.InputSystem;
 
 namespace FarmFuryArcade.Gameplay
@@ -30,8 +31,15 @@ namespace FarmFuryArcade.Gameplay
         /// already listens to.</summary>
         public static void RaiseDirectionInput(Direction dir) => OnDirectionInput?.Invoke(dir);
 
+        /// <summary>Raises OnAbilityActivateInput exactly like Space would — the Gameplay HUD's
+        /// character portrait (doubling as the on-screen ability button, since Space has no touch
+        /// equivalent) calls this from its own onClick instead of duplicating the event mechanics
+        /// AbilityBase already listens to.</summary>
+        public static void RaiseAbilityActivateInput() => OnAbilityActivateInput?.Invoke();
+
         private Vector2 _pointerDownPosition;
         private bool _isPressed;
+        private bool _pointerDownOverUI;
 
         private void Update()
         {
@@ -75,10 +83,20 @@ namespace FarmFuryArcade.Gameplay
             {
                 _pointerDownPosition = pointer.position.ReadValue();
                 _isPressed = true;
+                // A press that starts on a UI control (the on-screen D-pad, Pause button, etc.)
+                // must not also be reinterpreted as a swipe — without this, dragging a thumb
+                // across the D-pad could raise both the button's own direction AND a conflicting
+                // swipe-derived direction from the same gesture.
+                _pointerDownOverUI = EventSystem.current != null && EventSystem.current.IsPointerOverGameObject();
             }
             else if (pointer.press.wasReleasedThisFrame && _isPressed)
             {
                 _isPressed = false;
+                if (_pointerDownOverUI)
+                {
+                    return;
+                }
+
                 Vector2 releasePosition = pointer.position.ReadValue();
                 Vector2 delta = releasePosition - _pointerDownPosition;
 

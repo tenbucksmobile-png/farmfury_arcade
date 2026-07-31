@@ -40,6 +40,7 @@ namespace FarmFuryArcade.EditorTools
             DedupeAndDisable<Phase3Test>();
             DedupeAndDisable<Phase4Test>();
             DedupeAndDisable<Phase5Test>();
+            DedupeAndDisable<LevelSelectTest>();
 
             EditorSceneManager.SaveScene(EditorSceneManager.GetActiveScene());
             Debug.Log("[SceneCleanupBuilder] Debug test overlay GameObjects deduplicated and disabled.");
@@ -84,6 +85,29 @@ namespace FarmFuryArcade.EditorTools
             EditorSceneManager.SaveScene(EditorSceneManager.GetActiveScene());
             Debug.Log("[SceneCleanupBuilder] Gameplay camera fit to the whole maze (orthographic size 8).");
         }
+
+        /// <summary>Temporarily re-activates a specific debug-test GameObject (which
+        /// DisableDebugTestOverlays deactivated) so its runOnStart battery can run for one
+        /// diagnostic Play session — re-run DisableDebugTestOverlays afterward to restore the
+        /// normal clean state. Not a MenuItem since it's a one-off debugging aid, not part of the
+        /// regular build workflow; invoke via -executeMethod with the type name as an env var-free
+        /// convenience isn't available, so this is called directly per-type as needed.</summary>
+        public static void EnableForOneDebugRun<T>() where T : MonoBehaviour
+        {
+            EditorSceneManager.OpenScene(ScenePath);
+            var instance = Resources.FindObjectsOfTypeAll<T>()
+                .FirstOrDefault(t => !EditorUtility.IsPersistent(t.gameObject) && t.gameObject.scene.IsValid());
+            if (instance == null)
+            {
+                Debug.LogWarning($"[SceneCleanupBuilder] Could not find any {typeof(T).Name} in the scene.");
+                return;
+            }
+            instance.gameObject.SetActive(true);
+            EditorSceneManager.SaveScene(EditorSceneManager.GetActiveScene());
+        }
+
+        [MenuItem("Farm Fury Arcade/Debug/Enable LevelSelectTest For One Run")]
+        public static void EnableLevelSelectTestForOneRun() => EnableForOneDebugRun<LevelSelectTest>();
 
         private static void DedupeAndDisable<T>() where T : MonoBehaviour
         {

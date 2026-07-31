@@ -1,4 +1,5 @@
 using System.Collections;
+using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
 using FarmFuryArcade.Core;
@@ -13,6 +14,9 @@ namespace FarmFuryArcade.UI
     /// InputController.OnSwapMenuToggleInput, same event CharacterSwapUI used) for parity with
     /// the original shortcut. Not a SceneTransitionManager screen — like Pause/Settings, it's an
     /// overlay that temporarily takes Pause's place on top of Gameplay, then hands back to it.
+    /// Rebuilt to a Canva mockup (2026-07-31): cards sit in a CardCarouselController (the same
+    /// component Level Select's world picker uses) instead of a static GridLayoutGroup — flick to
+    /// cycle which card is centred/full-scale, tap the centred card to swap into it.
     /// </summary>
     public class ChooseCharacterScreen : MonoBehaviour
     {
@@ -22,10 +26,11 @@ namespace FarmFuryArcade.UI
 
         [SerializeField] private Transform cardContainer;
         [SerializeField] private GameObject cardPrefab;
-        [SerializeField] private GridLayoutGroup gridLayoutGroup;
+        [SerializeField] private CardCarouselController carousel;
         [SerializeField] private Button backButton;
         [SerializeField] private GameObject pauseMenuScreen;
 
+        private readonly List<CharacterSelectCard> _cards = new List<CharacterSelectCard>();
         private bool _isBusy;
 
         private void Awake()
@@ -81,44 +86,72 @@ namespace FarmFuryArcade.UI
         private void Refresh()
         {
             _isBusy = false;
-            gridLayoutGroup.enabled = true;
 
             foreach (Transform child in cardContainer)
             {
                 Destroy(child.gameObject);
             }
+            carousel.enabled = true;
+            carousel.ClearItems();
+            _cards.Clear();
 
             var activeType = CharacterManager.Instance != null
                 ? CharacterManager.Instance.ActiveCharacter
                 : (CharacterType?)null;
 
+            int startIndex = 0;
+            int index = 0;
             foreach (var data in DataManager.Instance.GetAllCharacterData())
             {
                 var go = Instantiate(cardPrefab, cardContainer);
                 var card = go.GetComponent<CharacterSelectCard>();
                 bool unlocked = SaveManager.Instance != null && SaveManager.Instance.IsCharacterUnlocked(data.characterType);
                 bool isActive = activeType.HasValue && activeType.Value == data.characterType;
-                card.Initialize(data, unlocked, isActive, HandleCardSelected);
+                // No direct onSelected here — the carousel is the sole trigger for a swap (see
+                // HandleCarouselCenterTapped), so a card doesn't dive in on tap unless it's already
+                // the centred one. Initialize still needs a non-null delegate shape, so this passes
+                // null rather than duplicating carousel's own tap gating in a second listener.
+                card.Initialize(data, unlocked, isActive, null);
+                _cards.Add(card);
+                if (isActive)
+                {
+                    startIndex = index;
+                }
+                index++;
             }
+
+            var rects = new List<RectTransform>(_cards.Count);
+            var buttons = new List<Button>(_cards.Count);
+            foreach (var card in _cards)
+            {
+                rects.Add((RectTransform)card.transform);
+                buttons.Add(card.GetComponent<Button>());
+            }
+            carousel.SetItems(rects, buttons, startIndex, HandleCarouselCenterTapped);
         }
 
-        private void HandleCardSelected(CharacterSelectCard card)
+        private void HandleCarouselCenterTapped(int index)
         {
-            if (_isBusy)
+            if (_isBusy || index < 0 || index >= _cards.Count)
             {
                 return;
             }
             _isBusy = true;
-            StartCoroutine(SelectRoutine(card));
+            StartCoroutine(SelectRoutine(_cards[index]));
         }
 
-        /// <summary>"Animates to the front": brought to the top of the sibling order (renders over
-        /// its neighbours) and scaled up in place. Deliberately doesn't reposition to screen-center
-        /// — the card sits inside a GridLayoutGroup, which would just snap any manual position
-        /// change back on its next layout pass; scaling in place avoids that fight entirely while
-        /// still reading clearly as "this is the one that got picked."</summary>
+        /// <summary>Pop-scales the tapped card in place so the player can see which one was picked,
+        /// then swaps and auto-closes back to Pause. Deliberately doesn't reposition to screen-centre
+        /// — the card is already centred (only the centred card's tap reaches this point at all, per
+        /// CardCarouselController's gating) — scaling in place is enough to read as "this one got
+        /// picked" without fighting the carousel's own per-frame layout pass.</summary>
         private IEnumerator SelectRoutine(CharacterSelectCard card)
         {
+            // Carousel's own Update() re-applies every card's scale from its distance-to-centre
+            // every frame — left enabled, it would fight this routine's scale tween for the same
+            // RectTransform.localScale and the pop would never visibly happen. Re-enabled at the
+            // top of Refresh() on next open, not here — this screen closes right after anyway.
+            carousel.enabled = false;
             card.transform.SetAsLastSibling();
             var rect = (RectTransform)card.transform;
             Vector3 startScale = rect.localScale;

@@ -9,7 +9,9 @@ namespace FarmFuryArcade.Core
     /// AudioClips as well as real content. Background music (backgroundMusicClip, wired by
     /// ArtWiringBuilder from Assets/_Project/Audio/Music/) plays only during an active run —
     /// GameManager.LoadLevel starts it (ResumeBackgroundMusic) and EndLevel/QuitToMainMenu stop it
-    /// (StopMusic), so Main Menu/World Map stay silent and it never plays "at the landing page".
+    /// (StopMusic). Main Menu instead plays its own dedicated track (landingMusicClip via
+    /// PlayLandingMusic, hooked to MainMenuController.OnEnable/OnDisable) — the two never overlap
+    /// since one always stops (via StopMusic or a crossfade) before the other starts.
     /// SFX clips under Assets/_Project/Audio/SFX/ are wired to specific gameplay triggers — see
     /// PlayAnimalDeathSfx/PlayCornPickupSfx/PlayPowerReadySfx/PlayRarePelletPickupSfx/
     /// PlayRobotRespawnSfx and their call sites (PlayerHealth, CropCollector, PowerPelletManager,
@@ -29,6 +31,11 @@ namespace FarmFuryArcade.Core
         [Tooltip("Swapped in for the duration of a power pellet's effect (PowerPelletManager " +
                  "crossfades to this and back via PlayEatRobotMusic/ResumeBackgroundMusic).")]
         [SerializeField] private AudioClip eatRobotMusicClip;
+
+        [Tooltip("Plays while Main Menu is showing (MainMenuController.OnEnable/OnDisable) — " +
+                 "crossfades out when Play is tapped, since backgroundMusicClip takes over once " +
+                 "gameplay starts.")]
+        [SerializeField] private AudioClip landingMusicClip;
 
         [Header("SFX clips")]
         [SerializeField] private AudioClip animalDeathClip;
@@ -131,6 +138,11 @@ namespace FarmFuryArcade.Core
         /// already-active timer, which doesn't retrigger this — see its OnPowerStateChanged
         /// call site).</summary>
         public void PlayEatRobotMusic() => PlayMusic(eatRobotMusicClip);
+
+        /// <summary>Crossfades to the Main Menu's own track — called from
+        /// MainMenuController.OnEnable, which fires both at app launch (Main Menu starts active)
+        /// and every time the player navigates back to it.</summary>
+        public void PlayLandingMusic() => PlayMusic(landingMusicClip);
 
         /// <summary>Crossfades back to the regular background track — the counterpart to
         /// PlayEatRobotMusic. Also what GameManager.LoadLevel calls to start the music in the first

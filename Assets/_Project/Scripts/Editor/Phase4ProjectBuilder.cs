@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.IO;
 using UnityEditor;
 using UnityEditor.SceneManagement;
@@ -14,12 +15,12 @@ namespace FarmFuryArcade.EditorTools
     /// <summary>
     /// Phase 4 scaffolding: builds CharacterData for all 8 characters, adds CharacterBase +
     /// EggDropAbility to the existing Cluck prefab, builds the 7 remaining character prefabs plus
-    /// every ability's sub-prefab (egg, shockwave, wool clone, water tile), adds water tiles to
-    /// LevelData_01, and wires CharacterManager/ComboSystem/UnlockManager/CameraShake into
-    /// Game.unity (ChooseCharacterScreen, its Phase 5 replacement, is wired by
-    /// Phase5ProjectBuilder instead). Safe to re-run. Depends on Phase 2 (Cluck prefab, LevelData_01)
-    /// and Phase 3 (robot types, for RearKick/PuffUp/GroundSlam to find at runtime — no direct
-    /// build-time dependency).
+    /// every ability's sub-prefab (egg, shockwave, wool clone, water tile — the water tile prefab
+    /// is built but no longer stamped onto LevelData_01, see UpdateLevelData01Water's own doc
+    /// comment), and wires CharacterManager/ComboSystem/UnlockManager/CameraShake into Game.unity
+    /// (ChooseCharacterScreen, its Phase 5 replacement, is wired by Phase5ProjectBuilder instead).
+    /// Safe to re-run. Depends on Phase 2 (Cluck prefab, LevelData_01) and Phase 3 (robot types,
+    /// for RearKick/PuffUp/GroundSlam to find at runtime — no direct build-time dependency).
     /// </summary>
     public static class Phase4ProjectBuilder
     {
@@ -85,7 +86,13 @@ namespace FarmFuryArcade.EditorTools
             GameObject billyPrefab = BuildCharacterPrefab("Billy", new Color(0.35f, 0.35f, 0.38f),
                 typeof(HeadbuttThroughAbility), 40f, null);
 
-            UpdateLevelData01Water();
+            // UpdateLevelData01Water() is no longer called — the water gate at row 11 (cells
+            // (3,11)/(10,11)) rendered as a plain blue placeholder square (no real water art was
+            // ever uploaded) and read as an invisible wall/bug rather than a Ducky-only crossing
+            // mechanic. Removed per feedback rather than left half-implemented; the method, the
+            // WaterTile prefab, and SkipShotAbility are all kept (same "built but unlinked"
+            // treatment as Store/Roster/Leaderboards) in case real water art lands later and this
+            // gets reinstated.
 
             WireScene(cluckPrefab, bessiePrefab, percyPrefab, woollyPrefab, duckyPrefab,
                 horacePrefab, geraldPrefab, billyPrefab, waterTilePrefab);
@@ -93,7 +100,7 @@ namespace FarmFuryArcade.EditorTools
             AssetDatabase.SaveAssets();
             AssetDatabase.Refresh();
             Debug.Log("[Phase4ProjectBuilder] Phase 4 character prefabs, CharacterData, ability sub-prefabs, " +
-                      "LevelData_01 water tiles, and Game.unity wiring complete.");
+                      "and Game.unity wiring complete.");
         }
 
         // ---- Character prefabs ----------------------------------------------------------
@@ -252,7 +259,15 @@ namespace FarmFuryArcade.EditorTools
             var go = new GameObject("WaterTile");
             var sr = go.AddComponent<SpriteRenderer>();
             sr.sprite = PlaceholderSprite.Get(new Color(0.20f, 0.50f, 0.90f));
-            sr.sortingOrder = -1;
+            // Must render ABOVE Ground_CornField (sortingOrder -1), which is instantiated under
+            // every non-wall cell including water ones (TileMapRenderer.RenderMaze). This used to
+            // also be -1 — identical to the ground tile beneath it, at the same Z — leaving draw
+            // order between the two undefined. Depending on sprite-batching order that could render
+            // the water tile invisibly under the ground tile, so a water cell looked like ordinary
+            // walkable floor while still silently blocking any character without canCrossWater
+            // (everyone except Ducky) — reads exactly like "hit an invisible wall, can't go
+            // further." Left at the SpriteRenderer default (0), matching every other tile that
+            // sits on top of ground (crops, pellets, warp tunnel).
             go.transform.localScale = Vector3.one * TileMapRenderer.CellSize;
             go.AddComponent<WaterTile>();
             return SaveAndDestroy(go, $"{AbilityPrefabFolder}/WaterTile.prefab");
@@ -261,9 +276,72 @@ namespace FarmFuryArcade.EditorTools
         private static GameObject SaveAndDestroy(GameObject go, string path)
         {
             Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+
+            // PlaceholderSprite.Get() creates a Sprite from an in-memory Texture2D that was never
+            // written to disk as an asset. PrefabUtility.SaveAsPrefabAsset can't serialize a
+            // reference to an object that isn't a real asset, so any SpriteRenderer still using a
+            // placeholder ends up with a NULL sprite in the saved .prefab — invisible in-game even
+            // though it looked correct in the Editor session that built it. Confirmed directly:
+            // Egg.prefab, WaterTile.prefab and Horace.prefab all shipped with
+            // "m_Sprite: {fileID: 0}". Real wired art (ArtWiringBuilder) doesn't trip this since
+            // it assigns an actual on-disk texture asset, which masked the bug everywhere real art
+            // already landed. Capture any still-placeholder sprites BEFORE go is destroyed, then
+            // embed them as real sub-assets of the prefab (see EmbedRuntimePlaceholderSprites).
+            var placeholderSprites = new List<(string transformPath, Sprite sprite)>();
+            foreach (var sr in go.GetComponentsInChildren<SpriteRenderer>(true))
+            {
+                if (sr.sprite != null && string.IsNullOrEmpty(AssetDatabase.GetAssetPath(sr.sprite)))
+                {
+                    placeholderSprites.Add((AnimationUtility.CalculateTransformPath(sr.transform, go.transform), sr.sprite));
+                }
+            }
+
             var prefab = PrefabUtility.SaveAsPrefabAsset(go, path);
             Object.DestroyImmediate(go);
+
+            if (placeholderSprites.Count > 0)
+            {
+                EmbedRuntimePlaceholderSprites(path, placeholderSprites);
+                prefab = AssetDatabase.LoadAssetAtPath<GameObject>(path);
+            }
+
             return prefab;
+        }
+
+        /// <summary>Embeds each captured placeholder Sprite (and its Texture2D) as a sub-asset of
+        /// the just-saved prefab file, then round-trips the prefab (LoadPrefabContents -> re-point
+        /// the SpriteRenderer at the now-persisted sprite -> SaveAsPrefabAsset ->
+        /// UnloadPrefabContents) so the reference that was saved as null actually points at
+        /// something real. Same round-trip shape as the "SerializedObject fields don't stick"
+        /// gotcha noted elsewhere in this file — Unity needs the object saved and reloaded, not
+        /// just mutated in place, for prefab-asset changes like this to persist.</summary>
+        private static void EmbedRuntimePlaceholderSprites(string prefabPath, List<(string transformPath, Sprite sprite)> placeholders)
+        {
+            var contents = PrefabUtility.LoadPrefabContents(prefabPath);
+            foreach (var (transformPath, sprite) in placeholders)
+            {
+                var target = string.IsNullOrEmpty(transformPath) ? contents.transform : contents.transform.Find(transformPath);
+                var sr = target != null ? target.GetComponent<SpriteRenderer>() : null;
+                if (sr == null)
+                {
+                    continue;
+                }
+
+                if (sprite.texture != null && string.IsNullOrEmpty(AssetDatabase.GetAssetPath(sprite.texture)))
+                {
+                    AssetDatabase.AddObjectToAsset(sprite.texture, prefabPath);
+                }
+                if (string.IsNullOrEmpty(AssetDatabase.GetAssetPath(sprite)))
+                {
+                    AssetDatabase.AddObjectToAsset(sprite, prefabPath);
+                }
+                sr.sprite = sprite;
+            }
+
+            PrefabUtility.SaveAsPrefabAsset(contents, prefabPath);
+            PrefabUtility.UnloadPrefabContents(contents);
+            AssetDatabase.SaveAssets();
+            AssetDatabase.ImportAsset(prefabPath, ImportAssetOptions.ForceUpdate);
         }
 
         // ---- CharacterData ------------------------------------------------------------------
@@ -319,13 +397,19 @@ namespace FarmFuryArcade.EditorTools
 
         // ---- LevelData_01 water tiles -------------------------------------------------------
 
-        /// <summary>Adds one water tile pair to L01 at a row/columns chosen to sit clear of the
-        /// warp row (5) and the robot factory box (x5-8, y6-9) — Phase2ProjectBuilder.
-        /// BuildLevelData01 reserves these exact cells with a -1 sentinel during maze generation so
-        /// they're guaranteed to still be plain ground (id 0) when this runs, regardless of what the
-        /// procedural corridor layout does elsewhere. Verifies both target cells are still plain
-        /// ground before overwriting anyway, so a future L01 redesign can't silently corrupt into an
-        /// unreachable water tile — logs a warning and skips instead.</summary>
+        /// <summary>No longer called from BuildAll — the water tile prefab was never given real
+        /// art, so it rendered as a plain blue placeholder square that read as an invisible wall/
+        /// bug rather than the intended Ducky-only crossing mechanic (confirmed via playtest
+        /// feedback). Left here, unused, in case real water art lands later and this gets wired
+        /// back in — everything below still works exactly as before if re-added to BuildAll.
+        ///
+        /// Adds one water tile pair to L01 at a row/columns chosen to sit clear of the warp row (5)
+        /// and the robot factory box (x5-8, y6-9) — Phase2ProjectBuilder.BuildLevelData01 reserves
+        /// these exact cells with a -1 sentinel during maze generation so they're guaranteed to
+        /// still be plain ground (id 0) when this runs, regardless of what the procedural corridor
+        /// layout does elsewhere. Verifies both target cells are still plain ground before
+        /// overwriting anyway, so a future L01 redesign can't silently corrupt into an unreachable
+        /// water tile — logs a warning and skips instead.</summary>
         private static void UpdateLevelData01Water()
         {
             var level = AssetDatabase.LoadAssetAtPath<LevelData>(LevelData01Path);

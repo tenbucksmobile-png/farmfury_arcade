@@ -204,6 +204,12 @@ namespace FarmFuryArcade.EditorTools
             var handleAreaGO = CreateEmpty(name + "_HandleArea", go.transform);
             StretchFull((RectTransform)handleAreaGO.transform);
             var handleGO = CreateImage(name + "_Handle", handleAreaGO.transform, new Color(0.95f, 0.9f, 0.78f), 20f, 20f);
+            // CreateImage's 20x20 only sets LayoutElement preferred size, which does nothing here —
+            // handleAreaGO (its parent) has no LayoutGroup to read those hints, so the handle kept
+            // Unity's default 100x100 RectTransform size instead: a big near-white square sitting
+            // on top of the slider (and the whole row), which is what "the slider is too big"
+            // actually was. Setting sizeDelta directly is the real fix.
+            ((RectTransform)handleGO.transform).sizeDelta = new Vector2(20f, 20f);
 
             var slider = go.GetComponent<Slider>();
             slider.fillRect = (RectTransform)fillGO.transform;
@@ -255,6 +261,58 @@ namespace FarmFuryArcade.EditorTools
             scrollRect.content = contentRect;
             scrollRect.horizontal = true;
             scrollRect.vertical = false;
+
+            content = contentGO.transform;
+            return scrollRect;
+        }
+
+        /// <summary>Vertical counterpart to CreateHorizontalScrollView, for Level Select's 100-tile
+        /// grid. Content is anchored top-stretch (anchorMin (0,1), anchorMax (1,1), pivot (0.5,1))
+        /// so it spans the viewport's width and grows downward as more children (world sections,
+        /// dividers) are added; VerticalLayoutGroup leaves each child's own size alone (control/
+        /// expand both off) for the same reason CreateHorizontalScrollView does — a GridLayoutGroup
+        /// world-section child already sizes itself from its own cell/spacing/column settings.</summary>
+        public static ScrollRect CreateVerticalScrollView(string name, Transform parent, out Transform content)
+        {
+            var viewportParentGO = new GameObject(name, typeof(RectTransform), typeof(ScrollRect));
+            viewportParentGO.transform.SetParent(parent, false);
+            StretchFull((RectTransform)viewportParentGO.transform);
+
+            var viewportGO = new GameObject("Viewport", typeof(RectTransform), typeof(Image), typeof(Mask));
+            viewportGO.transform.SetParent(viewportParentGO.transform, false);
+            StretchFull((RectTransform)viewportGO.transform);
+            viewportGO.GetComponent<Image>().sprite = PlaceholderSprite.Get(new Color(1f, 1f, 1f, 0.01f));
+            viewportGO.GetComponent<Mask>().showMaskGraphic = false;
+
+            var contentGO = new GameObject("Content", typeof(RectTransform), typeof(VerticalLayoutGroup), typeof(ContentSizeFitter));
+            contentGO.transform.SetParent(viewportGO.transform, false);
+            var contentRect = (RectTransform)contentGO.transform;
+            contentRect.anchorMin = new Vector2(0f, 1f);
+            contentRect.anchorMax = new Vector2(1f, 1f);
+            contentRect.pivot = new Vector2(0.5f, 1f);
+            contentRect.offsetMin = Vector2.zero;
+            contentRect.offsetMax = Vector2.zero;
+
+            var vlg = contentGO.GetComponent<VerticalLayoutGroup>();
+            vlg.spacing = 20f;
+            vlg.padding = new RectOffset(0, 0, 20, 20);
+            vlg.childAlignment = TextAnchor.UpperCenter;
+            vlg.childControlWidth = false;
+            vlg.childControlHeight = false;
+            vlg.childForceExpandWidth = false;
+            vlg.childForceExpandHeight = false;
+            contentGO.GetComponent<ContentSizeFitter>().verticalFit = ContentSizeFitter.FitMode.PreferredSize;
+
+            var scrollRect = viewportParentGO.GetComponent<ScrollRect>();
+            scrollRect.viewport = (RectTransform)viewportGO.transform;
+            scrollRect.content = contentRect;
+            scrollRect.horizontal = false;
+            scrollRect.vertical = true;
+            scrollRect.movementType = ScrollRect.MovementType.Elastic;
+            scrollRect.elasticity = 0.1f;
+            scrollRect.inertia = true;
+            scrollRect.decelerationRate = 0.135f;
+            scrollRect.scrollSensitivity = 1f;
 
             content = contentGO.transform;
             return scrollRect;

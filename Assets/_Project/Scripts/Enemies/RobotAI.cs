@@ -17,9 +17,16 @@ namespace FarmFuryArcade.Enemies
             Direction.Up, Direction.Down, Direction.Left, Direction.Right
         };
 
-        /// <summary>Greedy directional choice: among the walkable, non-reversing directions from
-        /// currentPos, pick the one whose neighbour cell is closest (straight-line) to targetPos.
-        /// Falls back to reversing only when currentPos is a dead end.</summary>
+        /// <summary>Weighted-random directional choice: among the walkable, non-reversing
+        /// directions from currentPos, each is weighted by how close its neighbour cell would land
+        /// to targetPos (inverse-square — the closer option is heavily favoured but not guaranteed),
+        /// then one is picked via a weighted roll. Used to be a purely greedy "always pick the
+        /// single closest direction" choice, which is fully deterministic given the same relative
+        /// position — in open areas (few walkable directions, similar distances) that read as
+        /// robots "falling into a loop of going in one line" once they settled into a state, since
+        /// the exact same tie/near-tie resolves identically every tick. This keeps movement clearly
+        /// seeking the target most of the time while no longer being perfectly predictable. Falls
+        /// back to reversing only when currentPos is a dead end.</summary>
         public static Direction GetNextDirection(Vector2Int currentPos, Vector2Int targetPos, Direction currentDir, TileMapRenderer maze)
         {
             Direction[] valid = GetValidDirections(currentPos, currentDir, maze);
@@ -27,22 +34,34 @@ namespace FarmFuryArcade.Enemies
             {
                 return Direction.None;
             }
-
-            Direction best = valid[0];
-            int bestDistSqr = int.MaxValue;
-            foreach (var dir in valid)
+            if (valid.Length == 1)
             {
-                Vector2Int next = currentPos + DirectionUtils.ToVector(dir);
+                return valid[0];
+            }
+
+            var weights = new float[valid.Length];
+            float totalWeight = 0f;
+            for (int i = 0; i < valid.Length; i++)
+            {
+                Vector2Int next = currentPos + DirectionUtils.ToVector(valid[i]);
                 Vector2Int delta = next - targetPos;
                 int distSqr = delta.x * delta.x + delta.y * delta.y;
-                if (distSqr < bestDistSqr)
+                weights[i] = 1f / (1 + distSqr);
+                totalWeight += weights[i];
+            }
+
+            float roll = Random.value * totalWeight;
+            float cumulative = 0f;
+            for (int i = 0; i < valid.Length; i++)
+            {
+                cumulative += weights[i];
+                if (roll <= cumulative)
                 {
-                    bestDistSqr = distSqr;
-                    best = dir;
+                    return valid[i];
                 }
             }
 
-            return best;
+            return valid[valid.Length - 1];
         }
 
         /// <summary>Walkable directions from pos, excluding the reverse of the current direction

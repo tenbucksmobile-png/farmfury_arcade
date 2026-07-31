@@ -18,16 +18,21 @@ namespace FarmFuryArcade.Utilities
     {
         [SerializeField] private float smoothTime = 0.15f;
 
-        /// <summary>How many of the maze's 14 columns should be visible on screen at once — losing
-        /// 2 off each side per playtest feedback, once CellSize=2 made "fit the whole board"
-        /// framing read as too zoomed-out for a mobile landscape screen.</summary>
-        public const int TargetVisibleColumns = 10;
+        /// <summary>Each maze tile should read on screen at the same size, relative to the screen's
+        /// shorter dimension, as a block did in the mobile puzzle-game sizing reference (7/31/26) —
+        /// there a block was ~10.5% of the screen's shorter side (that game is portrait, so width;
+        /// this game is landscape-locked, so height). Deriving zoom from the shorter dimension keeps
+        /// tile size aspect-independent: every device sees the same tile size, and only the number
+        /// of columns visible varies with how wide the device is (same "extra width shows
+        /// GameplayBackdrop art at the edges" idea the old width-driven formula had, just now
+        /// applied to the axis that's actually scarce on a landscape screen showing a maze that's
+        /// taller than it is wide).</summary>
+        public const float CellScreenHeightFraction = 0.105f;
 
-        /// <summary>Those TargetVisibleColumns should fill this fraction of the screen's width; the
-        /// remaining width shows GameplayBackdrop art at the edges. ArtWiringBuilder.
-        /// WireGameplayBackdrop sizes the backdrop off these same two constants so the two stay
-        /// consistent without duplicating the numbers.</summary>
-        public const float WidthFillFraction = 0.7f;
+        /// <summary>Widest landscape aspect ratio worth planning backdrop coverage for (e.g. an
+        /// ultra-wide phone). Used only by ArtWiringBuilder.WireGameplayBackdrop to size the
+        /// backdrop generously enough that no real device's extra width outruns it.</summary>
+        public const float MaxSupportedAspect = 2.4f;
 
         private Camera _camera;
         private TileMapRenderer _tileMapRenderer;
@@ -58,24 +63,23 @@ namespace FarmFuryArcade.Utilities
             transform.position = Vector3.SmoothDamp(transform.position, desired, ref _velocity, smoothTime);
         }
 
-        /// <summary>Derives orthographicSize purely from the camera's own live aspect ratio, so
-        /// TargetVisibleColumns always fills WidthFillFraction of the screen width regardless of
-        /// the actual device/window aspect. A fixed orthographicSize tuned by eye for one aspect
-        /// (e.g. the Unity Editor Game View's often near-square default) looks completely different
-        /// once actually run at a true mobile landscape aspect — this makes the framing correct
-        /// everywhere instead of guessing a single constant. Recomputed every frame (one division)
-        /// rather than once in Awake so a runtime window resize/orientation change stays correct
-        /// too. Doesn't depend on maze/level data, only the camera's own aspect, so it's safe to run
-        /// before a level has loaded.</summary>
+        /// <summary>Derives orthographicSize from CellScreenHeightFraction alone — deliberately NOT
+        /// from the camera's aspect ratio. Screen height is the axis that's actually scarce for a
+        /// 14x16 maze on a landscape screen (the old aspect-driven formula controlled width instead,
+        /// which was already close to fully visible even on a narrow-ish landscape aspect, leaving
+        /// height uncontrolled and only ~50% of the maze's rows ever on screen at once). Pinning
+        /// tile size to screen height means every device shows the same tile size and the same
+        /// number of rows; wider devices simply reveal more columns (and more GameplayBackdrop bleed
+        /// at the sides) rather than changing zoom. Recomputed every frame in case of a runtime
+        /// window resize, though the result doesn't actually depend on the frame's aspect.</summary>
         private void ApplyOrthographicSizeForAspect()
         {
-            if (_camera == null || _camera.aspect <= 0f)
+            if (_camera == null)
             {
                 return;
             }
 
-            float targetViewWidth = TargetVisibleColumns * TileMapRenderer.CellSize / WidthFillFraction;
-            _camera.orthographicSize = targetViewWidth / (2f * _camera.aspect);
+            _camera.orthographicSize = TileMapRenderer.CellSize / (2f * CellScreenHeightFraction);
         }
 
         private Vector3 ClampToMazeBounds(Vector3 desired)

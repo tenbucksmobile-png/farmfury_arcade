@@ -80,9 +80,58 @@ namespace FarmFuryArcade.EditorTools
         private static GameObject SaveAndDestroy(GameObject go, string path)
         {
             Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+
+            // See Phase4ProjectBuilder.EmbedRuntimePlaceholderSprites — PlaceholderSprite.Get()
+            // sprites are runtime-only and get silently nulled out by SaveAsPrefabAsset unless
+            // embedded as a real sub-asset first.
+            var placeholderSprites = new List<(string transformPath, Sprite sprite)>();
+            foreach (var sr in go.GetComponentsInChildren<SpriteRenderer>(true))
+            {
+                if (sr.sprite != null && string.IsNullOrEmpty(AssetDatabase.GetAssetPath(sr.sprite)))
+                {
+                    placeholderSprites.Add((AnimationUtility.CalculateTransformPath(sr.transform, go.transform), sr.sprite));
+                }
+            }
+
             var prefab = PrefabUtility.SaveAsPrefabAsset(go, path);
             Object.DestroyImmediate(go);
+
+            if (placeholderSprites.Count > 0)
+            {
+                EmbedRuntimePlaceholderSprites(path, placeholderSprites);
+                prefab = AssetDatabase.LoadAssetAtPath<GameObject>(path);
+            }
+
             return prefab;
+        }
+
+        private static void EmbedRuntimePlaceholderSprites(string prefabPath, List<(string transformPath, Sprite sprite)> placeholders)
+        {
+            var contents = PrefabUtility.LoadPrefabContents(prefabPath);
+            foreach (var (transformPath, sprite) in placeholders)
+            {
+                var target = string.IsNullOrEmpty(transformPath) ? contents.transform : contents.transform.Find(transformPath);
+                var sr = target != null ? target.GetComponent<SpriteRenderer>() : null;
+                if (sr == null)
+                {
+                    continue;
+                }
+
+                if (sprite.texture != null && string.IsNullOrEmpty(AssetDatabase.GetAssetPath(sprite.texture)))
+                {
+                    AssetDatabase.AddObjectToAsset(sprite.texture, prefabPath);
+                }
+                if (string.IsNullOrEmpty(AssetDatabase.GetAssetPath(sprite)))
+                {
+                    AssetDatabase.AddObjectToAsset(sprite, prefabPath);
+                }
+                sr.sprite = sprite;
+            }
+
+            PrefabUtility.SaveAsPrefabAsset(contents, prefabPath);
+            PrefabUtility.UnloadPrefabContents(contents);
+            AssetDatabase.SaveAssets();
+            AssetDatabase.ImportAsset(prefabPath, ImportAssetOptions.ForceUpdate);
         }
 
         private static void BuildRobotData()

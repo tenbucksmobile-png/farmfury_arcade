@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using UnityEditor;
@@ -6,6 +7,7 @@ using UnityEngine;
 using UnityEngine.UI;
 using TMPro;
 using FarmFuryArcade.Core;
+using FarmFuryArcade.Gameplay;
 using FarmFuryArcade.UI;
 using FarmFuryArcade.Utilities;
 using static FarmFuryArcade.EditorTools.UIBuilderHelpers;
@@ -71,14 +73,19 @@ namespace FarmFuryArcade.EditorTools
             var characterSelectCardPrefab = BuildCharacterSelectCardPrefab();
             var chooseCharacter = BuildChooseCharacterScreen(canvas.transform, characterSelectCardPrefab);
 
+            var levelTilePrefab = BuildLevelTilePrefab();
+            BuildWorldDividerPrefab(); // kept but unlinked — see that method's own doc comment
+            var worldShieldPrefab = BuildWorldShieldPrefab();
+            var levelSelect = BuildLevelSelect(canvas.transform, levelTilePrefab, worldShieldPrefab);
+
             WireCrossReferences(mainMenu, worldMap, gameplay, pause, settings,
-                levelComplete, unlockScreen, levelFailed, roster, leaderboards, chooseCharacter, comboBanner);
+                levelComplete, unlockScreen, levelFailed, roster, leaderboards, chooseCharacter, comboBanner, levelSelect);
 
             var transitionManager = managersGO.GetComponent<SceneTransitionManager>();
             var transitionSO = new SerializedObject(transitionManager);
             transitionSO.FindProperty("fadeGroup").objectReferenceValue = fadeGroup;
             var screenRootsProp = transitionSO.FindProperty("screenRoots");
-            var screens = new[] { mainMenu, worldMap, gameplay, levelComplete, levelFailed, roster, leaderboards };
+            var screens = new[] { mainMenu, worldMap, gameplay, levelComplete, levelFailed, roster, leaderboards, levelSelect };
             screenRootsProp.arraySize = screens.Length;
             for (int i = 0; i < screens.Length; i++)
             {
@@ -108,6 +115,17 @@ namespace FarmFuryArcade.EditorTools
                 new GameObject("Phase5Test").AddComponent<Phase5Test>();
             }
             DisableRunOnStart("Phase4Test");
+
+            // LevelSelectTest is the newest verification harness — same one-active-test-at-a-time
+            // convention every earlier phase followed (see the doc comment on DisableRunOnStart's
+            // call sites), so Phase5Test's runOnStart gets disabled here too.
+            var existingLevelSelectTest = Resources.FindObjectsOfTypeAll<LevelSelectTest>()
+                .FirstOrDefault(t => !EditorUtility.IsPersistent(t.gameObject));
+            if (existingLevelSelectTest == null)
+            {
+                new GameObject("LevelSelectTest").AddComponent<LevelSelectTest>();
+            }
+            DisableRunOnStart("Phase5Test");
 
             EditorSceneManager.SaveScene(EditorSceneManager.GetActiveScene());
             AssetDatabase.SaveAssets();
@@ -379,6 +397,210 @@ namespace FarmFuryArcade.EditorTools
             return SaveAndDestroy(go, $"{UIPrefabFolder}/RosterCard.prefab");
         }
 
+        // ---- Level Select -------------------------------------------------------------------------
+
+        /// <summary>150x150, matching the spec's tile dimensions. Built with plain placeholder
+        /// colours only — real LevelTile_Locked/unlocked-notplayed/1Star/2Stars/3Stars.png art is
+        /// wired separately by ArtWiringBuilder.WireLevelSelect, same two-pass convention every
+        /// other screen in this builder follows.</summary>
+        private static GameObject BuildLevelTilePrefab()
+        {
+            var go = new GameObject("LevelTile", typeof(RectTransform), typeof(Button));
+            ((RectTransform)go.transform).sizeDelta = new Vector2(150f, 150f);
+
+            var background = CreateImage("TileBackground", go.transform, new Color(0.3f, 0.55f, 0.3f), 150f, 150f);
+            StretchFull((RectTransform)background.transform);
+
+            var button = go.GetComponent<Button>();
+            button.targetGraphic = background;
+
+            var numberText = CreateText("LevelNumberText", go.transform, "1", 42f, TextAlignmentOptions.Center, 150f);
+            StretchFull((RectTransform)numberText.transform);
+
+            // No separate LockedIcon overlay — LevelTile_Locked.png already bakes the padlock into
+            // the tile background art itself. An earlier version had an unwired placeholder square
+            // here, which sat on top of the correctly-rendering background and was the actual cause
+            // of the "black tiles" bug (confirmed via LevelSelectTest's runtime diagnostic).
+            var tile = go.AddComponent<LevelTileController>();
+            var so = new SerializedObject(tile);
+            so.FindProperty("button").objectReferenceValue = button;
+            so.FindProperty("tileBackground").objectReferenceValue = background;
+            so.FindProperty("levelNumberText").objectReferenceValue = numberText;
+            // spriteLocked/spriteUnlocked/sprite1Star/sprite2Stars/sprite3Stars: left null here,
+            // wired by ArtWiringBuilder — see LevelTileController.SetBackground for the fallback
+            // behaviour while they're empty.
+            so.ApplyModifiedPropertiesWithoutUndo();
+
+            return SaveAndDestroy(go, $"{UIPrefabFolder}/LevelTile.prefab");
+        }
+
+        /// <summary>1920x250. No longer used by LevelSelectController — Level Select now shows one
+        /// world's tiles at a time (picked via a WorldShield in its world-select state) instead of
+        /// a single continuous 100-tile scroll with a divider banner between each world's section.
+        /// Kept built (same "kept but unlinked" treatment as Store/Roster/Leaderboards) in case a
+        /// future redesign wants a continuous multi-world scroll again.</summary>
+        private static GameObject BuildWorldDividerPrefab()
+        {
+            var go = new GameObject("WorldDivider", typeof(RectTransform), typeof(Image));
+            ((RectTransform)go.transform).sizeDelta = new Vector2(1920f, 250f);
+            go.GetComponent<Image>().sprite = PlaceholderSprite.Get(new Color(0.55f, 0.4f, 0.2f));
+
+            var nameImage = CreateImage("WorldNameImage", go.transform, new Color(0.2f, 0.15f, 0.1f), 900f, 150f);
+            var nameRect = (RectTransform)nameImage.transform;
+            nameRect.anchorMin = nameRect.anchorMax = new Vector2(0.5f, 0.5f);
+            nameRect.pivot = new Vector2(0.5f, 0.5f);
+            nameRect.anchoredPosition = Vector2.zero;
+            nameRect.sizeDelta = new Vector2(900f, 150f);
+            nameImage.preserveAspect = true;
+
+            return SaveAndDestroy(go, $"{UIPrefabFolder}/WorldDivider.prefab");
+        }
+
+        /// <summary>A single tappable world badge for Level Select's world-select carousel
+        /// (CardCarouselController). CornFieldSign/VegetablePatchSign/OrchardSign/WheatfieldSign.png
+        /// each already bake the full shield-shape + rope + name-text art into one sprite (set at
+        /// runtime by LevelSelectController.SetWorldSignSprite from worldSignSprites), so this is
+        /// just one Image + Button — no separate background/name-overlay composition needed anymore.
+        /// CanvasGroup is added at runtime by LevelSelectController.RevealWorld for the shrink-and-
+        /// fade transition, not built in here. CardCarouselController repositions/rescales instances
+        /// of this prefab every frame, so its own sizeDelta only matters as the "full scale" size.</summary>
+        private static GameObject BuildWorldShieldPrefab()
+        {
+            var go = new GameObject("WorldShield", typeof(RectTransform), typeof(Image), typeof(Button));
+            var goRect = (RectTransform)go.transform;
+            // Explicit centre anchor/pivot — CardCarouselController positions instances via
+            // anchoredPosition assuming (0,0) is the container's own centre (no LayoutGroup governs
+            // this anymore, unlike the old VerticalLayoutGroup-driven layout), so this can't be left
+            // at whatever a freshly-created RectTransform defaults to.
+            goRect.anchorMin = goRect.anchorMax = goRect.pivot = new Vector2(0.5f, 0.5f);
+            goRect.sizeDelta = new Vector2(340f, 360f);
+            var background = go.GetComponent<Image>();
+            background.sprite = PlaceholderSprite.Get(new Color(0.55f, 0.4f, 0.2f));
+            background.preserveAspect = true;
+            go.GetComponent<Button>().targetGraphic = background;
+
+            return SaveAndDestroy(go, $"{UIPrefabFolder}/WorldShield.prefab");
+        }
+
+        /// <summary>Small auto-dismissing toast, not a SceneTransitionManager screen — built once as
+        /// a scene child of LevelSelectScreen (not a reusable prefab like LevelTile/WorldDivider,
+        /// since exactly one instance is ever needed) and starts inactive.</summary>
+        private static LockedHintPanel BuildLockedHintPanel(Transform parent)
+        {
+            var panelGO = CreatePanel("LockedHintPanel", parent, new Color(0.1f, 0.1f, 0.12f, 0.92f));
+            var rt = (RectTransform)panelGO.transform;
+            rt.anchorMin = rt.anchorMax = new Vector2(0.5f, 0.5f);
+            rt.pivot = new Vector2(0.5f, 0.5f);
+            rt.sizeDelta = new Vector2(900f, 120f);
+            rt.anchoredPosition = Vector2.zero;
+
+            var messageText = CreateText("Message", panelGO.transform, string.Empty, 32f, TextAlignmentOptions.Center, 120f);
+            StretchFull((RectTransform)messageText.transform);
+
+            var hint = panelGO.AddComponent<LockedHintPanel>();
+            SetRefs(hint, ("messageText", messageText));
+            panelGO.SetActive(false);
+            return hint;
+        }
+
+        /// <summary>Built to the 2026-07-31 Canva mockup pair (world-select carousel + level tile
+        /// grid). Header (200px, top, fully transparent — it's just a layout strip for
+        /// TitleImage/StarCounter, no background art of its own) with the SelectLevelSign.png title;
+        /// a round Btn_home.png back button bottom-right (CreateRoundBackButton, matching Settings'
+        /// same mockup-driven deviation from the generic bottom-left back button); a standalone
+        /// top-left CurrentWorldIndicator badge (shown only once a world is selected); a vertical
+        /// ScrollView filling the rest of the screen (4-column tile grid, one world at a time); a
+        /// WorldShieldContainer carrying CardCarouselController for the world-select state; and the
+        /// LockedHintPanel toast. mainMenuScreen/gameplayScreen are cross-screen references resolved
+        /// later by WireCrossReferences, same as every other screen built here.</summary>
+        private static GameObject BuildLevelSelect(Transform canvasTransform, GameObject levelTilePrefab, GameObject worldShieldPrefab)
+        {
+            var root = CreatePanel("LevelSelectScreen", canvasTransform, new Color(0.35f, 0.55f, 0.75f));
+
+            var header = CreatePanel("Header", root.transform, Color.clear);
+            var headerRect = (RectTransform)header.transform;
+            headerRect.anchorMin = new Vector2(0f, 1f);
+            headerRect.anchorMax = new Vector2(1f, 1f);
+            headerRect.pivot = new Vector2(0.5f, 1f);
+            headerRect.sizeDelta = new Vector2(0f, 200f);
+            headerRect.anchoredPosition = Vector2.zero;
+
+            var backButton = CreateRoundBackButton(root.transform);
+
+            // TitleImage replaces the old TMP "SELECT LEVEL" text — SelectLevelSign.png is the
+            // word-art itself, wired by ArtWiringBuilder. preserveAspect so it never distorts.
+            var titleImage = CreateImage("TitleImage", header.transform, Color.clear, 500f, 120f);
+            var titleRect = (RectTransform)titleImage.transform;
+            titleRect.anchorMin = titleRect.anchorMax = new Vector2(0.5f, 0.5f);
+            titleRect.pivot = new Vector2(0.5f, 0.5f);
+            titleRect.anchoredPosition = Vector2.zero;
+            titleRect.sizeDelta = new Vector2(500f, 120f);
+            titleImage.preserveAspect = true;
+
+            var starCounter = CreateText("StarCounter", header.transform, "0 ★", 40f, TextAlignmentOptions.Right, 60f);
+            var starRect = (RectTransform)starCounter.transform;
+            starRect.anchorMin = starRect.anchorMax = new Vector2(1f, 0.5f);
+            starRect.pivot = new Vector2(1f, 0.5f);
+            starRect.sizeDelta = new Vector2(260f, 60f);
+            starRect.anchoredPosition = new Vector2(-40f, 0f);
+
+            // Small persistent "which world am I in" badge, top-left of the screen (not the header
+            // strip) — hidden until a world is selected (see LevelSelectController.RevealWorld),
+            // tapping it returns to world select. Single Image now (no separate name overlay) since
+            // *Sign.png already bakes the full badge art — see LevelSelectController.worldSignSprites.
+            var currentWorldIndicatorBtn = CreateButton("CurrentWorldIndicator", root.transform, string.Empty, Color.clear, 20f, 220f, out _);
+            Object.DestroyImmediate(currentWorldIndicatorBtn.transform.Find("CurrentWorldIndicator_Label").gameObject);
+            var indicatorImage = currentWorldIndicatorBtn.GetComponent<Image>();
+            indicatorImage.preserveAspect = true;
+            AnchorTopLeft((RectTransform)currentWorldIndicatorBtn.transform, new Vector2(220f, 220f), new Vector2(40f, -40f));
+            currentWorldIndicatorBtn.gameObject.SetActive(false);
+
+            var scrollRect = CreateVerticalScrollView("ScrollView", root.transform, out var content);
+            var scrollViewRect = (RectTransform)scrollRect.transform;
+            scrollViewRect.anchorMin = new Vector2(0f, 0f);
+            scrollViewRect.anchorMax = new Vector2(1f, 1f);
+            scrollViewRect.offsetMin = Vector2.zero;
+            scrollViewRect.offsetMax = new Vector2(0f, -200f); // leave room for the 200px header
+
+            // World-select carousel area — centred below the header, spanning most of the screen
+            // width so badges have room to fan out. An invisible-but-raycastable Image covers the
+            // whole area (not just the badges themselves) so a flick started on empty space between
+            // badges still registers as a drag; CardCarouselController then positions/scales each
+            // badge every frame instead of a LayoutGroup arranging them in a static row/column.
+            var worldShieldContainerGO = new GameObject("WorldShieldContainer", typeof(RectTransform), typeof(Image));
+            var shieldContainerRect = (RectTransform)worldShieldContainerGO.transform;
+            shieldContainerRect.anchorMin = new Vector2(0.5f, 0f);
+            shieldContainerRect.anchorMax = new Vector2(0.5f, 1f);
+            shieldContainerRect.pivot = new Vector2(0.5f, 0.5f);
+            shieldContainerRect.sizeDelta = new Vector2(1600f, -200f); // full height minus the header
+            shieldContainerRect.anchoredPosition = new Vector2(0f, -100f); // centred below the header
+            worldShieldContainerGO.transform.SetParent(root.transform, false);
+            var shieldContainerImage = worldShieldContainerGO.GetComponent<Image>();
+            shieldContainerImage.sprite = PlaceholderSprite.Get(Color.clear);
+            shieldContainerImage.color = Color.clear;
+            shieldContainerImage.raycastTarget = true;
+            var worldCarousel = worldShieldContainerGO.AddComponent<CardCarouselController>();
+
+            var lockedHintPanel = BuildLockedHintPanel(root.transform);
+
+            var controller = root.AddComponent<LevelSelectController>();
+            SetRefs(controller,
+                ("levelTilePrefab", levelTilePrefab),
+                ("worldShieldPrefab", worldShieldPrefab),
+                ("worldShieldContainer", shieldContainerRect),
+                ("worldCarousel", worldCarousel),
+                ("currentWorldIndicator", (RectTransform)currentWorldIndicatorBtn.transform),
+                ("currentWorldIndicatorImage", indicatorImage),
+                ("currentWorldIndicatorButton", currentWorldIndicatorBtn),
+                ("contentParent", (RectTransform)content),
+                ("starCounter", starCounter),
+                ("scrollRect", scrollRect),
+                ("lockedHintPanel", lockedHintPanel),
+                ("backButton", backButton));
+
+            return root;
+        }
+
         // ---- Main Menu --------------------------------------------------------------------------
 
         /// <summary>Just two icon buttons directly on the landing art — no title text (landing.png
@@ -472,11 +694,13 @@ namespace FarmFuryArcade.EditorTools
             // feedback that they were too small. Font is wired to Bangers SDF (a cartoon/comic
             // bundled with TMP's Examples & Extras) by ArtWiringBuilder.WireGameplayFont, matching
             // the "same cartoon font" as the rest of the game's title/button art.
-            var scoreText = CreateText("ScoreText", root.transform, "0", 56f, TextAlignmentOptions.TopLeft, 70f);
-            AnchorTopLeft((RectTransform)scoreText.transform, new Vector2(320f, 70f), new Vector2(140f, -140f));
+            // Enlarged (56->72 / 46->60) and pulled further in (140->170) so both sit clearly
+            // inside the device safe-area guide instead of grazing its edge.
+            var scoreText = CreateText("ScoreText", root.transform, "0", 72f, TextAlignmentOptions.TopLeft, 90f);
+            AnchorTopLeft((RectTransform)scoreText.transform, new Vector2(320f, 90f), new Vector2(170f, -170f));
 
-            var timerText = CreateText("TimerText", root.transform, "00:00", 46f, TextAlignmentOptions.TopRight, 70f);
-            AnchorTopRight((RectTransform)timerText.transform, new Vector2(240f, 70f), new Vector2(-140f, -140f));
+            var timerText = CreateText("TimerText", root.transform, "00:00", 60f, TextAlignmentOptions.TopRight, 90f);
+            AnchorTopRight((RectTransform)timerText.transform, new Vector2(240f, 90f), new Vector2(-170f, -170f));
 
             // Power pellet timer bar + chain counter (upper area, under the level text)
             var powerBarGO = CreatePanel("PowerPelletTimerBar", root.transform, new Color(0.2f, 0.2f, 0.22f));
@@ -506,24 +730,36 @@ namespace FarmFuryArcade.EditorTools
             bannerSO.FindProperty("canvasGroup").objectReferenceValue = bannerGroup;
             bannerSO.ApplyModifiedPropertiesWithoutUndo();
 
-            // Pause icon (bottom-left) — Sound and Home were removed from this cluster per
-            // playtest feedback; both are still reachable via the Pause menu itself (Settings'
-            // music/SFX toggles, Pause's own Quit button), so a single Pause button is all this
-            // needs now. Sized/inset to match the Main Menu's Play/Settings buttons (160x160,
-            // safe-area inset) — an original 80x80 at a 20px inset both read as too small and sat
-            // outside the safe-area guide.
-            const float clusterButtonSize = 160f;
-            const float clusterSpacing = 24f;
-            const float clusterInsetX = 100f;
-            const float clusterInsetY = 70f;
+            // Pause icon (bottom-left), directly above the character portrait — moved inward and
+            // shrunk (160->120, inset 100/70->130/90) per playtest feedback that the cluster sat
+            // too close to the corner/safe-area edge. Sound and Home were removed from this
+            // cluster earlier (both are still reachable via the Pause menu itself), so a single
+            // Pause button is all this needs.
+            const float clusterButtonSize = 120f;
+            const float clusterSpacing = 20f;
+            const float clusterInsetX = 130f;
+            const float clusterInsetY = 90f;
+
+            // Character portrait sits at the bottom of the cluster (closer to the corner), enlarged
+            // to match the Pause button's own size (was a much smaller 90x90 floating above Pause —
+            // now the two read as one deliberate stack, largest/most-tappable element lowest).
+            // Doubles as the on-screen ability button (Space has no touch equivalent, so without
+            // this the ability was completely unreachable on a device with no keyboard): tapping it
+            // raises the same InputController event Space does, and GameplayHUD dims it while the
+            // active character's ability is on cooldown.
+            var portraitButton = CreateButton("CharacterPortrait", root.transform, string.Empty, new Color(1f, 0.84f, 0f), 26f, clusterButtonSize, out _);
+            Object.DestroyImmediate(portraitButton.transform.Find("CharacterPortrait_Label").gameObject);
+            AnchorBottomLeft((RectTransform)portraitButton.transform, new Vector2(clusterButtonSize, clusterButtonSize),
+                new Vector2(clusterInsetX, clusterInsetY));
+            // onClick wiring happens in GameplayHUD.Awake() (via the abilityButton field below),
+            // not here — a listener added directly from editor-script code doesn't survive a scene
+            // save/reload (UnityEvent's non-persistent listeners aren't serialized), same pitfall
+            // SimpleClosePanel exists to work around elsewhere in this builder.
+            var portrait = portraitButton.GetComponent<Image>();
 
             var pauseButton = CreateButton("PauseButton", root.transform, string.Empty, new Color(0.35f, 0.35f, 0.38f), 28f, clusterButtonSize, out _);
             Object.DestroyImmediate(pauseButton.transform.Find("PauseButton_Label").gameObject);
-            AnchorBottomLeft((RectTransform)pauseButton.transform, new Vector2(clusterButtonSize, clusterButtonSize), new Vector2(clusterInsetX, clusterInsetY));
-
-            // Character portrait — above the button, left-aligned with it.
-            var portrait = CreateImage("CharacterPortrait", root.transform, new Color(1f, 0.84f, 0f), 90f, 90f);
-            AnchorBottomLeft((RectTransform)portrait.transform, new Vector2(90f, 90f),
+            AnchorBottomLeft((RectTransform)pauseButton.transform, new Vector2(clusterButtonSize, clusterButtonSize),
                 new Vector2(clusterInsetX, clusterInsetY + clusterButtonSize + clusterSpacing));
 
             // Directional pad (right side, diamond/D-pad layout) — up.png/down.png/left.png/
@@ -532,10 +768,12 @@ namespace FarmFuryArcade.EditorTools
             // Positioned around a shared centre point rather than each anchored independently, so
             // the diamond shape (Up above centre, Down below, Left/Right to the sides) is easy to
             // read and re-tune as one unit.
-            const float dpadButtonSize = 120f;
-            const float dpadSpacing = 130f;
-            const float dpadInsetX = 200f;
-            const float dpadInsetY = 220f;
+            // Tightened (spacing 130->100, size 120->110) and pulled further in from the right
+            // edge (inset 200->260) — the diamond previously crossed the device safe-area guide.
+            const float dpadButtonSize = 110f;
+            const float dpadSpacing = 100f;
+            const float dpadInsetX = 260f;
+            const float dpadInsetY = 240f;
             Vector2 dpadCenter = new Vector2(-dpadInsetX, dpadInsetY);
 
             var upButton = CreateButton("DPadUpButton", root.transform, string.Empty, Color.clear, out _);
@@ -571,6 +809,7 @@ namespace FarmFuryArcade.EditorTools
             so.FindProperty("scoreText").objectReferenceValue = scoreText;
             so.FindProperty("timerText").objectReferenceValue = timerText;
             so.FindProperty("characterPortrait").objectReferenceValue = portrait;
+            so.FindProperty("abilityButton").objectReferenceValue = portraitButton;
             so.FindProperty("pauseButton").objectReferenceValue = pauseButton;
             so.FindProperty("powerPelletTimerBar").objectReferenceValue = powerBarGO;
             so.FindProperty("powerPelletTimerFill").objectReferenceValue = powerFillImage;
@@ -588,10 +827,22 @@ namespace FarmFuryArcade.EditorTools
         /// by ArtWiringBuilder) sit exactly on top of those five baked-in rows instead of generic
         /// CreateButton rectangles + a redundant "PAUSED" text. Anchor fractions below were
         /// measured directly off Paused.png (a 2048x2048 square image, stretched to fill this
-        /// full-screen overlay) — same reasoning as BuildLevelFailed's SetAnchorRect comment.</summary>
+        /// full-screen overlay) — same reasoning as BuildLevelFailed's SetAnchorRect comment.
+        /// Rebuilt to a Canva mockup (2026-07-31): the root's own Image is now World1_Cornfield.png
+        /// (an opaque farm backdrop, wired by ArtWiringBuilder), not the previous plain black dim —
+        /// Pause now fully replaces the view rather than dimming the gameplay maze behind it, same
+        /// "own dedicated background" treatment the mockup already gave Settings/Level Select.
+        /// LogoImage (top-left, same as Settings/Level Select) was added to match.</summary>
         private static GameObject BuildPauseMenu(Transform canvasTransform)
         {
-            var root = CreatePanel("PauseOverlay", canvasTransform, new Color(0f, 0f, 0f, 0.75f));
+            var root = CreatePanel("PauseOverlay", canvasTransform, Color.black);
+
+            var logoImageGO = new GameObject("LogoImage", typeof(RectTransform), typeof(Image));
+            logoImageGO.transform.SetParent(root.transform, false);
+            var logoImage = logoImageGO.GetComponent<Image>();
+            logoImage.sprite = PlaceholderSprite.Get(Color.clear);
+            logoImage.preserveAspect = true;
+            AnchorTopLeft((RectTransform)logoImageGO.transform, new Vector2(300f, 170f), new Vector2(40f, -40f));
 
             // Paused.png is a SQUARE (2048x2048) parchment/frame card with its 5 button rows baked
             // into the art. Its old wiring set it directly as the root panel's own Image — the root
@@ -600,10 +851,9 @@ namespace FarmFuryArcade.EditorTools
             // making the separately-wired button art (Resume.png etc, positioned by the fractions
             // below) drift out of alignment with them / off the visible card entirely. "PanelArt" is
             // a child that stays centred and square via AspectRatioFitter (FitInParent), so it never
-            // exceeds the overlay's bounds regardless of device aspect; the root's own Image stays
-            // the plain black dim behind it (matching every other overlay's "dim gameplay, don't
-            // replace it" behaviour). The 5 buttons move under PanelArt so their fractions — tuned
-            // against the art's own baked button positions — line up with it at any aspect.
+            // exceeds the overlay's bounds regardless of device aspect. The 5 buttons move under
+            // PanelArt so their fractions — tuned against the art's own baked button positions —
+            // line up with it at any aspect.
             var panelArtGO = new GameObject("PanelArt", typeof(RectTransform), typeof(Image), typeof(AspectRatioFitter));
             panelArtGO.transform.SetParent(root.transform, false);
             var panelArtRect = (RectTransform)panelArtGO.transform;
@@ -682,6 +932,40 @@ namespace FarmFuryArcade.EditorTools
             rt.anchoredPosition = offset;
         }
 
+        /// <summary>Generic back-button placement, used by every screen that has one (Character
+        /// Roster, Leaderboards, Choose Character) — bottom-left, 160x160, safe-area inset (100,70).
+        /// Matches Gameplay's PauseButton and Main Menu's Play/Settings buttons exactly, so a back
+        /// button always lands in the same place regardless of which screen it's on, instead of each
+        /// screen picking its own ad-hoc corner/size. Settings and Level Select deliberately deviate
+        /// from this — see CreateRoundBackButton, used by both per their own Canva mockups.</summary>
+        private static Button CreateGenericBackButton(Transform screenRoot)
+        {
+            var backButton = CreateButton("BackButton", screenRoot, string.Empty, new Color(0.35f, 0.35f, 0.38f), 28f, 160f, out _);
+            Object.DestroyImmediate(backButton.transform.Find("BackButton_Label").gameObject);
+            AnchorBottomLeft((RectTransform)backButton.transform, new Vector2(160f, 160f), new Vector2(100f, 70f));
+            return backButton;
+        }
+
+        /// <summary>Round back button — used by Settings and Level Select (bottom-right, Btn_home.png)
+        /// and Choose Character (bottom-left, per its own mockup — see ArtWiringBuilder.WireButtons
+        /// for which icon each ends up with), all built to Canva mockups (2026-07-31) that place a
+        /// round icon there instead of the rectangular Btn_back.png every other screen uses
+        /// (CreateGenericBackButton). Same 160x160 size and (100,70) safe-area inset either way.</summary>
+        private static Button CreateRoundBackButton(Transform screenRoot, bool bottomRight = true)
+        {
+            var backButton = CreateButton("BackButton", screenRoot, string.Empty, new Color(0.6f, 0.4f, 0.15f), 28f, 160f, out _);
+            Object.DestroyImmediate(backButton.transform.Find("BackButton_Label").gameObject);
+            if (bottomRight)
+            {
+                AnchorBottomRight((RectTransform)backButton.transform, new Vector2(160f, 160f), new Vector2(100f, 70f));
+            }
+            else
+            {
+                AnchorBottomLeft((RectTransform)backButton.transform, new Vector2(160f, 160f), new Vector2(100f, 70f));
+            }
+            return backButton;
+        }
+
         private static void AnchorBottomCenter(RectTransform rt, Vector2 size, Vector2 offset)
         {
             rt.anchorMin = rt.anchorMax = new Vector2(0.5f, 0f);
@@ -758,90 +1042,108 @@ namespace FarmFuryArcade.EditorTools
             return plaqueGO;
         }
 
-        /// <summary>Root background is "LoadingScreen Background.png" (a night barn/starfield
-        /// scene, wired by ArtWiringBuilder), shown behind everything whenever the Settings
-        /// (gear) button is pressed from Main Menu or Pause. Each control row sits on its own
-        /// Btn_plaque.png background (wired by ArtWiringBuilder via WrapInPlaqueRow's predictable
-        /// naming) — an earlier version stretched one single Btn_plaque.png (a small wide pill
-        /// shape) behind the *entire* control stack at once, which distorted it into an unreadable
-        /// blob and left every toggle/slider/dropdown floating over it with no framing of its own.</summary>
+        /// <summary>Built to a specific Canva mockup (2026-07-31), not freehand: full-screen
+        /// Bg_LevelSelect.png (moon/windmill/barn night farm, already includes all decorative
+        /// elements — nothing else needs to draw them), Logo.png top-left, SettingsSign.png as the
+        /// header (replacing the old TMP "SETTINGS" text), a 2-column x 3-row grid of Btn_plaque.png
+        /// cells for the actual controls, and a round Btn_home.png back button bottom-right — the
+        /// one screen-specific deviation from CreateGenericBackButton's bottom-left convention,
+        /// because the mockup places it there explicitly. Only 5 of the 6 grid cells are filled
+        /// (Music/SFX/Vibration/Left-Handed/Language); the 6th (bottom-right of the grid) is left
+        /// empty per spec rather than inventing a 6th setting. Volume sliders were dropped — Music/
+        /// SFX are now simple whole-plaque mute toggles like Vibration/Left-Handed, since a plaque
+        /// this size can't cleanly host both a tap target and a drag target without gesture
+        /// conflicts, and the mockup's plaques are all the same plain shape with no slider drawn.</summary>
         private static GameObject BuildSettingsPanel(Transform canvasTransform)
         {
-            var root = CreatePanel("SettingsOverlay", canvasTransform, new Color(0f, 0f, 0f, 0.8f));
+            var root = CreatePanel("SettingsOverlay", canvasTransform, Color.black);
+            StretchFull((RectTransform)root.transform);
 
-            var group = CreateVerticalGroup("Content", root.transform, 14f, 30);
-            ((RectTransform)group.transform).sizeDelta = new Vector2(640f, 0f);
+            var logoImageGO = new GameObject("LogoImage", typeof(RectTransform), typeof(Image));
+            logoImageGO.transform.SetParent(root.transform, false);
+            var logoImage = logoImageGO.GetComponent<Image>();
+            logoImage.sprite = PlaceholderSprite.Get(Color.clear);
+            logoImage.preserveAspect = true;
+            AnchorTopLeft((RectTransform)logoImageGO.transform, new Vector2(300f, 170f), new Vector2(40f, -40f));
 
-            CreateText("Title", group.transform, "SETTINGS", 44f, TextAlignmentOptions.Center, 60f);
+            var titleImageGO = new GameObject("TitleImage", typeof(RectTransform), typeof(Image));
+            titleImageGO.transform.SetParent(root.transform, false);
+            var titleImage = titleImageGO.GetComponent<Image>();
+            titleImage.sprite = PlaceholderSprite.Get(Color.clear);
+            titleImage.preserveAspect = true;
+            AnchorTopCenter((RectTransform)titleImageGO.transform, new Vector2(700f, 260f), new Vector2(80f, -40f));
 
-            // Back button lives outside "Content" (screen-corner anchored, same convention as
-            // WorldMap's Home / CharacterRosterScreen's Back) rather than the old inline "X" —
-            // wired to the same closeButton field/Hide() behaviour, just reskinned with Btn_back.png
-            // and moved somewhere a player expects a back button to be.
-            var closeButton = CreateButton("BackButton", root.transform, string.Empty, Color.clear, out _);
-            Object.DestroyImmediate(closeButton.transform.Find("BackButton_Label").gameObject);
-            AnchorTopLeft((RectTransform)closeButton.transform, new Vector2(120f, 120f), new Vector2(20f, -20f));
+            var closeButton = CreateRoundBackButton(root.transform);
 
-            const float rowHeight = 68f;
+            var gridGO = new GameObject("SettingsGrid", typeof(RectTransform), typeof(GridLayoutGroup));
+            gridGO.transform.SetParent(root.transform, false);
+            var gridRect = (RectTransform)gridGO.transform;
+            gridRect.anchorMin = gridRect.anchorMax = new Vector2(0.5f, 0.5f);
+            gridRect.pivot = new Vector2(0.5f, 0.5f);
+            gridRect.sizeDelta = new Vector2(890f, 530f);
+            gridRect.anchoredPosition = new Vector2(0f, -60f);
+            var grid = gridGO.GetComponent<GridLayoutGroup>();
+            grid.cellSize = new Vector2(420f, 150f);
+            grid.spacing = new Vector2(50f, 40f);
+            grid.childAlignment = TextAnchor.UpperCenter;
+            grid.constraint = GridLayoutGroup.Constraint.FixedColumnCount;
+            grid.constraintCount = 2;
 
-            var musicToggle = CreateToggle("MusicToggle", group.transform, "Music", out _);
-            var musicSlider = CreateSlider("MusicVolumeSlider", group.transform, 1f);
-            WrapInPlaqueRow(CombineRow("MusicRow", group.transform, musicToggle.transform.parent.gameObject, musicSlider.gameObject), rowHeight);
+            var musicToggle = CreateTogglePlaqueCell("MusicCell", gridGO.transform, "Music");
+            var sfxToggle = CreateTogglePlaqueCell("SfxCell", gridGO.transform, "SFX");
+            var vibrationToggle = CreateTogglePlaqueCell("VibrationCell", gridGO.transform, "Vibration");
+            var leftHandedToggle = CreateTogglePlaqueCell("LeftHandedCell", gridGO.transform, "Left-Handed");
 
-            var sfxToggle = CreateToggle("SfxToggle", group.transform, "SFX", out _);
-            var sfxSlider = CreateSlider("SfxVolumeSlider", group.transform, 1f);
-            WrapInPlaqueRow(CombineRow("SfxRow", group.transform, sfxToggle.transform.parent.gameObject, sfxSlider.gameObject), rowHeight);
-
-            var vibrationToggle = CreateToggle("VibrationToggle", group.transform, "Vibration", out _);
-            WrapInPlaqueRow(vibrationToggle.transform.parent.gameObject, rowHeight);
-
-            var leftHandedToggle = CreateToggle("LeftHandedToggle", group.transform, "Left-Handed", out _);
-            WrapInPlaqueRow(leftHandedToggle.transform.parent.gameObject, rowHeight);
-
-            var languageDropdownGO = new GameObject("LanguageDropdown", typeof(RectTransform), typeof(Image), typeof(TMP_Dropdown));
-            languageDropdownGO.transform.SetParent(group.transform, false);
-            languageDropdownGO.GetComponent<Image>().sprite = PlaceholderSprite.Get(Color.clear);
-            var languageDropdown = languageDropdownGO.GetComponent<TMP_Dropdown>();
+            var languageCellGO = new GameObject("LanguageCell", typeof(RectTransform), typeof(Image), typeof(TMP_Dropdown));
+            languageCellGO.transform.SetParent(gridGO.transform, false);
+            languageCellGO.GetComponent<Image>().sprite = PlaceholderSprite.Get(new Color(0.55f, 0.35f, 0.15f));
+            var languageDropdown = languageCellGO.GetComponent<TMP_Dropdown>();
             languageDropdown.options.Clear();
             languageDropdown.options.Add(new TMP_Dropdown.OptionData("English"));
-            var langLabel = CreateText("Label", languageDropdownGO.transform, "English", 24f, TextAlignmentOptions.Left, 44f);
+            var langLabel = CreateText("Label", languageCellGO.transform, "English", 26f, TextAlignmentOptions.Center, 40f);
             StretchFull((RectTransform)langLabel.transform);
             languageDropdown.captionText = langLabel;
-            WrapInPlaqueRow(languageDropdownGO, rowHeight);
+            languageDropdown.targetGraphic = languageCellGO.GetComponent<Image>();
+            // 6th grid cell (bottom-right) intentionally left empty — no GameObject created for it.
 
-            var restoreButton = CreateButton("RestoreProgressButton", group.transform, "Restore Progress (Phase 6)", new Color(0.35f, 0.35f, 0.38f), 22f, rowHeight, out _);
-            var resetButton = CreateButton("ResetProgressButton", group.transform, "Reset Progress", new Color(0.75f, 0.25f, 0.25f), 24f, rowHeight, out _);
-
-            var versionText = CreateText("VersionText", group.transform, "v0.1", 16f, TextAlignmentOptions.Center, 24f);
-
-            // Reset confirmation sub-panel (overlay on top of Settings itself)
-            var confirmPanel = CreatePanel("ResetConfirmPanel", root.transform, new Color(0f, 0f, 0f, 0.9f));
-            var confirmGroup = CreateVerticalGroup("ConfirmContent", confirmPanel.transform, 14f, 20);
-            CreateText("ConfirmLabel", confirmGroup.transform, "Reset all progress? This cannot be undone.", 24f, TextAlignmentOptions.Center, 60f);
-            var confirmRow = CreateHorizontalGroup("ConfirmRow", confirmGroup.transform, 14f);
-            var confirmButton = CreateButton("ConfirmButton", confirmRow.transform, "Reset", new Color(0.75f, 0.25f, 0.25f), out _);
-            var cancelButton = CreateButton("CancelButton", confirmRow.transform, "Cancel", new Color(0.35f, 0.35f, 0.38f), out _);
-            confirmPanel.SetActive(false);
+            var versionText = CreateText("VersionText", root.transform, "v0.1", 16f, TextAlignmentOptions.Center, 24f);
+            var versionRect = (RectTransform)versionText.transform;
+            AnchorBottomCenter(versionRect, new Vector2(200f, 24f), new Vector2(0f, 20f));
 
             var controller = root.AddComponent<SettingsPanel>();
             var so = new SerializedObject(controller);
             so.FindProperty("musicToggle").objectReferenceValue = musicToggle;
             so.FindProperty("sfxToggle").objectReferenceValue = sfxToggle;
-            so.FindProperty("musicVolumeSlider").objectReferenceValue = musicSlider;
-            so.FindProperty("sfxVolumeSlider").objectReferenceValue = sfxSlider;
             so.FindProperty("vibrationToggle").objectReferenceValue = vibrationToggle;
             so.FindProperty("languageDropdown").objectReferenceValue = languageDropdown;
             so.FindProperty("leftHandedToggle").objectReferenceValue = leftHandedToggle;
-            so.FindProperty("restoreProgressButton").objectReferenceValue = restoreButton;
-            so.FindProperty("resetProgressButton").objectReferenceValue = resetButton;
-            so.FindProperty("resetConfirmPanel").objectReferenceValue = confirmPanel;
-            so.FindProperty("confirmResetButton").objectReferenceValue = confirmButton;
-            so.FindProperty("cancelResetButton").objectReferenceValue = cancelButton;
             so.FindProperty("versionText").objectReferenceValue = versionText;
             so.FindProperty("closeButton").objectReferenceValue = closeButton;
             so.ApplyModifiedPropertiesWithoutUndo();
 
             return root;
+        }
+
+        /// <summary>One Btn_plaque.png grid cell that IS the toggle — Toggle lives on the same
+        /// GameObject as the Image (targetGraphic = its own Image), so the entire plaque is the
+        /// click target, not just a small child checkbox. A centred label sits on top; no separate
+        /// checkbox/checkmark graphic is created at all, matching the mockup's plain plaques.</summary>
+        private static Toggle CreateTogglePlaqueCell(string name, Transform parent, string label)
+        {
+            var go = new GameObject(name, typeof(RectTransform), typeof(Image), typeof(Toggle));
+            go.transform.SetParent(parent, false);
+            var image = go.GetComponent<Image>();
+            image.sprite = PlaceholderSprite.Get(new Color(0.55f, 0.35f, 0.15f));
+
+            var toggle = go.GetComponent<Toggle>();
+            toggle.targetGraphic = image;
+            toggle.graphic = null;
+            toggle.isOn = true;
+
+            var labelText = CreateText(name + "_Label", go.transform, label, 28f, TextAlignmentOptions.Center, 40f);
+            StretchFull((RectTransform)labelText.transform);
+
+            return toggle;
         }
 
         // ---- Store "coming soon" (Store itself is Phase 6 scope) -------------------------------
@@ -863,29 +1165,50 @@ namespace FarmFuryArcade.EditorTools
 
         // ---- Level Complete + New Character Unlock ---------------------------------------------
 
+        /// <summary>Built to a Canva mockup (2026-07-31): World1_Cornfield.png backdrop (same as
+        /// Pause/Choose Character) with Logo.png top-left, LevelComplete.png as an aspect-locked
+        /// PanelArt child (same square-art-on-landscape-overlay pattern BuildPauseMenu uses, for the
+        /// same reason — stretching a square card full-screen distorts it), a small star row +
+        /// score readout positioned on the art's own wooden shelf (SetAnchorRect fractions measured
+        /// off the art, same convention as Pause's button fractions), and a single Btn_skip.png
+        /// button bottom-right. The previous crop/robot/time/perfect-bonus breakdown, combo
+        /// achievements, "new best" badge, and Replay/Next Level/Home button row are gone — see
+        /// LevelCompleteController's doc comment for why.</summary>
         private static (GameObject root, NewCharacterUnlockScreen unlockScreen) BuildLevelComplete(Transform canvasTransform)
         {
-            var root = CreatePanel("LevelCompleteScreen", canvasTransform, new Color(0.10f, 0.16f, 0.12f));
-            var group = CreateVerticalGroup("Content", root.transform, 8f, 30);
+            var root = CreatePanel("LevelCompleteScreen", canvasTransform, Color.black);
 
-            CreateText("Title", group.transform, "LEVEL COMPLETE!", 48f, TextAlignmentOptions.Center, 70f);
-            var starDisplayGO = CreateStarDisplay("Stars", group.transform, 50);
-            var scoreText = CreateText("ScoreText", group.transform, "0", 44f, TextAlignmentOptions.Center, 60f);
+            var logoImageGO = new GameObject("LogoImage", typeof(RectTransform), typeof(Image));
+            logoImageGO.transform.SetParent(root.transform, false);
+            var logoImage = logoImageGO.GetComponent<Image>();
+            logoImage.sprite = PlaceholderSprite.Get(Color.clear);
+            logoImage.preserveAspect = true;
+            AnchorTopLeft((RectTransform)logoImageGO.transform, new Vector2(300f, 170f), new Vector2(40f, -40f));
 
-            var cropText = CreateText("CropBreakdown", group.transform, "Crops: 0", 20f, TextAlignmentOptions.Center, 28f);
-            var robotText = CreateText("RobotBreakdown", group.transform, "Robots: 0", 20f, TextAlignmentOptions.Center, 28f);
-            var timeText = CreateText("TimeBonus", group.transform, "Time Bonus: 0", 20f, TextAlignmentOptions.Center, 28f);
-            var perfectText = CreateText("PerfectBonus", group.transform, "Perfect Run: --", 20f, TextAlignmentOptions.Center, 28f);
-            var coinsText = CreateText("CoinsEarned", group.transform, "+0 coins", 24f, TextAlignmentOptions.Center, 34f);
-            var comboText = CreateText("ComboAchievements", group.transform, string.Empty, 18f, TextAlignmentOptions.Center, 40f);
+            var panelArtGO = new GameObject("PanelArt", typeof(RectTransform), typeof(Image), typeof(AspectRatioFitter));
+            panelArtGO.transform.SetParent(root.transform, false);
+            var panelArtRect = (RectTransform)panelArtGO.transform;
+            panelArtRect.anchorMin = Vector2.zero;
+            panelArtRect.anchorMax = Vector2.one;
+            panelArtRect.offsetMin = Vector2.zero;
+            panelArtRect.offsetMax = Vector2.zero;
+            panelArtGO.GetComponent<Image>().sprite = PlaceholderSprite.Get(Color.clear);
+            var panelArtFitter = panelArtGO.GetComponent<AspectRatioFitter>();
+            panelArtFitter.aspectMode = AspectRatioFitter.AspectMode.FitInParent;
+            panelArtFitter.aspectRatio = 1f;
 
-            var newBestBadge = CreateText("NewBestBadge", group.transform, "NEW BEST!", 22f, TextAlignmentOptions.Center, 30f, new Color(1f, 0.84f, 0f));
-            newBestBadge.gameObject.SetActive(false);
+            // Star row + score sit on the art's own wooden shelf, near the bottom of the square
+            // card — the baked-in "LEVEL COMPLETE!" banner and its 3 decorative (always-filled)
+            // stars up top are art, not these; this is the one part of the card actually left blank
+            // for content.
+            var shelfGO = CreateVerticalGroup("ShelfContent", panelArtGO.transform, 4f, 0);
+            SetAnchorRect((RectTransform)shelfGO.transform, 0.27f, 0.14f, 0.73f, 0.28f);
+            var starDisplayGO = CreateStarDisplay("Stars", shelfGO.transform, 28);
+            var scoreText = CreateText("ScoreText", shelfGO.transform, "0", 34f, TextAlignmentOptions.Center, 44f, new Color(0.3f, 0.2f, 0.1f));
 
-            var buttonRow = CreateHorizontalGroup("Buttons", group.transform, 12f);
-            var replayButton = CreateButton("ReplayButton", buttonRow.transform, "Replay", new Color(0.35f, 0.35f, 0.38f), out _);
-            var nextButton = CreateButton("NextLevelButton", buttonRow.transform, "Next Level", new Color(0.3f, 0.75f, 0.35f), out _);
-            var homeButton = CreateButton("HomeButton", buttonRow.transform, "Home", new Color(0.35f, 0.45f, 0.75f), out _);
+            var skipButton = CreateButton("SkipButton", root.transform, string.Empty, new Color(0.85f, 0.55f, 0.1f), 28f, 160f, out _);
+            Object.DestroyImmediate(skipButton.transform.Find("SkipButton_Label").gameObject);
+            AnchorBottomRight((RectTransform)skipButton.transform, new Vector2(160f, 160f), new Vector2(100f, 70f));
 
             // New Character Unlock overlay, layered on top of Level Complete
             var unlockRoot = CreatePanel("NewCharacterUnlockOverlay", root.transform, new Color(0.05f, 0.05f, 0.02f, 0.95f));
@@ -914,16 +1237,7 @@ namespace FarmFuryArcade.EditorTools
             var so = new SerializedObject(controller);
             so.FindProperty("starDisplay").objectReferenceValue = starDisplayGO.GetComponent<StarDisplay>();
             so.FindProperty("scoreText").objectReferenceValue = scoreText;
-            so.FindProperty("cropBreakdownText").objectReferenceValue = cropText;
-            so.FindProperty("robotBreakdownText").objectReferenceValue = robotText;
-            so.FindProperty("timeBonusText").objectReferenceValue = timeText;
-            so.FindProperty("perfectBonusText").objectReferenceValue = perfectText;
-            so.FindProperty("coinsEarnedText").objectReferenceValue = coinsText;
-            so.FindProperty("newBestBadge").objectReferenceValue = newBestBadge.gameObject;
-            so.FindProperty("comboAchievementsText").objectReferenceValue = comboText;
-            so.FindProperty("replayButton").objectReferenceValue = replayButton;
-            so.FindProperty("nextLevelButton").objectReferenceValue = nextButton;
-            so.FindProperty("homeButton").objectReferenceValue = homeButton;
+            so.FindProperty("skipButton").objectReferenceValue = skipButton;
             so.FindProperty("unlockScreen").objectReferenceValue = unlockScreen;
             so.ApplyModifiedPropertiesWithoutUndo();
 
@@ -980,8 +1294,7 @@ namespace FarmFuryArcade.EditorTools
         {
             var root = CreatePanel("CharacterRosterScreen", canvasTransform, new Color(0.12f, 0.10f, 0.16f));
 
-            var homeButton = CreateButton("BackButton", root.transform, "Back", new Color(0.35f, 0.35f, 0.38f), 22f, 50f, out _);
-            AnchorTopLeft((RectTransform)homeButton.transform, new Vector2(160f, 50f), new Vector2(20f, -20f));
+            var homeButton = CreateGenericBackButton(root.transform);
 
             var scrollRect = CreateHorizontalScrollView("CardScrollView", root.transform, out var content);
             var scrollRectTransform = (RectTransform)((Component)scrollRect).transform;
@@ -1007,7 +1320,9 @@ namespace FarmFuryArcade.EditorTools
 
             CreateText("Title", group.transform, "LEADERBOARDS", 40f, TextAlignmentOptions.Center, 60f);
             var statsText = CreateText("StatsText", group.transform, string.Empty, 24f, TextAlignmentOptions.Left, 200f);
-            var backButton = CreateButton("BackButton", group.transform, "Back", new Color(0.35f, 0.35f, 0.38f), out _);
+            // Pulled out of "Content" so it lands in the generic bottom-left screen-corner spot
+            // instead of stacking inline under the stats text.
+            var backButton = CreateGenericBackButton(root.transform);
 
             var controller = root.AddComponent<LeaderboardsScreen>();
             var so = new SerializedObject(controller);
@@ -1028,8 +1343,15 @@ namespace FarmFuryArcade.EditorTools
         {
             var go = new GameObject("CharacterSelectCard", typeof(RectTransform), typeof(Image), typeof(Button));
             var rt = (RectTransform)go.transform;
-            rt.sizeDelta = new Vector2(380f, 380f);
-            go.GetComponent<Image>().sprite = PlaceholderSprite.Get(Color.white);
+            // Explicit centre anchor/pivot — CardCarouselController positions instances via
+            // anchoredPosition assuming (0,0) is the container's own centre (no LayoutGroup governs
+            // this anymore, per the 2026-07-31 Canva mockup), so this can't be left at whatever a
+            // freshly-created RectTransform defaults to. Same fix as WorldShield's own prefab.
+            rt.anchorMin = rt.anchorMax = rt.pivot = new Vector2(0.5f, 0.5f);
+            rt.sizeDelta = new Vector2(340f, 360f);
+            var cardBackground = go.GetComponent<Image>();
+            cardBackground.sprite = PlaceholderSprite.Get(Color.white);
+            cardBackground.preserveAspect = true;
 
             var activeHighlight = CreateImage("ActiveHighlight", go.transform, new Color(1f, 0.84f, 0f, 0.85f), 410f, 410f);
             var highlightRect = (RectTransform)activeHighlight.transform;
@@ -1059,39 +1381,50 @@ namespace FarmFuryArcade.EditorTools
             return SaveAndDestroy(go, $"{UIPrefabFolder}/CharacterSelectCard.prefab");
         }
 
-        /// <summary>LoadingScreen Background.png (the same barn/night art used behind Settings)
-        /// fills the screen; a GridLayoutGroup lays out one CharacterSelectCard per CharacterData,
-        /// evenly spaced in a fixed 4-column grid regardless of unlock state. Not part of
-        /// screenRoots — like Pause/Settings, it's an overlay shown/hidden directly rather than
-        /// routed through SceneTransitionManager.ShowOnly.</summary>
+        /// <summary>Built to a Canva mockup (2026-07-31): World1_Cornfield.png backdrop (same as
+        /// Pause), Logo.png top-left, a round back button bottom-LEFT (CreateRoundBackButton's
+        /// non-default corner — this mockup's icon isn't Btn_home.png like Settings/Level Select's,
+        /// see ArtWiringBuilder.WireButtons for the substitution note), and a CardCarouselController
+        /// (same component Level Select's world picker uses) instead of the old static GridLayoutGroup
+        /// — one CharacterSelectCard per CharacterData, flick to cycle which is centred/full-scale,
+        /// tap the centred card to swap into it. Not part of screenRoots — like Pause/Settings, it's
+        /// an overlay shown/hidden directly rather than routed through SceneTransitionManager.ShowOnly.</summary>
         private static ChooseCharacterScreen BuildChooseCharacterScreen(Transform canvasTransform, GameObject cardPrefab)
         {
-            var root = CreatePanel("ChooseCharacterScreen", canvasTransform, new Color(0.08f, 0.08f, 0.12f));
+            var root = CreatePanel("ChooseCharacterScreen", canvasTransform, Color.black);
 
-            var backButton = CreateButton("BackButton", root.transform, "Back", new Color(0.35f, 0.35f, 0.38f), 22f, 50f, out _);
-            AnchorTopLeft((RectTransform)backButton.transform, new Vector2(160f, 50f), new Vector2(20f, -20f));
+            var logoImageGO = new GameObject("LogoImage", typeof(RectTransform), typeof(Image));
+            logoImageGO.transform.SetParent(root.transform, false);
+            var logoImage = logoImageGO.GetComponent<Image>();
+            logoImage.sprite = PlaceholderSprite.Get(Color.clear);
+            logoImage.preserveAspect = true;
+            AnchorTopLeft((RectTransform)logoImageGO.transform, new Vector2(300f, 170f), new Vector2(40f, -40f));
 
-            var gridGO = new GameObject("CardGrid", typeof(RectTransform), typeof(GridLayoutGroup));
-            gridGO.transform.SetParent(root.transform, false);
-            var gridRect = (RectTransform)gridGO.transform;
-            gridRect.anchorMin = new Vector2(0.5f, 0.5f);
-            gridRect.anchorMax = new Vector2(0.5f, 0.5f);
-            gridRect.pivot = new Vector2(0.5f, 0.5f);
-            gridRect.sizeDelta = new Vector2(1700f, 820f);
-            gridRect.anchoredPosition = new Vector2(0f, -20f);
+            var backButton = CreateRoundBackButton(root.transform, bottomRight: false);
 
-            var grid = gridGO.GetComponent<GridLayoutGroup>();
-            grid.cellSize = new Vector2(380f, 380f);
-            grid.spacing = new Vector2(30f, 30f);
-            grid.childAlignment = TextAnchor.MiddleCenter;
-            grid.constraint = GridLayoutGroup.Constraint.FixedColumnCount;
-            grid.constraintCount = 4;
+            // Carousel area — an invisible-but-raycastable Image covers the whole area (not just the
+            // cards themselves) so a flick started on empty space between cards still registers as a
+            // drag; CardCarouselController then positions/scales each card every frame instead of a
+            // GridLayoutGroup arranging them in a static grid.
+            var cardContainerGO = new GameObject("CardContainer", typeof(RectTransform), typeof(Image));
+            var containerRect = (RectTransform)cardContainerGO.transform;
+            containerRect.anchorMin = new Vector2(0.5f, 0.5f);
+            containerRect.anchorMax = new Vector2(0.5f, 0.5f);
+            containerRect.pivot = new Vector2(0.5f, 0.5f);
+            containerRect.sizeDelta = new Vector2(1700f, 500f);
+            containerRect.anchoredPosition = new Vector2(0f, -20f);
+            cardContainerGO.transform.SetParent(root.transform, false);
+            var containerImage = cardContainerGO.GetComponent<Image>();
+            containerImage.sprite = PlaceholderSprite.Get(Color.clear);
+            containerImage.color = Color.clear;
+            containerImage.raycastTarget = true;
+            var carousel = cardContainerGO.AddComponent<CardCarouselController>();
 
             var controller = root.AddComponent<ChooseCharacterScreen>();
             var so = new SerializedObject(controller);
-            so.FindProperty("cardContainer").objectReferenceValue = gridGO.transform;
+            so.FindProperty("cardContainer").objectReferenceValue = cardContainerGO.transform;
             so.FindProperty("cardPrefab").objectReferenceValue = cardPrefab;
-            so.FindProperty("gridLayoutGroup").objectReferenceValue = grid;
+            so.FindProperty("carousel").objectReferenceValue = carousel;
             so.FindProperty("backButton").objectReferenceValue = backButton;
             so.ApplyModifiedPropertiesWithoutUndo();
 
@@ -1103,14 +1436,22 @@ namespace FarmFuryArcade.EditorTools
         private static void WireCrossReferences(GameObject mainMenu, GameObject worldMap,
             GameObject gameplay, GameObject pause, GameObject settings,
             GameObject levelComplete, NewCharacterUnlockScreen unlockScreen, GameObject levelFailed,
-            GameObject roster, GameObject leaderboards, ChooseCharacterScreen chooseCharacterScreen, ComboNotificationBanner comboBanner)
+            GameObject roster, GameObject leaderboards, ChooseCharacterScreen chooseCharacterScreen,
+            ComboNotificationBanner comboBanner, GameObject levelSelect)
         {
             var settingsPanel = settings.GetComponent<SettingsPanel>();
 
             SetRefs(mainMenu.GetComponent<MainMenuController>(),
-                ("worldMapScreen", worldMap), ("settingsPanel", settingsPanel));
+                ("levelSelectScreen", levelSelect), ("settingsPanel", settingsPanel));
 
+            // World Map's Play button now opens Level Select instead of jumping straight into
+            // gameplay — see WorldMapController's own doc comment for why (Level Select needs a
+            // place to be reached from, and this is the position the removed Matchup screen /
+            // "jump to next level" shortcut used to occupy in the flow).
             SetRefs(worldMap.GetComponent<WorldMapController>(),
+                ("mainMenuScreen", mainMenu), ("levelSelectScreen", levelSelect));
+
+            SetRefs(levelSelect.GetComponent<LevelSelectController>(),
                 ("mainMenuScreen", mainMenu), ("gameplayScreen", gameplay));
 
             var hud = gameplay.GetComponent<GameplayHUD>();
@@ -1124,7 +1465,7 @@ namespace FarmFuryArcade.EditorTools
             SetRefs(chooseCharacterScreen, ("pauseMenuScreen", pause));
 
             SetRefs(levelComplete.GetComponent<LevelCompleteController>(),
-                ("worldMapScreen", worldMap), ("gameplayScreen", gameplay), ("unlockScreen", unlockScreen));
+                ("levelSelectScreen", levelSelect), ("unlockScreen", unlockScreen));
 
             SetRefs(levelFailed.GetComponent<LevelFailedController>(),
                 ("gameplayScreen", gameplay), ("mainMenuScreen", mainMenu));
@@ -1174,9 +1515,76 @@ namespace FarmFuryArcade.EditorTools
         private static GameObject SaveAndDestroy(GameObject go, string path)
         {
             Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+
+            // See Phase4ProjectBuilder.EmbedRuntimePlaceholderSprites — PlaceholderSprite.Get()
+            // sprites (used throughout UIBuilderHelpers for Image.sprite too) are runtime-only and
+            // get silently nulled out by SaveAsPrefabAsset unless embedded as a real sub-asset
+            // first. This builder's three saved UI prefabs (LevelMarker, RosterCard,
+            // CharacterSelectCard) use Image, not SpriteRenderer, so both are checked here.
+            var placeholderSprites = new List<(string transformPath, Sprite sprite, bool isImage)>();
+            foreach (var sr in go.GetComponentsInChildren<SpriteRenderer>(true))
+            {
+                if (sr.sprite != null && string.IsNullOrEmpty(AssetDatabase.GetAssetPath(sr.sprite)))
+                {
+                    placeholderSprites.Add((AnimationUtility.CalculateTransformPath(sr.transform, go.transform), sr.sprite, false));
+                }
+            }
+            foreach (var img in go.GetComponentsInChildren<Image>(true))
+            {
+                if (img.sprite != null && string.IsNullOrEmpty(AssetDatabase.GetAssetPath(img.sprite)))
+                {
+                    placeholderSprites.Add((AnimationUtility.CalculateTransformPath(img.transform, go.transform), img.sprite, true));
+                }
+            }
+
             var prefab = PrefabUtility.SaveAsPrefabAsset(go, path);
             Object.DestroyImmediate(go);
+
+            if (placeholderSprites.Count > 0)
+            {
+                EmbedRuntimePlaceholderSprites(path, placeholderSprites);
+                prefab = AssetDatabase.LoadAssetAtPath<GameObject>(path);
+            }
+
             return prefab;
+        }
+
+        private static void EmbedRuntimePlaceholderSprites(string prefabPath, List<(string transformPath, Sprite sprite, bool isImage)> placeholders)
+        {
+            var contents = PrefabUtility.LoadPrefabContents(prefabPath);
+            foreach (var (transformPath, sprite, isImage) in placeholders)
+            {
+                var target = string.IsNullOrEmpty(transformPath) ? contents.transform : contents.transform.Find(transformPath);
+                if (target == null)
+                {
+                    continue;
+                }
+
+                if (sprite.texture != null && string.IsNullOrEmpty(AssetDatabase.GetAssetPath(sprite.texture)))
+                {
+                    AssetDatabase.AddObjectToAsset(sprite.texture, prefabPath);
+                }
+                if (string.IsNullOrEmpty(AssetDatabase.GetAssetPath(sprite)))
+                {
+                    AssetDatabase.AddObjectToAsset(sprite, prefabPath);
+                }
+
+                if (isImage)
+                {
+                    var img = target.GetComponent<Image>();
+                    if (img != null) img.sprite = sprite;
+                }
+                else
+                {
+                    var sr = target.GetComponent<SpriteRenderer>();
+                    if (sr != null) sr.sprite = sprite;
+                }
+            }
+
+            PrefabUtility.SaveAsPrefabAsset(contents, prefabPath);
+            PrefabUtility.UnloadPrefabContents(contents);
+            AssetDatabase.SaveAssets();
+            AssetDatabase.ImportAsset(prefabPath, ImportAssetOptions.ForceUpdate);
         }
     }
 }

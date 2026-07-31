@@ -5,22 +5,21 @@ using FarmFuryArcade.Core;
 
 namespace FarmFuryArcade.UI
 {
-    /// <summary>Modal, reachable from Main Menu or Pause. "Restore Progress" is explicitly Phase 6
-    /// scope per spec ("from cloud — Phase 6") — its button just logs, no real action yet.</summary>
+    /// <summary>Modal, reachable from Main Menu or Pause. Rebuilt to match a Canva mockup
+    /// (2026-07-31): a 2-column grid of whole-plaque toggle buttons. Restore/Reset Progress were
+    /// removed earlier (Restore was Phase 6/cloud-save scope with no real action; Reset's confirm
+    /// sub-panel went with it). Music/SFX volume sliders were dropped in the mockup rebuild too —
+    /// each plaque is now a single mute on/off tap, same as Vibration/Left-Handed, since the grid
+    /// cells aren't large enough to host both a tap target and a drag target cleanly. Volume level
+    /// itself still exists in SaveManager (MusicVolume/SfxVolume) for whenever a volume control
+    /// gets a dedicated slot again; only the in-panel UI for it is gone.</summary>
     public class SettingsPanel : MonoBehaviour
     {
         [SerializeField] private Toggle musicToggle;
         [SerializeField] private Toggle sfxToggle;
-        [SerializeField] private Slider musicVolumeSlider;
-        [SerializeField] private Slider sfxVolumeSlider;
         [SerializeField] private Toggle vibrationToggle;
         [SerializeField] private TMP_Dropdown languageDropdown;
         [SerializeField] private Toggle leftHandedToggle;
-        [SerializeField] private Button restoreProgressButton;
-        [SerializeField] private Button resetProgressButton;
-        [SerializeField] private GameObject resetConfirmPanel;
-        [SerializeField] private Button confirmResetButton;
-        [SerializeField] private Button cancelResetButton;
         [SerializeField] private TextMeshProUGUI versionText;
         [SerializeField] private Button closeButton;
 
@@ -29,16 +28,9 @@ namespace FarmFuryArcade.UI
             closeButton.onClick.AddListener(Hide);
             musicToggle.onValueChanged.AddListener(HandleMusicToggle);
             sfxToggle.onValueChanged.AddListener(HandleSfxToggle);
-            musicVolumeSlider.onValueChanged.AddListener(v => AudioManager.Instance?.SetMusicVolume(v));
-            sfxVolumeSlider.onValueChanged.AddListener(v => AudioManager.Instance?.SetSFXVolume(v));
             vibrationToggle.onValueChanged.AddListener(v => SaveManager.Instance.VibrationOn = v);
             languageDropdown.onValueChanged.AddListener(HandleLanguageChanged);
             leftHandedToggle.onValueChanged.AddListener(v => SaveManager.Instance.LeftHanded = v);
-            restoreProgressButton.onClick.AddListener(() =>
-                Debug.Log("[SettingsPanel] Restore Progress is Phase 6 scope (cloud save)."));
-            resetProgressButton.onClick.AddListener(() => resetConfirmPanel.SetActive(true));
-            confirmResetButton.onClick.AddListener(ConfirmReset);
-            cancelResetButton.onClick.AddListener(() => resetConfirmPanel.SetActive(false));
 
             if (versionText != null)
             {
@@ -49,7 +41,6 @@ namespace FarmFuryArcade.UI
         public void Show()
         {
             RefreshFromSave();
-            resetConfirmPanel.SetActive(false);
             gameObject.SetActive(true);
         }
 
@@ -79,17 +70,8 @@ namespace FarmFuryArcade.UI
         {
             musicToggle.SetIsOnWithoutNotify(SaveManager.Instance.MusicOn);
             sfxToggle.SetIsOnWithoutNotify(SaveManager.Instance.SfxOn);
-            musicVolumeSlider.SetValueWithoutNotify(SaveManager.Instance.MusicVolume);
-            sfxVolumeSlider.SetValueWithoutNotify(SaveManager.Instance.SfxVolume);
             vibrationToggle.SetIsOnWithoutNotify(SaveManager.Instance.VibrationOn);
             leftHandedToggle.SetIsOnWithoutNotify(SaveManager.Instance.LeftHanded);
-        }
-
-        private void ConfirmReset()
-        {
-            SaveManager.Instance.ResetAllProgress();
-            resetConfirmPanel.SetActive(false);
-            RefreshFromSave();
         }
     }
 }

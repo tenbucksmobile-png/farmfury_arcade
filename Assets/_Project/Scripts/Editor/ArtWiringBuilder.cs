@@ -72,6 +72,9 @@ namespace FarmFuryArcade.EditorTools
         private const string BessieFront = "Assets/_Project/Sprites/Characters/Bessie_front.png";
         private const string BessieBack = "Assets/_Project/Sprites/Characters/Bessie_back.png";
         private const string BessieLeft = "Assets/_Project/Sprites/Characters/Bessie_left.png";
+        private const string BessieLeft2 = "Assets/_Project/Sprites/Characters/Bessie_left2.png";
+        private const string BessieRight = "Assets/_Project/Sprites/Characters/Bessie_right.png";
+        private const string BessieRight2 = "Assets/_Project/Sprites/Characters/Bessie_right2.png";
         private const string WoollyFront = "Assets/_Project/Sprites/Characters/Wooly_front.png";
         private const string WoollyBack = "Assets/_Project/Sprites/Characters/Wooly_back.png";
         private const string WoollyLeft = "Assets/_Project/Sprites/Characters/Wooly_left.png";
@@ -119,6 +122,36 @@ namespace FarmFuryArcade.EditorTools
         private const string LevelFailedPanel = "Assets/_Project/Sprites/UI/LevelFailed.png";
         private const string PausedPanel = "Assets/_Project/Sprites/UI/Paused.png";
         private const string CardFrame = "Assets/_Project/Sprites/UI/Card.png";
+        // Pause's own backdrop per the 2026-07-31 Canva mockup — same cornfield/barn/moon night
+        // scene as Bg_LevelSelect.png's composition but a different piece of art (previously unused
+        // — see CLAUDE.md's Art status section prior to this).
+        private const string PauseBackground = "Assets/_Project/Sprites/UI/World1_Cornfield.png";
+
+        // ---- Level Select (filenames as actually uploaded — note LevelTile_unlocked-notplayed.png
+        // and LevelTile_1Star.png differ slightly from the originally-specced
+        // "LevelTile_Unlocked.png"/"LevelTile_1Stars.png") -------------------------------------
+        private const string LevelTileLocked = "Assets/_Project/Sprites/UI/LevelTile_Locked.png";
+        private const string LevelTileUnlocked = "Assets/_Project/Sprites/UI/LevelTile_unlocked-notplayed.png";
+        private const string LevelTile1Star = "Assets/_Project/Sprites/UI/LevelTile_1Star.png";
+        private const string LevelTile2Stars = "Assets/_Project/Sprites/UI/LevelTile_2Stars.png";
+        private const string LevelTile3Stars = "Assets/_Project/Sprites/UI/LevelTile_3Stars.png";
+        private const string BgLevelSelect = "Assets/_Project/Sprites/UI/Bg_LevelSelect.png";
+        private const string DividerWorldBanner = "Assets/_Project/Sprites/UI/Divider_WorldBanner.png";
+        // Word-art replacing the old TMP "SELECT LEVEL"/world-name text (per-request — see
+        // WireLevelSelect). Renamed to the "*Sign.png" convention when re-uploaded — the originals
+        // (SelectLevel.png/CornField.png/VegetablePatch.png/Orchard.png/Wheatfield.png) were
+        // deleted. All 4 world signs + SelectLevelSign are now present on disk.
+        private const string SelectLevelText = "Assets/_Project/Sprites/UI/SelectLevelSign.png";
+        // Note: on-disk filename is "CornfieldSign.png" (lowercase "f"), unlike the other three
+        // *Sign.png world badges (VegetablePatchSign/OrchardSign/WheatfieldSign) — matched exactly
+        // since AssetDatabase.LoadAssetAtPath is case-sensitive regardless of the OS filesystem.
+        private const string CornFieldText = "Assets/_Project/Sprites/UI/CornfieldSign.png";
+        private const string VegetablePatchText = "Assets/_Project/Sprites/UI/VegetablePatchSign.png";
+        private const string OrchardText = "Assets/_Project/Sprites/UI/OrchardSign.png";
+        private const string WheatfieldText = "Assets/_Project/Sprites/UI/WheatfieldSign.png";
+        private const string SettingsSignText = "Assets/_Project/Sprites/UI/SettingsSign.png";
+        private const string LevelTilePrefabPath = UIPrefabFolder + "/LevelTile.prefab";
+        private const string WorldDividerPrefabPath = UIPrefabFolder + "/WorldDivider.prefab";
         private const string BackgroundMusicClip = "Assets/_Project/Audio/Music/BackgroundMusic.mp3";
         private const string AnimalDeathSfx = "Assets/_Project/Audio/SFX/Animal_death.mp3";
         private const string CornPickupSfx = "Assets/_Project/Audio/SFX/CornPickup.mp3";
@@ -126,6 +159,7 @@ namespace FarmFuryArcade.EditorTools
         private const string RarePelletPickupSfx = "Assets/_Project/Audio/SFX/RarePellet_pickup.mp3";
         private const string RobotSpawnSfx = "Assets/_Project/Audio/SFX/RobotSpawn.mp3";
         private const string EatRobotMusicClip = "Assets/_Project/Audio/SFX/EatRobot.mp3";
+        private const string LandingMusicClip = "Assets/_Project/Audio/Music/LandingPage.mp3";
 
         /// <summary>Bundled with TMP's own "Examples & Extras" (Assets/TextMesh Pro/Examples &
         /// Extras/...) — a bold comic/cartoon-style display face, already has its own correctly
@@ -176,7 +210,7 @@ namespace FarmFuryArcade.EditorTools
             WireCropsAndPellets();
             WireMazeTiles();
             WireGameplayBackdrop();
-            WireBackgroundsAndCoinIcon();
+            WireBackgrounds();
 
             WireNewCharacters();
             WireCharacterSelectCards();
@@ -184,10 +218,12 @@ namespace FarmFuryArcade.EditorTools
             WireAbilityEffects();
             WireCardsAndPanels();
             WireButtons();
+            WireLevelSelect();
             WireAppIcon();
             WireAudio();
             WireGameplayFont();
             WireSettingsFont();
+            WireSettingsSign();
 
             AssetDatabase.SaveAssets();
             AssetDatabase.Refresh();
@@ -204,7 +240,8 @@ namespace FarmFuryArcade.EditorTools
         {
             CluckFront, CluckBack, CluckLeft, HarvesterFront, HarvesterBack, CornKernel, Carrot,
             CoinIcon, SunflowerPellet, GoldenWheatPellet, RainbowPellet, LandingBackground, MapBackground,
-            BessieFront, BessieBack, BessieLeft, WoollyFront, WoollyBack, WoollyLeft, WoollyEffect,
+            BessieFront, BessieBack, BessieLeft, BessieLeft2, BessieRight, BessieRight2,
+            WoollyFront, WoollyBack, WoollyLeft, WoollyEffect,
             PercyFront, PercyBack, PercyLeft, PercyEffect, DuckyFront, DuckyBack, BessieSlam,
             ScoutFront, ScoutLeft, ScoutRight, PatrolFront, PatrolBack, PatrolLeft, PatrolRight,
             HeavyFront, HeavyBack, DrifterFront, DrifterLeft, DrifterRight, RobotEyes,
@@ -216,7 +253,11 @@ namespace FarmFuryArcade.EditorTools
             DPadUp, DPadDown, DPadLeft, DPadRight,
             GeraldFront, GeraldBack, GeraldLeft,
             CluckRight, CluckRightWalk2, CluckLeftWalk,
-            WallCornTiles, FloorTile, WarpTile, WheatfieldBackdrop, SettingsBackground
+            WallCornTiles, FloorTile, WarpTile, WheatfieldBackdrop, SettingsBackground, PauseBackground,
+            LevelTileLocked, LevelTileUnlocked, LevelTile1Star, LevelTile2Stars, LevelTile3Stars,
+            BgLevelSelect, DividerWorldBanner,
+            SelectLevelText, CornFieldText, VegetablePatchText, OrchardText, WheatfieldText, SettingsSignText,
+            LogoImage
         };
 
         private static void ConfigureSpriteImporters()
@@ -311,6 +352,44 @@ namespace FarmFuryArcade.EditorTools
             }
             PrefabUtility.SaveAsPrefabAsset(contents, CluckPrefabPath);
             PrefabUtility.UnloadPrefabContents(contents);
+        }
+
+        /// <summary>Bessie is the second character (after Cluck) with real 2nd-walk-frame and
+        /// dedicated Right art — same pattern WireCluck established, duplicated rather than
+        /// generalised into SetWalkFrames since only these two characters have it so far and a
+        /// 6-sprite parameter list would make every other (single-pose) SetWalkFrames call site
+        /// harder to read for no benefit yet.</summary>
+        private static void WireBessie()
+        {
+            var front = Load(BessieFront);
+            var back = Load(BessieBack);
+            var left = Load(BessieLeft);
+            var left2 = Load(BessieLeft2);
+            var right = Load(BessieRight);
+            var right2 = Load(BessieRight2);
+
+            string path = $"{CharacterDataFolder}/CharacterData_Bessie.asset";
+            var data = AssetDatabase.LoadAssetAtPath<CharacterData>(path);
+            if (data != null)
+            {
+                data.walkAnimationFrames = new[]
+                {
+                    back, back,                                    // Up0, Up1
+                    front, front,                                   // Down0, Down1
+                    left, left2 != null ? left2 : left,             // Left0, Left1
+                    right != null ? right : left,                   // Right0
+                    right2 != null ? right2 : (right != null ? right : left) // Right1
+                };
+                data.hasDedicatedRightArt = right != null;
+                data.portraitSprite = front;
+                EditorUtility.SetDirty(data);
+            }
+            else
+            {
+                Debug.LogWarning($"[ArtWiringBuilder] CharacterData_Bessie not found at {path}");
+            }
+
+            WireCharacterPrefabSprite($"{CharacterPrefabFolder}/Bessie.prefab", front);
         }
 
         private static void WireHarvester()
@@ -452,18 +531,20 @@ namespace FarmFuryArcade.EditorTools
             sr.sortingOrder = -5;
 
             // The backdrop must cover whichever is bigger: the maze's own world footprint, or the
-            // camera's view width (CameraFollow deliberately shows more width than the maze itself
-            // has — that's the whole point of WidthFillFraction, extra screen margin at the edges
-            // for backdrop art to show through). CameraFollow.TargetVisibleColumns/WidthFillFraction
-            // give a camera view width that's constant regardless of the runtime aspect ratio (only
-            // view HEIGHT varies with aspect, and that's bounded by mazeWorldHeight in all realistic
-            // landscape aspects) — see that script's own comment. A 1.3x safety margin on top covers
-            // any aspect extreme enough to break that assumption, without needing to know the actual
-            // runtime aspect at Editor-wiring time.
-            const float safetyMargin = 1.3f;
-            float targetCameraViewWidth = CameraFollow.TargetVisibleColumns * TileMapRenderer.CellSize / CameraFollow.WidthFillFraction;
-            float requiredWidth = Mathf.Max(mazeWorldWidth, targetCameraViewWidth) * safetyMargin;
-            float requiredHeight = mazeWorldHeight * safetyMargin;
+            // camera's view width. CameraFollow now derives orthographicSize purely from
+            // CellScreenHeightFraction (aspect-independent — see that script's comment), so the
+            // camera's view width scales directly with the device's aspect ratio; MaxSupportedAspect
+            // is the widest landscape aspect worth planning for (e.g. an ultra-wide phone). Bumped
+            // from 1.3x to 1.6x after a playtest screenshot still showed a sliver of the camera's
+            // blue clear colour past the backdrop's edge — the maze's own world bounds also run a
+            // half-cell (CellSize/2) past mazeWidth/Height*CellSize on every side (GridToWorld has
+            // no offset, so a tile's sprite extends CellSize/2 beyond its own grid coordinate in
+            // each direction), which the old margin didn't explicitly account for.
+            const float safetyMargin = 1.6f;
+            float orthoSize = TileMapRenderer.CellSize / (2f * CameraFollow.CellScreenHeightFraction);
+            float targetCameraViewWidth = 2f * orthoSize * CameraFollow.MaxSupportedAspect;
+            float requiredWidth = (Mathf.Max(mazeWorldWidth, targetCameraViewWidth) + TileMapRenderer.CellSize) * safetyMargin;
+            float requiredHeight = (mazeWorldHeight + TileMapRenderer.CellSize) * safetyMargin;
 
             float imageAspect = sprite.rect.width / sprite.rect.height; // width/height, e.g. ~1.77
             float widthUnits = Mathf.Max(requiredWidth, requiredHeight * imageAspect);
@@ -491,7 +572,7 @@ namespace FarmFuryArcade.EditorTools
             PrefabUtility.UnloadPrefabContents(contents);
         }
 
-        private static void WireBackgroundsAndCoinIcon()
+        private static void WireBackgrounds()
         {
             EditorSceneManager.OpenScene(ScenePath);
             var canvasTransform = GameObject.Find("Canvas")?.transform;
@@ -503,8 +584,6 @@ namespace FarmFuryArcade.EditorTools
 
             SetScreenBackground(canvasTransform, "MainMenuScreen", Load(LandingBackground));
             SetScreenBackground(canvasTransform, "WorldMapScreen", Load(MapBackground));
-
-            AddCoinIcon(canvasTransform);
 
             EditorSceneManager.SaveScene(EditorSceneManager.GetActiveScene());
         }
@@ -525,42 +604,6 @@ namespace FarmFuryArcade.EditorTools
             }
 
             image.sprite = sprite;
-        }
-
-        /// <summary>Adds a small coin icon in front of LevelCompleteScreen's existing "+N coins"
-        /// text — that field never had an icon slot, so this wraps it in a new horizontal row
-        /// rather than inventing a new serialized field for one icon.</summary>
-        private static void AddCoinIcon(Transform canvasTransform)
-        {
-            var coinSprite = Load(CoinIcon);
-            if (coinSprite == null)
-            {
-                return;
-            }
-
-            var coinsText = canvasTransform.Find("LevelCompleteScreen/Content/CoinsEarned");
-            if (coinsText == null)
-            {
-                Debug.LogWarning("[ArtWiringBuilder] Could not find LevelCompleteScreen/Content/CoinsEarned to attach coin icon.");
-                return;
-            }
-
-            var contentParent = coinsText.parent;
-            if (contentParent.Find("CoinsRow") != null)
-            {
-                return; // already wired by a previous run
-            }
-
-            int siblingIndex = coinsText.GetSiblingIndex();
-            var row = UIBuilderHelpers.CreateHorizontalGroup("CoinsRow", contentParent, 6f);
-            row.transform.SetSiblingIndex(siblingIndex);
-
-            var icon = UIBuilderHelpers.CreateImage("CoinIcon", row.transform, Color.white, 28f, 28f);
-            icon.sprite = coinSprite;
-            icon.transform.SetSiblingIndex(0);
-
-            coinsText.SetParent(row.transform, false);
-            coinsText.SetSiblingIndex(1);
         }
 
         // ---- New characters (Bessie, Woolly, Percy, Ducky) -------------------------------------
@@ -643,9 +686,7 @@ namespace FarmFuryArcade.EditorTools
 
         private static void WireNewCharacters()
         {
-            var bessieFront = Load(BessieFront);
-            SetWalkFrames("Bessie", bessieFront, Load(BessieBack), Load(BessieLeft));
-            WireCharacterPrefabSprite($"{CharacterPrefabFolder}/Bessie.prefab", bessieFront);
+            WireBessie();
 
             var woollyFront = Load(WoollyFront);
             SetWalkFrames("Woolly", woollyFront, Load(WoollyBack), Load(WoollyLeft));
@@ -743,14 +784,31 @@ namespace FarmFuryArcade.EditorTools
                 return;
             }
 
-            SetScreenBackground(canvasTransform, "LevelCompleteScreen", Load(LevelCompletePanel));
+            // Root is now World1_Cornfield.png (same backdrop as Pause/Choose Character/Settings'
+            // sibling screens); PanelArt (a child, not the root) carries LevelComplete.png as an
+            // aspect-locked square — see BuildLevelComplete's doc comment, same reasoning as Pause's
+            // own PanelArt fix (a square card stretched full-screen distorts).
+            SetScreenBackground(canvasTransform, "LevelCompleteScreen", Load(PauseBackground));
+            SetImageSprite(canvasTransform, "LevelCompleteScreen/PanelArt", Load(LevelCompletePanel));
+            SetImageSprite(canvasTransform, "LevelCompleteScreen/LogoImage", Load(LogoImage));
             SetScreenBackground(canvasTransform, "LevelFailedScreen", Load(LevelFailedPanel));
-            // PanelArt (not the PauseOverlay root) carries the art — see BuildPauseMenu's comment
-            // on why the square Paused.png needs its own aspect-locked child instead of stretching
-            // to fill the full-screen dim panel.
+            // Root Image is now World1_Cornfield.png (opaque backdrop), not a plain black dim — see
+            // BuildPauseMenu's doc comment on the 2026-07-31 mockup dropping "dim gameplay behind
+            // it" in favour of a dedicated background, same as Settings/Level Select got.
+            SetScreenBackground(canvasTransform, "PauseOverlay", Load(PauseBackground));
+            // PanelArt (a child of the root, not the root itself) carries Paused.png — see
+            // BuildPauseMenu's comment on why the square art needs its own aspect-locked child
+            // instead of stretching to fill the full-screen overlay.
             SetImageSprite(canvasTransform, "PauseOverlay/PanelArt", Load(PausedPanel));
-            SetScreenBackground(canvasTransform, "SettingsOverlay", Load(SettingsBackground));
-            SetScreenBackground(canvasTransform, "ChooseCharacterScreen", Load(SettingsBackground));
+            SetImageSprite(canvasTransform, "PauseOverlay/LogoImage", Load(LogoImage));
+            // SettingsOverlay switched to Bg_LevelSelect.png (moon/windmill/barn) to match its own
+            // 2026-07-31 Canva mockup exactly. ChooseCharacterScreen switched to World1_Cornfield.png
+            // (same backdrop as Pause) per its own mockup — LoadingScreen Background.png is no longer
+            // used by either.
+            SetScreenBackground(canvasTransform, "SettingsOverlay", Load(BgLevelSelect));
+            SetScreenBackground(canvasTransform, "ChooseCharacterScreen", Load(PauseBackground));
+            SetImageSprite(canvasTransform, "SettingsOverlay/LogoImage", Load(LogoImage));
+            SetImageSprite(canvasTransform, "ChooseCharacterScreen/LogoImage", Load(LogoImage));
 
             // Card.png is used for New Character Unlock and RosterCard, neither of which has a
             // frame baked into their background.
@@ -807,7 +865,6 @@ namespace FarmFuryArcade.EditorTools
             var play = Load(BtnPlay);
             var pause = Load(BtnPause);
             var settings = Load(BtnSettings);
-            var music = Load(BtnMusic);
             var home = Load(BtnHome);
             var skip = Load(BtnSkip);
             var back = Load(BtnBack);
@@ -831,30 +888,133 @@ namespace FarmFuryArcade.EditorTools
             SetImageSprite(canvasTransform, "PauseOverlay/PanelArt/SettingsButton", Load(SettingsButtonArt));
             SetImageSprite(canvasTransform, "PauseOverlay/PanelArt/QuitButton", Load(QuitButtonArt));
 
-            SetImageSprite(canvasTransform, "SettingsOverlay/BackButton", back);
-            SetImageSprite(canvasTransform, "SettingsOverlay/Content/MusicRow_Plaque/MusicRow/MusicToggle/MusicToggle_Box", music);
+            // Round Btn_home.png, not Btn_back.png — the mockup's back button on this screen is
+            // the round barn/home icon, bottom-right, unlike every other screen's rectangular
+            // Btn_back.png bottom-left (CreateGenericBackButton).
+            SetImageSprite(canvasTransform, "SettingsOverlay/BackButton", home);
 
-            // One Btn_plaque.png per control row (Phase5ProjectBuilder.WrapInPlaqueRow), not one
-            // giant stretch behind the whole panel — see that method's doc comment.
-            SetImageSprite(canvasTransform, "SettingsOverlay/Content/MusicRow_Plaque", plaque);
-            SetImageSprite(canvasTransform, "SettingsOverlay/Content/SfxRow_Plaque", plaque);
-            SetImageSprite(canvasTransform, "SettingsOverlay/Content/VibrationToggle_Plaque", plaque);
-            SetImageSprite(canvasTransform, "SettingsOverlay/Content/LeftHandedToggle_Plaque", plaque);
-            SetImageSprite(canvasTransform, "SettingsOverlay/Content/LanguageDropdown_Plaque", plaque);
+            // One Btn_plaque.png per grid cell (Phase5ProjectBuilder.CreateTogglePlaqueCell) —
+            // matches the mockup's identical plaques exactly, 5 of the 6 grid slots filled.
+            SetImageSprite(canvasTransform, "SettingsOverlay/SettingsGrid/MusicCell", plaque);
+            SetImageSprite(canvasTransform, "SettingsOverlay/SettingsGrid/SfxCell", plaque);
+            SetImageSprite(canvasTransform, "SettingsOverlay/SettingsGrid/VibrationCell", plaque);
+            SetImageSprite(canvasTransform, "SettingsOverlay/SettingsGrid/LeftHandedCell", plaque);
+            SetImageSprite(canvasTransform, "SettingsOverlay/SettingsGrid/LanguageCell", plaque);
 
             SetImageSprite(canvasTransform, "StoreComingSoonOverlay/Content/CloseButton", back);
 
-            SetImageSprite(canvasTransform, "LevelCompleteScreen/Content/Buttons/ReplayButton", plaque);
-            SetImageSprite(canvasTransform, "LevelCompleteScreen/Content/Buttons/NextLevelButton", skip);
-            SetImageSprite(canvasTransform, "LevelCompleteScreen/Content/Buttons/HomeButton", home);
+            // Replay/Next Level/Home were removed per the 2026-07-31 mockup — see
+            // LevelCompleteController's doc comment — replaced by a single Skip button.
+            SetImageSprite(canvasTransform, "LevelCompleteScreen/SkipButton", skip);
             SetImageSprite(canvasTransform, "LevelCompleteScreen/NewCharacterUnlockOverlay/UnlockContent/ContinueButton", play);
 
             SetImageSprite(canvasTransform, "LevelFailedScreen/RetryButton", Load(RetryButtonArt));
             SetImageSprite(canvasTransform, "LevelFailedScreen/MenuButton", Load(MenuButtonArt));
 
             SetImageSprite(canvasTransform, "CharacterRosterScreen/BackButton", back);
-            SetImageSprite(canvasTransform, "LeaderboardsScreen/Content/BackButton", back);
-            SetImageSprite(canvasTransform, "ChooseCharacterScreen/BackButton", back);
+            SetImageSprite(canvasTransform, "LeaderboardsScreen/BackButton", back);
+            // The Choose Character mockup's round back icon is a triangle/mountain glyph with no
+            // matching uploaded asset — substituted with Btn_home.png, same as every other round
+            // back button in the game (Settings, Level Select), rather than leaving it unwired.
+            SetImageSprite(canvasTransform, "ChooseCharacterScreen/BackButton", home);
+            // Round Btn_home.png, not Btn_back.png — same mockup-driven deviation as Settings (see
+            // CreateRoundBackButton's doc comment); Level Select's back button is bottom-right.
+            SetImageSprite(canvasTransform, "LevelSelectScreen/BackButton", home);
+
+            EditorSceneManager.SaveScene(EditorSceneManager.GetActiveScene());
+        }
+
+        // ---- Level Select ---------------------------------------------------------------------
+
+        /// <summary>Wires the LevelSelectScreen background, the (unused, kept-built) WorldDivider
+        /// prefab's banner, the 5 LevelTile.prefab state sprites, the SELECT LEVEL title sign, and
+        /// the 4 world badge sprites (LevelSelectController.worldSignSprites) — the back button icon
+        /// (Btn_home.png, not Btn_back.png — see CreateRoundBackButton) is handled by WireButtons
+        /// instead, same as every other screen's back button.</summary>
+        private static void WireLevelSelect()
+        {
+            EditorSceneManager.OpenScene(ScenePath);
+            var canvasTransform = GameObject.Find("Canvas")?.transform;
+            if (canvasTransform == null)
+            {
+                Debug.LogWarning("[ArtWiringBuilder] Could not find Canvas — skipping Level Select wiring.");
+                return;
+            }
+
+            SetScreenBackground(canvasTransform, "LevelSelectScreen", Load(BgLevelSelect));
+
+            // Header has no background art at all per the 2026-07-31 Canva mockup — it's Color.clear
+            // in Phase5ProjectBuilder.BuildLevelSelect, just a layout strip for TitleImage/
+            // StarCounter, so the night-sky Bg_LevelSelect.png shows straight through it.
+
+            // Divider goes through Simple + preserveAspect here rather than the shared
+            // SetImageSprite helper (which forces Type.Sliced) — Sliced ignores preserveAspect
+            // entirely, so a banner whose own aspect ratio doesn't match its fixed-size container
+            // (WorldDivider: 1920x250) got squashed/stretched into that shape instead of keeping its
+            // own proportions. Simple + preserveAspect letterboxes instead of distorting, regardless
+            // of the art's actual resolution.
+            var dividerBanner = Load(DividerWorldBanner);
+            if (dividerBanner != null && File.Exists(WorldDividerPrefabPath))
+            {
+                var dividerContents = PrefabUtility.LoadPrefabContents(WorldDividerPrefabPath);
+                var dividerImage = dividerContents.GetComponent<Image>();
+                if (dividerImage != null)
+                {
+                    dividerImage.sprite = dividerBanner;
+                    dividerImage.type = Image.Type.Simple;
+                    dividerImage.preserveAspect = true;
+                }
+                PrefabUtility.SaveAsPrefabAsset(dividerContents, WorldDividerPrefabPath);
+                PrefabUtility.UnloadPrefabContents(dividerContents);
+            }
+
+            if (File.Exists(LevelTilePrefabPath))
+            {
+                var tileContents = PrefabUtility.LoadPrefabContents(LevelTilePrefabPath);
+                var tileController = tileContents.GetComponent<LevelTileController>();
+                if (tileController != null)
+                {
+                    var so = new SerializedObject(tileController);
+                    so.FindProperty("spriteLocked").objectReferenceValue = Load(LevelTileLocked);
+                    so.FindProperty("spriteUnlocked").objectReferenceValue = Load(LevelTileUnlocked);
+                    so.FindProperty("sprite1Star").objectReferenceValue = Load(LevelTile1Star);
+                    so.FindProperty("sprite2Stars").objectReferenceValue = Load(LevelTile2Stars);
+                    so.FindProperty("sprite3Stars").objectReferenceValue = Load(LevelTile3Stars);
+                    so.ApplyModifiedPropertiesWithoutUndo();
+                }
+                PrefabUtility.SaveAsPrefabAsset(tileContents, LevelTilePrefabPath);
+                PrefabUtility.UnloadPrefabContents(tileContents);
+            }
+
+            // "SELECT LEVEL" word-art replacing the old TMP title text.
+            var titleImage = canvasTransform.Find("LevelSelectScreen/Header/TitleImage")?.GetComponent<Image>();
+            var titleSprite = Load(SelectLevelText);
+            if (titleImage != null && titleSprite != null)
+            {
+                titleImage.sprite = titleSprite;
+                titleImage.type = Image.Type.Simple;
+                titleImage.preserveAspect = true;
+            }
+
+            // Complete world badges (shield + rope + name text already baked into one sprite each),
+            // indexed to match UnlockProgression.GetWorldNameForLevel's own world-number mapping —
+            // used directly as both the world-select carousel's WorldShield instances and the small
+            // CurrentWorldIndicator badge (see LevelSelectController.ShowWorldSelect/RevealWorld/
+            // SetWorldSignSprite). No separate background sprite needed anymore — the old
+            // Divider_WorldBanner.png composition this replaced is gone.
+            var levelSelectController = canvasTransform.Find("LevelSelectScreen")?.GetComponent<LevelSelectController>();
+            if (levelSelectController != null)
+            {
+                var worldSigns = new[] { Load(CornFieldText), Load(VegetablePatchText), Load(OrchardText), Load(WheatfieldText) };
+                var lsSo = new SerializedObject(levelSelectController);
+                var arrayProp = lsSo.FindProperty("worldSignSprites");
+                arrayProp.arraySize = worldSigns.Length;
+                for (int i = 0; i < worldSigns.Length; i++)
+                {
+                    arrayProp.GetArrayElementAtIndex(i).objectReferenceValue = worldSigns[i];
+                }
+                lsSo.ApplyModifiedPropertiesWithoutUndo();
+            }
 
             EditorSceneManager.SaveScene(EditorSceneManager.GetActiveScene());
         }
@@ -881,6 +1041,7 @@ namespace FarmFuryArcade.EditorTools
             var rarePelletPickup = AssetDatabase.LoadAssetAtPath<AudioClip>(RarePelletPickupSfx);
             var robotSpawn = AssetDatabase.LoadAssetAtPath<AudioClip>(RobotSpawnSfx);
             var eatRobotMusic = AssetDatabase.LoadAssetAtPath<AudioClip>(EatRobotMusicClip);
+            var landingMusic = AssetDatabase.LoadAssetAtPath<AudioClip>(LandingMusicClip);
 
             if (musicClip == null)
             {
@@ -905,6 +1066,7 @@ namespace FarmFuryArcade.EditorTools
             if (rarePelletPickup != null) so.FindProperty("rarePelletPickupClip").objectReferenceValue = rarePelletPickup;
             if (robotSpawn != null) so.FindProperty("robotRespawnClip").objectReferenceValue = robotSpawn;
             if (eatRobotMusic != null) so.FindProperty("eatRobotMusicClip").objectReferenceValue = eatRobotMusic;
+            if (landingMusic != null) so.FindProperty("landingMusicClip").objectReferenceValue = landingMusic;
             so.ApplyModifiedPropertiesWithoutUndo();
 
             EditorSceneManager.SaveScene(EditorSceneManager.GetActiveScene());
@@ -959,15 +1121,42 @@ namespace FarmFuryArcade.EditorTools
                 return;
             }
 
-            SetFont(canvasTransform, "SettingsOverlay/Content/Title", font);
-            SetFont(canvasTransform, "SettingsOverlay/Content/MusicRow_Plaque/MusicRow/MusicToggle/MusicToggle_Label", font);
-            SetFont(canvasTransform, "SettingsOverlay/Content/SfxRow_Plaque/SfxRow/SfxToggle/SfxToggle_Label", font);
-            SetFont(canvasTransform, "SettingsOverlay/Content/VibrationToggle_Plaque/VibrationToggle/VibrationToggle_Label", font);
-            SetFont(canvasTransform, "SettingsOverlay/Content/LeftHandedToggle_Plaque/LeftHandedToggle/LeftHandedToggle_Label", font);
-            SetFont(canvasTransform, "SettingsOverlay/Content/LanguageDropdown_Plaque/LanguageDropdown/Label", font);
-            SetFont(canvasTransform, "SettingsOverlay/Content/RestoreProgressButton/RestoreProgressButton_Label", font);
-            SetFont(canvasTransform, "SettingsOverlay/Content/ResetProgressButton/ResetProgressButton_Label", font);
-            SetFont(canvasTransform, "SettingsOverlay/Content/VersionText", font);
+            // Title is SettingsSign.png word-art now (see WireSettingsSign), not TMP text, so it's
+            // no longer in this font list. Rebuilt as a 2x3 grid of whole-plaque toggle cells
+            // (Phase5ProjectBuilder.CreateTogglePlaqueCell) per the 2026-07-31 Canva mockup —
+            // paths below match that hierarchy, not the old Content/*Row_Plaque stack.
+            SetFont(canvasTransform, "SettingsOverlay/SettingsGrid/MusicCell/MusicCell_Label", font);
+            SetFont(canvasTransform, "SettingsOverlay/SettingsGrid/SfxCell/SfxCell_Label", font);
+            SetFont(canvasTransform, "SettingsOverlay/SettingsGrid/VibrationCell/VibrationCell_Label", font);
+            SetFont(canvasTransform, "SettingsOverlay/SettingsGrid/LeftHandedCell/LeftHandedCell_Label", font);
+            SetFont(canvasTransform, "SettingsOverlay/SettingsGrid/LanguageCell/Label", font);
+            SetFont(canvasTransform, "SettingsOverlay/VersionText", font);
+
+            EditorSceneManager.SaveScene(EditorSceneManager.GetActiveScene());
+        }
+
+        /// <summary>SettingsSign.png replaces the old TMP "SETTINGS" title text — same pattern as
+        /// Level Select's SelectLevelSign.png (see WireLevelSelect).</summary>
+        private static void WireSettingsSign()
+        {
+            var sprite = Load(SettingsSignText);
+            if (sprite == null)
+            {
+                return;
+            }
+
+            EditorSceneManager.OpenScene(ScenePath);
+            var canvasTransform = GameObject.Find("Canvas")?.transform;
+            var titleImage = canvasTransform != null ? canvasTransform.Find("SettingsOverlay/TitleImage")?.GetComponent<Image>() : null;
+            if (titleImage == null)
+            {
+                Debug.LogWarning("[ArtWiringBuilder] Could not find SettingsOverlay/TitleImage — skipping SettingsSign wiring.");
+                return;
+            }
+
+            titleImage.sprite = sprite;
+            titleImage.type = Image.Type.Simple;
+            titleImage.preserveAspect = true;
 
             EditorSceneManager.SaveScene(EditorSceneManager.GetActiveScene());
         }

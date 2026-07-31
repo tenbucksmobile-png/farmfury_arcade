@@ -315,13 +315,15 @@ of the existing `Canvas` GameObject (built by `Phase1ProjectBuilder`, upgraded b
 the "scale properly for different screen sizes" requirement) and is mutually exclusive with every
 other top-level screen.
 
-**Flow:** Main Menu → World Map → Gameplay HUD → (Level Complete | Level Failed) → World
-Map. World Map itself is just Map.png with two bottom-corner icon buttons (Play/Home, same
-convention as Main Menu's own Play/Settings — see the World Map bullet under "Landing/
-Gameplay-HUD cleanup" below); tapping Play (`WorldMapController.OnPlayTapped`) calls `GameManager.LoadLevel` and
-`SceneTransitionManager.ShowOnly` directly — there is no intermediate "VS" matchup screen and no
-countdown; gameplay starts immediately. (A `MatchupScreenController` screen existed here through
-Phase 5 but was removed later — see "Removed: Matchup screen" below.)
+**Flow:** Main Menu → World Map → Level Select → Gameplay HUD → Level Complete → Level Select
+(Skip button) or Level Failed → Gameplay (Retry)/Main Menu. World Map itself is just Map.png with
+two bottom-corner icon buttons (Play/Home, same convention as Main Menu's own Play/Settings — see
+the World Map bullet under "Landing/Gameplay-HUD cleanup" below); tapping Play
+(`WorldMapController.OnPlayTapped`) calls `SceneTransitionManager.ShowOnly(levelSelectScreen)` —
+Level Select (see its own section below) is where a level actually gets picked and
+`GameManager.LoadLevel` + `ShowOnly(gameplayScreen)` happen. There is no intermediate "VS" matchup
+screen and no countdown. (A `MatchupScreenController` screen existed here through Phase 5 but was
+removed later — see "Removed: Matchup screen" below.)
 **`SceneTransitionManager`** (`Core`) is the single place this is orchestrated: `ShowOnly
 (GameObject)` deactivates every screen in its `screenRoots` array and activates just the target,
 wrapped in a black-`CanvasGroup` fade (`TransitionTo(Action swapScreens)` is the more general form
@@ -331,9 +333,12 @@ show one"). Screen controllers never call `SetActive` on each other directly; th
 
 **Overlays are NOT in `screenRoots`** — Pause, Settings, the Store "coming soon" placeholder, and
 New Character Unlock layer on top of whatever's currently showing (almost always Gameplay or
-Level Complete) rather than replacing it, and manage their own `SetActive` directly. This is why
-`PauseMenuController`/`SettingsPanel` don't fade — they're instant show/hide, matching "semi-
-transparent overlay dims gameplay" from the spec more literally than a full-screen fade would.
+Level Complete) rather than going through `SceneTransitionManager.ShowOnly`, and manage their own
+`SetActive` directly (instant show/hide, no fade). Originally this also meant "dim gameplay, don't
+replace it" (a semi-transparent black overlay) — Pause (and Choose Character, which layers on top
+of Pause) dropped that in the 2026-07-31 mockup pass in favour of `World1_Cornfield.png` as an
+opaque backdrop, so gameplay is no longer visible behind either while paused. Settings' backdrop
+was always opaque regardless of which screen opened it.
 
 **Removed: Matchup screen.** The Phase 5 "VS" card screen (`MatchupScreenController`, shown between
 World Map and Gameplay — character card vs. up to 3 robot cards, plus a 3-2-1-GO countdown) was
@@ -424,9 +429,13 @@ correct. Time/perfect bonuses are folded into `CurrentMazeScore` inside `Compute
 (via a plain `AddPoints` call) so the HUD's live score and the final `LevelResult.totalScore` never
 disagree.
 
-**`ComboSystem.CombosTriggeredThisMaze`** (added this phase) is what `LevelCompleteController`'s
-"combo achievements this run" line reads — a simple ordered name list, reset with everything else
-in `ComboSystem.ResetForNewMaze()`.
+**`ComboSystem.CombosTriggeredThisMaze`** is a simple ordered name list, reset with everything
+else in `ComboSystem.ResetForNewMaze()`. It (and the crop/robot/time/perfect-bonus breakdown, and
+coins-earned) is no longer displayed anywhere — `LevelCompleteController` was simplified to a
+Canva mockup (2026-07-31) that only has room for stars + a score readout on `LevelComplete.png`'s
+own wooden shelf (see "Art status" below); the underlying data these used to read is all still
+computed (`GameManager.LastLevelResult`, `ScoreManager`'s breakdown fields, `SaveManager`'s coin
+balance) in case a future screen wants to surface it again, only the display was removed.
 
 **`UnlockManager.LastUnlockedBatch`** is how `LevelCompleteController` knows to show
 `NewCharacterUnlockScreen` automatically after the star/score celebration finishes, without
@@ -437,20 +446,69 @@ in `ComboSystem.ResetForNewMaze()`.
 `CharacterSelectCard.cs`) replaced the Phase 4 `CharacterSwapUI` `OnGUI` panel. Not a
 `SceneTransitionManager` screen — like Pause/Settings, it's an overlay shown/hidden directly
 (`Show()`/`ToggleOpen()`), temporarily taking Pause's place on top of Gameplay and handing back to
-it afterward (`pauseMenuScreen` back-reference). Background is `LoadingScreen Background.png` (the
-same barn/night art used behind Settings). One `CharacterSelectCard` per `CharacterData.GetAllCharacterData()`
-entry lays out in a fixed 4-column `GridLayoutGroup` (`ChooseCharacterScreen.BuildChooseCharacterScreen`
-in `Phase5ProjectBuilder`), each showing `CharacterData.selectCardArt` — a dedicated framed "animal
-card" image per character (`Sprites/UI/{Name}_{Species}.png`, own wood-frame border baked in,
-distinct from the plain `portraitSprite` front sprite used elsewhere) — or a placeholder square for
-any character without one. Locked cards show a "LOCKED" overlay and their `Button.interactable` is
-`false`; the active character's card gets a gold glow (`activeHighlight`, a slightly larger Image
-behind the card so it peeks out around the edges) and is also non-interactable (can't "swap" to the
-character already active). Tapping an eligible card pops it (scale + `SetAsLastSibling`, avoiding a
-fight with the `GridLayoutGroup` repositioning it), deducts the same 1-coin cost `CharacterSwapUI`
-used to (free if the player has 0), calls `CharacterManager.SwapCharacter`, then closes back to
+it afterward (`pauseMenuScreen` back-reference). Background is `World1_Cornfield.png` (same
+backdrop as Pause) with `Logo.png` top-left and a round back button bottom-left (Btn_home.png
+substituted for the mockup's unmatched triangle icon — see `CreateRoundBackButton`'s doc comment
+in `Phase5ProjectBuilder`), per a 2026-07-31 Canva mockup. One `CharacterSelectCard` per
+`CharacterData.GetAllCharacterData()` entry sits in a `CardCarouselController` (the same
+component Level Select's world picker uses — see that section above), each showing
+`CharacterData.selectCardArt` — a dedicated framed "animal card" image per character
+(`Sprites/UI/{Name}_{Species}.png`, own wood-frame border baked in, distinct from the plain
+`portraitSprite` front sprite used elsewhere) — or a placeholder square for any character without
+one. Locked cards show a "LOCKED" overlay and their `Button.interactable` is `false`; the active
+character's card gets a gold glow (`activeHighlight`) and is also non-interactable (can't "swap"
+to the character already active) — a non-interactable `Button` also means the carousel can't
+re-centre onto that card via tap, only via drag. Flick to cycle which card is centred; tapping the
+centred card pops it (scale, `SetAsLastSibling`, `carousel.enabled = false` first — see
+`CardCarouselController`'s gotcha above), deducts the same 1-coin cost `CharacterSwapUI` used to
+(free if the player has 0), calls `CharacterManager.SwapCharacter`, then auto-closes back to
 Pause. Tab still toggles it too, via the same `InputController.OnSwapMenuToggleInput` event
 `CharacterSwapUI` used — nothing else needed to change to preserve that shortcut.
+
+### Level Select (`Scripts/UI/LevelSelectController.cs`, `CardCarouselController.cs`, `LevelTileController.cs`, `LockedHintPanel.cs`, `Scripts/Utilities/UnlockProgression.cs`)
+
+Reached from World Map's Play button. Two states on one screen (`LevelSelectScreen`):
+
+- **World select** — a horizontally flickable carousel (`CardCarouselController`, see below) of
+  world badges, one per currently-unlocked world (`LevelSelectController.IsWorldAvailable`: world
+  0/Corn Field always available, world N unlocks once the last level of world N-1 has 2+ stars —
+  the same threshold `UnlockProgression` gates level access on, so a badge is never shown for a
+  world whose levels are actually still locked). Each badge is a single self-contained sprite
+  (`CornfieldSign`/`VegetablePatchSign`/`OrchardSign`/`WheatfieldSign.png` — shield shape, rope
+  ties, and the world's name all baked into one image) set via
+  `LevelSelectController.worldSignSprites[world]` — no separate background+text-overlay
+  composition. Flicking cycles which badge is centred (full scale); tapping the already-centred
+  badge shrinks-and-fades it in place while a small persistent `CurrentWorldIndicator` badge
+  (same sprite, same convention) fades in top-left of the screen, then reveals that world's tile
+  grid (`LevelSelectController.RevealWorld`). Tapping the indicator again returns to world select.
+- **Tile grid** — a 4-column `GridLayoutGroup` (one `LevelTileController` per level in that world,
+  `UnlockProgression.LevelsPerWorld` = 25 per world) inside a vertical `ScrollRect`, auto-scrolled
+  to centre the highest-unlocked level on open. Tile sprites are fully state-driven
+  (`LevelTileController.spriteLocked/spriteUnlocked/sprite1Star/sprite2Stars/sprite3Stars`, wired
+  from `LevelTile_Locked/unlocked-notplayed/1Star/2Stars/3Stars.png`) — no code changes needed
+  when new levels are authored, a slot with no real `LevelData` just renders locked. Tapping a
+  locked tile shows `LockedHintPanel` (a 2s auto-dismissing toast, `UnlockProgression.
+  GetUnlockHint`); tapping an unlocked tile calls `GameManager.LoadLevel` +
+  `SceneTransitionManager.ShowOnly(gameplayScreen)` directly — same two calls
+  `WorldMapController.OnPlayTapped` used before this screen existed, no Matchup-screen revival.
+
+**`CardCarouselController`** (generic, also reused by `ChooseCharacterScreen` — see below) drives
+any horizontal "front card enlarged" picker: a continuous float offset (in item-index units) maps
+to each item's `anchoredPosition`/`localScale` every frame (centred item at full scale, items
+further away pushed down and shrunk — a cheap 2D stand-in for "receding into a circle," no real 3D
+perspective needed for a handful of items). Dragging moves the offset directly; releasing snaps to
+the nearest integer index. Tapping the already-centred item invokes the owning screen's selection
+callback; tapping any other visible item just re-centres the carousel on it first, so a stray tap
+mid-flick can't accidentally commit to the wrong item. The owning screen instantiates/destroys the
+item GameObjects itself (`SetItems`/`ClearItems`) — the carousel only ever positions whatever
+RectTransforms it's handed. **Gotcha:** the carousel's own `Update()` re-applies every item's scale
+from its distance-to-centre every frame — a caller that also wants to scale/shrink an item via its
+own coroutine (`LevelSelectController.RevealWorld`'s shrink-to-indicator, `ChooseCharacterScreen.
+SelectRoutine`'s pop-scale) **must** set `carousel.enabled = false` first, or the carousel's
+per-frame layout pass fights the coroutine for the same `RectTransform.localScale` and the
+animation never visibly happens. Re-enabled at the top of the next `ShowWorldSelect`/`Refresh`
+call, not inside the animation routine itself, since the screen closes/re-populates right after
+either way.
 
 **Daily Challenge** (`DailyChallengeManager`): today's `ChallengeType` is seeded from
 `DateTime.UtcNow` (`"yyyy-MM-dd").GetHashCode()`), so every player sees the same challenge on a
@@ -770,41 +828,91 @@ values from the GDD's color palette where one exists (e.g. walls = Wall Brown `#
   offset 0 (see `EggDropAbility.TileOffsetsBehind`) spawns directly under Cluck's own feet, so it
   needs to draw on top of her, not just the ground, to be visible there at all.
 - **UI backgrounds** — `MainMenuScreen` uses `landing.png` (which has "FARM FURY ARCADE" baked
-  into the art), `WorldMapScreen` uses `Map.png`,
-  `LevelCompleteScreen`/`LevelFailedScreen`/`PauseOverlay` use dedicated `LevelComplete.png`/
-  `LevelFailed.png`/`Paused.png` panel art (previously these 3 all reused `World1_Cornfield.png`/
-  `Wheatfield_background.png` as stand-ins; those two files are now unused). `matchup.png` is also
-  now unused — left on disk, not deleted — after the Matchup screen's removal (see "Removed:
-  Matchup screen"). Because
+  into the art), `WorldMapScreen` uses `Map.png`. `LevelFailedScreen` still uses `LevelFailed.png`
+  stretched full-screen (it hasn't had the square-art `PanelArt` fix Pause/Level Complete got — a
+  known gap, see below). `LevelCompleteScreen`/`PauseOverlay`/`ChooseCharacterScreen` all use
+  `World1_Cornfield.png` as their root background now (per the 2026-07-31 mockups — see their own
+  bullets above), with `LevelComplete.png`/`Paused.png` as an aspect-locked `PanelArt` child on top
+  for the first two; `Wheatfield_background.png` is unused again as a result (it briefly stood in
+  for these before real dedicated panel art existed). `matchup.png` is also unused — left on disk,
+  not deleted — after the Matchup screen's removal (see "Removed: Matchup screen"). Because
   `landing.png`'s logo sits centred in the upper half, `MainMenuScreen/Content` (the button stack)
   was re-anchored to the bottom of the screen (`anchorMin/Max = (0.5, 0)`, `pivot = (0.5, 0)`,
   `anchoredPosition = (0, 30)`) instead of screen-center, so it no longer overlaps the art's logo.
-  `LoadingScreen Background.png` and `Logo.png` were uploaded but aren't wired anywhere — there's
-  no dedicated loading screen in the current screen flow, and `Logo.png` has no obvious slot since
-  `landing.png` already bakes the logo into Main Menu.
+  `Logo.png` is now wired as a small top-left `LogoImage` on every 2026-07-31-mockup screen
+  (Settings, Level Select, Pause, Choose Character, Level Complete) — `landing.png` still bakes its
+  own logo into Main Menu directly, so Main Menu has no separate `LogoImage`. `LoadingScreen
+  Background.png` is still uploaded but unwired (`ChooseCharacterScreen` used it briefly before
+  switching to `World1_Cornfield.png`) — there's no dedicated loading screen in the current screen
+  flow for it to go to.
 - **`Paused.png` is on its own aspect-locked child, not the overlay root.** `Paused.png` is a
   square (2048x2048) parchment/frame card with its 5 button rows (Resume/Swap Character/Restart/
   Settings/Quit) baked directly into the art. It used to be set as `PauseOverlay`'s own root
   `Image`, which stretches full-screen — on a real landscape aspect that non-uniformly stretched
   the square art, squashing its baked-in rows together and dragging the separately-wired button
   art (`Resume.png` etc., positioned by hand-tuned fractions) out of alignment with them.
-  `Phase5ProjectBuilder.BuildPauseMenu` now parents a `PanelArt` child under the root, locked to a
+  `Phase5ProjectBuilder.BuildPauseMenu` parents a `PanelArt` child under the root, locked to a
   1:1 aspect via `AspectRatioFitter` (`FitInParent`) so it stays centred and undistorted at any
-  screen aspect; the root's own `Image` goes back to being the plain full-screen black dim every
-  other overlay uses. All 5 buttons moved under `PanelArt` so their fractions stay aligned with it.
-- **Settings uses one `Btn_plaque.png` per control row, not one stretched behind everything.**
-  `Btn_plaque.png` is a small wide rounded-pill button graphic; an earlier version stretched a
-  single instance of it behind the *entire* control stack (toggles, sliders, dropdown, buttons),
-  which distorted it into an unreadable blob with every control floating over it unframed.
-  `Phase5ProjectBuilder.WrapInPlaqueRow` now gives each row (Music, SFX, Vibration, Left-Handed,
-  Language) its own plaque, 9-sliced (`ArtWiringBuilder` computes `spriteBorder` for `Btn_plaque.png`
-  as a fraction of its own pixel size, and `SetImageSprite` applies `Image.Type.Sliced` to every
-  wired button sprite — a no-op for sprites with no configured border, so this didn't need to be
-  special-cased per call site) so the pill's rounded caps survive being stretched much wider than
-  the source art's own aspect. Settings text was also left on TMP's default `LiberationSans SDF`
-  font (see "TextMeshPro bootstrap" below) — `ArtWiringBuilder.WireSettingsFont` now wires the same
-  `Bangers SDF` cartoon font Gameplay HUD's score/timer use, so Settings reads consistently with
-  the rest of the UI.
+  screen aspect. All 5 buttons sit under `PanelArt` so their fractions stay aligned with it.
+  `LevelCompleteScreen` was later given the identical `PanelArt` treatment for `LevelComplete.png`
+  (see its own bullet below) once it hit the same square-art-on-landscape-overlay problem.
+  **The root's own `Image` is no longer a plain black dim** — per a 2026-07-31 Canva mockup it's
+  now `World1_Cornfield.png` (an opaque cornfield/barn/moon backdrop), so Pause fully replaces the
+  view instead of dimming the gameplay maze behind it; `LogoImage` (`Logo.png`, top-left, same
+  size/inset as every other mockup-driven screen) was added to match. Choose Character and Level
+  Complete got the same `World1_Cornfield.png` root + `LogoImage` treatment per their own mockups
+  (same session) — see their bullets below.
+- **Settings is a 2x3 grid of whole-plaque toggle cells, not a vertical stack of rows.** Rebuilt to
+  a 2026-07-31 Canva mockup: root background is `Bg_LevelSelect.png` (moon/windmill/barn — see the
+  Level Select bullet below for where else this art is used), `Logo.png` top-left, `SettingsSign.png`
+  as the header (replacing the old TMP "SETTINGS" text), a round `Btn_home.png` back button
+  bottom-right (`CreateRoundBackButton` — see its own bullet below), and a `GridLayoutGroup` of
+  `Btn_plaque.png` cells (Music/SFX/Vibration/Left-Handed/Language filled, the grid's 6th cell left
+  empty). Each cell **is** its Toggle (`Phase5ProjectBuilder.CreateTogglePlaqueCell` — `Toggle` and
+  `Image` on the same GameObject, `targetGraphic` = its own `Image`), not a separate small checkbox
+  floating on top of a plaque — the whole cell is the tap target. Music/SFX volume sliders were
+  dropped entirely (a grid cell isn't large enough to host both a tap target and a drag target
+  cleanly) — Music/SFX are now simple mute toggles like Vibration/Left-Handed; `SaveManager.
+  MusicVolume`/`SfxVolume` still exist for whenever a volume control gets a dedicated slot again,
+  only the in-panel UI for it is gone. Restore Progress/Reset Progress (and their confirm
+  sub-panel) were removed entirely per the same pass — Restore was Phase 6/cloud-save scope with
+  no real action, and Reset's confirm sub-panel went with it. Settings text uses the same
+  `Bangers SDF` cartoon font Gameplay HUD's score/timer use (`ArtWiringBuilder.WireSettingsFont`),
+  not TMP's default `LiberationSans SDF`.
+- **Round back buttons vs. the generic bottom-left one.** Every screen with a back button used to
+  use `Phase5ProjectBuilder.CreateGenericBackButton` (rectangular `Btn_back.png`, bottom-left,
+  160x160, safe-area inset). Settings, Level Select, and Choose Character now each have their own
+  Canva mockup that places a round icon there instead — `CreateRoundBackButton(screenRoot,
+  bottomRight)` builds that variant (`Btn_home.png`, 160x160, same inset, either bottom-right
+  [Settings, Level Select] or bottom-left [Choose Character, whose mockup's triangle/mountain icon
+  has no matching uploaded asset — substituted with `Btn_home.png` for consistency with the other
+  two rather than left unwired]). Character Roster and Leaderboards remain the only
+  `CreateGenericBackButton` users left.
+- **Level Select** — root background is `Bg_LevelSelect.png` (moon top-right, windmill bottom-
+  right, barn bottom-left, rolling hills — also reused as-is for `SettingsOverlay`, see above).
+  `Header` has no background art at all (`Color.clear`) — it's just a layout strip for
+  `TitleImage`/`StarCounter`, so the night sky shows straight through; `Header_LevelSelect.png`
+  (a constant that used to point at a file which was never actually uploaded) was removed rather
+  than kept as a dead reference. `SelectLevelSign.png` is `TitleImage`'s word-art (replacing old
+  TMP "SELECT LEVEL" text). The 4 world badges (`CornfieldSign`/`VegetablePatchSign`/`OrchardSign`/
+  `WheatfieldSign.png` — note `CornfieldSign.png`'s on-disk filename has a lowercase "f", unlike
+  the other three, since `AssetDatabase.LoadAssetAtPath` is case-sensitive regardless of the OS
+  filesystem) are wired straight onto `LevelSelectController.worldSignSprites` — see the "Level
+  Select" architecture section above for how the carousel/tile-grid consume them. The tile grid is
+  4 columns (was 5) to match the same mockup. `Divider_WorldBanner.png` is now only used by the
+  kept-but-unlinked `WorldDivider` prefab (see the Level Select architecture section) — it's no
+  longer the world badges' background, since the `*Sign.png` files already bake in the full badge
+  art (shield + rope + name text) with nothing separate needed on top.
+- **Level Complete is stars + score only, not a full breakdown.** Rebuilt to the same 2026-07-31
+  Canva mockup pass: root is `World1_Cornfield.png` + `Logo.png` top-left (same as Pause/Choose
+  Character), `LevelComplete.png` is an aspect-locked `PanelArt` child (same square-art-on-
+  landscape-overlay fix Pause already had — see its bullet above), a small star row + score text
+  sit on the art's own wooden shelf (`SetAnchorRect` fractions measured off the art), and a single
+  `Btn_skip.png` button (bottom-right) replaces the old Replay/Next Level/Home row — see
+  `LevelCompleteController`'s doc comment and the "Score breakdown categories" note above for what
+  got dropped from display (not from the underlying computation). The coin icon that used to sit
+  next to a "+N coins" text (`ArtWiringBuilder.AddCoinIcon`) was removed along with that text —
+  `Collectable Coin.png` is currently unwired again.
 - **Maze wall/ground/warp-tunnel tiles** — `Wall_CornField`/`Ground_CornField`/`WarpTunnel`
   prefabs (each instantiated per-cell by `TileMapRenderer` at scale `TileMapRenderer.CellSize`,
   same convention crops/pellets already used) now use `CornTiles.png`/`FloorTile.png`/
@@ -829,12 +937,9 @@ values from the GDD's color palette where one exists (e.g. walls = Wall Brown `#
   Challenge) share the generic `Btn_plaque.png` background. `Btn_nosound.png`
   is wired now too, as `GameplayHUD`'s `soundOffSprite` (paired with `Btn_music.png` as
   `soundOnSprite`) — the HUD's new `SoundButton` is the first place either sprite swaps at
-  runtime; `SettingsPanel`'s separate Music toggle still only has one icon slot and doesn't swap
-  art on/off, just its checkmark.
-- **Coin icon** — `Collectable Coin.png` was added as a new `CoinIcon` Image next to
-  `LevelCompleteScreen`'s existing "+N coins" text (that field never had an icon slot before, so
-  `ArtWiringBuilder` wraps it in a new `CoinsRow` horizontal group rather than adding a dedicated
-  serialized field for one icon).
+  runtime; Settings' Music/SFX toggles don't use `Btn_music.png`/`Btn_nosound.png` at all anymore
+  — see the Settings grid bullet above, each toggle's own `Btn_plaque.png` cell is the whole tap
+  target, with no separate checkbox/checkmark icon on top.
 - **App icon** — `AppIcon.png` set as the Unity Player Settings icon (`PlayerSettings.
   SetIconsForTargetGroup`, Standalone + the default/`Unknown` group) — a project-settings change,
   not a scene/prefab one.
@@ -954,10 +1059,11 @@ and reopen the project normally to confirm nothing was corrupted.
   `ComboSystem`, character unlocks on level complete (`UnlockManager`), a functional-not-polished
   swap UI (`CharacterSwapUI`, Tab to open) — done. (`CharacterSwapUI` was later replaced by the
   real uGUI `ChooseCharacterScreen` — see that entry above.)
-- **Phase 5** (progression & UI): full screen flow (Main Menu → World Map → Gameplay →
-  Level Complete/Failed, plus Character Roster/Leaderboards/Settings/a Store placeholder) as real
-  uGUI with TextMeshPro, `SceneTransitionManager`-driven fades, score breakdown + star rating +
-  coin reward on level complete, automatic New Character Unlock celebration, `AudioManager`
+- **Phase 5** (progression & UI): full screen flow (Main Menu → World Map → Level Select →
+  Gameplay → Level Complete/Failed, plus Character Roster/Leaderboards/Settings/a Store placeholder)
+  as real uGUI with TextMeshPro, `SceneTransitionManager`-driven fades, star rating + score on
+  level complete (the fuller breakdown/coin display it originally had was simplified away in a
+  later mockup pass — see "Art status"), automatic New Character Unlock celebration, `AudioManager`
   (API-complete, no clips yet), `DailyChallengeManager` foundation (5 challenge types, date-seeded,
   reuses `LevelData_01` rather than a distinct maze), local `LeaderboardManager` — done.
 
@@ -974,22 +1080,22 @@ and reopen the project normally to confirm nothing was corrupted.
   but Daily Challenge completion never depended on it.)
 - **Store is a placeholder** ("coming in Phase 6" panel) per spec's own scope note — no cosmetics
   UI or IAP hookup exists.
-- **Restore Progress** (Settings) logs and does nothing — real implementation needs cloud save
-  (Phase 6).
+- **Settings has no Restore/Reset Progress at all anymore** — both were removed entirely (not just
+  stubbed) in the 2026-07-31 mockup pass; Restore was Phase 6/cloud-save scope with no real action
+  either way. Real cloud-save restore is still Phase 6 scope if it comes back.
 - **Leaderboards has no cloud sync** — local-only, per spec.
 - **`DailyChallengeManager.CharacterLocked` isn't enforced**, only checked after the fact — a
   player can freely swap characters during a Character-Locked daily challenge; the run just won't
   register as completed if more than one character was used. Real enforcement needs
   `CharacterManager.CanSwapTo` to know about the active challenge.
-- **World Map has no visible level-select UI at all** — it dropped the horizontal scroll strip of
-  numbered markers entirely (see the World Map bullet under "Landing/Gameplay-HUD cleanup") in
-  favor of a single Play button that jumps straight to the next available level, since with only
-  2 `LevelData` assets against the GDD's 100-level target there was no real per-level layout for
-  markers to align with anyway. `Map.png` (an isometric winding-path farm illustration) is still
-  `WorldMapScreen`'s background purely as decoration now. `LevelMarker`/`StarDisplay`/
-  `Phase5ProjectBuilder.BuildLevelMarkerPrefab` are kept built but unwired — reconnecting a real
-  level-select screen (with markers hand-placed along the art's path) is content-authoring scope
-  once there are enough levels to need one, not a rewrite.
+- **World Map itself still has no level markers on `Map.png`** — its own horizontal scroll strip
+  of numbered markers (`LevelMarker`/`StarDisplay`, `Phase5ProjectBuilder.BuildLevelMarkerPrefab`)
+  is kept built but unwired; `Map.png` (an isometric winding-path farm illustration) is still
+  `WorldMapScreen`'s background purely as decoration. This is **not** the same gap as "no
+  level-select UI" anymore — World Map's Play button now opens the real Level Select screen (world
+  badge carousel + per-world tile grid, see the "Level Select" architecture section above), which
+  is where a specific level actually gets picked. Reconnecting `Map.png`'s own path-aligned markers
+  would be a separate, purely decorative addition on top of World Map, not a functional gap.
 - **No ability icon sprites, and only partial portrait art** — the HUD portrait
   (`GameplayHUD.characterPortrait`, via `RefreshPortrait`) uses `CharacterData.portraitSprite`
   (front sprite) where a character has real art (see "Art status"); Roster cards still use
@@ -998,27 +1104,27 @@ and reopen the project normally to confirm nothing was corrupted.
 ## UX flow
 
 ```
-Main Menu ──Play──▶ World Map ──Play (next available level, no countdown)──▶ Gameplay HUD
-    │                    │▲                                                            │▲  │
-    │                    ││ Home                                          Pause(P)────▶│└──┼─▶ Resume
-    │                    │└─────────────────────────────────────────────────────────────┘  │
-    │                    │                                                                  │
-    │                    │◀────────────────────── Home ─────────────────────┐               │
-    │                    │                                                  │               │
-    │                    │◀── Replay / Next Level (loops back to Gameplay) ─┤               │
-    │                    │                                          Level Complete◀─────────┤
-    │                    └──────────────────────────────────────────────────┘   (all crops   │
-    │                                                                            collected)   │
-    │                                                                                         │
-    │                                                            Level Failed◀────────────────┘
-    │                                                             (Pause ▸ Quit to Menu)
+Main Menu ──Play──▶ World Map ──Play──▶ Level Select ──tap unlocked tile──▶ Gameplay HUD
+    │                    │▲                  │▲                                       │▲  │
+    │                    ││ Home              │└─ tap CurrentWorldIndicator (world select) │
+    │                    │└──────────────────┘                              Pause(P)──▶│└──┼─▶ Resume
+    │                    │                                                              │
+    │                    │◀───────────────────────────────── back (round icon) ─────────┘
+    │                    │
+    │                    │                                                  Level Complete
+    │                    │◀──────────────────── Skip ──────────────────────────▲  (all crops
+    │                                                                          │   collected)
+    │                                                          Level Failed◀───┘
+    │                                                          (Retry loops back to Gameplay,
+    │                                                           or Pause ▸ Quit to Menu)
     │
-    └──Settings (gear)────▶ modal overlay (music/sfx/volume/vibration/language/handedness,
-                             reset progress w/ confirm) ──X──▶ wherever it was opened from
+    └──Settings (gear)────▶ modal overlay (2x3 plaque grid: music/sfx/vibration/left-handed/
+                             language) ──back (round icon)──▶ wherever it was opened from
 ```
 
 (A Matchup "VS" card screen with a 3-2-1-GO countdown used to sit between World Map and Gameplay
-HUD — removed entirely; see "Removed: Matchup screen" above.)
+HUD — removed entirely; see "Removed: Matchup screen" above. Level Select itself — world badge
+carousel → per-world tile grid — is a later addition; see the "Level Select" architecture section.)
 
 Pause and Settings are **overlays** (layer on top of whatever's showing, dim it, don't replace it)
 — everything else in this diagram is a **screen swap** through `SceneTransitionManager.ShowOnly`.

@@ -148,9 +148,61 @@ namespace FarmFuryArcade.EditorTools
         private static GameObject SaveAndDestroy(GameObject go, string path)
         {
             Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+
+            // PlaceholderSprite.Get() creates a Sprite from an in-memory Texture2D that was never
+            // written to disk as an asset — SaveAsPrefabAsset can't serialize a reference to a
+            // non-asset object, so any SpriteRenderer still using one ends up with a NULL sprite
+            // in the saved .prefab (invisible in-game). See Phase4ProjectBuilder's
+            // EmbedRuntimePlaceholderSprites for the full story and the confirmed evidence
+            // (Egg.prefab/WaterTile.prefab/Horace.prefab all shipped with m_Sprite: {fileID: 0}).
+            var placeholderSprites = new List<(string transformPath, Sprite sprite)>();
+            foreach (var sr in go.GetComponentsInChildren<SpriteRenderer>(true))
+            {
+                if (sr.sprite != null && string.IsNullOrEmpty(AssetDatabase.GetAssetPath(sr.sprite)))
+                {
+                    placeholderSprites.Add((AnimationUtility.CalculateTransformPath(sr.transform, go.transform), sr.sprite));
+                }
+            }
+
             var prefab = PrefabUtility.SaveAsPrefabAsset(go, path);
             Object.DestroyImmediate(go);
+
+            if (placeholderSprites.Count > 0)
+            {
+                EmbedRuntimePlaceholderSprites(path, placeholderSprites);
+                prefab = AssetDatabase.LoadAssetAtPath<GameObject>(path);
+            }
+
             return prefab;
+        }
+
+        private static void EmbedRuntimePlaceholderSprites(string prefabPath, List<(string transformPath, Sprite sprite)> placeholders)
+        {
+            var contents = PrefabUtility.LoadPrefabContents(prefabPath);
+            foreach (var (transformPath, sprite) in placeholders)
+            {
+                var target = string.IsNullOrEmpty(transformPath) ? contents.transform : contents.transform.Find(transformPath);
+                var sr = target != null ? target.GetComponent<SpriteRenderer>() : null;
+                if (sr == null)
+                {
+                    continue;
+                }
+
+                if (sprite.texture != null && string.IsNullOrEmpty(AssetDatabase.GetAssetPath(sprite.texture)))
+                {
+                    AssetDatabase.AddObjectToAsset(sprite.texture, prefabPath);
+                }
+                if (string.IsNullOrEmpty(AssetDatabase.GetAssetPath(sprite)))
+                {
+                    AssetDatabase.AddObjectToAsset(sprite, prefabPath);
+                }
+                sr.sprite = sprite;
+            }
+
+            PrefabUtility.SaveAsPrefabAsset(contents, prefabPath);
+            PrefabUtility.UnloadPrefabContents(contents);
+            AssetDatabase.SaveAssets();
+            AssetDatabase.ImportAsset(prefabPath, ImportAssetOptions.ForceUpdate);
         }
 
         private static void BuildCharacterData()
@@ -350,16 +402,31 @@ namespace FarmFuryArcade.EditorTools
             level.baseRobotSpeed = 3.5f;
             level.robotSpawns = new RobotSpawnData[0]; // No robots yet — Phase 3
             level.warpTunnelRows = new[] { warpRow };
+            // Explicitly cleared, not just left untouched — UpdateLevelData01Water used to set
+            // this to stamp the (now-removed) water gate at row 11; without resetting it here, a
+            // full regeneration would otherwise carry that stale value forward forever (this method
+            // rebuilds the grid from scratch, but never used to touch this particular field).
+            level.waterTeleportRows = new int[0];
             level.totalCropsRequired = kernels + vegetables + pellets;
 
             EditorUtility.SetDirty(level);
         }
 
+        /// <summary>Fraction of remaining connector walls reopened after the spanning tree is
+        /// carved, adding loops back into what would otherwise be a maze with exactly one path
+        /// between any two points. Dropped from 0.22 to 0.05 per playtest feedback: robots read as
+        /// "falling into a loop of going in one line" — the wide multi-path open areas the higher
+        /// value produced gave robot AI long straight runs with no real branching decision to make.
+        /// Kept slightly above zero (a pure spanning tree) rather than 0, so a few loops still exist
+        /// for the player to escape into — "only single paths" as the dominant character of the
+        /// board, not literally every last connector sealed.</summary>
+        private const double LoopReopenChance = 0.05;
+
         /// <summary>Randomized recursive backtracker over the left-half cell lattice (odd x in
         /// 1..leftHalfMax, odd y in 1..height-2 are "room" cells; the even coordinate between two
         /// adjacent visited cells is the connector carved open to join them). Produces a spanning
-        /// tree of 1-tile-wide corridors, then reopens ~22% of the remaining connector walls so the
-        /// maze has loops instead of exactly one path between any two points.</summary>
+        /// tree of 1-tile-wide corridors, then reopens LoopReopenChance of the remaining connector
+        /// walls so the maze has a few loops instead of exactly one path between any two points.</summary>
         private static void CarveMazeCorridors(int[,] grid, int height, int leftHalfMax)
         {
             var rng = new System.Random(MazeSeed);
@@ -405,7 +472,7 @@ namespace FarmFuryArcade.EditorTools
             {
                 for (int y = 1; y <= height - 2; y += 2)
                 {
-                    if (grid[x, y] == 1 && grid[x - 1, y] == 0 && grid[x + 1, y] == 0 && rng.NextDouble() < 0.22)
+                    if (grid[x, y] == 1 && grid[x - 1, y] == 0 && grid[x + 1, y] == 0 && rng.NextDouble() < LoopReopenChance)
                     {
                         grid[x, y] = 0;
                     }
@@ -416,7 +483,7 @@ namespace FarmFuryArcade.EditorTools
             {
                 for (int y = 2; y <= height - 3; y += 2)
                 {
-                    if (grid[x, y] == 1 && grid[x, y - 1] == 0 && grid[x, y + 1] == 0 && rng.NextDouble() < 0.22)
+                    if (grid[x, y] == 1 && grid[x, y - 1] == 0 && grid[x, y + 1] == 0 && rng.NextDouble() < LoopReopenChance)
                     {
                         grid[x, y] = 0;
                     }

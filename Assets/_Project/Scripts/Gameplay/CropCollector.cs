@@ -17,10 +17,10 @@ namespace FarmFuryArcade.Gameplay
             {
                 ScoreManager.Instance.AddCropPoints(crop.points);
                 GameManager.Instance.NotifyCropCollected();
-                if (crop.cropType == CropType.Corn)
-                {
-                    AudioManager.Instance?.PlayCornPickupSfx();
-                }
+                // CornPickup.mp3 doubles as the generic crop-pickup cue now — plays for
+                // vegetables (carrots) too, not just corn kernels, per feedback that carrots were
+                // silent.
+                AudioManager.Instance?.PlayCornPickupSfx();
                 Destroy(other.gameObject);
                 return;
             }
