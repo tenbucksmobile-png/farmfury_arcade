@@ -4,6 +4,7 @@ using UnityEditor.SceneManagement;
 using UnityEngine;
 using UnityEngine.UI;
 using TMPro;
+using FarmFuryArcade.Abilities;
 using FarmFuryArcade.Core;
 using FarmFuryArcade.Data;
 using FarmFuryArcade.Enemies;
@@ -59,6 +60,8 @@ namespace FarmFuryArcade.EditorTools
         private const string CluckLeft = "Assets/_Project/Sprites/Characters/Cluck_left.png";
         private const string HarvesterFront = "Assets/_Project/Sprites/Robots/HarvestorRobot_front.png";
         private const string HarvesterBack = "Assets/_Project/Sprites/Robots/HarvestorRobot_back.png";
+        private const string HarvesterLeft = "Assets/_Project/Sprites/Robots/HarvestorRobot_left.png";
+        private const string HarvesterRight = "Assets/_Project/Sprites/Robots/HarvestorRobot_right.png";
         private const string CornKernel = "Assets/_Project/Sprites/Environment/CornKernel.png";
         private const string Carrot = "Assets/_Project/Sprites/Environment/carrot.png";
         private const string CoinIcon = "Assets/_Project/Sprites/Environment/Collectable Coin.png";
@@ -95,12 +98,26 @@ namespace FarmFuryArcade.EditorTools
         private const string CluckRightWalk2 = "Assets/_Project/Sprites/Characters/Cluck_rightwalk2.png";
         private const string CluckLeftWalk = "Assets/_Project/Sprites/Characters/Cluck_LeftWalk.png";
 
+        // Egg Drop's egg — despite living in Sprites/Characters and originally named for a Cluck
+        // power-up icon, this is actually the egg art (confirmed against the uploaded image). Was
+        // never wired because of that naming mismatch, leaving Egg.prefab on its hot-pink
+        // PlaceholderSprite square (see Phase4ProjectBuilder.BuildEggPrefab's doc comment for why
+        // pink specifically).
+        private const string CluckEggIcon = "Assets/_Project/Sprites/Characters/Power_1.png";
+        // EggHazard's hit animation: cracked egg mid-burst, then the full sun-burst flash, before
+        // the egg disappears — same "named for a Cluck power-up, actually egg art" naming quirk as
+        // Power_1.png/CluckEggIcon above.
+        private const string CluckEggCracked = "Assets/_Project/Sprites/Characters/CluckPower_2.png";
+        private const string CluckEggBurst = "Assets/_Project/Sprites/Characters/CluckPower_3.png";
+        private const string EggPrefabPath = AbilityPrefabFolder + "/Egg.prefab";
+
         // ---- Sprite paths (this batch: maze wall/floor/warp tunnel art) ------------------------
         private const string WallCornTiles = "Assets/_Project/Sprites/UI/CornTiles.png";
         private const string FloorTile = "Assets/_Project/Sprites/UI/FloorTile.png";
         private const string WarpTile = "Assets/_Project/Sprites/UI/WarpTile.png";
 
         private const string ScoutFront = "Assets/_Project/Sprites/Robots/ScoutRobot_front.png";
+        private const string ScoutBack = "Assets/_Project/Sprites/Robots/ScoutRobot_back.png";
         private const string ScoutLeft = "Assets/_Project/Sprites/Robots/ScoutRobot_left.png";
         private const string ScoutRight = "Assets/_Project/Sprites/Robots/ScoutRobot_right.png";
         private const string PatrolFront = "Assets/_Project/Sprites/Robots/PatrolRobot_Front.png";
@@ -206,6 +223,7 @@ namespace FarmFuryArcade.EditorTools
             ConfigureSpriteImporters();
 
             WireCluck();
+            WireEgg();
             WireHarvester();
             WireCropsAndPellets();
             WireMazeTiles();
@@ -238,12 +256,12 @@ namespace FarmFuryArcade.EditorTools
 
         private static readonly string[] SpritesToConfigure =
         {
-            CluckFront, CluckBack, CluckLeft, HarvesterFront, HarvesterBack, CornKernel, Carrot,
+            CluckFront, CluckBack, CluckLeft, HarvesterFront, HarvesterBack, HarvesterLeft, HarvesterRight, CornKernel, Carrot,
             CoinIcon, SunflowerPellet, GoldenWheatPellet, RainbowPellet, LandingBackground, MapBackground,
             BessieFront, BessieBack, BessieLeft, BessieLeft2, BessieRight, BessieRight2,
             WoollyFront, WoollyBack, WoollyLeft, WoollyEffect,
             PercyFront, PercyBack, PercyLeft, PercyEffect, DuckyFront, DuckyBack, BessieSlam,
-            ScoutFront, ScoutLeft, ScoutRight, PatrolFront, PatrolBack, PatrolLeft, PatrolRight,
+            ScoutFront, ScoutBack, ScoutLeft, ScoutRight, PatrolFront, PatrolBack, PatrolLeft, PatrolRight,
             HeavyFront, HeavyBack, DrifterFront, DrifterLeft, DrifterRight, RobotEyes,
             LevelCompletePanel, LevelFailedPanel, PausedPanel, CardFrame,
             BtnPlay, BtnPause, BtnSettings, BtnQuit, BtnMusic, BtnNoSound, BtnHome, BtnSkip, BtnBack, BtnPlaque,
@@ -257,7 +275,7 @@ namespace FarmFuryArcade.EditorTools
             LevelTileLocked, LevelTileUnlocked, LevelTile1Star, LevelTile2Stars, LevelTile3Stars,
             BgLevelSelect, DividerWorldBanner,
             SelectLevelText, CornFieldText, VegetablePatchText, OrchardText, WheatfieldText, SettingsSignText,
-            LogoImage
+            LogoImage, CluckEggIcon, CluckEggCracked, CluckEggBurst
         };
 
         private static void ConfigureSpriteImporters()
@@ -310,21 +328,24 @@ namespace FarmFuryArcade.EditorTools
 
         private static Sprite Load(string path) => AssetDatabase.LoadAssetAtPath<Sprite>(path);
 
-        /// <summary>Frame mapping below was confirmed directly against the actual uploaded art
-        /// (2026 review pass), not inferred: Cluck_back.png is her standing-still pose (CharacterAnimator
-        /// shows Down0 when not moving — see its own doc comment) and doubles as every direction's
-        /// frames except Left1, which is Cluck_LeftWalk.png (the only distinct second walk frame
-        /// specified). No dedicated Up/Right art exists yet, so those directions just repeat
-        /// Cluck_back.png rather than mirroring Left — Right0/Right1 are set explicitly (not left to
-        /// CharacterAnimator's flipX-mirror-Left fallback) so hasDedicatedRightArt stays true and
-        /// they render un-mirrored. Cluck_left.png/_right.png/_rightwalk.png/_rightwalk2.png are no
-        /// longer referenced here — kept on disk (and in ExpectedTexturePaths for import-settings
-        /// configuration) in case dedicated per-direction walk art lands later.</summary>
+        /// <summary>Cluck_back.png is her standing-still pose (CharacterAnimator shows Down0 when not
+        /// moving — see its own doc comment) and covers Up/Down, which have no dedicated art yet.
+        /// Left and Right each DO have real dedicated 2-frame walk art on disk (Cluck_left.png +
+        /// Cluck_LeftWalk.png; Cluck_right.png + Cluck_rightwalk2.png) — a previous pass wired only
+        /// Cluck_back.png for every direction except Left1, leaving her facing backward while
+        /// visibly walking left/right. Wired properly here. Cluck_rightwalk.png (a third right-facing
+        /// frame beyond the 2-frame Right0/Right1 slots this system supports) stays unreferenced —
+        /// kept on disk, same "extra art, no slot for it yet" convention as everywhere else.
+        /// Right0/Right1 are set explicitly (not left to CharacterAnimator's flipX-mirror-Left
+        /// fallback) so hasDedicatedRightArt stays true and they render un-mirrored.</summary>
         private static void WireCluck()
         {
             var front = Load(CluckFront);
             var back = Load(CluckBack);
+            var left = Load(CluckLeft);
             var leftWalk = Load(CluckLeftWalk);
+            var right = Load(CluckRight);
+            var rightWalk2 = Load(CluckRightWalk2);
 
             string path = $"{CharacterDataFolder}/CharacterData_Cluck.asset";
             var data = AssetDatabase.LoadAssetAtPath<CharacterData>(path);
@@ -332,10 +353,10 @@ namespace FarmFuryArcade.EditorTools
             {
                 data.walkAnimationFrames = new[]
                 {
-                    back, back,                              // Up0, Up1
-                    back, back,                               // Down0, Down1 (standing still)
-                    back, leftWalk != null ? leftWalk : back,  // Left0, Left1
-                    back, back                                 // Right0, Right1
+                    back, back,                                  // Up0, Up1 (no dedicated art yet)
+                    back, back,                                  // Down0, Down1 (standing still)
+                    left != null ? left : back, leftWalk != null ? leftWalk : back,    // Left0, Left1
+                    right != null ? right : back, rightWalk2 != null ? rightWalk2 : back // Right0, Right1
                 };
                 data.hasDedicatedRightArt = true;
                 data.portraitSprite = front;
@@ -353,6 +374,41 @@ namespace FarmFuryArcade.EditorTools
                 sr.sprite = back;
             }
             PrefabUtility.SaveAsPrefabAsset(contents, CluckPrefabPath);
+            PrefabUtility.UnloadPrefabContents(contents);
+        }
+
+        /// <summary>Replaces Egg.prefab's hot-pink PlaceholderSprite square with the real egg art —
+        /// prefab scale/sortingOrder (set in Phase4ProjectBuilder.BuildEggPrefab) are left untouched,
+        /// since ConfigureSpriteImporters' spritePixelsPerUnit-equals-texture-width convention already
+        /// makes any wired sprite fill the same footprint the placeholder did at the same localScale.</summary>
+        private static void WireEgg()
+        {
+            var eggSprite = Load(CluckEggIcon);
+            if (eggSprite == null)
+            {
+                Debug.LogWarning($"[ArtWiringBuilder] {CluckEggIcon} not found — skipping egg wiring.");
+                return;
+            }
+
+            var cracked = Load(CluckEggCracked);
+            var burst = Load(CluckEggBurst);
+
+            var contents = PrefabUtility.LoadPrefabContents(EggPrefabPath);
+            var sr = contents.GetComponent<SpriteRenderer>();
+            if (sr != null)
+            {
+                sr.sprite = eggSprite;
+                sr.color = Color.white;
+            }
+            var hazard = contents.GetComponent<EggHazard>();
+            if (hazard != null)
+            {
+                var hazardSO = new SerializedObject(hazard);
+                if (cracked != null) hazardSO.FindProperty("crackedSprite").objectReferenceValue = cracked;
+                if (burst != null) hazardSO.FindProperty("burstSprite").objectReferenceValue = burst;
+                hazardSO.ApplyModifiedPropertiesWithoutUndo();
+            }
+            PrefabUtility.SaveAsPrefabAsset(contents, EggPrefabPath);
             PrefabUtility.UnloadPrefabContents(contents);
         }
 
@@ -400,6 +456,8 @@ namespace FarmFuryArcade.EditorTools
         {
             var front = Load(HarvesterFront);
             var back = Load(HarvesterBack);
+            var left = Load(HarvesterLeft);
+            var right = Load(HarvesterRight);
 
             var contents = PrefabUtility.LoadPrefabContents(HarvesterPrefabPath);
             var sr = contents.GetComponent<SpriteRenderer>();
@@ -410,7 +468,8 @@ namespace FarmFuryArcade.EditorTools
             var visual = contents.GetComponent<RobotVisual>();
             if (visual != null)
             {
-                visual.SetDirectionalSprites(front, back);
+                // Harvester now has real Left/Right art too (previously front/back only).
+                visual.SetDirectionalSprites(front, back, left, right);
                 visual.SetDefeatedSprite(Load(RobotEyes));
             }
             PrefabUtility.SaveAsPrefabAsset(contents, HarvesterPrefabPath);
@@ -748,7 +807,8 @@ namespace FarmFuryArcade.EditorTools
         private static void WireNewRobots()
         {
             var scoutFront = Load(ScoutFront);
-            WireRobotVisual(ScoutPrefabPath, scoutFront, null, Load(ScoutLeft), Load(ScoutRight));
+            // Scout now has real Back art too (previously front/left/right only, Up fell back to front).
+            WireRobotVisual(ScoutPrefabPath, scoutFront, Load(ScoutBack), Load(ScoutLeft), Load(ScoutRight));
             SetRobotPortrait("Scout", scoutFront);
 
             var patrolFront = Load(PatrolFront);
@@ -796,7 +856,11 @@ namespace FarmFuryArcade.EditorTools
             SetScreenBackground(canvasTransform, "LevelCompleteScreen", Load(PauseBackground));
             SetImageSprite(canvasTransform, "LevelCompleteScreen/PanelArt", Load(LevelCompletePanel));
             SetImageSprite(canvasTransform, "LevelCompleteScreen/LogoImage", Load(LogoImage));
-            SetScreenBackground(canvasTransform, "LevelFailedScreen", Load(LevelFailedPanel));
+            // Rebuilt to a 2026-08-01 mockup — Bg_LevelSelect.png (night farm) root background, with
+            // LevelFailed.png moved onto an aspect-locked PanelArt child (see BuildLevelFailed's own
+            // doc comment for why the old full-screen stretch distorted the square card art).
+            SetScreenBackground(canvasTransform, "LevelFailedScreen", Load(BgLevelSelect));
+            SetImageSprite(canvasTransform, "LevelFailedScreen/PanelArt", Load(LevelFailedPanel));
             // Root Image is now World1_Cornfield.png (opaque backdrop), not a plain black dim — see
             // BuildPauseMenu's doc comment on the 2026-07-31 mockup dropping "dim gameplay behind
             // it" in favour of a dedicated background, same as Settings/Level Select got.
@@ -814,6 +878,8 @@ namespace FarmFuryArcade.EditorTools
             SetScreenBackground(canvasTransform, "ChooseCharacterScreen", Load(PauseBackground));
             SetImageSprite(canvasTransform, "SettingsOverlay/LogoImage", Load(LogoImage));
             SetImageSprite(canvasTransform, "ChooseCharacterScreen/LogoImage", Load(LogoImage));
+            // LevelSelectScreen deliberately has no LogoImage — see BuildLevelSelect's doc comment;
+            // it clashes with CurrentWorldIndicator at the same top-left inset.
 
             // Card.png is used for New Character Unlock and RosterCard, neither of which has a
             // frame baked into their background.
@@ -913,8 +979,8 @@ namespace FarmFuryArcade.EditorTools
             SetImageSprite(canvasTransform, "LevelCompleteScreen/SkipButton", skip);
             SetImageSprite(canvasTransform, "LevelCompleteScreen/NewCharacterUnlockOverlay/UnlockContent/ContinueButton", play);
 
-            SetImageSprite(canvasTransform, "LevelFailedScreen/RetryButton", Load(RetryButtonArt));
-            SetImageSprite(canvasTransform, "LevelFailedScreen/MenuButton", Load(MenuButtonArt));
+            SetImageSprite(canvasTransform, "LevelFailedScreen/PanelArt/RestartButton", Load(RestartButtonArt));
+            SetImageSprite(canvasTransform, "LevelFailedScreen/PanelArt/QuitButton", Load(QuitButtonArt));
 
             SetImageSprite(canvasTransform, "CharacterRosterScreen/BackButton", back);
             SetImageSprite(canvasTransform, "LeaderboardsScreen/BackButton", back);

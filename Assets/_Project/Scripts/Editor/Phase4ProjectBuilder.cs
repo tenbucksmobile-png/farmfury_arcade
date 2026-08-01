@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
@@ -346,27 +347,30 @@ namespace FarmFuryArcade.EditorTools
 
         // ---- CharacterData ------------------------------------------------------------------
 
-        // Speeds below are ~0.76x the original values (4.2->3.2 etc.) — playtest feedback said
-        // movement still read as too fast even after accounting for CellSize's effect on perceived
-        // speed. Percy/Ducky/Horace's originals (6, 5.5, 5.5) also exceeded CharacterData.
-        // movementSpeed's own [Range(1,5)] inspector hint; the scaled-down values now fit inside it.
+        // Doubled from the previous pass (1.9->3.8 etc.) per feedback that characters and robots
+        // moved at effectively the same speed — robots stayed at 2.0 (Phase3ProjectBuilder), so
+        // characters now clearly outrun a Chase/Scatter robot, and easily outrun a Vulnerable one
+        // (RobotBase.VulnerableSpeedMultiplier halves it further, e.g. 1.0 for a base-2.0 robot).
+        // Percy/Ducky/Horace's doubled values would exceed CharacterData.movementSpeed's own
+        // [Range(1,5)] inspector hint (5.6/5.0/5.0), so Percy is capped at 5.0 — Ducky/Horace land on
+        // exactly 5.0 and don't need capping.
         private static void BuildCharacterData()
         {
-            BuildCharacterDataAsset(CharacterType.Cluck, "Cluck", 3.2f, AbilityType.EggDrop, 15f,
-                "Drops 3 eggs in her current lane that stun any robot walking over them for 3s.", 0, false);
-            BuildCharacterDataAsset(CharacterType.Bessie, "Bessie", 3.0f, AbilityType.GroundSlam, 20f,
+            BuildCharacterDataAsset(CharacterType.Cluck, "Cluck", 3.8f, AbilityType.EggDrop, 15f,
+                "Drops 3 eggs in her current lane that stun any robot walking over them for 1s.", 0, false);
+            BuildCharacterDataAsset(CharacterType.Bessie, "Bessie", 3.6f, AbilityType.GroundSlam, 20f,
                 "Instant shockwave stuns every robot within 2 tiles.", 0, false);
-            BuildCharacterDataAsset(CharacterType.Percy, "Percy", 4.6f, AbilityType.BounceRoll, 30f,
+            BuildCharacterDataAsset(CharacterType.Percy, "Percy", 5.0f, AbilityType.BounceRoll, 30f,
                 "The next wall Percy hits becomes walkable for 2 seconds.", 5, false);
-            BuildCharacterDataAsset(CharacterType.Woolly, "Woolly", 3.8f, AbilityType.TripleClone, 25f,
+            BuildCharacterDataAsset(CharacterType.Woolly, "Woolly", 4.6f, AbilityType.TripleClone, 25f,
                 "Spawns 2 AI-controlled clones that wander, collect crops, and fade after 10s.", 10, false);
-            BuildCharacterDataAsset(CharacterType.Ducky, "Ducky", 4.2f, AbilityType.SkipShot, 2f,
+            BuildCharacterDataAsset(CharacterType.Ducky, "Ducky", 5.0f, AbilityType.SkipShot, 2f,
                 "Teleports across an adjacent water tile pair — once per pair per maze.", 15, true);
-            BuildCharacterDataAsset(CharacterType.Horace, "Horace", 4.2f, AbilityType.RearKick, 18f,
+            BuildCharacterDataAsset(CharacterType.Horace, "Horace", 5.0f, AbilityType.RearKick, 18f,
                 "Kicks the nearest robot within 3 tiles back 4 tiles and stuns it on landing.", 20, false);
-            BuildCharacterDataAsset(CharacterType.Gerald, "Gerald", 3.4f, AbilityType.PuffUp, 45f,
+            BuildCharacterDataAsset(CharacterType.Gerald, "Gerald", 4.0f, AbilityType.PuffUp, 45f,
                 "Inflates to 3x size for 5s — any robot touched is instantly defeated. Half speed, no warp tunnels while puffed.", 30, false);
-            BuildCharacterDataAsset(CharacterType.Billy, "Billy", 3.4f, AbilityType.HeadbuttThrough, 40f,
+            BuildCharacterDataAsset(CharacterType.Billy, "Billy", 4.0f, AbilityType.HeadbuttThrough, 40f,
                 "Permanently destroys the next 3 walls he headbutts.", 40, false);
         }
 
@@ -488,7 +492,11 @@ namespace FarmFuryArcade.EditorTools
                 mainCameraGO.AddComponent<CameraShake>();
             }
 
-            if (GameObject.Find("Phase4Test") == null)
+            // See Phase2ProjectBuilder's matching comment — GameObject.Find only matches active
+            // objects, so once Phase4Test is disabled a plain Find-or-create re-spawns a duplicate.
+            var existingPhase4Test = Resources.FindObjectsOfTypeAll<Phase4Test>()
+                .FirstOrDefault(t => !EditorUtility.IsPersistent(t.gameObject));
+            if (existingPhase4Test == null)
             {
                 new GameObject("Phase4Test").AddComponent<Phase4Test>();
             }

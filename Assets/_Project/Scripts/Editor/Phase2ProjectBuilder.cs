@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
@@ -276,30 +277,37 @@ namespace FarmFuryArcade.EditorTools
                 }
             }
 
-            int leftHalfMax = (width - 2) / 2;
-            CarveMazeCorridors(grid, height, leftHalfMax);
-
-            // Mirror the carved left half onto the right half.
-            for (int x = 1; x <= leftHalfMax; x++)
-            {
-                for (int y = 1; y <= height - 2; y++)
-                {
-                    grid[width - 1 - x, y] = grid[x, y];
-                }
-            }
+            // Full-width carve, not "carve one half and mirror" — the mirror approach (left half
+            // only, leftHalfMax=(width-2)/2, then grid[width-1-x,y]=grid[x,y]) put the seam between
+            // the two halves at two ADJACENT room columns (x=5 and its mirror x=6 at this board's
+            // width) with no wall ever separating them, since every room cell is unconditionally
+            // open (that's what "every cell is part of the spanning tree" means). The result was a
+            // permanent 2-tile-wide corridor straight down the middle, and — because a 12-wide board
+            // only fit 3 room columns per half — most of the board read as wide-open rather than
+            // single-tile corridors. A full-width backtracker (room columns at every odd x from 1 to
+            // width-2, no mirroring) gives 5 room columns with normal single-tile spacing between
+            // them and no seam duplication, at the cost of the left/right symmetry the mirror used
+            // to guarantee — correctness over cosmetics per playtest feedback.
+            CarveMazeCorridors(grid, width, height);
 
             // GridToWorld maps grid.y directly to world Y with no flip, so higher y is higher on
             // screen — row N counting from the top is y = height - N. Rows 3 and 7 from the top
             // (spec'd directly, not derived) land on y=6 and y=2: one above the robot factory box,
             // one below it, each with a warp-tunnel edge (id 5) at both x=0 and x=width-1.
+            // WarpTunnel teleports on trigger overlap (instant, see WarpTunnel.OnTriggerEnter2D) —
+            // it never required a walkable lane spanning the whole row. This used to force the
+            // ENTIRE row open (x=1..width-2), bulldozing whatever 1-tile-wide corridors
+            // CarveMazeCorridors had already carved there and leaving two full-width open bands
+            // across the board — exactly the "completely open in the middle" maze look flagged in
+            // playtest. Now it only opens the single interior tile next to each border edge (just
+            // enough for the tunnel tile itself to be reachable); everything else in the row keeps
+            // whatever wall/corridor pattern the maze generator produced.
             int warpRowTop = height - 3;
             int warpRowBottom = height - 7;
             foreach (int warpRow in new[] { warpRowTop, warpRowBottom })
             {
-                for (int x = 1; x < width - 1; x++)
-                {
-                    grid[x, warpRow] = 0;
-                }
+                grid[1, warpRow] = 0;
+                grid[width - 2, warpRow] = 0;
                 grid[0, warpRow] = 5;
                 grid[width - 1, warpRow] = 5;
             }
@@ -351,7 +359,7 @@ namespace FarmFuryArcade.EditorTools
             }
 
             const int pelletCount = 4;
-            const int vegetableCount = 12;
+            const int vegetableCount = 10;
             int scatterIndex = 0;
             for (int i = 0; i < pelletCount && scatterIndex < openFloor.Count; i++, scatterIndex++)
             {
@@ -420,15 +428,18 @@ namespace FarmFuryArcade.EditorTools
         /// board, not literally every last connector sealed.</summary>
         private const double LoopReopenChance = 0.05;
 
-        /// <summary>Randomized recursive backtracker over the left-half cell lattice (odd x in
-        /// 1..leftHalfMax, odd y in 1..height-2 are "room" cells; the even coordinate between two
+        /// <summary>Randomized recursive backtracker over the FULL-width cell lattice (odd x in
+        /// 1..width-2, odd y in 1..height-2 are "room" cells; the even coordinate between two
         /// adjacent visited cells is the connector carved open to join them). Produces a spanning
         /// tree of 1-tile-wide corridors, then reopens LoopReopenChance of the remaining connector
-        /// walls so the maze has a few loops instead of exactly one path between any two points.</summary>
-        private static void CarveMazeCorridors(int[,] grid, int height, int leftHalfMax)
+        /// walls so the maze has a few loops instead of exactly one path between any two points.
+        /// Previously ran over the left half only and mirrored the result — see BuildLevelData01's
+        /// call site for why that produced a permanent 2-tile-wide seam down the middle instead of
+        /// genuine single-tile corridors.</summary>
+        private static void CarveMazeCorridors(int[,] grid, int width, int height)
         {
             var rng = new System.Random(MazeSeed);
-            var visited = new bool[leftHalfMax + 1, height];
+            var visited = new bool[width, height];
             var cellStack = new Stack<Vector2Int>();
             var start = new Vector2Int(1, 1);
             grid[start.x, start.y] = 0;
@@ -445,7 +456,7 @@ namespace FarmFuryArcade.EditorTools
                 foreach (var d in cellDirs)
                 {
                     var next = current + d;
-                    if (next.x >= 1 && next.x <= leftHalfMax && next.y >= 1 && next.y <= height - 2 && !visited[next.x, next.y])
+                    if (next.x >= 1 && next.x <= width - 2 && next.y >= 1 && next.y <= height - 2 && !visited[next.x, next.y])
                     {
                         neighbors.Add(next);
                     }
@@ -466,7 +477,7 @@ namespace FarmFuryArcade.EditorTools
             }
 
             // Horizontal connectors sit at even x, odd y (between two horizontally-adjacent cells).
-            for (int x = 2; x < leftHalfMax; x += 2)
+            for (int x = 2; x < width - 2; x += 2)
             {
                 for (int y = 1; y <= height - 2; y += 2)
                 {
@@ -477,7 +488,7 @@ namespace FarmFuryArcade.EditorTools
                 }
             }
             // Vertical connectors sit at odd x, even y (between two vertically-adjacent cells).
-            for (int x = 1; x <= leftHalfMax; x += 2)
+            for (int x = 1; x <= width - 2; x += 2)
             {
                 for (int y = 2; y <= height - 3; y += 2)
                 {
@@ -539,7 +550,14 @@ namespace FarmFuryArcade.EditorTools
             scSO.FindProperty("robotParent").objectReferenceValue = robotParent;
             scSO.ApplyModifiedPropertiesWithoutUndo();
 
-            if (GameObject.Find("Phase2Test") == null)
+            // GameObject.Find only matches ACTIVE objects — once Phase2Test is disabled (by a
+            // later phase's builder, or SceneCleanupBuilder), a re-run of this method couldn't find
+            // it and spawned a second active instance every time (see the "black tiles" duplicate-
+            // debug-overlay bug). Resources.FindObjectsOfTypeAll also matches inactive instances —
+            // same fix Phase5ProjectBuilder already applies to its own Phase5Test/LevelSelectTest.
+            var existingPhase2Test = Resources.FindObjectsOfTypeAll<Phase2Test>()
+                .FirstOrDefault(t => !EditorUtility.IsPersistent(t.gameObject));
+            if (existingPhase2Test == null)
             {
                 new GameObject("Phase2Test").AddComponent<Phase2Test>();
             }

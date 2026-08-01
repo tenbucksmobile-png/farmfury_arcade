@@ -5,27 +5,27 @@ using FarmFuryArcade.Core;
 namespace FarmFuryArcade.UI
 {
     /// <summary>
-    /// Shown by GameplayHUD when GameManager.CurrentState becomes LevelFailed. Per spec/GDD there
-    /// is no lives or timer-fail system, so the only path here is a manual quit
-    /// (PauseMenuController's "Quit to Menu" calls GameManager.EndLevel(false)) — title stays
-    /// friendly rather than punishing, per spec. LevelFailed.png bakes in the "TRY AGAIN!" banner
-    /// and "SCORE"/"BEST" labels itself, so this screen has no dynamic text of its own — just the
-    /// two real button-art images (Retry.png/Menu.png) overlaid exactly on top of where the
-    /// background art draws them.
+    /// Shown by GameplayHUD when GameManager.CurrentState becomes LevelFailed (a timer expiry or
+    /// exhausting the respawn cap — see GameManager.MaxRespawns/LevelTimeLimitSeconds). Rebuilt to a
+    /// 2026-08-01 Canva mockup: World1_Cornfield-style night backdrop (Bg_LevelSelect.png) with the
+    /// square LevelFailed.png "TRY AGAIN!" card as an aspect-locked PanelArt child (same
+    /// square-art-on-landscape-overlay fix Pause/Level Complete already have), and two buttons:
+    /// Restart (replays the same level) and Quit (returns to Level Select, not Main Menu — one step
+    /// back to where the player picked this level from).
     /// </summary>
     public class LevelFailedController : MonoBehaviour
     {
-        [SerializeField] private Button retryButton;
-        [SerializeField] private Button menuButton;
+        [SerializeField] private Button restartButton;
+        [SerializeField] private Button quitButton;
         [SerializeField] private GameObject gameplayScreen;
-        [SerializeField] private GameObject mainMenuScreen;
+        [SerializeField] private GameObject levelSelectScreen;
 
         private int _levelIndex;
 
         private void Awake()
         {
-            retryButton.onClick.AddListener(Retry);
-            menuButton.onClick.AddListener(() => SceneTransitionManager.Instance.ShowOnly(mainMenuScreen));
+            restartButton.onClick.AddListener(Restart);
+            quitButton.onClick.AddListener(() => SceneTransitionManager.Instance.ShowOnly(levelSelectScreen));
         }
 
         private void OnEnable()
@@ -33,7 +33,7 @@ namespace FarmFuryArcade.UI
             _levelIndex = GameManager.Instance.CurrentLevel != null ? GameManager.Instance.CurrentLevel.levelNumber : 0;
         }
 
-        private void Retry()
+        private void Restart()
         {
             SceneTransitionManager.Instance.TransitionTo(() =>
             {

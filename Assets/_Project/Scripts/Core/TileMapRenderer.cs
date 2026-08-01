@@ -48,6 +48,11 @@ namespace FarmFuryArcade.Core
         private readonly HashSet<Vector2Int> _temporaryWalkableCells = new HashSet<Vector2Int>();
         private LevelData _currentLevel;
 
+        /// <summary>Caps the whole maze to at most 1 "rare" (non-Sunflower) power pellet — reset per
+        /// RenderMaze call. RollPelletTier still rolls independently per pellet, but ConfigurePelletTier
+        /// forces any roll beyond the first rare one back down to Sunflower.</summary>
+        private int _rarePelletsSpawned;
+
         /// <summary>0 when no level is loaded. Used by CameraFollow to clamp the camera to the
         /// maze bounds — GridToWorld has no offset, so world extents are simply
         /// [0, (MazeWidth-1)*CellSize] x [0, (MazeHeight-1)*CellSize].</summary>
@@ -58,6 +63,7 @@ namespace FarmFuryArcade.Core
         {
             ClearMaze();
             _currentLevel = data;
+            _rarePelletsSpawned = 0;
 
             var layout = data.MazeLayout;
             var warpTunnelsByRow = new Dictionary<int, List<WarpTunnel>>();
@@ -131,6 +137,21 @@ namespace FarmFuryArcade.Core
         private void ConfigurePelletTier(GameObject pelletGO)
         {
             var tier = RollPelletTier();
+
+            // Only 1 rare (non-Sunflower) pellet is allowed per maze — any roll beyond the first
+            // falls back to Sunflower rather than being re-rolled, keeping the odds honest for
+            // whichever pellet does end up claiming the "rare" slot.
+            if (tier != PowerPelletType.Sunflower)
+            {
+                if (_rarePelletsSpawned >= 1)
+                {
+                    tier = PowerPelletType.Sunflower;
+                }
+                else
+                {
+                    _rarePelletsSpawned++;
+                }
+            }
 
             var pickup = pelletGO.GetComponent<PowerPelletPickup>();
             if (pickup != null)

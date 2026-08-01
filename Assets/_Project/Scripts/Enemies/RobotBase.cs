@@ -28,7 +28,6 @@ namespace FarmFuryArcade.Enemies
         private const float ChaseDurationSeconds = 20f;
         private const float ScatterDurationSeconds = 5f;
         private const float DefeatedPauseSeconds = 0.5f;
-        private const float FactoryArriveEpsilonTiles = 0.5f;
         private const float FleeDistanceTiles = 10f;
 
         [SerializeField] protected RobotData robotData;
@@ -51,6 +50,15 @@ namespace FarmFuryArcade.Enemies
         public RobotData Data => robotData;
         public bool IsStunned { get; private set; }
         public bool IsKnockedBack { get; private set; }
+
+        /// <summary>Set once a defeated robot finishes its brief eyes-only pause and disappears (see
+        /// Disappear()) — it stays gone for the rest of THIS maze rather than pathfinding back to the
+        /// factory and respawning into Chase, per playtest feedback that "floating eyes" walking back
+        /// through the maze read as a bug, not a feature. RobotSpawner.SpawnLevelRobots already
+        /// destroys and recreates every robot fresh on the next LoadLevel, so a new level/stage is the
+        /// only thing that brings a defeated robot back. ResetAllRobotsToFactory (the player-death
+        /// reset) also checks this so a permanently-defeated robot doesn't get revived by dying.</summary>
+        public bool IsPermanentlyDefeated { get; private set; }
 
         /// <summary>Live lookup of whichever character is currently active, via CharacterManager
         /// (Phase 4) — NOT cached, because character-swapping destroys and recreates the player
@@ -93,6 +101,11 @@ namespace FarmFuryArcade.Enemies
         /// when the player dies (per the GDD's "reset all robots to factory" death sequence).</summary>
         public virtual void ResetToFactory()
         {
+            if (IsPermanentlyDefeated)
+            {
+                return;
+            }
+
             StopAllCoroutines();
             CurrentDirection = Direction.None;
             CurrentState = RobotState.Chase;
@@ -327,18 +340,12 @@ namespace FarmFuryArcade.Enemies
         }
 
         /// <summary>Runs on every cell-center arrival (and every loop iteration while stationary,
-        /// matching the old code's per-frame atCenter re-evaluation): Returning-state factory
-        /// arrival takes priority, then ComputeDesiredDirection picks (or fails to pick) a new
-        /// heading. Returns true if ArriveAtFactory fired — callers must stop immediately since
-        /// state has already been reset.</summary>
+        /// matching the old code's per-frame atCenter re-evaluation): ComputeDesiredDirection picks
+        /// (or fails to pick) a new heading. Returns true if a caller must stop immediately (unused
+        /// now that defeat simply disappears the robot instead of pathfinding back to the factory —
+        /// kept as a bool so this method's signature doesn't need to change if that ever comes back).</summary>
         private bool EvaluateArrivalAndDirection(Vector2Int cell)
         {
-            if (CurrentState == RobotState.Returning &&
-                Vector2Int.Distance(cell, factoryPosition) <= FactoryArriveEpsilonTiles)
-            {
-                ArriveAtFactory();
-                return true;
-            }
 
             Direction desired = ComputeDesiredDirection(cell);
             if (desired != Direction.None && IsWalkableForThisRobot(cell + DirectionUtils.ToVector(desired)))
@@ -465,17 +472,27 @@ namespace FarmFuryArcade.Enemies
         private IEnumerator DefeatedThenReturn()
         {
             yield return new WaitForSeconds(DefeatedPauseSeconds);
-            CurrentState = RobotState.Returning;
+            Disappear();
         }
 
-        private void ArriveAtFactory()
+        /// <summary>Replaces the old "eyes pathfind back to the factory, then respawn into Chase"
+        /// Returning flow — the robot simply vanishes (renderer + collider off) and stays gone for
+        /// the rest of this maze. See IsPermanentlyDefeated's doc comment for why.</summary>
+        private void Disappear()
         {
+            IsPermanentlyDefeated = true;
             CurrentDirection = Direction.None;
-            CurrentState = RobotState.Chase;
-            _healthPoints = InitialHealthPoints;
-            _chaseScatterTimer = 0f;
-            _exitingFactory = true;
-            AudioManager.Instance?.PlayRobotRespawnSfx();
+
+            var sr = GetComponent<SpriteRenderer>();
+            if (sr != null)
+            {
+                sr.enabled = false;
+            }
+            var col = GetComponent<Collider2D>();
+            if (col != null)
+            {
+                col.enabled = false;
+            }
         }
     }
 }

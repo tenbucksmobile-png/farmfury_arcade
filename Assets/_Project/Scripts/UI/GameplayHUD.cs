@@ -1,3 +1,4 @@
+using System.Collections;
 using UnityEngine;
 using UnityEngine.UI;
 using TMPro;
@@ -48,6 +49,13 @@ namespace FarmFuryArcade.UI
         /// tint otherwise (see RefreshPortrait's own comment on that).</summary>
         private static readonly Color AbilityCooldownTint = new Color(0.4f, 0.4f, 0.4f, 1f);
 
+        /// <summary>Pulse colour the portrait flashes toward once its ability is fully off cooldown
+        /// — a bright gold, distinct enough from both the grey cooldown tint and the plain white/gold
+        /// "ready" colour to read as "flashing" rather than a static tint.</summary>
+        private static readonly Color AbilityFlashColor = new Color(1f, 0.95f, 0.3f, 1f);
+        private const float FlashCyclesPerSecond = 2f;
+
+        private Coroutine _readyFlashRoutine;
         private int _displayedScore;
         private int _targetScore;
         private GameState _lastObservedState;
@@ -94,6 +102,7 @@ namespace FarmFuryArcade.UI
             {
                 _activeAbility.OnCooldownChanged -= HandleAbilityCooldownChanged;
             }
+            StopReadyFlash();
         }
 
         private void HandleScoreChanged(int newScore) => _targetScore = newScore;
@@ -159,7 +168,8 @@ namespace FarmFuryArcade.UI
         {
             if (timerText != null)
             {
-                timerText.text = FormatTime(GameManager.Instance.GetElapsedSeconds());
+                float remaining = Mathf.Max(0f, GameManager.LevelTimeLimitSeconds - GameManager.Instance.GetElapsedSeconds());
+                timerText.text = FormatTime(remaining);
             }
         }
 
@@ -207,6 +217,7 @@ namespace FarmFuryArcade.UI
             {
                 _activeAbility.OnCooldownChanged -= HandleAbilityCooldownChanged;
             }
+            StopReadyFlash();
 
             var characterObject = CharacterManager.Instance != null ? CharacterManager.Instance.ActiveCharacterObject : null;
             _activeAbility = characterObject != null ? characterObject.GetComponent<AbilityBase>() : null;
@@ -226,9 +237,12 @@ namespace FarmFuryArcade.UI
             }
         }
 
-        /// <summary>Portrait greys out the instant the ability is used and returns to full colour
-        /// only once the cooldown reaches zero; the ring fills in step with it (empty right after
-        /// use, full when ready) so the two cues always agree.</summary>
+        /// <summary>Portrait greys out the instant the ability is used and the ring drains to empty;
+        /// both fill/lighten back up in step with the cooldown (see AbilityBase.UpdateCooldown, which
+        /// fires this every frame while on cooldown). The moment the cooldown actually reaches zero,
+        /// the portrait starts a continuous flash (see StartReadyFlash) rather than just sitting at a
+        /// static "ready" colour, so the player gets a clear "you can use this now" cue instead of
+        /// having to notice the ring quietly finished filling.</summary>
         private void HandleAbilityCooldownChanged(float remaining, float total)
         {
             if (characterPortrait == null)
@@ -236,11 +250,52 @@ namespace FarmFuryArcade.UI
                 return;
             }
 
-            characterPortrait.color = remaining > 0f ? AbilityCooldownTint : _portraitReadyColor;
+            if (remaining > 0f)
+            {
+                StopReadyFlash();
+                characterPortrait.color = AbilityCooldownTint;
+            }
+            else if (_readyFlashRoutine == null)
+            {
+                StartReadyFlash();
+            }
 
             if (abilityCooldownRing != null)
             {
                 abilityCooldownRing.fillAmount = total > 0f ? Mathf.Clamp01(1f - remaining / total) : 1f;
+            }
+        }
+
+        private void StartReadyFlash()
+        {
+            StopReadyFlash();
+            _readyFlashRoutine = StartCoroutine(ReadyFlashRoutine());
+        }
+
+        /// <summary>Also resets the portrait back to its plain ready colour — called both when the
+        /// ability is used again (cooldown restarts) and from OnDisable/RefreshActiveAbility so a
+        /// leftover flash coroutine never keeps running against a portrait that no longer belongs to
+        /// the active ability (e.g. after a character swap).</summary>
+        private void StopReadyFlash()
+        {
+            if (_readyFlashRoutine != null)
+            {
+                StopCoroutine(_readyFlashRoutine);
+                _readyFlashRoutine = null;
+            }
+            if (characterPortrait != null)
+            {
+                characterPortrait.color = _portraitReadyColor;
+            }
+        }
+
+        private IEnumerator ReadyFlashRoutine()
+        {
+            while (true)
+            {
+                float pulse = (Mathf.Sin(Time.unscaledTime * FlashCyclesPerSecond * Mathf.PI * 2f) + 1f) * 0.5f;
+                characterPortrait.color = Color.Lerp(_portraitReadyColor, AbilityFlashColor, pulse);
+                yield return null;
             }
         }
 

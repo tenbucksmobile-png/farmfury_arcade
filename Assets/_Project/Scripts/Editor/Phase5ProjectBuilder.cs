@@ -471,7 +471,9 @@ namespace FarmFuryArcade.EditorTools
             goRect.anchorMin = goRect.anchorMax = goRect.pivot = new Vector2(0.5f, 0.5f);
             // ~2.6x the original 340x360 (aspect preserved) — as large as the badge art can go
             // while still centred in the space between the header and the bottom of the screen.
-            goRect.sizeDelta = new Vector2(897f, 950f);
+            // Shrunk ~10% (897x950 -> 810x855, aspect preserved) per a follow-up mockup review —
+            // the badges were reading as slightly oversized against the header/bottom margins.
+            goRect.sizeDelta = new Vector2(810f, 855f);
             var background = go.GetComponent<Image>();
             background.sprite = PlaceholderSprite.Get(new Color(0.55f, 0.4f, 0.2f));
             background.preserveAspect = true;
@@ -517,6 +519,11 @@ namespace FarmFuryArcade.EditorTools
         {
             var root = CreatePanel("LevelSelectScreen", canvasTransform, new Color(0.35f, 0.55f, 0.75f));
 
+            // No top-left LogoImage here (unlike Settings/Pause/Choose Character/Level Complete) —
+            // this screen already has its own top-left identity element, CurrentWorldIndicator (built
+            // below), anchored at the exact same inset. A LogoImage was added in an earlier pass
+            // without noticing that clash; removed again per feedback that the two badges overlapped.
+
             var backButton = CreateRoundBackButton(root.transform);
 
             // TitleImage replaces the old TMP "SELECT LEVEL" text — SelectLevelSign.png is the
@@ -561,21 +568,24 @@ namespace FarmFuryArcade.EditorTools
             shieldContainerRect.anchorMax = new Vector2(0.5f, 1f);
             shieldContainerRect.pivot = new Vector2(0.5f, 0.5f);
             shieldContainerRect.sizeDelta = new Vector2(1600f, -400f); // 200px margin top and bottom
-            shieldContainerRect.anchoredPosition = Vector2.zero; // true vertical centre of the screen
+            // Nudged down 16px from the screen's true vertical centre, per a follow-up mockup
+            // review — the carousel read as sitting slightly too close under the SELECT LEVEL banner.
+            shieldContainerRect.anchoredPosition = new Vector2(0f, -16f);
             worldShieldContainerGO.transform.SetParent(root.transform, false);
             var shieldContainerImage = worldShieldContainerGO.GetComponent<Image>();
             shieldContainerImage.sprite = PlaceholderSprite.Get(Color.clear);
             shieldContainerImage.color = Color.clear;
             shieldContainerImage.raycastTarget = true;
             var worldCarousel = worldShieldContainerGO.AddComponent<CardCarouselController>();
-            // Default itemSpacing (380, tuned for Choose Character's much smaller cards, which
-            // reuses this same component) is far too tight for the ~2.6x-larger world badges —
-            // adjacent badges would heavily overlap the centred one instead of fanning out. Scaled
-            // by the same ratio the badge size itself grew by by (897/340) to preserve the original
-            // fan/overlap look at the new scale, as a per-instance override rather than changing the
-            // component's shared default.
+            // Tightened per feedback that badges read as spaced too far apart — 730 puts adjacent
+            // badges' edges roughly 32px apart (badge width 810 at full scale, ~583 at the 0.72
+            // side-scale falloff: 810/2 + 583/2 + 32 ~= 730). CardCarouselController now arranges
+            // items along a true circular arc (see its own arcRadius field) instead of a flat
+            // linear x-offset, so itemSpacing here is the arc-length step between adjacent items,
+            // not a straight pixel offset — arcRadius is left at the component's default (2800),
+            // which reads as a natural curve at this spacing.
             var worldCarouselSO = new SerializedObject(worldCarousel);
-            worldCarouselSO.FindProperty("itemSpacing").floatValue = 1000f;
+            worldCarouselSO.FindProperty("itemSpacing").floatValue = 730f;
             worldCarouselSO.ApplyModifiedPropertiesWithoutUndo();
 
             var lockedHintPanel = BuildLockedHintPanel(root.transform);
@@ -736,7 +746,9 @@ namespace FarmFuryArcade.EditorTools
             // Pause button is all this needs.
             const float clusterButtonSize = 120f;
             const float clusterSpacing = 20f;
-            const float clusterInsetX = 130f;
+            // Shifted further left (130 -> 90) per feedback — the Pause button + character portrait
+            // stack still read as sitting too far in from the corner/safe-area edge.
+            const float clusterInsetX = 90f;
             const float clusterInsetY = 90f;
 
             // Character portrait sits at the bottom of the cluster (closer to the corner), enlarged
@@ -773,7 +785,27 @@ namespace FarmFuryArcade.EditorTools
             // not here — a listener added directly from editor-script code doesn't survive a scene
             // save/reload (UnityEvent's non-persistent listeners aren't serialized), same pitfall
             // SimpleClosePanel exists to work around elsewhere in this builder.
-            var portrait = portraitButton.GetComponent<Image>();
+            //
+            // The button's own Image is now a round background (PlaceholderSprite.GetCircle) rather
+            // than the square GameplayHUD swaps the character's actual portrait sprite onto — those
+            // were the same Image before, so showing a real (rectangular) character sprite there
+            // would have overwritten the round shape entirely. A separate non-interactive "PortraitArt"
+            // child (inset slightly so the round edge stays visible around it) holds the actual
+            // character sprite instead; GameplayHUD.characterPortrait now points at this child.
+            var portraitBg = portraitButton.GetComponent<Image>();
+            portraitBg.sprite = PlaceholderSprite.GetCircle(new Color(1f, 0.84f, 0f));
+
+            var portraitArtGO = new GameObject("PortraitArt", typeof(RectTransform), typeof(Image));
+            portraitArtGO.transform.SetParent(portraitButton.transform, false);
+            var portraitArtRect = (RectTransform)portraitArtGO.transform;
+            portraitArtRect.anchorMin = Vector2.zero;
+            portraitArtRect.anchorMax = Vector2.one;
+            float portraitArtInset = clusterButtonSize * 0.12f;
+            portraitArtRect.offsetMin = new Vector2(portraitArtInset, portraitArtInset);
+            portraitArtRect.offsetMax = new Vector2(-portraitArtInset, -portraitArtInset);
+            var portrait = portraitArtGO.GetComponent<Image>();
+            portrait.sprite = PlaceholderSprite.Get(new Color(1f, 0.84f, 0f));
+            portrait.raycastTarget = false;
 
             var pauseButton = CreateButton("PauseButton", root.transform, string.Empty, new Color(0.35f, 0.35f, 0.38f), 28f, clusterButtonSize, out _);
             Object.DestroyImmediate(pauseButton.transform.Find("PauseButton_Label").gameObject);
@@ -890,26 +922,30 @@ namespace FarmFuryArcade.EditorTools
             // Fractions widened slightly (~0.015 horizontally, ~0.004 vertically) from the values
             // originally measured off Paused.png — the button art was sitting a hair inside its
             // row's baked-in outline, leaving a thin sliver of the parchment's own button shape
-            // visible around each one instead of being fully covered.
+            // visible around each one instead of being fully covered. Nudged down another ~0.012
+            // (all 5, uniformly) per a follow-up review — "almost perfectly aligned" but sitting a
+            // touch high of the baked-in rows.
             var resumeButton = CreateButton("ResumeButton", panelArtGO.transform, string.Empty, Color.clear, out _);
             Object.DestroyImmediate(resumeButton.transform.Find("ResumeButton_Label").gameObject);
-            SetAnchorRect((RectTransform)resumeButton.transform, 0.31f, 0.596f, 0.69f, 0.6865f);
+            SetAnchorRect((RectTransform)resumeButton.transform, 0.31f, 0.584f, 0.69f, 0.6745f);
 
             var swapButton = CreateButton("SwapButton", panelArtGO.transform, string.Empty, Color.clear, out _);
             Object.DestroyImmediate(swapButton.transform.Find("SwapButton_Label").gameObject);
-            SetAnchorRect((RectTransform)swapButton.transform, 0.2475f, 0.491f, 0.75f, 0.5815f);
+            SetAnchorRect((RectTransform)swapButton.transform, 0.2475f, 0.479f, 0.75f, 0.5695f);
 
             var restartButton = CreateButton("RestartButton", panelArtGO.transform, string.Empty, Color.clear, out _);
             Object.DestroyImmediate(restartButton.transform.Find("RestartButton_Label").gameObject);
-            SetAnchorRect((RectTransform)restartButton.transform, 0.31f, 0.3885f, 0.69f, 0.4765f);
+            SetAnchorRect((RectTransform)restartButton.transform, 0.31f, 0.3765f, 0.69f, 0.4645f);
 
             var settingsButton = CreateButton("SettingsButton", panelArtGO.transform, string.Empty, Color.clear, out _);
             Object.DestroyImmediate(settingsButton.transform.Find("SettingsButton_Label").gameObject);
-            SetAnchorRect((RectTransform)settingsButton.transform, 0.31f, 0.286f, 0.69f, 0.374f);
+            SetAnchorRect((RectTransform)settingsButton.transform, 0.31f, 0.274f, 0.69f, 0.362f);
 
             var quitButton = CreateButton("QuitButton", panelArtGO.transform, string.Empty, Color.clear, out _);
             Object.DestroyImmediate(quitButton.transform.Find("QuitButton_Label").gameObject);
-            SetAnchorRect((RectTransform)quitButton.transform, 0.3525f, 0.191f, 0.65f, 0.274f);
+            // Quit alone nudged down another ~0.01 per feedback — the other 4 buttons are confirmed
+            // correctly aligned now and were left untouched.
+            SetAnchorRect((RectTransform)quitButton.transform, 0.3525f, 0.169f, 0.65f, 0.252f);
 
             var controller = root.AddComponent<PauseMenuController>();
             var so = new SerializedObject(controller);
@@ -993,7 +1029,10 @@ namespace FarmFuryArcade.EditorTools
             }
             else
             {
-                AnchorBottomLeft((RectTransform)backButton.transform, new Vector2(160f, 160f), new Vector2(100f, 70f));
+                // Choose Character's own mockup sits this further left than the generic 100px inset
+                // other bottom-left buttons use — nudged to 60 per feedback that it was sitting too
+                // far toward centre (still comfortably inside the safe-area guide at this inset).
+                AnchorBottomLeft((RectTransform)backButton.transform, new Vector2(160f, 160f), new Vector2(60f, 70f));
             }
             return backButton;
         }
@@ -1123,11 +1162,15 @@ namespace FarmFuryArcade.EditorTools
             var gridRect = (RectTransform)gridGO.transform;
             gridRect.anchorMin = gridRect.anchorMax = new Vector2(0.5f, 0.5f);
             gridRect.pivot = new Vector2(0.5f, 0.5f);
-            gridRect.sizeDelta = new Vector2(890f, 530f);
+            gridRect.sizeDelta = new Vector2(900f, 460f);
             gridRect.anchoredPosition = new Vector2(0f, -90f);
             var grid = gridGO.GetComponent<GridLayoutGroup>();
-            grid.cellSize = new Vector2(210f, 60f);
-            grid.spacing = new Vector2(24f, 20f);
+            // Plaques enlarged 2x (210x60 -> 420x120) per request; spacing scaled to match so the
+            // now-bigger cells stay evenly spaced rather than crowding together. CreateTogglePlaqueCell
+            // keeps each label's own text box pinned at the ORIGINAL 210x60 size (see its own comment)
+            // so only the plaque artwork grows, not the text.
+            grid.cellSize = new Vector2(420f, 120f);
+            grid.spacing = new Vector2(48f, 40f);
             grid.childAlignment = TextAnchor.UpperCenter;
             grid.constraint = GridLayoutGroup.Constraint.FixedColumnCount;
             grid.constraintCount = 2;
@@ -1144,7 +1187,12 @@ namespace FarmFuryArcade.EditorTools
             languageDropdown.options.Clear();
             languageDropdown.options.Add(new TMP_Dropdown.OptionData("English"));
             var langLabel = CreateText("Label", languageCellGO.transform, "English", 52f, TextAlignmentOptions.Center, 40f);
-            StretchFull((RectTransform)langLabel.transform);
+            // Same fixed-size-label-inside-a-bigger-plaque treatment as CreateTogglePlaqueCell.
+            var langLabelRect = (RectTransform)langLabel.transform;
+            langLabelRect.anchorMin = langLabelRect.anchorMax = new Vector2(0.5f, 0.5f);
+            langLabelRect.pivot = new Vector2(0.5f, 0.5f);
+            langLabelRect.anchoredPosition = Vector2.zero;
+            langLabelRect.sizeDelta = new Vector2(210f, 60f);
             langLabel.enableAutoSizing = true;
             langLabel.fontSizeMin = 20f;
             langLabel.fontSizeMax = 52f;
@@ -1277,7 +1325,15 @@ namespace FarmFuryArcade.EditorTools
             toggle.isOn = true;
 
             var labelText = CreateText(name + "_Label", go.transform, label, 56f, TextAlignmentOptions.Center, 40f);
-            StretchFull((RectTransform)labelText.transform);
+            // Fixed at the plaque's ORIGINAL size (210x60), centred, rather than stretched to fill
+            // the cell — the cell itself was enlarged 2x (see BuildSettingsPanel) so the plaque
+            // artwork reads bigger, but keeping the label's own box at its old size means its
+            // auto-sizing font computes the exact same size as before instead of growing with it.
+            var labelRect = (RectTransform)labelText.transform;
+            labelRect.anchorMin = labelRect.anchorMax = new Vector2(0.5f, 0.5f);
+            labelRect.pivot = new Vector2(0.5f, 0.5f);
+            labelRect.anchoredPosition = Vector2.zero;
+            labelRect.sizeDelta = new Vector2(210f, 60f);
             // Auto-shrink rather than clip/overflow — the doubled font size (28 -> 56) doesn't
             // reliably fit every label ("Left-Handed", "Vibration") at every plaque size.
             labelText.enableAutoSizing = true;
@@ -1389,31 +1445,42 @@ namespace FarmFuryArcade.EditorTools
 
         // ---- Level Failed -----------------------------------------------------------------------
 
-        /// <summary>LevelFailed.png bakes in the "TRY AGAIN!" banner, "SCORE"/"BEST" labels, and
-        /// its own RETRY/MENU button graphics at fixed positions — Retry.png/Menu.png (real button
-        /// art wired by ArtWiringBuilder) sit exactly on top of those two baked-in positions
-        /// instead of generic CreateButton rectangles, and there's no dynamic Title/Score/Tip text
-        /// anymore since the art already reads as a complete screen on its own. Anchor fractions
-        /// below were measured directly off LevelFailed.png (a 2048x2048 square image, stretched
-        /// to fill this full-screen panel) — anchoring as a fractional sub-rect (rather than a
-        /// fixed pixel size/position) keeps the buttons aligned with the art regardless of how
-        /// non-uniformly that stretch scales the square source into the canvas's own aspect.</summary>
+        /// <summary>Rebuilt to a 2026-08-01 Canva mockup: Bg_LevelSelect.png (night farm) root
+        /// background instead of LevelFailed.png stretched full-screen — that stretch used to
+        /// non-uniformly distort the square "TRY AGAIN!" card art on a landscape aspect (the same
+        /// square-art-on-landscape-overlay problem Pause/Level Complete already had fixed). PanelArt
+        /// is now a child locked to a 1:1 aspect via AspectRatioFitter, carrying LevelFailed.png,
+        /// with Restart.png/Quit.png positioned inside its own parchment area (LevelFailed.png has
+        /// no baked-in button rows to align to, unlike Paused.png, so these fractions are a fresh
+        /// centred vertical stack rather than measured off pre-existing art positions).</summary>
         private static GameObject BuildLevelFailed(Transform canvasTransform)
         {
-            var root = CreatePanel("LevelFailedScreen", canvasTransform, new Color(0.16f, 0.12f, 0.10f));
+            var root = CreatePanel("LevelFailedScreen", canvasTransform, Color.black);
 
-            var retryButton = CreateButton("RetryButton", root.transform, string.Empty, Color.clear, out _);
-            Object.DestroyImmediate(retryButton.transform.Find("RetryButton_Label").gameObject);
-            SetAnchorRect((RectTransform)retryButton.transform, 0.215f, 0.27f, 0.4275f, 0.355f);
+            var panelArtGO = new GameObject("PanelArt", typeof(RectTransform), typeof(Image), typeof(AspectRatioFitter));
+            panelArtGO.transform.SetParent(root.transform, false);
+            var panelArtRect = (RectTransform)panelArtGO.transform;
+            panelArtRect.anchorMin = Vector2.zero;
+            panelArtRect.anchorMax = Vector2.one;
+            panelArtRect.offsetMin = Vector2.zero;
+            panelArtRect.offsetMax = Vector2.zero;
+            panelArtGO.GetComponent<Image>().sprite = PlaceholderSprite.Get(Color.clear);
+            var panelArtFitter = panelArtGO.GetComponent<AspectRatioFitter>();
+            panelArtFitter.aspectMode = AspectRatioFitter.AspectMode.FitInParent;
+            panelArtFitter.aspectRatio = 1f;
 
-            var menuButton = CreateButton("MenuButton", root.transform, string.Empty, Color.clear, out _);
-            Object.DestroyImmediate(menuButton.transform.Find("MenuButton_Label").gameObject);
-            SetAnchorRect((RectTransform)menuButton.transform, 0.5325f, 0.27f, 0.7475f, 0.355f);
+            var restartButton = CreateButton("RestartButton", panelArtGO.transform, string.Empty, Color.clear, out _);
+            Object.DestroyImmediate(restartButton.transform.Find("RestartButton_Label").gameObject);
+            SetAnchorRect((RectTransform)restartButton.transform, 0.28f, 0.44f, 0.72f, 0.54f);
+
+            var quitButton = CreateButton("QuitButton", panelArtGO.transform, string.Empty, Color.clear, out _);
+            Object.DestroyImmediate(quitButton.transform.Find("QuitButton_Label").gameObject);
+            SetAnchorRect((RectTransform)quitButton.transform, 0.28f, 0.28f, 0.72f, 0.38f);
 
             var controller = root.AddComponent<LevelFailedController>();
             var so = new SerializedObject(controller);
-            so.FindProperty("retryButton").objectReferenceValue = retryButton;
-            so.FindProperty("menuButton").objectReferenceValue = menuButton;
+            so.FindProperty("restartButton").objectReferenceValue = restartButton;
+            so.FindProperty("quitButton").objectReferenceValue = quitButton;
             so.ApplyModifiedPropertiesWithoutUndo();
 
             return root;
@@ -1506,13 +1573,10 @@ namespace FarmFuryArcade.EditorTools
             rootImage.sprite = PlaceholderSprite.Get(Color.clear);
             rootImage.color = Color.clear;
 
-            var activeHighlight = CreateImage("ActiveHighlight", go.transform, new Color(1f, 0.84f, 0f, 0.85f), 380f, 400f);
-            var highlightRect = (RectTransform)activeHighlight.transform;
-            highlightRect.anchorMin = highlightRect.anchorMax = new Vector2(0.5f, 0.5f);
-            highlightRect.pivot = new Vector2(0.5f, 0.5f);
-            highlightRect.sizeDelta = new Vector2(380f, 400f);
-            highlightRect.anchoredPosition = Vector2.zero;
-
+            // ActiveHighlight (an 85%-opaque yellow square behind the centred card) removed per
+            // feedback — it read as a distracting yellow background block behind the active
+            // character rather than a subtle highlight. CharacterSelectCard.activeHighlight is left
+            // null-safe (its SetActive call is already guarded), so no script change was needed.
             var cardArt = CreateImage("CardArt", go.transform, Color.white, 340f, 360f);
             var cardArtRect = (RectTransform)cardArt.transform;
             cardArtRect.anchorMin = cardArtRect.anchorMax = new Vector2(0.5f, 0.5f);
@@ -1537,7 +1601,6 @@ namespace FarmFuryArcade.EditorTools
             var cardSO = new SerializedObject(card);
             cardSO.FindProperty("cardImage").objectReferenceValue = cardArt;
             cardSO.FindProperty("lockIcon").objectReferenceValue = lockIcon.gameObject;
-            cardSO.FindProperty("activeHighlight").objectReferenceValue = activeHighlight.gameObject;
             cardSO.FindProperty("button").objectReferenceValue = button;
             cardSO.ApplyModifiedPropertiesWithoutUndo();
 
@@ -1584,11 +1647,14 @@ namespace FarmFuryArcade.EditorTools
             containerImage.color = Color.clear;
             containerImage.raycastTarget = true;
             var carousel = cardContainerGO.AddComponent<CardCarouselController>();
-            // Default itemSpacing (380) left visibly large gaps between cards — tightened as a
-            // per-instance override (same pattern Level Select's worldCarousel uses) rather than
-            // changing the shared component default.
+            // Default itemSpacing (380) left visibly large gaps between cards — tightened further
+            // (300 -> 220) per feedback that cards still read as too far apart. arcRadius is scaled
+            // down to match these much smaller cards (2800 default is tuned for Level Select's large
+            // world badges) so the circular motion is clearly visible at this size rather than
+            // reading as nearly flat.
             var carouselSO = new SerializedObject(carousel);
-            carouselSO.FindProperty("itemSpacing").floatValue = 300f;
+            carouselSO.FindProperty("itemSpacing").floatValue = 220f;
+            carouselSO.FindProperty("arcRadius").floatValue = 900f;
             carouselSO.ApplyModifiedPropertiesWithoutUndo();
 
             var controller = root.AddComponent<ChooseCharacterScreen>();
@@ -1640,7 +1706,7 @@ namespace FarmFuryArcade.EditorTools
                 ("levelSelectScreen", levelSelect), ("unlockScreen", unlockScreen));
 
             SetRefs(levelFailed.GetComponent<LevelFailedController>(),
-                ("gameplayScreen", gameplay), ("mainMenuScreen", mainMenu));
+                ("gameplayScreen", gameplay), ("levelSelectScreen", levelSelect));
 
             SetRefs(roster.GetComponent<CharacterRosterScreen>(),
                 ("mainMenuScreen", mainMenu));

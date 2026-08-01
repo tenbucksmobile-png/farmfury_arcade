@@ -102,6 +102,11 @@ namespace FarmFuryArcade.Enemies
             var data = DataManager.Instance.GetRobotData(spawn.robotType);
             robot.Initialize(data, tileMap, spawn.spawnPosition, GetScatterCorner(spawn.robotType));
             _activeRobots.Add(robot);
+            // PlayRobotRespawnSfx used to fire only from a defeated robot's mid-level walk-back to
+            // the factory (RobotBase.ArriveAtFactory) — that flow no longer exists (see RobotBase's
+            // Disappear()/IsPermanentlyDefeated doc comments), so this is now the only spawn event
+            // left to play "RobotSpawn.mp3" against, level-start spawns included.
+            AudioManager.Instance?.PlayRobotRespawnSfx();
         }
 
         private GameObject GetPrefabFor(RobotType type)

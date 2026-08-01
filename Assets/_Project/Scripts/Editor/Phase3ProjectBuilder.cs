@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
@@ -134,14 +135,17 @@ namespace FarmFuryArcade.EditorTools
             AssetDatabase.ImportAsset(prefabPath, ImportAssetOptions.ForceUpdate);
         }
 
+        // Reduced from a uniform 3.5 (~0.57x) to match the character speed cut in
+        // Phase4ProjectBuilder.BuildCharacterData — robots were substantially outrunning the
+        // player at the old value once characters were slowed down.
         private static void BuildRobotData()
         {
-            BuildRobotDataAsset(RobotType.Harvester, "Harvester", 3.5f, AIBehaviourType.Chase, 1);
-            BuildRobotDataAsset(RobotType.Scout, "Scout", 3.5f, AIBehaviourType.Predict, 1);
-            BuildRobotDataAsset(RobotType.Patrol, "Patrol", 3.5f, AIBehaviourType.Coordinate, 1);
-            BuildRobotDataAsset(RobotType.Drifter, "Drifter", 3.5f, AIBehaviourType.Random, 1);
-            BuildRobotDataAsset(RobotType.Heavy, "Heavy", 3.5f, AIBehaviourType.Tank, 2);
-            BuildRobotDataAsset(RobotType.Drone, "Drone", 3.5f, AIBehaviourType.Fly, 1);
+            BuildRobotDataAsset(RobotType.Harvester, "Harvester", 2.0f, AIBehaviourType.Chase, 1);
+            BuildRobotDataAsset(RobotType.Scout, "Scout", 2.0f, AIBehaviourType.Predict, 1);
+            BuildRobotDataAsset(RobotType.Patrol, "Patrol", 2.0f, AIBehaviourType.Coordinate, 1);
+            BuildRobotDataAsset(RobotType.Drifter, "Drifter", 2.0f, AIBehaviourType.Random, 1);
+            BuildRobotDataAsset(RobotType.Heavy, "Heavy", 2.0f, AIBehaviourType.Tank, 2);
+            BuildRobotDataAsset(RobotType.Drone, "Drone", 2.0f, AIBehaviourType.Fly, 1);
         }
 
         private static void BuildRobotDataAsset(RobotType type, string displayName, float speed, AIBehaviourType behaviour, int healthPoints)
@@ -359,7 +363,11 @@ namespace FarmFuryArcade.EditorTools
             scSO.FindProperty("robotSpawner").objectReferenceValue = spawner;
             scSO.ApplyModifiedPropertiesWithoutUndo();
 
-            if (GameObject.Find("Phase3Test") == null)
+            // See Phase2ProjectBuilder's matching comment — GameObject.Find only matches active
+            // objects, so once Phase3Test is disabled a plain Find-or-create re-spawns a duplicate.
+            var existingPhase3Test = Resources.FindObjectsOfTypeAll<Phase3Test>()
+                .FirstOrDefault(t => !EditorUtility.IsPersistent(t.gameObject));
+            if (existingPhase3Test == null)
             {
                 new GameObject("Phase3Test").AddComponent<Phase3Test>();
             }

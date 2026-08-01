@@ -63,7 +63,7 @@ namespace FarmFuryArcade.Gameplay
         private IEnumerator DeathSequence()
         {
             IsRespawning = true;
-            GameManager.Instance?.NotifyPlayerDeath();
+            bool hasRespawnLeft = GameManager.Instance == null || GameManager.Instance.NotifyPlayerDeath();
             AudioManager.Instance?.PlayAnimalDeathSfx();
             _movement.enabled = false;
             _movement.QueueInputDirection(Direction.None);
@@ -71,6 +71,14 @@ namespace FarmFuryArcade.Gameplay
             if (_spriteRenderer != null)
             {
                 yield return FadeOut(fadeOutSeconds);
+            }
+
+            if (!hasRespawnLeft)
+            {
+                // Respawn cap exhausted — GameManager.NotifyPlayerDeath already ended the run
+                // (EndLevel(false)), and GameplayHUD's state-watcher will swap to the Level Failed
+                // screen. Stay faded out rather than respawning back into a maze that's over.
+                yield break;
             }
 
             float remaining = inputLockSeconds - fadeOutSeconds;

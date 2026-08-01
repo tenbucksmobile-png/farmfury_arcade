@@ -69,7 +69,16 @@ them by static reference — `GameManager` fetches `SceneController` via `GetCom
 
 - **GameManager** — current `GameState`/level/character, crops-remaining tracking, delegates
   score to `ScoreManager` (its own `AddScore`/`GetCurrentScore` just forward to it). `EndLevel(true)`
-  also triggers `UnlockManager.CheckUnlocksOnLevelComplete`.
+  also triggers `UnlockManager.CheckUnlocksOnLevelComplete`. **A maze isn't endless**: `GameManager.
+  MaxRespawns` (3) caps how many times the player can die in one maze — `NotifyPlayerDeath()`
+  increments `DeathCountThisMaze` and, once it exceeds the cap (the 4th death), calls
+  `EndLevel(false)` itself and returns `false` so `PlayerHealth.DeathSequence` knows to skip the
+  respawn and leave the character faded out rather than reviving it. `GameManager.
+  LevelTimeLimitSeconds` (120) is checked every `Update()` — once `GetElapsedSeconds()` reaches it
+  while `Playing`, `EndLevel(false)` fires the same way. Either path sets `GameState.LevelFailed`,
+  which `GameplayHUD`'s state-watcher reacts to by showing `LevelFailedScreen` ("Try Again" — see
+  its own section under Screens below). `GameplayHUD`'s timer text now **counts down** from
+  `LevelTimeLimitSeconds` (`RefreshTimerText`) instead of counting up elapsed time.
 - **DataManager** — loads all ScriptableObject data at startup via `Resources.LoadAll`.
 - **SaveManager** — PlayerPrefs-backed persistence (highest level, coins, star ratings, character
   unlocks). Cluck and Bessie auto-unlock on first run (starter characters per the GDD).
@@ -130,7 +139,12 @@ gestures (works with mouse drag in the Editor too), and — the same event, via
 `InputController.RaiseDirectionInput` — an on-screen directional pad (`UI/DirectionalPadController`,
 Gameplay HUD's `up`/`down`/`left`/`right.png` buttons, diamond-laid-out on the right side). None of
 these three input sources know about each other; `GridMovement` just listens to whichever raises
-the event. `OnAbilityActivateInput` (Space) and `OnSwapMenuToggleInput` (Tab) were added in Phase 4.
+the event. **`DirectionalPadController` fires on `PointerDown` (via `EventTrigger`), not
+`Button.onClick`** — `onClick` only fires on release, which read as sluggish/delayed for a
+directional control (a queued turn should register the instant the player touches the button, not
+after they lift their finger back off it). Each button gets an `EventTrigger.Entry` with
+`eventID = PointerDown` added in `Awake`, calling `InputController.RaiseDirectionInput` directly;
+the old `onClick` wiring was removed rather than left alongside it, to avoid double-firing per tap. `OnAbilityActivateInput` (Space) and `OnSwapMenuToggleInput` (Tab) were added in Phase 4.
 `GridMovement`/`AbilityBase` both subscribe
 directly to their static events rather than routing through a per-frame lookup — safe because
 `CharacterManager` guarantees only one character GameObject (and so only one subscriber of each)
@@ -194,12 +208,20 @@ component subscribes to `InputController`'s static `OnDirectionInput` event; giv
 component too would make every robot obey player input.
 
 **State machine:** `Chase` ↔ `Scatter` alternate on a 20s/5s cycle (paused while Vulnerable/
-Defeated/Returning, resumed from where it left off). `PowerPelletManager.OnPowerStateChanged`
-flips every listening robot to/from `Vulnerable`; a hit while Vulnerable (`RegisterHit()`)
-decrements health, and health reaching zero triggers a brief `Defeated` pause → `Returning`
-(fast pathfind to the factory cell) → respawn to `Chase` on arrival. `PlayerHealth` calls
-`RegisterHit()` on contact with a Vulnerable robot, and starts its own death sequence on contact
-with a Chase/Scatter robot (Defeated/Returning "eyes" are harmless).
+Defeated, resumed from where it left off). `PowerPelletManager.OnPowerStateChanged` flips every
+listening robot to/from `Vulnerable`; a hit while Vulnerable (`RegisterHit()`) decrements health,
+and health reaching zero triggers a brief `Defeated` pause → **disappears** (`RobotBase.Disappear()`
+disables its `SpriteRenderer` + `Collider2D`) rather than pathfinding back to the factory as visible
+"eyes" — playtest feedback called the old walk-back "floating eyes" a bug, not a feature. A
+disappeared robot sets `IsPermanentlyDefeated = true` and stays gone for the rest of **this maze**;
+`RobotSpawner.ResetAllRobotsToFactory()` (the player-death reset) checks this flag and skips
+reviving it, so dying doesn't bring a defeated robot back either. The only thing that brings it back
+is the next `GameManager.LoadLevel` — `RobotSpawner.SpawnLevelRobots` destroys and recreates every
+robot fresh on every level load. `RobotState.Returning` is now dead/unreachable code (kept in the
+enum only because other switches still reference it harmlessly) — nothing transitions into it
+anymore. `PlayerHealth` calls `RegisterHit()` on contact with a Vulnerable robot, and starts its own
+death sequence on contact with a Chase/Scatter robot (a Defeated robot's disabled collider means no
+contact is possible with it at all).
 
 **Per-robot targeting** (`GetTargetPosition()`, used only in Chase — Scatter/Vulnerable/Returning
 targets are resolved generically by `RobotBase.ResolveTarget()`):
@@ -223,10 +245,13 @@ really just "walls don't factor into its direction choice."
 corners (inset 1 tile from the border), classic-arcade style. `DrifterRobot`'s "retreat" target
 when close to the player reuses the same field (`scatterCornerPosition`).
 
-**Art status:** `RobotVisual` now swaps in a real `RobotEyes.png` sprite for Defeated/Returning on
-all 6 robots (see "Art status" below), but Vulnerable still swaps the placeholder `SpriteRenderer`
-colour (blue, flashing white in the last 2s) since no dedicated vulnerable sprite has been
-uploaded yet. Replace with a real `Robot_Vulnerable_Walk` sprite swap when that art lands.
+**Art status:** `RobotVisual` swaps in a real `RobotEyes.png` sprite for the brief Defeated pause
+before a robot disappears (see "Art status" below and the state-machine note above — there's no
+longer a Returning phase to show eyes during), but Vulnerable still swaps the placeholder
+`SpriteRenderer` colour (blue, flashing white in the last 2s) since no dedicated vulnerable sprite
+has been uploaded yet. Replace with a real `Robot_Vulnerable_Walk` sprite swap when that art lands.
+Harvester and Scout now have full 4-direction art (Left/Right added for Harvester, Back added for
+Scout — see "Art status" below); only Drone has none.
 
 **Chain scoring & power state:** `PowerPelletManager` (Core) owns the single global "frightened"
 countdown (`IsPowerActive`, `TimeRemaining`, `ActivatePower(duration)`, `OnPowerStateChanged`)
@@ -385,7 +410,19 @@ from their original Phase 5 layouts:
   `GameplayHUD.HandleAbilityCooldownChanged` in lockstep with the portrait's existing grey-out-on-
   cooldown tint (empty right after use, full once ready). No dedicated ring art exists yet —
   `PlaceholderSprite`'s plain square still shows the radial sweep correctly, it just won't look
-  like a ring until real art replaces it.
+  like a ring until real art replaces it. Once the cooldown reaches zero, the portrait also starts a
+  continuous flash (`GameplayHUD.StartReadyFlash`/`ReadyFlashRoutine`, pulsing toward a bright gold
+  `AbilityFlashColor` via `Mathf.Sin(Time.unscaledTime * FlashCyclesPerSecond * 2π)`) rather than
+  just sitting at a static "ready" colour, so the player gets a clear "you can use this now" cue
+  instead of having to notice the ring quietly finished filling. Stopped (`StopReadyFlash`) on
+  ability use, character swap, and `OnDisable`, so a leftover flash coroutine never runs against a
+  portrait that no longer belongs to the active ability. The character portrait's own background is
+  now a round `PlaceholderSprite.GetCircle`-generated circle (a new sibling method to `Get()`, same
+  cache-per-colour convention, transparent outside the radius) rather than a solid square — the
+  actual character art moved to a separate non-interactive `PortraitArt` child inset inside the
+  button (`GameplayHUD.characterPortrait` now points at this child, not the button's own Image),
+  since swapping the button's own Image to a real (rectangular) character sprite would have
+  overwritten the round shape entirely.
   `SoundButton`/`HomeButton` were later removed too (per playtest feedback) — both are reachable via
   Pause instead (Settings' music/SFX toggles, Pause's own Quit button) — leaving just a single
   `160x160` `PauseButton`, bottom-left (matching the Main Menu's Play/Settings buttons, safe-area
@@ -406,11 +443,23 @@ from their original Phase 5 layouts:
 - Three always-on `OnGUI` debug overlays (`Phase1Test`/`Phase2Test`/`Phase3Test`/`Phase4Test` manual
   test buttons, independent of their `runOnStart` flag) used to render on top of every screen in
   every Play session. `Editor/SceneCleanupBuilder.DisableDebugTestOverlays` (`Farm Fury Arcade >
-  Disable Debug Test Overlays`) deactivates all 5 `Phase*Test` GameObjects — safe to re-run, and
-  also de-duplicates them (see that file's doc comment for the `GameObject.Find`-only-finds-active
-  bug this uncovered in `Phase5ProjectBuilder`'s own `Phase5Test` idempotency check, now fixed to
-  look up inactive instances too via `Resources.FindObjectsOfTypeAll`). Re-enable a specific one
-  (Inspector checkbox, or its `ContextMenu`) to run its manual test battery again.
+  Disable Debug Test Overlays`) deactivates all 6 test GameObjects (`Phase1Test` through
+  `Phase5Test`, plus `LevelSelectTest`) — safe to re-run, and also de-duplicates them via
+  `DedupeAndDisable<T>()`. **This de-dup step matters more than it looks**: `Phase2/3/4/5
+  ProjectBuilder` each look up their own test object with a Find-or-create check before adding one,
+  and `GameObject.Find` only matches **active** objects — once `DisableDebugTestOverlays` deactivates
+  one, a later re-run of that phase's `BuildAll` couldn't find it and silently spawned a fresh
+  active duplicate every time. This actually happened during one long session of repeated rebuilds
+  and was the real cause of a persistent "black tiles" debug-overlay bug that looked like it kept
+  "coming back after being fixed" — it wasn't coming back, a new one was being created each rebuild.
+  `Phase2ProjectBuilder`/`Phase3ProjectBuilder`/`Phase4ProjectBuilder` (matching the fix
+  `Phase5ProjectBuilder` already had for `Phase5Test`/`LevelSelectTest`) now look up their test
+  object via `Resources.FindObjectsOfTypeAll<T>().FirstOrDefault(t => !EditorUtility.
+  IsPersistent(t.gameObject))` instead of `GameObject.Find`, so a disabled instance is still found
+  and reused. **Still re-run `Disable Debug Test Overlays` after any batch of `PhaseNProjectBuilder.
+  BuildAll` calls anyway** — it's the only step that actually collapses duplicates already created by
+  older code, and it's cheap/idempotent. Re-enable a specific test (Inspector checkbox, or its
+  `ContextMenu`) to run its manual test battery again.
 
 **Gameplay → Level Complete/Failed is push-triggered, not pulled:** `GameplayHUD.Update()` polls
 `GameManager.CurrentState` every frame (it keeps running during Pause, since `Time.timeScale`
@@ -464,9 +513,12 @@ component Level Select's world picker uses — see that section above), each sho
 (`Sprites/UI/{Name}_{Species}.png`, own wood-frame border baked in, distinct from the plain
 `portraitSprite` front sprite used elsewhere) — or a placeholder square for any character without
 one. Locked cards show a "LOCKED" overlay and their `Button.interactable` is `false`; the active
-character's card gets a gold glow (`activeHighlight`) and is also non-interactable (can't "swap"
-to the character already active) — a non-interactable `Button` also means the carousel can't
-re-centre onto that card via tap, only via drag. Flick to cycle which card is centred; tapping the
+character's card is also non-interactable (can't "swap" to the character already active) — a
+non-interactable `Button` also means the carousel can't re-centre onto that card via tap, only via
+drag. `CharacterSelectCard.activeHighlight` (an 85%-opaque yellow square behind the centred card)
+was removed per feedback that it read as a distracting yellow background block rather than a subtle
+highlight — the field is left null-safe (its `SetActive` call is already guarded) rather than
+stripped from the script, so nothing else needed to change. Flick to cycle which card is centred; tapping the
 centred card pops it (scale, `SetAsLastSibling`, `carousel.enabled = false` first — see
 `CardCarouselController`'s gotcha above), deducts the same 1-coin cost `CharacterSwapUI` used to
 (free if the player has 0), calls `CharacterManager.SwapCharacter`, then auto-closes back to
@@ -485,13 +537,25 @@ Reached from World Map's Play button. Two states on one screen (`LevelSelectScre
   (`CornfieldSign`/`VegetablePatchSign`/`OrchardSign`/`WheatfieldSign.png` — shield shape, rope
   ties, and the world's name all baked into one image) set via
   `LevelSelectController.worldSignSprites[world]` — no separate background+text-overlay
-  composition. Flicking cycles which badge is centred (full scale); tapping the already-centred
-  badge shrinks-and-fades it in place while a small persistent `CurrentWorldIndicator` badge
-  (same sprite, same convention) fades in top-left of the screen, then reveals that world's tile
-  grid (`LevelSelectController.RevealWorld`). Tapping the indicator again returns to world select.
-- **Tile grid** — a 4-column `GridLayoutGroup` (one `LevelTileController` per level in that world,
-  `UnlockProgression.LevelsPerWorld` = 25 per world) inside a vertical `ScrollRect`, auto-scrolled
-  to centre the highest-unlocked level on open. Tile sprites are fully state-driven
+  composition. `LevelSelectController.LockedWorldTint` (multiply-tint on a locked badge) was
+  lightened from `(0.35,0.35,0.35)` to `(0.65,0.65,0.65)` per feedback that the original read as
+  almost black — locked worlds should still be clearly visible, just dimmed. Flicking cycles which
+  badge is centred (full scale); tapping the already-centred badge shrinks-and-fades it in place
+  while a small persistent `CurrentWorldIndicator` badge (same sprite, same convention) fades in
+  top-left of the screen, then reveals that world's tile grid (`LevelSelectController.RevealWorld`).
+  Tapping the indicator again returns to world select. **`LevelSelectScreen` deliberately has no
+  top-left `LogoImage`** (unlike Settings/Pause/Choose Character/Level Complete) — one was added in
+  an earlier pass without noticing it shares the exact same anchor/inset as `CurrentWorldIndicator`
+  and clashes with it; removed again.
+- **Tile grid** — a 4-column `GridLayoutGroup` (cell size `128x128`, shrunk from `150x150`,
+  `padding.top = 16` for clear space below the header banner; one `LevelTileController` per level in
+  that world, `UnlockProgression.LevelsPerWorld` = 25 per world) inside a vertical `ScrollRect`,
+  auto-scrolled to centre the highest-unlocked level on open. The grid's own container GameObject
+  (`LevelSelectController.PopulateLevelGrid`'s `section`) gets an explicit `LayoutElement` with a
+  computed `preferredWidth`/`preferredHeight` (rows × cellSize + spacing + padding) — the parent
+  `Content`'s `VerticalLayoutGroup` has `childControlHeight/Width = false` (see
+  `CreateVerticalScrollView`), so without this the `ContentSizeFitter` could under-report the total
+  height and the `ScrollRect` would have nothing to scroll. Tile sprites are fully state-driven
   (`LevelTileController.spriteLocked/spriteUnlocked/sprite1Star/sprite2Stars/sprite3Stars`, wired
   from `LevelTile_Locked/unlocked-notplayed/1Star/2Stars/3Stars.png`) — no code changes needed
   when new levels are authored, a slot with no real `LevelData` just renders locked. Tapping a
@@ -503,8 +567,16 @@ Reached from World Map's Play button. Two states on one screen (`LevelSelectScre
 **`CardCarouselController`** (generic, also reused by `ChooseCharacterScreen` — see below) drives
 any horizontal "front card enlarged" picker: a continuous float offset (in item-index units) maps
 to each item's `anchoredPosition`/`localScale` every frame (centred item at full scale, items
-further away pushed down and shrunk — a cheap 2D stand-in for "receding into a circle," no real 3D
-perspective needed for a handful of items). Dragging moves the offset directly; releasing snaps to
+further away shrunk). Items are arranged along a **true circular arc**, not a flat linear x-offset
+with a separate y-dip bolted on (the original approach, which read as "linear" per feedback) —
+`itemSpacing` is the arc-length distance between adjacent items, converted to an angle via
+`itemSpacing / arcRadius`, then `x = arcRadius * sin(angle)`, `y = -arcRadius * (1 - cos(angle))`
+gives both the horizontal spread and the downward dip from a single circle, so items curve away
+and dip down together rather than sliding on a straight line. `arcRadius` defaults to `2800` (tuned
+for Level Select's large `810x855` world badges, with `itemSpacing = 730` — roughly a 32px gap
+between adjacent badge edges at the `sideScale` falloff); `ChooseCharacterScreen`'s much smaller
+cards override both (`itemSpacing = 220`, `arcRadius = 900`) so the curve reads clearly at that
+scale instead of nearly flat. Dragging moves the offset directly; releasing snaps to
 the nearest integer index. Tapping the already-centred item invokes the owning screen's selection
 callback; tapping any other visible item just re-centres the carousel on it first, so a stray tap
 mid-flick can't accidentally commit to the wrong item. The owning screen instantiates/destroys the
@@ -608,23 +680,38 @@ phase made for art (solid-colour placeholders instead of real sprites).
   **Idempotent** — safe to re-run after any prefab/data change instead of touching the scene by
   hand. `BuildLevelData01`'s maze is a real Pac-Man-style corridor layout (1-tile-wide paths + wall
   blocks), not the original sparse-2x2-walls-on-open-floor version — a deterministic (seeded)
-  randomized recursive backtracker carves the left half (x = 1..`leftHalfMax`, where
-  `leftHalfMax = (width - 2) / 2`) as a cell lattice, mirrors it onto the right half for a symmetric
-  arcade-maze look, then reopens ~5% of the remaining connector walls so the board has a few loops
-  instead of being a single spanning tree (dropped from 22%: robots reading as "falling into one
-  long straight run" with the higher value — see `LoopReopenChance`'s own doc comment). Two warp
-  rows (`y=6` and `y=2` — "row 3 and row 7 counting from the top," since `GridToWorld` maps grid y
-  directly to world Y with no flip, so row N from the top is `y = height - N`), a robot factory box
+  randomized recursive backtracker (`CarveMazeCorridors`) carves the **entire** board in one pass
+  (room cells at odd x in `1..width-2`, odd y in `1..height-2`), then reopens ~5% of the remaining
+  connector walls so the board has a few loops instead of being a single spanning tree (dropped
+  from 22%: robots reading as "falling into one long straight run" with the higher value — see
+  `LoopReopenChance`'s own doc comment). **This used to carve only the left half and mirror it onto
+  the right half** for a symmetric look — that was a real bug, not a style choice: every room
+  column is unconditionally open (that's what "part of the spanning tree" means), so the mirror
+  seam placed two always-open room columns directly adjacent with no wall between them, and this
+  board's width only fit 3 room columns per half, producing a permanent 2-tile-wide corridor and
+  reading as "wide open, not a real maze" (confirmed by decoding the actual on-disk grid, not
+  guessed). The full-width carve has no seam and can't reproduce that failure mode, at the cost of
+  left/right symmetry. **If you ever "fix the maze" again, verify by decoding `LevelData_01.asset`'s
+  `mazeLayoutFlat` (int32 little-endian, row-major by `x + y*width`) and counting walls per row —
+  don't just trust that a builder ran without errors, since exactly that happened here for an entire
+  session while the underlying bug (and the wide-open board) persisted.** Two warp rows (`y=6` and
+  `y=2` — "row 3 and row 7 counting from the top," since `GridToWorld` maps grid y directly to
+  world Y with no flip, so row N from the top is `y = height - N`) only open the single interior
+  tile next to each border edge (not the whole row) — `WarpTunnel` teleports on trigger overlap
+  (instant), so it never needed a walkable lane spanning the row; forcing the whole row open was
+  the same class of bug as the mirror seam and got fixed alongside it. A robot factory box
   (`x=4..7, y=3..5`, sitting strictly between the two warp rows), and a player-start clearing
   (`(6,1)`, the one interior row left once the factory box and both warp rows claim the rest of
   this much shorter board) are stamped on top afterward at fixed coordinates that
   `Phase3ProjectBuilder.UpdateLevelData01Robots` also hardcodes (robot spawn `(5,4)`, the factory
   box's own center) — that builder must be updated together with this one if the maze's fixed size
   or the factory box ever change again, since the coordinate isn't derived automatically across
-  files. 4 power pellets and 12 vegetables are scattered randomly (deterministically, same
-  MazeSeed-derived RNG) across whatever floor tiles the maze happened to carve open, rather than
-  fixed one-per-corner pellets or hand-anchored vegetable clusters; every remaining open corridor
-  tile becomes a crop kernel.
+  files. 4 power pellets and 10 vegetables (`vegetableCount`, cut from 12) are scattered randomly
+  (deterministically, same MazeSeed-derived RNG) across whatever floor tiles the maze happened to
+  carve open, rather than fixed one-per-corner pellets or hand-anchored vegetable clusters; every
+  remaining open corridor tile becomes a crop kernel. `TileMapRenderer.ConfigurePelletTier` caps the
+  whole maze to at most 1 "rare" (non-Sunflower) pellet — `_rarePelletsSpawned`, reset per
+  `RenderMaze` call — any tier roll beyond the first rare one falls back to Sunflower.
   `width`/`height` went 28×31 → 14×16 → 12×9 across two separate passes for two different reasons:
   the first halving doubled tile size to keep the board's total footprint the same (individual
   tiles at 28×31 read as too small); the second (12×9) deliberately did **not** compensate by
@@ -782,28 +869,34 @@ values from the GDD's color palette where one exists (e.g. walls = Wall Brown `#
 **Wired so far:**
 - **Characters** — Cluck, Bessie, Woolly, Percy, and Gerald each have front/back/left art wired
   into their `CharacterData.walkAnimationFrames` (fixed order `[Up0,Up1,Down0,Down1,Left0,Left1,
-  Right0,Right1]`). Cluck is now the one exception with real second-frame walk-cycle art and a
-  genuine dedicated Right pose (`Cluck_right.png`/`Cluck_rightwalk2.png` for Right0/Right1,
-  `Cluck_LeftWalk.png` for Left1) — `CharacterData.hasDedicatedRightArt` (new field) is `true` for
-  her, which tells `CharacterAnimator` to skip its usual `flipX` mirroring of the Left sprite for
-  Right-facing (every other character still has no dedicated Right art, so still gets mirrored).
-  Every other character has only one pose per direction (no walk-cycle frames yet), so each
-  direction's two slots repeat the same sprite — harmless no-op frame-toggle until second frames
-  land for them too. Ducky has front/back only (no left/right art uploaded for her); her Left/Right
-  slots fall back to the front sprite, so Left/Right facing won't read correctly for her until
-  profile art exists — documented inline in `ArtWiringBuilder.SetWalkFrames`. Horace and Billy still
-  have no art and remain solid-colour placeholders. `Gerald_effect.png` was uploaded but is unwired
-  — `PuffUpAbility` has no spawned effect object (it just scales Gerald's own sprite 3x), unlike
-  Bessie/Percy/Woolly's abilities, each of which spawns a dedicated effect prefab; wiring it in
-  would mean adding a new prefab + a spawn call in `PuffUpAbility`, a gameplay change, not just art.
-- **Robots** — `RobotVisual.SetDirectionalSprites` now takes optional `left`/`right` sprites in
-  addition to `front`/`back` (extended from the Harvester-only front/back version). Patrol has a
-  full 4-direction set; Scout and Drifter have front/left/right (no back — Up falls back to
-  front); Heavy has front/back only (same pattern Harvester originally used); Harvester and Drone
-  still have no left/right art. Drone has no art at all yet and keeps the colour-tint-only
-  placeholder behaviour for its normal states.
-- **Robot Defeated state** — all 6 robot prefabs (including Drone) now have `RobotEyes.png` wired
-  via the new `RobotVisual.SetDefeatedSprite`; while Defeated/Returning, `RobotVisual.Update`
+  Right0,Right1]`). Cluck has real, correctly-wired Left AND Right art on both frames:
+  `Cluck_left.png`/`Cluck_LeftWalk.png` for Left0/Left1, `Cluck_right.png`/`Cluck_rightwalk2.png`
+  for Right0/Right1 (`Cluck_back.png` covers Up/Down, which have no dedicated art). **A previous
+  pass wired only `Cluck_back.png` for every direction except Left1** despite the real per-direction
+  files already existing on disk — she visibly faced backward while walking left/right until that
+  was caught and fixed. `Cluck_rightwalk.png` (a third right-facing frame beyond the 2-frame
+  Right0/Right1 slots this system supports) stays unreferenced, same "extra art, no slot for it yet"
+  convention as elsewhere. `CharacterData.hasDedicatedRightArt = true` for her tells
+  `CharacterAnimator` to skip its usual `flipX` mirroring of the Left sprite for Right-facing (every
+  other character still has no dedicated Right art, so still gets mirrored). Every other character
+  has only one pose per direction (no walk-cycle frames yet), so each direction's two slots repeat
+  the same sprite — harmless no-op frame-toggle until second frames land for them too. Ducky has
+  front/back only (no left/right art uploaded for her); her Left/Right slots fall back to the front
+  sprite, so Left/Right facing won't read correctly for her until profile art exists — documented
+  inline in `ArtWiringBuilder.SetWalkFrames`. Horace and Billy still have no art and remain
+  solid-colour placeholders. `Gerald_effect.png` was uploaded but is unwired — `PuffUpAbility` has
+  no spawned effect object (it just scales Gerald's own sprite 3x), unlike Bessie/Percy/Woolly's
+  abilities, each of which spawns a dedicated effect prefab; wiring it in would mean adding a new
+  prefab + a spawn call in `PuffUpAbility`, a gameplay change, not just art.
+- **Robots** — `RobotVisual.SetDirectionalSprites` takes optional `left`/`right` sprites in addition
+  to `front`/`back`. Patrol has a full 4-direction set. **Harvester and Scout now also have full
+  4-direction art** — Harvester gained real Left/Right (`HarvestorRobot_left/right.png`, previously
+  front/back only) and Scout gained a real Back (`ScoutRobot_back.png`, previously front/left/right
+  only, with Up falling back to front). Drifter still has front/left/right only (no back — Up falls
+  back to front); Heavy still has front/back only. Drone has no art at all yet and keeps the
+  colour-tint-only placeholder behaviour for its normal states.
+- **Robot Defeated state** — all 6 robot prefabs (including Drone) have `RobotEyes.png` wired via
+  `RobotVisual.SetDefeatedSprite`; while Defeated, `RobotVisual.Update`
   swaps to this sprite directly (skipping the old pale-tint placeholder) regardless of whether
   that robot has directional art. Vulnerable state is still colour-tint-only — no dedicated
   vulnerable sprite has been uploaded.
@@ -829,9 +922,12 @@ values from the GDD's color palette where one exists (e.g. walls = Wall Brown `#
   Rainbow 10%, matching the "RarePellets" art naming) and swaps in `sunflowerPelletSprite`
   (now `RarePellets_sunflower.png` — a dedicated sunflower sprite replaced the earlier placeholder
   use of `Power_1.png`, which is a Cluck power-up icon, not a pellet) / `goldenWheatPelletSprite`
-  (`RarePellets_maize.png`) / `rainbowPelletSprite` (`RarePellets_apple.png`) accordingly.
-  `Power_1.png`/`CluckPower_2`/`CluckPower_3` remain unwired — there's no "Cluck looks different
-  while powered up" feature in the code for them to hook into. Collecting a GoldenWheat or Rainbow
+  (`RarePellets_maize.png`) / `rainbowPelletSprite` (`RarePellets_apple.png`) accordingly. Only 1
+  pellet per maze is ever allowed to roll a rare (non-Sunflower) tier — see the maze-generation note
+  above. `Power_1.png`/`CluckPower_2.png`/`CluckPower_3.png` are no longer "Cluck power-up icons" —
+  despite the naming (and despite being stored under `Sprites/Characters/`), they're actually
+  Cluck's Egg Drop art: `Power_1.png` is the whole egg, `CluckPower_2.png`/`CluckPower_3.png` are
+  its 2-frame crack/burst hit animation (see the Egg Drop bullet below). Collecting a GoldenWheat or Rainbow
   (i.e. non-Sunflower/"rare") pellet also spawns `PelletCollectBurst`
   (`Gameplay/PelletCollectBurst.cs`, wired via `PowerPelletPickup.collectEffectPrefab` and called
   from `CropCollector` right before the pellet is destroyed) — a procedural ring of
@@ -840,18 +936,32 @@ values from the GDD's color palette where one exists (e.g. walls = Wall Brown `#
   `PelletCollectBurst.Configure(PowerPelletType)` is the only method a replacement needs to keep.
 - **Ability effects** — `Shockwave` (Bessie's Ground Slam) uses `BessieSlam.png`, `BounceTrail`
   (Percy's Bounce Roll) uses `Percy_effect.png`, `WoollyClone` (Woolly's Triple Clone) uses
-  `Wooly_effect.png`. Cluck's Egg Drop (`Egg` prefab) still has no dedicated art — its placeholder
-  went through two rounds of "still not visible" playtest reports: a near-white/tan tint blended
-  into `CornTiles.png`'s similarly warm-toned ground art, and the pure-white follow-up fix still
-  had too little contrast against the real ground/corn art. It's now a saturated hot pink
-  (`#FF1493`), and its `sortingOrder` was raised above the character sprite's — the egg dropped at
-  offset 0 (see `EggDropAbility.TileOffsetsBehind`) spawns directly under Cluck's own feet, so it
-  needs to draw on top of her, not just the ground, to be visible there at all.
+  `Wooly_effect.png`. Cluck's Egg Drop (`Egg` prefab) went through several placeholder rounds before
+  real art existed: a near-white/tan tint that blended into `CornTiles.png`'s warm ground art, a
+  pure-white follow-up with still-too-little contrast, then a saturated hot-pink placeholder
+  (`#FF1493`, `sortingOrder` raised above the character sprite's — the offset-0 egg spawns directly
+  under Cluck's own feet, so it needs to draw on top of her to be visible there at all). **Now uses
+  real art**: `Power_1.png` (the whole cracked egg) is the resting sprite, wired via
+  `ArtWiringBuilder.WireEgg`. `EggHazard` also changed behaviour to match a request for a proper hit
+  animation: it used to persist for its full `lifetimeSeconds` (15s) and be reusable — walked over
+  by any number of robots without disappearing. Now it's one-shot: `OnTriggerEnter2D` disables its
+  own collider immediately, plays `crackedSprite` (`CluckPower_2.png`) for 0.5s then `burstSprite`
+  (`CluckPower_3.png`) for another 0.5s, then destroys itself (1s total) — `lifetimeSeconds` is now
+  only a fallback auto-destroy for an egg nothing ever walks over. Stun duration on contact was also
+  cut from 3s to 1s.
 - **UI backgrounds** — `MainMenuScreen` uses `landing.png` (which has "FARM FURY ARCADE" baked
-  into the art), `WorldMapScreen` uses `Map.png`. `LevelFailedScreen` still uses `LevelFailed.png`
-  stretched full-screen (it hasn't had the square-art `PanelArt` fix Pause/Level Complete got — a
-  known gap, see below). `LevelCompleteScreen`/`PauseOverlay`/`ChooseCharacterScreen` all use
-  `World1_Cornfield.png` as their root background now (per the 2026-07-31 mockups — see their own
+  into the art), `WorldMapScreen` uses `Map.png`. `LevelFailedScreen` was rebuilt to a 2026-08-01
+  mockup: `Bg_LevelSelect.png` (night farm) root background instead of `LevelFailed.png` stretched
+  full-screen, with `LevelFailed.png` moved onto an aspect-locked `PanelArt` child (the same
+  square-art-on-landscape-overlay fix Pause/Level Complete already had — this was previously a known
+  gap, now closed) and two real buttons, `Restart.png`/`Quit.png`, positioned in a fresh centred
+  vertical stack (`LevelFailed.png` has no baked-in button rows to align to, unlike `Paused.png`).
+  `Retry.png`/`Menu.png` (the old button art) are no longer referenced and have been deleted from
+  disk. `LevelFailedController`'s fields were renamed to match (`retryButton`→`restartButton`,
+  `menuButton`→`quitButton`, `mainMenuScreen`→`levelSelectScreen`) — Quit now returns to **Level
+  Select**, not Main Menu, matching every other in-gameplay "back" action's "one step back to where
+  you picked this level from" convention. `LevelCompleteScreen`/`PauseOverlay`/`ChooseCharacterScreen`
+  all use `World1_Cornfield.png` as their root background now (per the 2026-07-31 mockups — see their own
   bullets above), with `LevelComplete.png`/`Paused.png` as an aspect-locked `PanelArt` child on top
   for the first two; `Wheatfield_background.png` is unused again as a result (it briefly stood in
   for these before real dedicated panel art existed). `matchup.png` is also unused — left on disk,
@@ -859,8 +969,10 @@ values from the GDD's color palette where one exists (e.g. walls = Wall Brown `#
   `landing.png`'s logo sits centred in the upper half, `MainMenuScreen/Content` (the button stack)
   was re-anchored to the bottom of the screen (`anchorMin/Max = (0.5, 0)`, `pivot = (0.5, 0)`,
   `anchoredPosition = (0, 30)`) instead of screen-center, so it no longer overlaps the art's logo.
-  `Logo.png` is now wired as a small top-left `LogoImage` on every 2026-07-31-mockup screen
-  (Settings, Level Select, Pause, Choose Character, Level Complete) — `landing.png` still bakes its
+  `Logo.png` is wired as a small top-left `LogoImage` on every 2026-07-31-mockup screen except Level
+  Select (Settings, Pause, Choose Character, Level Complete) — Level Select already has its own
+  top-left identity element (`CurrentWorldIndicator`) at the exact same anchor/inset, so adding a
+  separate Logo there just clashed with it (see the Level Select section above). `landing.png` still bakes its
   own logo into Main Menu directly, so Main Menu has no separate `LogoImage`. `LoadingScreen
   Background.png` is still uploaded but unwired (`ChooseCharacterScreen` used it briefly before
   switching to `World1_Cornfield.png`) — there's no dedicated loading screen in the current screen
@@ -890,7 +1002,11 @@ values from the GDD's color palette where one exists (e.g. walls = Wall Brown `#
   `Btn_plaque.png` cells (Music/SFX/Vibration/Left-Handed/Language filled, the grid's 6th cell left
   empty). Each cell **is** its Toggle (`Phase5ProjectBuilder.CreateTogglePlaqueCell` — `Toggle` and
   `Image` on the same GameObject, `targetGraphic` = its own `Image`), not a separate small checkbox
-  floating on top of a plaque — the whole cell is the tap target. Music/SFX volume sliders were
+  floating on top of a plaque — the whole cell is the tap target. Plaques were later enlarged 2x
+  (`grid.cellSize` `210x60` → `420x120`, `spacing` `24x20` → `48x40`) per feedback that they read as
+  too small — but each label's own text box is pinned at the **original** `210x60` size, centred
+  inside the now-bigger cell, rather than stretched to fill it; the ask was "scale the plaque only,"
+  and a stretched auto-sizing label would have grown the font along with the artwork. Music/SFX volume sliders were
   dropped entirely (a grid cell isn't large enough to host both a tap target and a drag target
   cleanly) — Music/SFX are now simple mute toggles like Vibration/Left-Handed; `SaveManager.
   MusicVolume`/`SfxVolume` still exist for whenever a volume control gets a dedicated slot again,
@@ -964,18 +1080,32 @@ values from the GDD's color palette where one exists (e.g. walls = Wall Brown `#
     Level Select, not Main Menu — `GameManager.QuitToMainMenu()` renamed to `QuitToLevelSelect()`
     (sets the previously-unused `GameState.LevelSelect` instead of `GameState.MainMenu`),
     `PauseMenuController` holds a `levelSelectScreen` reference instead of `mainMenuScreen`.
+    A later pass confirmed Resume/Swap/Restart/Settings were correctly aligned and left them alone;
+    only Quit was nudged down another ~0.01 (its own anchor fractions only) per feedback that it
+    alone was sitting slightly high of its row.
+  - **Character portrait + Pause button cluster** (Gameplay HUD) — `clusterInsetX` reduced
+    (130→90) per feedback that the stack sat too far in from the corner/safe-area edge.
   - **Choose Character** — found and fixed the actual bug behind a large yellow block covering the
     active/centred card: `ActiveHighlight` was a *child* of the same GameObject holding the card's
     own `Image` — in uGUI a child always renders in front of its own parent's Image regardless of
     sibling order, so the highlight (larger, 85%-opaque gold) always drew on top of, not behind,
     the card art. Fixed by moving the card art onto its own child (`CardArt`), leaving the root
-    Image invisible/raycast-only, so `ActiveHighlight` (added first) now genuinely sits behind it.
-    `itemSpacing` tightened (380→300, per-instance override, same pattern as Level Select's world
-    carousel). Locked characters now grey-tint (`CharacterSelectCard.LockedTint`, matching
-    `LevelSelectController.LockedWorldTint`) in addition to the existing "LOCKED" label. Back
-    button icon changed `Btn_home`→`Btn_back` (it returns to Pause, not a "home" destination).
-    Selecting a character now auto-resumes gameplay directly (`GameManager.ResumeGame()`) instead
-    of landing back on the Pause menu — the Back button still correctly returns to Pause.
+    Image invisible/raycast-only, so `ActiveHighlight` (added first) genuinely sat behind it —
+    **`ActiveHighlight` was later removed entirely** per further feedback that a yellow background
+    behind the active card was still distracting even correctly layered; `CharacterSelectCard.
+    activeHighlight` is left unassigned (null-safe) rather than stripped from the script.
+    `itemSpacing` tightened twice (380→300→220, per-instance override, same pattern as Level
+    Select's world carousel) and the carousel now moves on a circular arc, not a flat line (see
+    `CardCarouselController`'s own section above) — `arcRadius` overridden to `900` (vs. Level
+    Select's `2800` default) so the curve reads clearly at these smaller cards' scale. Back button
+    inset nudged from `60` (was `100`) — the mockup sits this further left than the generic
+    bottom-left inset other screens use. Locked characters now grey-tint (`CharacterSelectCard.
+    LockedTint`, matching `LevelSelectController.LockedWorldTint`) in addition to the existing
+    "LOCKED" label. Back button icon changed `Btn_home`→`Btn_back` (it returns to Pause, not a
+    "home" destination). Selecting a character now auto-resumes gameplay directly
+    (`GameManager.ResumeGame()`) instead of landing back on the Pause menu — the Back button still
+    correctly returns to Pause (`ChooseCharacterScreen.Close()` reactivates `pauseMenuScreen` only
+    if `GameManager.CurrentState == GameState.Paused`).
   - **`CreateRoundBackButton` had a sign bug**, found while fixing the above: its `bottomRight`
     branch reused `AnchorBottomLeft`'s positive-X-is-inward offset convention, but for a
     right-pivoted anchor a *positive* X pushes the element further right/off-screen — negative X
@@ -1060,7 +1190,7 @@ happened rather than which clip field to reach into):
 | `CornPickup.mp3` | `PlayCornPickupSfx` | `CropCollector`, only when `CropPickup.cropType == CropType.Corn` (not Vegetable) |
 | `PowerReady.mp3` | `PlayPowerReadySfx` | `PowerPelletManager.ActivatePower`, only on the `false → true` edge (a pellet eaten while power is already active just refreshes the duration, doesn't replay the cue) |
 | `RarePellet_pickup.mp3` | `PlayRarePelletPickupSfx` | `CropCollector`, only when `pellet.pelletType != PowerPelletType.Sunflower` — same "rare tier" gate `PelletCollectBurst` uses |
-| `RobotSpawn.mp3` | `PlayRobotRespawnSfx` | `RobotBase.ArriveAtFactory` — a defeated robot's respawn back to Chase, not `RobotSpawner`'s initial level-start spawns |
+| `RobotSpawn.mp3` | `PlayRobotRespawnSfx` | `RobotSpawner.SpawnRobot` — every robot spawn, including level-start ones. Used to fire only from a defeated robot's mid-level walk back to the factory (`RobotBase.ArriveAtFactory`); that flow was removed (defeated robots now disappear permanently for the rest of the maze — see the Robot AI state-machine note above), so this was repointed to the only spawn event left, or it would have become dead code with no call site at all |
 
 When more art lands, wire it into the existing prefabs (`Prefabs/Characters/`, `Prefabs/Robots/`,
 `Prefabs/Blocks/`) via `ArtWiringBuilder` rather than creating new prefabs.
@@ -1070,11 +1200,16 @@ When more art lands, wire it into the existing prefabs (`Prefabs/Characters/`, `
 Desktop: arrow keys or WASD. Mobile/Editor: swipe (or mouse-drag in Play mode) — 50px minimum
 distance, dominant axis wins for diagonals. Tunable parameters if movement doesn't feel right:
 
-- `GridMovement.speed` (comes from `CharacterData.movementSpeed` — 3.2 Cluck, 3.0 Bessie, 4.6 Percy,
-  3.8 Woolly, 4.2 Ducky, 4.2 Horace, 3.4 Gerald, 3.4 Billy; all ~0.76x their original values —
-  movement still read as too fast after `CellSize` scaling even accounting for its effect on
-  perceived speed. The originals for Percy/Ducky/Horace (6, 5.5, 5.5) also exceeded
-  `movementSpeed`'s own `[Range(1,5)]` inspector hint; the scaled-down values now fit inside it)
+- `GridMovement.speed` (comes from `CharacterData.movementSpeed` — 3.8 Cluck, 3.6 Bessie, 5.0 Percy,
+  4.6 Woolly, 5.0 Ducky, 5.0 Horace, 4.0 Gerald, 4.0 Billy. History: originals (Percy/Ducky/Horace at
+  6/5.5/5.5) were cut to ~0.76x, then ~0.6x again (down to 1.9/1.8/2.8/2.3/2.5/2.5/2.0/2.0) when
+  movement still read as too fast — then **doubled back up** from that low point per later feedback
+  that characters and robots (`RobotData.movementSpeed`, all `2.0` — see Phase 3 below) moved at
+  effectively the same speed. Percy/Ducky/Horace's doubled values would have exceeded
+  `movementSpeed`'s own `[Range(1,5)]` inspector hint (5.6/5.0/5.0); Percy is capped at 5.0, the
+  other two land on exactly 5.0. Robots were deliberately left at `2.0` — characters now clearly
+  outrun a Chase/Scatter robot, and easily outrun a Vulnerable one
+  (`RobotBase.VulnerableSpeedMultiplier` halves it further, e.g. 1.0 for a base-2.0 robot))
 - `GridMovement.AlignmentEpsilon` (0.02) — grid-center snap tolerance
 - `InputController.minSwipeDistancePixels` (50)
 - `CharacterAnimator.frameInterval` (0.15s baseline, scaled by speed)

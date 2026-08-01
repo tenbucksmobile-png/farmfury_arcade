@@ -55,14 +55,16 @@ namespace FarmFuryArcade.Core
             _countdownRoutine = StartCoroutine(CountDown());
         }
 
-        /// <summary>Duration in seconds per the GDD's power pellet tiers.</summary>
+        /// <summary>Duration in seconds per the GDD's power pellet tiers — halved from the original
+        /// spec (8/15/30 -> 4/7.5/15) per feedback that the window a robot stays catchable/vulnerable
+        /// was too long.</summary>
         public static float GetDuration(PowerPelletType type)
         {
             return type switch
             {
-                PowerPelletType.GoldenWheat => 15f,
-                PowerPelletType.Rainbow => 30f,
-                _ => 8f // Sunflower
+                PowerPelletType.GoldenWheat => 7.5f,
+                PowerPelletType.Rainbow => 15f,
+                _ => 4f // Sunflower
             };
         }
 

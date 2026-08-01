@@ -27,8 +27,14 @@ namespace FarmFuryArcade.UI
     {
         [SerializeField] private float itemSpacing = 380f;
         [SerializeField] private float sideScale = 0.72f;
-        [SerializeField] private float sideDip = 40f;
         [SerializeField] private float snapSpeed = 10f;
+
+        /// <summary>Radius of the circle items are arranged along — replaces the old flat
+        /// "linear x-offset + fixed y-dip" layout with a true arc: itemSpacing is now the arc-length
+        /// distance between adjacent items (converted to an angle via itemSpacing/arcRadius), so
+        /// items curve away and dip down together as they move from centre, instead of sliding on a
+        /// straight horizontal line with a separate vertical offset bolted on.</summary>
+        [SerializeField] private float arcRadius = 2800f;
 
         private readonly List<RectTransform> _items = new List<RectTransform>();
         private readonly List<Button> _buttons = new List<Button>();
@@ -132,7 +138,10 @@ namespace FarmFuryArcade.UI
                 }
                 float delta = i - _offset;
                 float absDelta = Mathf.Abs(delta);
-                rect.anchoredPosition = new Vector2(delta * itemSpacing, -absDelta * sideDip);
+                float angle = delta * (itemSpacing / arcRadius);
+                float x = arcRadius * Mathf.Sin(angle);
+                float y = -arcRadius * (1f - Mathf.Cos(angle));
+                rect.anchoredPosition = new Vector2(x, y);
                 float scale = Mathf.Lerp(1f, sideScale, Mathf.Clamp01(absDelta));
                 rect.localScale = new Vector3(scale, scale, 1f);
             }

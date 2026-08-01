@@ -58,9 +58,11 @@ namespace FarmFuryArcade.UI
         private const float ScrollTweenSeconds = 0.5f;
         private const float ShieldRevealSeconds = 0.45f;
 
-        /// <summary>Multiply-tint applied to a locked world's badge Image — dark/desaturated enough
-        /// to read as "not yet playable" against the coloured art of an unlocked badge.</summary>
-        private static readonly Color LockedWorldTint = new Color(0.35f, 0.35f, 0.35f, 1f);
+        /// <summary>Multiply-tint applied to a locked world's badge Image — dimmed/desaturated enough
+        /// to read as "not yet playable" while still being clearly visible (not just a dark silhouette)
+        /// against the coloured art of an unlocked badge. Lightened from 0.35 per feedback that the
+        /// original tint read as almost black.</summary>
+        private static readonly Color LockedWorldTint = new Color(0.65f, 0.65f, 0.65f, 1f);
 
         private readonly Dictionary<int, LevelTileController> _tilesByIndex = new Dictionary<int, LevelTileController>();
         private readonly List<int> _shownWorlds = new List<int>();
@@ -257,18 +259,33 @@ namespace FarmFuryArcade.UI
             var section = new GameObject($"World{world + 1}Section", typeof(RectTransform));
             section.transform.SetParent(contentParent, false);
             var grid = section.AddComponent<GridLayoutGroup>();
-            grid.cellSize = new Vector2(150f, 150f);
+            // Shrunk from 150x150 per a follow-up mockup review (tiles were reading as oversized
+            // against the header). padding.top guarantees at least 16px of clear space below the
+            // header banner even before the ScrollView's own reserved 200px header offset.
+            grid.cellSize = new Vector2(128f, 128f);
             grid.spacing = new Vector2(45f, 45f);
+            grid.padding = new RectOffset(0, 0, 16, 0);
             grid.childAlignment = TextAnchor.UpperCenter;
             grid.constraint = GridLayoutGroup.Constraint.FixedColumnCount;
             grid.constraintCount = 4;
 
             int firstIndex = world * UnlockProgression.LevelsPerWorld;
             int lastIndex = Mathf.Min(firstIndex + UnlockProgression.LevelsPerWorld, UnlockProgression.TotalLevels);
+            int tileCount = lastIndex - firstIndex;
             for (int levelIndex = firstIndex; levelIndex < lastIndex; levelIndex++)
             {
                 InstantiateTile(levelIndex, section.transform);
             }
+
+            // contentParent's own VerticalLayoutGroup has childControlHeight/Width = false (see
+            // CreateVerticalScrollView), so it reads this section's size directly rather than
+            // forcing one — an explicit LayoutElement guarantees ContentSizeFitter sees the full
+            // multi-row height regardless of GridLayoutGroup's own ILayoutElement reporting, so the
+            // ScrollRect always has real scrollable content instead of silently fitting on one screen.
+            int rows = Mathf.CeilToInt(tileCount / (float)grid.constraintCount);
+            var sectionLayout = section.AddComponent<LayoutElement>();
+            sectionLayout.preferredWidth = grid.constraintCount * grid.cellSize.x + (grid.constraintCount - 1) * grid.spacing.x;
+            sectionLayout.preferredHeight = grid.padding.vertical + rows * grid.cellSize.y + Mathf.Max(0, rows - 1) * grid.spacing.y;
         }
 
         private void InstantiateTile(int levelIndex, Transform parent)

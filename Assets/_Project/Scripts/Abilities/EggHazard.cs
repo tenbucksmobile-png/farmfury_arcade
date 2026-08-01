@@ -1,17 +1,31 @@
+using System.Collections;
 using UnityEngine;
 using FarmFuryArcade.Enemies;
 
 namespace FarmFuryArcade.Abilities
 {
-    /// <summary>Persists for lifetimeSeconds; stuns any robot that walks over it. Reusable within
-    /// its lifetime (not consumed on first hit) — nothing in the spec says an egg breaks after one
-    /// stun, and letting it linger as a hazard matches "eggs persist for 15 seconds" literally.
-    /// Also dropped mid-walk by WoollyClone when the Feather Storm combo buff is active.</summary>
+    /// <summary>Sits as a hazard until a robot walks over it, then plays a 2-frame crack/burst
+    /// animation (crackedSprite -> burstSprite, half a second each) and disappears — one-shot per
+    /// egg now, not reusable within its lifetime like the original "eggs persist for 15 seconds"
+    /// version. lifetimeSeconds is still a fallback auto-destroy for an egg nothing ever walks over.</summary>
     public class EggHazard : MonoBehaviour
     {
-        private const float StunDuration = 3f;
+        private const float StunDuration = 1f;
+        private const float BurstFrameSeconds = 0.5f;
 
         [SerializeField] private float lifetimeSeconds = 15f;
+        [SerializeField] private Sprite crackedSprite;
+        [SerializeField] private Sprite burstSprite;
+
+        private SpriteRenderer _spriteRenderer;
+        private Collider2D _collider;
+        private bool _triggered;
+
+        private void Awake()
+        {
+            _spriteRenderer = GetComponent<SpriteRenderer>();
+            _collider = GetComponent<Collider2D>();
+        }
 
         private void Start()
         {
@@ -20,8 +34,42 @@ namespace FarmFuryArcade.Abilities
 
         private void OnTriggerEnter2D(Collider2D other)
         {
+            if (_triggered)
+            {
+                return;
+            }
+
             var robot = other.GetComponent<RobotBase>();
-            robot?.Stun(StunDuration);
+            if (robot == null)
+            {
+                return;
+            }
+
+            robot.Stun(StunDuration);
+            StartCoroutine(BurstThenDisappear());
+        }
+
+        private IEnumerator BurstThenDisappear()
+        {
+            _triggered = true;
+            if (_collider != null)
+            {
+                _collider.enabled = false;
+            }
+
+            if (_spriteRenderer != null && crackedSprite != null)
+            {
+                _spriteRenderer.sprite = crackedSprite;
+            }
+            yield return new WaitForSeconds(BurstFrameSeconds);
+
+            if (_spriteRenderer != null && burstSprite != null)
+            {
+                _spriteRenderer.sprite = burstSprite;
+            }
+            yield return new WaitForSeconds(BurstFrameSeconds);
+
+            Destroy(gameObject);
         }
     }
 }

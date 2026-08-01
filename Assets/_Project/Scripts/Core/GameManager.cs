@@ -34,6 +34,12 @@ namespace FarmFuryArcade.Core
         private const int BaseCoinsPerLevel = 10;
         private const int CoinsPerStar = 5;
 
+        /// <summary>A maze isn't endless — the player gets 3 respawns (a 4th death ends the run) and
+        /// a 2-minute clock; either exhausting triggers EndLevel(false), which GameplayHUD's
+        /// state-watcher reacts to by showing LevelFailedScreen ("Try Again").</summary>
+        public const int MaxRespawns = 3;
+        public const float LevelTimeLimitSeconds = 120f;
+
         public GameState CurrentState { get; private set; } = GameState.MainMenu;
         public LevelData CurrentLevel { get; private set; }
         public CharacterData CurrentCharacter { get; private set; }
@@ -49,6 +55,14 @@ namespace FarmFuryArcade.Core
         {
             base.Awake();
             _sceneController = GetComponent<SceneController>();
+        }
+
+        private void Update()
+        {
+            if (CurrentState == GameState.Playing && GetElapsedSeconds() >= LevelTimeLimitSeconds)
+            {
+                EndLevel(false);
+            }
         }
 
         public void LoadLevel(int levelIndex)
@@ -82,10 +96,19 @@ namespace FarmFuryArcade.Core
         }
 
         /// <summary>Called by PlayerHealth every time the death sequence starts — tracked for the
-        /// LevelComplete "perfect bonus" (no deaths this run).</summary>
-        public void NotifyPlayerDeath()
+        /// LevelComplete "perfect bonus" (no deaths this run) and for the respawn cap. Returns
+        /// whether the player still has a respawn left; once MaxRespawns is exceeded this ends the
+        /// run itself (EndLevel(false)) so PlayerHealth knows to skip the respawn and leave the
+        /// character faded out instead.</summary>
+        public bool NotifyPlayerDeath()
         {
             DeathCountThisMaze++;
+            if (DeathCountThisMaze > MaxRespawns)
+            {
+                EndLevel(false);
+                return false;
+            }
+            return true;
         }
 
         /// <summary>Called by CropCollector for every crop or power pellet collected. Both count
