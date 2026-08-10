@@ -52,15 +52,11 @@ namespace FarmFuryArcade.EditorTools
 
             AddManagers(managersGO);
 
-            // Still built (available for future multi-level content) even though WorldMapScreen no
-            // longer wires a marker strip — see BuildWorldMap.
-            BuildLevelMarkerPrefab();
             GameObject rosterCardPrefab = BuildRosterCardPrefab();
 
             var fadeGroup = BuildFadeOverlay(canvas.transform);
 
             var mainMenu = BuildMainMenu(canvas.transform);
-            var worldMap = BuildWorldMap(canvas.transform);
             var (gameplay, comboBanner) = BuildGameplayHUD(canvas.transform);
             var pause = BuildPauseMenu(canvas.transform);
             var settings = BuildSettingsPanel(canvas.transform);
@@ -78,14 +74,14 @@ namespace FarmFuryArcade.EditorTools
             var worldShieldPrefab = BuildWorldShieldPrefab();
             var levelSelect = BuildLevelSelect(canvas.transform, levelTilePrefab, worldShieldPrefab);
 
-            WireCrossReferences(mainMenu, worldMap, gameplay, pause, settings,
+            WireCrossReferences(mainMenu, gameplay, pause, settings,
                 levelComplete, unlockScreen, levelFailed, roster, leaderboards, chooseCharacter, comboBanner, levelSelect);
 
             var transitionManager = managersGO.GetComponent<SceneTransitionManager>();
             var transitionSO = new SerializedObject(transitionManager);
             transitionSO.FindProperty("fadeGroup").objectReferenceValue = fadeGroup;
             var screenRootsProp = transitionSO.FindProperty("screenRoots");
-            var screens = new[] { mainMenu, worldMap, gameplay, levelComplete, levelFailed, roster, leaderboards, levelSelect };
+            var screens = new[] { mainMenu, gameplay, levelComplete, levelFailed, roster, leaderboards, levelSelect };
             screenRootsProp.arraySize = screens.Length;
             for (int i = 0; i < screens.Length; i++)
             {
@@ -333,42 +329,6 @@ namespace FarmFuryArcade.EditorTools
             return group;
         }
 
-        private static GameObject BuildLevelMarkerPrefab()
-        {
-            var go = new GameObject("LevelMarker", typeof(RectTransform), typeof(Image), typeof(Button));
-            var rt = (RectTransform)go.transform;
-            rt.sizeDelta = new Vector2(140f, 140f);
-            var background = go.GetComponent<Image>();
-            background.sprite = PlaceholderSprite.Get(new Color(0.4f, 0.4f, 0.4f));
-            var button = go.GetComponent<Button>();
-            button.targetGraphic = background;
-
-            var numberText = CreateText("Number", go.transform, "1", 48f, TextAlignmentOptions.Center, 140f);
-            StretchFull((RectTransform)numberText.transform);
-
-            var lockIcon = CreateImage("LockIcon", go.transform, new Color(0.15f, 0.15f, 0.15f), 40f, 40f);
-            var lockRect = (RectTransform)lockIcon.transform;
-            lockRect.anchorMin = new Vector2(0.5f, 0.15f);
-            lockRect.anchorMax = new Vector2(0.5f, 0.15f);
-
-            var starDisplayGO = CreateStarDisplay("Stars", go.transform, 18);
-            var starRect = (RectTransform)starDisplayGO.transform;
-            starRect.anchorMin = new Vector2(0.5f, 0.08f);
-            starRect.anchorMax = new Vector2(0.5f, 0.08f);
-            starRect.sizeDelta = new Vector2(90f, 24f);
-
-            var marker = go.AddComponent<LevelMarker>();
-            var so = new SerializedObject(marker);
-            so.FindProperty("button").objectReferenceValue = button;
-            so.FindProperty("background").objectReferenceValue = background;
-            so.FindProperty("numberText").objectReferenceValue = numberText;
-            so.FindProperty("lockIcon").objectReferenceValue = lockIcon.gameObject;
-            so.FindProperty("starDisplay").objectReferenceValue = starDisplayGO.GetComponent<StarDisplay>();
-            so.ApplyModifiedPropertiesWithoutUndo();
-
-            return SaveAndDestroy(go, $"{UIPrefabFolder}/LevelMarker.prefab");
-        }
-
         private static GameObject BuildRosterCardPrefab()
         {
             var go = new GameObject("RosterCard", typeof(RectTransform), typeof(Image), typeof(VerticalLayoutGroup), typeof(LayoutElement));
@@ -552,7 +512,11 @@ namespace FarmFuryArcade.EditorTools
             scrollViewRect.anchorMin = new Vector2(0f, 0f);
             scrollViewRect.anchorMax = new Vector2(1f, 1f);
             scrollViewRect.offsetMin = Vector2.zero;
-            scrollViewRect.offsetMax = new Vector2(0f, -200f); // leave room for the 200px header
+            // TitleImage (above) is anchored at y=-40 with a 320px height, so its bottom edge sits
+            // at y=-360 from the top of the screen — the previous 200px reserve here was less than
+            // that, so the tile grid's first row rendered crowded right up against/overlapping the
+            // banner. 420px clears the banner with a further ~60px of breathing room.
+            scrollViewRect.offsetMax = new Vector2(0f, -420f);
 
             // World-select carousel area — vertically centred on the screen (a symmetric 200px
             // margin reserved top and bottom, matching the header's own height, so the centred
@@ -577,15 +541,17 @@ namespace FarmFuryArcade.EditorTools
             shieldContainerImage.color = Color.clear;
             shieldContainerImage.raycastTarget = true;
             var worldCarousel = worldShieldContainerGO.AddComponent<CardCarouselController>();
-            // Tightened per feedback that badges read as spaced too far apart — 730 puts adjacent
-            // badges' edges roughly 32px apart (badge width 810 at full scale, ~583 at the 0.72
-            // side-scale falloff: 810/2 + 583/2 + 32 ~= 730). CardCarouselController now arranges
+            // Tightened twice per feedback that badges still read as spaced too far apart —
+            // 730 -> 600 (see CLAUDE.md for the original 730 sizing math). At 600, adjacent badges'
+            // edges overlap by roughly 97px (badge width 810 at full scale, ~583 at the 0.72
+            // side-scale falloff: 810/2 + 583/2 - 600 ~= 97px overlap), reading as a closer,
+            // tighter fan than the previous non-overlapping gap. CardCarouselController arranges
             // items along a true circular arc (see its own arcRadius field) instead of a flat
             // linear x-offset, so itemSpacing here is the arc-length step between adjacent items,
             // not a straight pixel offset — arcRadius is left at the component's default (2800),
             // which reads as a natural curve at this spacing.
             var worldCarouselSO = new SerializedObject(worldCarousel);
-            worldCarouselSO.FindProperty("itemSpacing").floatValue = 730f;
+            worldCarouselSO.FindProperty("itemSpacing").floatValue = 600f;
             worldCarouselSO.ApplyModifiedPropertiesWithoutUndo();
 
             var lockedHintPanel = BuildLockedHintPanel(root.transform);
@@ -651,43 +617,6 @@ namespace FarmFuryArcade.EditorTools
             return root;
         }
 
-        // ---- World Map --------------------------------------------------------------------------
-
-        private static GameObject BuildWorldMap(Transform canvasTransform)
-        {
-            var root = CreatePanel("WorldMapScreen", canvasTransform, new Color(0.10f, 0.16f, 0.10f));
-
-            // Bottom-left Play / bottom-right Home — same 160x160 safe-area-inset icon-button
-            // convention as Main Menu's Play/Settings and Gameplay HUD's PauseButton. Replaces an
-            // earlier top-left HomeButton + horizontally-scrolling level-marker strip: with only a
-            // couple of LevelData assets authored so far, that strip rendered as an unstyled green
-            // swatch overlapping Map.png's own baked-in "THE FARM" title (see the World Map "known
-            // gap" note in CLAUDE.md — markers were never aligned to the background art's path
-            // either). Play jumps straight into whichever level the player would naturally
-            // continue on, the same target CenterOnLevel used to just scroll to.
-            const float navButtonSize = 160f;
-            const float navInsetX = 100f;
-            const float navInsetY = 70f;
-
-            var playButton = CreateButton("PlayButton", root.transform, string.Empty, new Color(0.3f, 0.75f, 0.35f), 28f, navButtonSize, out _);
-            Object.DestroyImmediate(playButton.transform.Find("PlayButton_Label").gameObject);
-            AnchorBottomLeft((RectTransform)playButton.transform, new Vector2(navButtonSize, navButtonSize), new Vector2(navInsetX, navInsetY));
-
-            var homeButton = CreateButton("HomeButton", root.transform, string.Empty, new Color(0.35f, 0.35f, 0.38f), 28f, navButtonSize, out _);
-            Object.DestroyImmediate(homeButton.transform.Find("HomeButton_Label").gameObject);
-            // AnchorBottomRight needs a negative X inset to move inward (see CreateRoundBackButton's
-            // doc comment) — navInsetX is positive because PlayButton (AnchorBottomLeft) uses it too.
-            AnchorBottomRight((RectTransform)homeButton.transform, new Vector2(navButtonSize, navButtonSize), new Vector2(-navInsetX, navInsetY));
-
-            var controller = root.AddComponent<WorldMapController>();
-            var so = new SerializedObject(controller);
-            so.FindProperty("playButton").objectReferenceValue = playButton;
-            so.FindProperty("homeButton").objectReferenceValue = homeButton;
-            so.ApplyModifiedPropertiesWithoutUndo();
-
-            return root;
-        }
-
         // ---- Gameplay HUD -----------------------------------------------------------------------
 
         private static (GameObject root, ComboNotificationBanner banner) BuildGameplayHUD(Transform canvasTransform)
@@ -739,16 +668,18 @@ namespace FarmFuryArcade.EditorTools
             bannerSO.FindProperty("canvasGroup").objectReferenceValue = bannerGroup;
             bannerSO.ApplyModifiedPropertiesWithoutUndo();
 
-            // Pause icon (bottom-left), directly above the character portrait — moved inward and
+            // Pause icon (bottom-right), directly above the character portrait — moved inward and
             // shrunk (160->120, inset 100/70->130/90) per playtest feedback that the cluster sat
             // too close to the corner/safe-area edge. Sound and Home were removed from this
             // cluster earlier (both are still reachable via the Pause menu itself), so a single
             // Pause button is all this needs.
+            // Swapped from bottom-left to bottom-right (and the D-pad from bottom-right to
+            // bottom-left, below) per feedback — AnchorBottomRight needs a NEGATIVE X offset to
+            // move inward (positive pushes further right/off-screen — see CreateRoundBackButton's
+            // own doc comment for the same convention), unlike AnchorBottomLeft's positive-is-inward.
             const float clusterButtonSize = 120f;
             const float clusterSpacing = 20f;
-            // Shifted further left (130 -> 90) per feedback — the Pause button + character portrait
-            // stack still read as sitting too far in from the corner/safe-area edge.
-            const float clusterInsetX = 90f;
+            const float clusterInsetX = -90f;
             const float clusterInsetY = 90f;
 
             // Character portrait sits at the bottom of the cluster (closer to the corner), enlarged
@@ -769,8 +700,8 @@ namespace FarmFuryArcade.EditorTools
             const float ringSize = 140f;
             var ringImage = CreateImage("AbilityCooldownRing", root.transform, new Color(1f, 0.95f, 0.6f, 0.9f), ringSize, ringSize);
             var ringRect = (RectTransform)ringImage.transform;
-            AnchorBottomLeft(ringRect, new Vector2(ringSize, ringSize),
-                new Vector2(clusterInsetX - (ringSize - clusterButtonSize) / 2f, clusterInsetY - (ringSize - clusterButtonSize) / 2f));
+            AnchorBottomRight(ringRect, new Vector2(ringSize, ringSize),
+                new Vector2(clusterInsetX + (ringSize - clusterButtonSize) / 2f, clusterInsetY - (ringSize - clusterButtonSize) / 2f));
             ringImage.type = Image.Type.Filled;
             ringImage.fillMethod = Image.FillMethod.Radial360;
             ringImage.fillOrigin = (int)Image.Origin360.Top;
@@ -779,7 +710,7 @@ namespace FarmFuryArcade.EditorTools
 
             var portraitButton = CreateButton("CharacterPortrait", root.transform, string.Empty, new Color(1f, 0.84f, 0f), 26f, clusterButtonSize, out _);
             Object.DestroyImmediate(portraitButton.transform.Find("CharacterPortrait_Label").gameObject);
-            AnchorBottomLeft((RectTransform)portraitButton.transform, new Vector2(clusterButtonSize, clusterButtonSize),
+            AnchorBottomRight((RectTransform)portraitButton.transform, new Vector2(clusterButtonSize, clusterButtonSize),
                 new Vector2(clusterInsetX, clusterInsetY));
             // onClick wiring happens in GameplayHUD.Awake() (via the abilityButton field below),
             // not here — a listener added directly from editor-script code doesn't survive a scene
@@ -809,41 +740,45 @@ namespace FarmFuryArcade.EditorTools
 
             var pauseButton = CreateButton("PauseButton", root.transform, string.Empty, new Color(0.35f, 0.35f, 0.38f), 28f, clusterButtonSize, out _);
             Object.DestroyImmediate(pauseButton.transform.Find("PauseButton_Label").gameObject);
-            AnchorBottomLeft((RectTransform)pauseButton.transform, new Vector2(clusterButtonSize, clusterButtonSize),
+            AnchorBottomRight((RectTransform)pauseButton.transform, new Vector2(clusterButtonSize, clusterButtonSize),
                 new Vector2(clusterInsetX, clusterInsetY + clusterButtonSize + clusterSpacing));
 
-            // Directional pad (right side, diamond/D-pad layout) — up.png/down.png/left.png/
+            // Directional pad (left side, diamond/D-pad layout) — up.png/down.png/left.png/
             // right.png (wired by ArtWiringBuilder) already look like complete rounded buttons on
             // their own, so each is just a plain Image+Button, no separate background needed.
             // Positioned around a shared centre point rather than each anchored independently, so
             // the diamond shape (Up above centre, Down below, Left/Right to the sides) is easy to
             // read and re-tune as one unit.
-            // Tightened (spacing 130->100, size 120->110) and pulled further in from the right
-            // edge (inset 200->260) — the diamond previously crossed the device safe-area guide.
+            // Tightened (spacing 130->100, size 120->110) and pulled further in from the edge
+            // (inset 200->260) — the diamond previously crossed the device safe-area guide. Swapped
+            // from bottom-right to bottom-left (and the Pause/portrait cluster from bottom-left to
+            // bottom-right, above) per feedback — the sub-button offsets (dpadSpacing terms below)
+            // are plain screen-space deltas and don't need to change sign, only dpadCenter's own X
+            // (now positive, measured inward from the left edge via AnchorBottomLeft).
             const float dpadButtonSize = 110f;
             const float dpadSpacing = 100f;
             const float dpadInsetX = 260f;
             const float dpadInsetY = 240f;
-            Vector2 dpadCenter = new Vector2(-dpadInsetX, dpadInsetY);
+            Vector2 dpadCenter = new Vector2(dpadInsetX, dpadInsetY);
 
             var upButton = CreateButton("DPadUpButton", root.transform, string.Empty, Color.clear, out _);
             Object.DestroyImmediate(upButton.transform.Find("DPadUpButton_Label").gameObject);
-            AnchorBottomRight((RectTransform)upButton.transform, new Vector2(dpadButtonSize, dpadButtonSize),
+            AnchorBottomLeft((RectTransform)upButton.transform, new Vector2(dpadButtonSize, dpadButtonSize),
                 dpadCenter + new Vector2(0f, dpadSpacing));
 
             var downButton = CreateButton("DPadDownButton", root.transform, string.Empty, Color.clear, out _);
             Object.DestroyImmediate(downButton.transform.Find("DPadDownButton_Label").gameObject);
-            AnchorBottomRight((RectTransform)downButton.transform, new Vector2(dpadButtonSize, dpadButtonSize),
+            AnchorBottomLeft((RectTransform)downButton.transform, new Vector2(dpadButtonSize, dpadButtonSize),
                 dpadCenter + new Vector2(0f, -dpadSpacing));
 
             var leftButton = CreateButton("DPadLeftButton", root.transform, string.Empty, Color.clear, out _);
             Object.DestroyImmediate(leftButton.transform.Find("DPadLeftButton_Label").gameObject);
-            AnchorBottomRight((RectTransform)leftButton.transform, new Vector2(dpadButtonSize, dpadButtonSize),
+            AnchorBottomLeft((RectTransform)leftButton.transform, new Vector2(dpadButtonSize, dpadButtonSize),
                 dpadCenter + new Vector2(-dpadSpacing, 0f));
 
             var rightButton = CreateButton("DPadRightButton", root.transform, string.Empty, Color.clear, out _);
             Object.DestroyImmediate(rightButton.transform.Find("DPadRightButton_Label").gameObject);
-            AnchorBottomRight((RectTransform)rightButton.transform, new Vector2(dpadButtonSize, dpadButtonSize),
+            AnchorBottomLeft((RectTransform)rightButton.transform, new Vector2(dpadButtonSize, dpadButtonSize),
                 dpadCenter + new Vector2(dpadSpacing, 0f));
 
             var dpad = root.AddComponent<DirectionalPadController>();
@@ -1029,10 +964,10 @@ namespace FarmFuryArcade.EditorTools
             }
             else
             {
-                // Choose Character's own mockup sits this further left than the generic 100px inset
-                // other bottom-left buttons use — nudged to 60 per feedback that it was sitting too
-                // far toward centre (still comfortably inside the safe-area guide at this inset).
-                AnchorBottomLeft((RectTransform)backButton.transform, new Vector2(160f, 160f), new Vector2(60f, 70f));
+                // Was 60 — a device-frame check showed it sitting outside the yellow safe-area
+                // guide, not inside it as previously assumed. Raised to 110, matching the generic
+                // bottom-left inset every other screen uses.
+                AnchorBottomLeft((RectTransform)backButton.transform, new Vector2(160f, 160f), new Vector2(110f, 70f));
             }
             return backButton;
         }
@@ -1583,7 +1518,13 @@ namespace FarmFuryArcade.EditorTools
             cardArtRect.pivot = new Vector2(0.5f, 0.5f);
             cardArtRect.sizeDelta = new Vector2(340f, 360f);
             cardArtRect.anchoredPosition = Vector2.zero;
-            cardArt.preserveAspect = true;
+            // Not preserveAspect — the per-character selectCardArt sprites have inconsistent native
+            // dimensions (each is a hand-authored framed card image, not a shared template), so
+            // preserving aspect within a fixed box made cards read as visibly different sizes
+            // instead of a uniform deck. Stretching to fill guarantees every card is the same size;
+            // the trade-off is a slight aspect distortion on any card whose source art isn't
+            // already close to 340:360.
+            cardArt.preserveAspect = false;
 
             var lockIcon = CreateImage("LockIcon", go.transform, new Color(0f, 0f, 0f, 0.8f), 140f, 60f);
             var lockRect = (RectTransform)lockIcon.transform;
@@ -1648,13 +1589,17 @@ namespace FarmFuryArcade.EditorTools
             containerImage.raycastTarget = true;
             var carousel = cardContainerGO.AddComponent<CardCarouselController>();
             // Default itemSpacing (380) left visibly large gaps between cards — tightened further
-            // (300 -> 220) per feedback that cards still read as too far apart. arcRadius is scaled
-            // down to match these much smaller cards (2800 default is tuned for Level Select's large
-            // world badges) so the circular motion is clearly visible at this size rather than
-            // reading as nearly flat.
+            // (300 -> 220) per feedback that cards still read as too far apart. arcRadius was
+            // originally scaled down to 900 (from Level Select's 2800 default) so the circular
+            // motion would read clearly at these smaller cards' size — but per later feedback this
+            // dipped noticeably ("drafting down") rather than reading as side-to-side motion like
+            // Level Select's own carousel. Matched to Level Select's 2800 instead: at itemSpacing
+            // 220, dip for the nearest card drops from ~27px to ~9px (y = arcRadius*(1-cos(spacing/
+            // radius))), while horizontal spread stays effectively unchanged (x ≈ itemSpacing for
+            // small angles regardless of radius) — same side-to-side character, just flatter.
             var carouselSO = new SerializedObject(carousel);
             carouselSO.FindProperty("itemSpacing").floatValue = 220f;
-            carouselSO.FindProperty("arcRadius").floatValue = 900f;
+            carouselSO.FindProperty("arcRadius").floatValue = 2800f;
             carouselSO.ApplyModifiedPropertiesWithoutUndo();
 
             var controller = root.AddComponent<ChooseCharacterScreen>();
@@ -1670,7 +1615,7 @@ namespace FarmFuryArcade.EditorTools
 
         // ---- Cross-references (built after every screen exists) -------------------------------
 
-        private static void WireCrossReferences(GameObject mainMenu, GameObject worldMap,
+        private static void WireCrossReferences(GameObject mainMenu,
             GameObject gameplay, GameObject pause, GameObject settings,
             GameObject levelComplete, NewCharacterUnlockScreen unlockScreen, GameObject levelFailed,
             GameObject roster, GameObject leaderboards, ChooseCharacterScreen chooseCharacterScreen,
@@ -1681,13 +1626,6 @@ namespace FarmFuryArcade.EditorTools
 
             SetRefs(mainMenu.GetComponent<MainMenuController>(),
                 ("levelSelectScreen", levelSelect), ("settingsPanel", settingsPanel));
-
-            // World Map's Play button now opens Level Select instead of jumping straight into
-            // gameplay — see WorldMapController's own doc comment for why (Level Select needs a
-            // place to be reached from, and this is the position the removed Matchup screen /
-            // "jump to next level" shortcut used to occupy in the flow).
-            SetRefs(worldMap.GetComponent<WorldMapController>(),
-                ("mainMenuScreen", mainMenu), ("levelSelectScreen", levelSelect));
 
             SetRefs(levelSelect.GetComponent<LevelSelectController>(),
                 ("mainMenuScreen", mainMenu), ("gameplayScreen", gameplay));
@@ -1757,8 +1695,8 @@ namespace FarmFuryArcade.EditorTools
             // See Phase4ProjectBuilder.EmbedRuntimePlaceholderSprites — PlaceholderSprite.Get()
             // sprites (used throughout UIBuilderHelpers for Image.sprite too) are runtime-only and
             // get silently nulled out by SaveAsPrefabAsset unless embedded as a real sub-asset
-            // first. This builder's three saved UI prefabs (LevelMarker, RosterCard,
-            // CharacterSelectCard) use Image, not SpriteRenderer, so both are checked here.
+            // first. This builder's saved UI prefabs (RosterCard, CharacterSelectCard, LevelTile,
+            // WorldDivider, WorldShield) use Image, not SpriteRenderer, so both are checked here.
             var placeholderSprites = new List<(string transformPath, Sprite sprite, bool isImage)>();
             foreach (var sr in go.GetComponentsInChildren<SpriteRenderer>(true))
             {

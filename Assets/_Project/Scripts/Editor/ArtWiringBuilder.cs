@@ -69,7 +69,6 @@ namespace FarmFuryArcade.EditorTools
         private const string GoldenWheatPellet = "Assets/_Project/Sprites/Environment/RarePellets_maize.png";
         private const string RainbowPellet = "Assets/_Project/Sprites/Environment/RarePellets_apple.png";
         private const string LandingBackground = "Assets/_Project/Sprites/UI/landing.png";
-        private const string MapBackground = "Assets/_Project/Sprites/UI/Map.png";
 
         // ---- Sprite paths (this batch) ----------------------------------------------------------
         private const string BessieFront = "Assets/_Project/Sprites/Characters/Bessie_front.png";
@@ -138,7 +137,6 @@ namespace FarmFuryArcade.EditorTools
         private const string LevelCompletePanel = "Assets/_Project/Sprites/UI/LevelComplete.png";
         private const string LevelFailedPanel = "Assets/_Project/Sprites/UI/LevelFailed.png";
         private const string PausedPanel = "Assets/_Project/Sprites/UI/Paused.png";
-        private const string CardFrame = "Assets/_Project/Sprites/UI/Card.png";
         // Pause's own backdrop per the 2026-07-31 Canva mockup — same cornfield/barn/moon night
         // scene as Bg_LevelSelect.png's composition but a different piece of art (previously unused
         // — see CLAUDE.md's Art status section prior to this).
@@ -257,13 +255,13 @@ namespace FarmFuryArcade.EditorTools
         private static readonly string[] SpritesToConfigure =
         {
             CluckFront, CluckBack, CluckLeft, HarvesterFront, HarvesterBack, HarvesterLeft, HarvesterRight, CornKernel, Carrot,
-            CoinIcon, SunflowerPellet, GoldenWheatPellet, RainbowPellet, LandingBackground, MapBackground,
+            CoinIcon, SunflowerPellet, GoldenWheatPellet, RainbowPellet, LandingBackground,
             BessieFront, BessieBack, BessieLeft, BessieLeft2, BessieRight, BessieRight2,
             WoollyFront, WoollyBack, WoollyLeft, WoollyEffect,
             PercyFront, PercyBack, PercyLeft, PercyEffect, DuckyFront, DuckyBack, BessieSlam,
             ScoutFront, ScoutBack, ScoutLeft, ScoutRight, PatrolFront, PatrolBack, PatrolLeft, PatrolRight,
             HeavyFront, HeavyBack, DrifterFront, DrifterLeft, DrifterRight, RobotEyes,
-            LevelCompletePanel, LevelFailedPanel, PausedPanel, CardFrame,
+            LevelCompletePanel, LevelFailedPanel, PausedPanel,
             BtnPlay, BtnPause, BtnSettings, BtnQuit, BtnMusic, BtnNoSound, BtnHome, BtnSkip, BtnBack, BtnPlaque,
             RetryButtonArt, MenuButtonArt, ResumeButtonArt, SwapCharacterButtonArt, RestartButtonArt,
             SettingsButtonArt, QuitButtonArt,
@@ -326,18 +324,31 @@ namespace FarmFuryArcade.EditorTools
             }
         }
 
-        private static Sprite Load(string path) => AssetDatabase.LoadAssetAtPath<Sprite>(path);
+        private static Sprite Load(string path)
+        {
+            var sprite = AssetDatabase.LoadAssetAtPath<Sprite>(path);
+            if (sprite == null)
+            {
+                Debug.LogWarning($"[ArtWiringBuilder] No sprite found at {path} — the referencing field will be left unset.");
+            }
+            return sprite;
+        }
 
-        /// <summary>Cluck_back.png is her standing-still pose (CharacterAnimator shows Down0 when not
-        /// moving — see its own doc comment) and covers Up/Down, which have no dedicated art yet.
-        /// Left and Right each DO have real dedicated 2-frame walk art on disk (Cluck_left.png +
-        /// Cluck_LeftWalk.png; Cluck_right.png + Cluck_rightwalk2.png) — a previous pass wired only
-        /// Cluck_back.png for every direction except Left1, leaving her facing backward while
-        /// visibly walking left/right. Wired properly here. Cluck_rightwalk.png (a third right-facing
-        /// frame beyond the 2-frame Right0/Right1 slots this system supports) stays unreferenced —
-        /// kept on disk, same "extra art, no slot for it yet" convention as everywhere else.
-        /// Right0/Right1 are set explicitly (not left to CharacterAnimator's flipX-mirror-Left
-        /// fallback) so hasDedicatedRightArt stays true and they render un-mirrored.</summary>
+        /// <summary>Cluck_front.png (facing the camera) and Cluck_back.png (facing away, no face
+        /// visible) both exist as real, distinct art — Up (walking away from camera, toward the top
+        /// of the screen) uses back; Down (walking toward the camera, toward the bottom of the
+        /// screen) uses front. A previous pass wired Cluck_back.png for BOTH Up and Down, so she
+        /// showed her back the whole time she walked downward (and while idle, since
+        /// CharacterAnimator shows Down0 when not moving — see its own doc comment) — confirmed by
+        /// comparing Cluck_front.png against Cluck_back.png directly, not guessed. Left and Right
+        /// each DO have real dedicated 2-frame walk art on disk (Cluck_left.png + Cluck_LeftWalk.png;
+        /// Cluck_right.png + Cluck_rightwalk2.png) — a previous pass wired only Cluck_back.png for
+        /// every direction except Left1, leaving her facing backward while visibly walking left/right.
+        /// Wired properly here. Cluck_rightwalk.png (a third right-facing frame beyond the 2-frame
+        /// Right0/Right1 slots this system supports) stays unreferenced — kept on disk, same "extra
+        /// art, no slot for it yet" convention as everywhere else. Right0/Right1 are set explicitly
+        /// (not left to CharacterAnimator's flipX-mirror-Left fallback) so hasDedicatedRightArt stays
+        /// true and they render un-mirrored.</summary>
         private static void WireCluck()
         {
             var front = Load(CluckFront);
@@ -353,8 +364,8 @@ namespace FarmFuryArcade.EditorTools
             {
                 data.walkAnimationFrames = new[]
                 {
-                    back, back,                                  // Up0, Up1 (no dedicated art yet)
-                    back, back,                                  // Down0, Down1 (standing still)
+                    back, back,                                  // Up0, Up1 (facing away from camera)
+                    front, front,                                // Down0, Down1 (facing camera; also her idle pose)
                     left != null ? left : back, leftWalk != null ? leftWalk : back,    // Left0, Left1
                     right != null ? right : back, rightWalk2 != null ? rightWalk2 : back // Right0, Right1
                 };
@@ -369,9 +380,9 @@ namespace FarmFuryArcade.EditorTools
 
             var contents = PrefabUtility.LoadPrefabContents(CluckPrefabPath);
             var sr = contents.GetComponent<SpriteRenderer>();
-            if (sr != null && back != null)
+            if (sr != null && front != null)
             {
-                sr.sprite = back;
+                sr.sprite = front;
             }
             PrefabUtility.SaveAsPrefabAsset(contents, CluckPrefabPath);
             PrefabUtility.UnloadPrefabContents(contents);
@@ -647,7 +658,6 @@ namespace FarmFuryArcade.EditorTools
             }
 
             SetScreenBackground(canvasTransform, "MainMenuScreen", Load(LandingBackground));
-            SetScreenBackground(canvasTransform, "WorldMapScreen", Load(MapBackground));
 
             EditorSceneManager.SaveScene(EditorSceneManager.GetActiveScene());
         }
@@ -881,28 +891,10 @@ namespace FarmFuryArcade.EditorTools
             // LevelSelectScreen deliberately has no LogoImage — see BuildLevelSelect's doc comment;
             // it clashes with CurrentWorldIndicator at the same top-left inset.
 
-            // Card.png is used for New Character Unlock and RosterCard, neither of which has a
-            // frame baked into their background.
-            var card = Load(CardFrame);
-            if (card != null)
-            {
-                SetImageSprite(canvasTransform, "LevelCompleteScreen/NewCharacterUnlockOverlay/UnlockContent/CharacterCard", card);
-            }
-
+            // New Character Unlock's card and RosterCard are deliberately unframed — there is no
+            // dedicated card-frame art for them (a generic "Card.png" concept was considered and
+            // dropped; do not reintroduce a CardFrame constant/wiring call here).
             EditorSceneManager.SaveScene(EditorSceneManager.GetActiveScene());
-
-            // RosterCard is a prefab, not part of the scene hierarchy above.
-            if (card != null && File.Exists(RosterCardPrefabPath))
-            {
-                var contents = PrefabUtility.LoadPrefabContents(RosterCardPrefabPath);
-                var rootImage = contents.GetComponent<Image>();
-                if (rootImage != null)
-                {
-                    rootImage.sprite = card;
-                }
-                PrefabUtility.SaveAsPrefabAsset(contents, RosterCardPrefabPath);
-                PrefabUtility.UnloadPrefabContents(contents);
-            }
         }
 
         private static void SetImageSprite(Transform canvasTransform, string path, Sprite sprite)
@@ -943,9 +935,6 @@ namespace FarmFuryArcade.EditorTools
 
             SetImageSprite(canvasTransform, "MainMenuScreen/PlayButton", play);
             SetImageSprite(canvasTransform, "MainMenuScreen/SettingsButton", settings);
-
-            SetImageSprite(canvasTransform, "WorldMapScreen/PlayButton", play);
-            SetImageSprite(canvasTransform, "WorldMapScreen/HomeButton", home);
 
             SetImageSprite(canvasTransform, "GameplayScreen/PauseButton", pause);
             SetImageSprite(canvasTransform, "GameplayScreen/DPadUpButton", Load(DPadUp));

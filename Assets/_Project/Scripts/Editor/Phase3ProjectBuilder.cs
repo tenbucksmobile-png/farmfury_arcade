@@ -192,12 +192,12 @@ namespace FarmFuryArcade.EditorTools
             PrefabUtility.UnloadPrefabContents(contents);
         }
 
-        /// <summary>Adds the 2 spawns spec'd for Phase 3 verification: Harvester at (5,4) after
-        /// 2s, Scout at (5,4) after 6s — Phase2ProjectBuilder.BuildLevelData01's factory box centre
-        /// (fx0=4,fx1=7,fy0=3,fy1=5 -> ((4+7)/2,(3+5)/2)). Only touches the robotSpawns field,
-        /// leaving the rest of the hand-tuned L01 maze untouched. Must be kept in sync with that
-        /// method's own fx0/fx1/fy0/fy1 constants if the maze's fixed 12x9 size or factory box ever
-        /// changes again.</summary>
+        /// <summary>Adds the 2 spawns spec'd for Phase 3 verification: Harvester after 2s, Scout
+        /// after 6s, both at LevelData_01's own robotFactoryPosition (the maze's factory box
+        /// centre — Phase2ProjectBuilder.BuildLevelData01 now derives this from wherever the
+        /// hand-authored maze painted tile id 6, rather than a hardcoded fx0/fx1/fy0/fy1 box) so
+        /// this stays correct automatically if the maze is redesigned again. Only touches the
+        /// robotSpawns field, leaving the rest of the hand-authored L01 maze untouched.</summary>
         private static void UpdateLevelData01Robots()
         {
             var level = AssetDatabase.LoadAssetAtPath<LevelData>(LevelData01Path);
@@ -207,10 +207,11 @@ namespace FarmFuryArcade.EditorTools
                 return;
             }
 
+            var factoryCenter = level.robotFactoryPosition;
             level.robotSpawns = new[]
             {
-                new RobotSpawnData { robotType = RobotType.Harvester, spawnDelay = 2f, spawnPosition = new Vector2Int(5, 4) },
-                new RobotSpawnData { robotType = RobotType.Scout, spawnDelay = 6f, spawnPosition = new Vector2Int(5, 4) }
+                new RobotSpawnData { robotType = RobotType.Harvester, spawnDelay = 2f, spawnPosition = factoryCenter },
+                new RobotSpawnData { robotType = RobotType.Scout, spawnDelay = 6f, spawnPosition = factoryCenter }
             };
 
             EditorUtility.SetDirty(level);

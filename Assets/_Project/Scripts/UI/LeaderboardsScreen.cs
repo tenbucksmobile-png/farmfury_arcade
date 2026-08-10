@@ -7,8 +7,8 @@ namespace FarmFuryArcade.UI
 {
     /// <summary>Local overall stats (per spec: "local for now, cloud in Phase 6"). Per-level bests
     /// are available via SaveManager.GetLevelBestScore/GetLevelBestTime once a real level list UI
-    /// is worth building — kept to overall rollups here to match WorldMapController's own
-    /// per-level star display rather than duplicating it.</summary>
+    /// is worth building — kept to overall rollups here to match Level Select's own per-level
+    /// star display rather than duplicating it.</summary>
     public class LeaderboardsScreen : MonoBehaviour
     {
         [SerializeField] private TextMeshProUGUI statsText;

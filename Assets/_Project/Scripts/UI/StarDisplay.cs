@@ -3,8 +3,8 @@ using UnityEngine.UI;
 
 namespace FarmFuryArcade.UI
 {
-    /// <summary>3 placeholder Image children (gold vs dim grey) — reused by LevelMarker and
-    /// LevelCompleteController rather than each building its own star row.</summary>
+    /// <summary>3 placeholder Image children (gold vs dim grey) — a generic reusable star row;
+    /// currently used by LevelCompleteController.</summary>
     public class StarDisplay : MonoBehaviour
     {
         private static readonly Color FilledColor = new Color(1f, 0.84f, 0f);

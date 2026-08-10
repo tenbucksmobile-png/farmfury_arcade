@@ -9,10 +9,10 @@ namespace FarmFuryArcade.Core
     /// Only this harness's runOnStart is left enabled (Phase4ProjectBuilder's precedent: each new
     /// phase disables the previous test's auto-run to avoid racing on GameManager.LoadLevel).
     /// Drives the screen flow directly via each controller's public Show()/ShowOnly() entry
-    /// points rather than simulating clicks, verifying: initial screen state, World Map -> Gameplay
-    /// navigation, HUD element wiring, pause freezing Time.timeScale, level completion
-    /// producing a LevelResult with correct-shape stars/score, SaveManager persistence, and
-    /// settings mutating SaveManager/AudioManager state.
+    /// points rather than simulating clicks, verifying: initial screen state, Main Menu -> Level
+    /// Select -> Gameplay navigation, HUD element wiring, pause freezing Time.timeScale, level
+    /// completion producing a LevelResult with correct-shape stars/score, SaveManager
+    /// persistence, and settings mutating SaveManager/AudioManager state.
     /// </summary>
     public class Phase5Test : MonoBehaviour
     {
@@ -37,7 +37,7 @@ namespace FarmFuryArcade.Core
             Debug.Log("[Phase5Test] --- Starting Phase 5 verification ---");
 
             VerifyMainMenuIsInitialScreen();
-            yield return TestWorldMapToGameplay();
+            yield return TestMainMenuToGameplay();
             yield return TestHudElementsPresent();
             yield return TestPauseFreezesTime();
             yield return TestLevelCompleteFlow();
@@ -64,14 +64,14 @@ namespace FarmFuryArcade.Core
         private void VerifyMainMenuIsInitialScreen()
         {
             var mainMenu = Find("MainMenuScreen");
-            var worldMap = Find("WorldMapScreen");
-            bool ok = mainMenu != null && mainMenu.activeSelf && worldMap != null && !worldMap.activeSelf;
+            var levelSelect = Find("LevelSelectScreen");
+            bool ok = mainMenu != null && mainMenu.activeSelf && levelSelect != null && !levelSelect.activeSelf;
             Debug.Log(ok
                 ? "[Phase5Test] PASS: Main Menu is the only active top-level screen at startup."
                 : "[Phase5Test] FAIL: expected only MainMenuScreen active at startup.");
         }
 
-        private IEnumerator TestWorldMapToGameplay()
+        private IEnumerator TestMainMenuToGameplay()
         {
             var mainMenuGO = Find("MainMenuScreen");
             var mainMenu = mainMenuGO != null ? mainMenuGO.GetComponent<MainMenuController>() : null;
@@ -81,18 +81,20 @@ namespace FarmFuryArcade.Core
                 yield break;
             }
 
-            SceneTransitionManager.Instance.ShowOnly(Find("WorldMapScreen"));
+            // World Map was removed from the flow entirely (see CLAUDE.md's "Removed: World Map
+            // screen") — Play now opens Level Select directly.
+            SceneTransitionManager.Instance.ShowOnly(Find("LevelSelectScreen"));
             yield return WaitForTransition();
 
-            bool worldMapShown = Find("WorldMapScreen").activeSelf && !Find("MainMenuScreen").activeSelf;
-            Debug.Log(worldMapShown
-                ? "[Phase5Test] PASS: Play navigates Main Menu -> World Map."
-                : "[Phase5Test] FAIL: World Map did not become the active screen.");
+            bool levelSelectShown = Find("LevelSelectScreen").activeSelf && !Find("MainMenuScreen").activeSelf;
+            Debug.Log(levelSelectShown
+                ? "[Phase5Test] PASS: Play navigates Main Menu -> Level Select."
+                : "[Phase5Test] FAIL: Level Select did not become the active screen.");
 
-            // The Matchup (VS card) screen was removed — tapping an unlocked level marker now
-            // goes straight into gameplay (WorldMapController.OnMarkerTapped). Reproduce that same
-            // effect directly rather than hunting for a marker's Button deep inside the World Map's
-            // ScrollRect content, which the test has no stable path into.
+            // The Matchup (VS card) screen was removed — tapping an unlocked level tile now goes
+            // straight into gameplay (LevelSelectController's tile tap handler). Reproduce that
+            // same effect directly rather than hunting for a tile's Button deep inside Level
+            // Select's ScrollRect content, which the test has no stable path into.
             GameManager.Instance.LoadLevel(0);
             SceneTransitionManager.Instance.ShowOnly(Find("GameplayScreen"));
             yield return WaitForTransition();
@@ -100,7 +102,7 @@ namespace FarmFuryArcade.Core
             bool gameplayShown = Find("GameplayScreen").activeSelf;
             bool isPlaying = GameManager.Instance.CurrentState == GameState.Playing;
             Debug.Log(gameplayShown && isPlaying
-                ? "[Phase5Test] PASS: Tapping a level marker goes straight into gameplay (no Matchup screen)."
+                ? "[Phase5Test] PASS: Tapping a level tile goes straight into gameplay (no Matchup screen)."
                 : $"[Phase5Test] FAIL: gameplayShown={gameplayShown}, state={GameManager.Instance.CurrentState} (expected true/Playing).");
         }
 

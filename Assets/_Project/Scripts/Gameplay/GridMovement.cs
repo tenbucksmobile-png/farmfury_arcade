@@ -4,11 +4,15 @@ using FarmFuryArcade.Core;
 namespace FarmFuryArcade.Gameplay
 {
     /// <summary>
-    /// Continuous grid-based movement: the character keeps moving in CurrentDirection until it
-    /// reaches the next cell centre, where a queued direction (if walkable) is applied. Direction
-    /// reversal is only allowed at intersections (3+ walkable neighbours) or dead ends (<=1
-    /// walkable neighbour) — a straight corridor or simple turn (exactly 2 walkable neighbours)
-    /// ignores a queued 180-degree reversal, per the "cannot reverse mid-corridor" rule.
+    /// Hold-to-move grid movement: the character advances only while InputController reports a
+    /// direction currently held (keyboard key down, D-pad finger down, or an active swipe — see
+    /// InputController's own doc comment). Releasing the held direction stops her immediately,
+    /// wherever she is. Switching direction — including a full 180-degree reversal, to escape a
+    /// robot — takes effect the instant it's pressed, with no cooldown and no "must be at an
+    /// intersection" restriction; this replaced an earlier auto-run-until-blocked model (queue a
+    /// direction once, keep moving until a wall or an explicit new queue, reversal blocked mid-
+    /// corridor) that read as unresponsive — turns only registered at the next full cell crossed,
+    /// which could be several tiles away, and felt like input was being ignored.
     /// </summary>
     [RequireComponent(typeof(Rigidbody2D))]
     public class GridMovement : MonoBehaviour
@@ -16,7 +20,8 @@ namespace FarmFuryArcade.Gameplay
         [SerializeField] private float speed = 4f;
 
         private TileMapRenderer _tileMap;
-        private Direction _queuedDirection = Direction.None;
+        private Direction _heldDirection = Direction.None;
+        private Direction _appliedDirection = Direction.None;
         private bool _canCrossWater;
 
         public Vector2Int CurrentGridPosition { get; private set; }
@@ -25,12 +30,13 @@ namespace FarmFuryArcade.Gameplay
 
         private void OnEnable()
         {
-            InputController.OnDirectionInput += QueueInputDirection;
+            InputController.OnHeldDirectionChanged += SetHeldDirection;
+            _heldDirection = InputController.CurrentHeldDirection;
         }
 
         private void OnDisable()
         {
-            InputController.OnDirectionInput -= QueueInputDirection;
+            InputController.OnHeldDirectionChanged -= SetHeldDirection;
         }
 
         private void Start()
@@ -42,9 +48,19 @@ namespace FarmFuryArcade.Gameplay
             }
         }
 
+        private void SetHeldDirection(Direction dir)
+        {
+            _heldDirection = dir;
+        }
+
+        /// <summary>Directly commands a direction, bypassing InputController — used by
+        /// CharacterManager to carry facing into a freshly-spawned/swapped character and by the
+        /// Phase 2 debug harness. Under hold-to-move rules this only matters until the next real
+        /// input change (OnEnable already re-syncs to whatever's actually held), so it's a
+        /// starting nudge, not a persistent override.</summary>
         public void QueueInputDirection(Direction dir)
         {
-            _queuedDirection = dir;
+            _heldDirection = dir;
         }
 
         public void SetSpeed(float newSpeed)
@@ -59,16 +75,6 @@ namespace FarmFuryArcade.Gameplay
             _canCrossWater = canCross;
         }
 
-        /// <summary>Advances up to a full frame's worth of movement, clamping exactly on any cell
-        /// boundary it crosses rather than sampling a small epsilon window once per frame. The old
-        /// approach compared distance-to-center against a fixed epsilon (0.02) that per-frame
-        /// movement (speed * deltaTime, easily 0.05-0.15 world units) could jump straight past —
-        /// intermittently skipping the walkability re-check entirely, which read as either the
-        /// character clipping through a wall (the check that should have stopped it never ran) or
-        /// freezing unresponsive to input (it stopped mid-frame off-center, so the "am I at a cell
-        /// center, can I accept a new queued direction" branch never became true again). Snapping
-        /// to the exact cell center the instant it's reached — and carrying over any leftover
-        /// distance into the next segment — makes this correct at any speed/frame-rate/cell size.</summary>
         private void Update()
         {
             if (_tileMap == null)
@@ -76,91 +82,56 @@ namespace FarmFuryArcade.Gameplay
                 return;
             }
 
+            if (_heldDirection == Direction.None)
+            {
+                CurrentDirection = Direction.None;
+                _appliedDirection = Direction.None;
+                return;
+            }
+
+            // A direction change (including a full reversal) snaps her to the nearest cell centre
+            // instantly, then continues from there — this is what makes turning immediate rather
+            // than waiting to reach a cell boundary under her own momentum. The snap is at most
+            // half a tile and happens in the same frame the new direction is pressed, so it reads
+            // as instant, not delayed.
+            if (_heldDirection != _appliedDirection)
+            {
+                Vector2Int nearest = _tileMap.WorldToGrid(transform.position);
+                transform.position = _tileMap.GridToWorld(nearest);
+                CurrentGridPosition = nearest;
+                _appliedDirection = _heldDirection;
+            }
+
+            Vector2Int fromCell = _tileMap.WorldToGrid(transform.position);
+            CurrentGridPosition = fromCell;
+            Vector2Int dirVector = DirectionUtils.ToVector(_heldDirection);
+            Vector2Int nextCell = fromCell + dirVector;
+
+            if (!_tileMap.IsWalkable(nextCell, _canCrossWater))
+            {
+                // Blocked — hold position at the current cell centre. Still "holding" the input,
+                // so the moment it becomes walkable (a destroyed wall) or the player picks a
+                // different direction, it's re-evaluated next frame with no extra state to reset.
+                transform.position = _tileMap.GridToWorld(fromCell);
+                CurrentDirection = Direction.None;
+                return;
+            }
+
+            CurrentDirection = _heldDirection;
+
             float remaining = speed * TileMapRenderer.CellSize * Time.deltaTime;
-            int guard = 0;
-            while (remaining > 0f && guard++ < 8)
+            Vector3 targetCenter = _tileMap.GridToWorld(nextCell);
+            float distToTarget = Vector3.Distance(transform.position, targetCenter);
+
+            if (remaining >= distToTarget)
             {
-                if (CurrentDirection == Direction.None)
-                {
-                    Vector2Int cell = _tileMap.WorldToGrid(transform.position);
-                    transform.position = _tileMap.GridToWorld(cell);
-                    CurrentGridPosition = cell;
-
-                    if (CanApplyDirection(cell, _queuedDirection))
-                    {
-                        CurrentDirection = _queuedDirection;
-                        continue;
-                    }
-                    break;
-                }
-
-                Vector2Int fromCell = _tileMap.WorldToGrid(transform.position);
-                Vector2Int dirVector = DirectionUtils.ToVector(CurrentDirection);
-                Vector2Int nextCell = fromCell + dirVector;
-
-                if (!_tileMap.IsWalkable(nextCell, _canCrossWater))
-                {
-                    transform.position = _tileMap.GridToWorld(fromCell);
-                    CurrentGridPosition = fromCell;
-                    CurrentDirection = Direction.None;
-                    break;
-                }
-
-                Vector3 targetCenter = _tileMap.GridToWorld(nextCell);
-                float distToTarget = Vector3.Distance(transform.position, targetCenter);
-
-                if (remaining >= distToTarget)
-                {
-                    transform.position = targetCenter;
-                    CurrentGridPosition = nextCell;
-                    remaining -= distToTarget;
-
-                    if (CanApplyDirection(nextCell, _queuedDirection))
-                    {
-                        CurrentDirection = _queuedDirection;
-                    }
-                    else if (!_tileMap.IsWalkable(nextCell + DirectionUtils.ToVector(CurrentDirection), _canCrossWater))
-                    {
-                        CurrentDirection = Direction.None;
-                    }
-                }
-                else
-                {
-                    transform.position += new Vector3(dirVector.x, dirVector.y, 0f) * remaining;
-                    remaining = 0f;
-                }
+                transform.position = targetCenter;
+                CurrentGridPosition = nextCell;
             }
-        }
-
-        private bool CanApplyDirection(Vector2Int cell, Direction queued)
-        {
-            if (queued == Direction.None)
+            else
             {
-                return false;
+                transform.position += new Vector3(dirVector.x, dirVector.y, 0f) * remaining;
             }
-
-            if (!_tileMap.IsWalkable(cell + DirectionUtils.ToVector(queued), _canCrossWater))
-            {
-                return false;
-            }
-
-            if (CurrentDirection != Direction.None && queued == DirectionUtils.Opposite(CurrentDirection))
-            {
-                int walkableNeighbours = CountWalkableNeighbours(cell);
-                return walkableNeighbours != 2;
-            }
-
-            return true;
-        }
-
-        private int CountWalkableNeighbours(Vector2Int cell)
-        {
-            int count = 0;
-            if (_tileMap.IsWalkable(cell + DirectionUtils.ToVector(Direction.Up), _canCrossWater)) count++;
-            if (_tileMap.IsWalkable(cell + DirectionUtils.ToVector(Direction.Down), _canCrossWater)) count++;
-            if (_tileMap.IsWalkable(cell + DirectionUtils.ToVector(Direction.Left), _canCrossWater)) count++;
-            if (_tileMap.IsWalkable(cell + DirectionUtils.ToVector(Direction.Right), _canCrossWater)) count++;
-            return count;
         }
     }
 }

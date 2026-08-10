@@ -69,29 +69,28 @@ namespace FarmFuryArcade.Core
         private IEnumerator TestNavigationToLevelSelect()
         {
             var mainMenu = Find("MainMenuScreen");
-            var worldMap = Find("WorldMapScreen");
             var levelSelect = Find("LevelSelectScreen");
-            if (mainMenu == null || worldMap == null || levelSelect == null)
+            if (mainMenu == null || levelSelect == null)
             {
-                Debug.LogError("[LevelSelectTest] FAIL: MainMenuScreen/WorldMapScreen/LevelSelectScreen not all found.");
+                Debug.LogError("[LevelSelectTest] FAIL: MainMenuScreen/LevelSelectScreen not all found.");
                 yield break;
             }
 
-            SceneTransitionManager.Instance.ShowOnly(worldMap);
+            SceneTransitionManager.Instance.ShowOnly(mainMenu);
             yield return WaitForTransition();
 
-            var playButton = worldMap.transform.Find("PlayButton")?.GetComponent<Button>();
+            var playButton = mainMenu.transform.Find("PlayButton")?.GetComponent<Button>();
             if (playButton == null)
             {
-                Debug.LogError("[LevelSelectTest] FAIL: World Map PlayButton not found.");
+                Debug.LogError("[LevelSelectTest] FAIL: Main Menu PlayButton not found.");
                 yield break;
             }
             playButton.onClick.Invoke();
             yield return WaitForTransition();
 
-            bool shown = levelSelect.activeSelf && !worldMap.activeSelf;
+            bool shown = levelSelect.activeSelf && !mainMenu.activeSelf;
             Debug.Log(shown
-                ? "[LevelSelectTest] PASS: World Map's Play button opens Level Select."
+                ? "[LevelSelectTest] PASS: Main Menu's Play button opens Level Select."
                 : "[LevelSelectTest] FAIL: Level Select did not become the active screen after tapping Play.");
         }
 

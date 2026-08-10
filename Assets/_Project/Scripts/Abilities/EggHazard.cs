@@ -10,7 +10,7 @@ namespace FarmFuryArcade.Abilities
     /// version. lifetimeSeconds is still a fallback auto-destroy for an egg nothing ever walks over.</summary>
     public class EggHazard : MonoBehaviour
     {
-        private const float StunDuration = 1f;
+        private const float StunDuration = 5f;
         private const float BurstFrameSeconds = 0.5f;
 
         [SerializeField] private float lifetimeSeconds = 15f;

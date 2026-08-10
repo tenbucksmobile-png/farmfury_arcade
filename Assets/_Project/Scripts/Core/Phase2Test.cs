@@ -44,7 +44,7 @@ namespace FarmFuryArcade.Core
             VerifyPlayerSpawnPosition();
 
             yield return TestBasicMovement();
-            yield return TestReversalBlockedMidCorridor();
+            yield return TestReversalAllowedImmediately();
             yield return TestCropAndVegetablePickup();
             yield return TestWarpTunnel();
             TestLevelCompletion();
@@ -88,7 +88,11 @@ namespace FarmFuryArcade.Core
                 : "[Phase2Test] FAIL: Cluck did not move after QueueInputDirection(Up).");
         }
 
-        private IEnumerator TestReversalBlockedMidCorridor()
+        /// <summary>Hold-to-move rules (see GridMovement's own doc comment) allow a full reversal
+        /// instantly regardless of corridor shape — this used to assert the opposite (reversal
+        /// blocked in a plain 2-neighbour corridor) under the earlier auto-run model, which was
+        /// removed per explicit feedback that players need an immediate 180 to escape a robot.</summary>
+        private IEnumerator TestReversalAllowedImmediately()
         {
             if (_movement == null || _tileMap == null) yield break;
 
@@ -99,44 +103,15 @@ namespace FarmFuryArcade.Core
                 yield break;
             }
 
-            // The rule only forbids reversal in a straight corridor/turn (exactly 2 walkable
-            // neighbours) — at an intersection (3+) or dead end (<=1) reversal is legitimate.
-            // LevelData_01's maze is intentionally open per spec ("slightly more open, fewer
-            // narrow corridors"), so whether the character happens to be in a true corridor at
-            // this moment varies run to run; check which case actually applies instead of
-            // asserting a single outcome regardless of context.
-            Vector2Int cellBefore = _movement.CurrentGridPosition;
-            int walkableNeighbours = CountWalkableNeighbours(cellBefore);
-
             _movement.QueueInputDirection(DirectionUtils.Opposite(before));
             yield return WaitSeconds(0.15f);
 
-            bool stillSameDirection = _movement.CurrentDirection == before;
-
-            if (walkableNeighbours == 2)
-            {
-                Debug.Log(stillSameDirection
-                    ? "[Phase2Test] PASS: reversal ignored mid-corridor (direction unchanged)."
-                    : "[Phase2Test] FAIL: character reversed direction mid-corridor unexpectedly.");
-            }
-            else
-            {
-                Debug.Log($"[Phase2Test] INFO: character was at an intersection/dead end " +
-                          $"({walkableNeighbours} walkable neighbours) when reversal was queued, " +
-                          "so reversal was legitimately allowed there — re-run to land mid-corridor " +
-                          "for a strict check, or use the manual OnGUI buttons.");
-            }
+            bool reversed = _movement.CurrentDirection == DirectionUtils.Opposite(before);
+            Debug.Log(reversed
+                ? "[Phase2Test] PASS: reversal took effect immediately, regardless of corridor shape."
+                : "[Phase2Test] FAIL: reversal did not take effect — expected instant 180 under hold-to-move rules.");
         }
 
-        private int CountWalkableNeighbours(Vector2Int cell)
-        {
-            int count = 0;
-            if (_tileMap.IsWalkable(cell + DirectionUtils.ToVector(Direction.Up))) count++;
-            if (_tileMap.IsWalkable(cell + DirectionUtils.ToVector(Direction.Down))) count++;
-            if (_tileMap.IsWalkable(cell + DirectionUtils.ToVector(Direction.Left))) count++;
-            if (_tileMap.IsWalkable(cell + DirectionUtils.ToVector(Direction.Right))) count++;
-            return count;
-        }
 
         private IEnumerator TestCropAndVegetablePickup()
         {

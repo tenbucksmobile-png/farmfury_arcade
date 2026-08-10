@@ -67,14 +67,20 @@ namespace FarmFuryArcade.Core
             return _robots.TryGetValue(type, out var robot) ? robot : null;
         }
 
+        /// <summary>Ordered by CharacterType's declaration order (Cluck, Bessie, Percy, Woolly,
+        /// Ducky, Horace, Gerald, Billy) rather than the backing Dictionary's insertion order —
+        /// that order tracks Resources.LoadAll's own arbitrary asset-loading order, not anything
+        /// deliberate, so ChooseCharacterScreen's carousel (and CharacterRosterScreen) rendered
+        /// characters in a shuffled-looking sequence instead of Cluck/Bessie (the two starter,
+        /// always-unlocked characters) coming first.</summary>
         public IEnumerable<CharacterData> GetAllCharacterData()
         {
-            return _characters.Values;
+            return _characters.Values.OrderBy(c => (int)c.characterType);
         }
 
-        /// <summary>Ordered by levelNumber — WorldMapController iterates this rather than
+        /// <summary>Ordered by levelNumber — LevelSelectController iterates this rather than
         /// assuming a fixed level count (only a couple of LevelData assets exist so far; the
-        /// GDD's 100-level World Map is a content-authoring task, not something this method
+        /// GDD's 100-level roadmap is a content-authoring task, not something this method
         /// should hardcode a range for).</summary>
         public IEnumerable<LevelData> GetAllLevelData()
         {

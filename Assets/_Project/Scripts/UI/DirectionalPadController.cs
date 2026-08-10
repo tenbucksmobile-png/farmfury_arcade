@@ -5,17 +5,20 @@ using FarmFuryArcade.Gameplay;
 
 namespace FarmFuryArcade.UI
 {
-    /// <summary>On-screen D-pad (Gameplay HUD, right side) — an alternative to keyboard/swipe for
-    /// directing the active character. Each button raises InputController.OnDirectionInput exactly
-    /// like a keyboard press or swipe would, so GridMovement (which subscribes directly to that
-    /// event) doesn't need to know this input source exists at all.
+    /// <summary>On-screen D-pad (Gameplay HUD) — an alternative to keyboard/swipe for directing
+    /// the active character. True press/release semantics: PointerDown calls
+    /// InputController.PressDirection (starts commanding this direction), PointerUp/PointerExit
+    /// calls InputController.ReleaseDirection (stops) — matching a physical key's down/up, so
+    /// releasing a finger from the button stops the character exactly like releasing a keyboard
+    /// key does. GridMovement never needs to know this input source exists at all; it only reads
+    /// InputController.CurrentHeldDirection.
     ///
-    /// Fires on PointerDown (touch/press), not Button.onClick — onClick only fires on release, which
-    /// reads as sluggish for a directional control (the player expects the turn to register the
-    /// instant they touch the button, not after they lift their finger back off it). Uses EventTrigger
-    /// rather than implementing IPointerDownHandler directly on this component, since the existing
-    /// Button references are built elsewhere (Phase5ProjectBuilder) and this only needs to add a
-    /// PointerDown callback to each, not replace the Button/Image setup already there.</summary>
+    /// Uses EventTrigger rather than implementing IPointerDownHandler/IPointerUpHandler directly on
+    /// this component, since the existing Button references are built elsewhere
+    /// (Phase5ProjectBuilder) and this only needs to add callbacks to each, not replace the
+    /// Button/Image setup already there. PointerExit is wired alongside PointerUp so dragging a
+    /// finger off the button while still pressed also releases it — otherwise a direction could
+    /// stay "held" forever if the release happens off the button's bounds.</summary>
     public class DirectionalPadController : MonoBehaviour
     {
         [SerializeField] private Button upButton;
@@ -25,13 +28,13 @@ namespace FarmFuryArcade.UI
 
         private void Awake()
         {
-            WireImmediate(upButton, Direction.Up);
-            WireImmediate(downButton, Direction.Down);
-            WireImmediate(leftButton, Direction.Left);
-            WireImmediate(rightButton, Direction.Right);
+            WirePressRelease(upButton, Direction.Up);
+            WirePressRelease(downButton, Direction.Down);
+            WirePressRelease(leftButton, Direction.Left);
+            WirePressRelease(rightButton, Direction.Right);
         }
 
-        private static void WireImmediate(Button button, Direction direction)
+        private static void WirePressRelease(Button button, Direction direction)
         {
             if (button == null)
             {
@@ -44,8 +47,15 @@ namespace FarmFuryArcade.UI
                 trigger = button.gameObject.AddComponent<EventTrigger>();
             }
 
-            var entry = new EventTrigger.Entry { eventID = EventTriggerType.PointerDown };
-            entry.callback.AddListener(_ => InputController.RaiseDirectionInput(direction));
+            AddEntry(trigger, EventTriggerType.PointerDown, () => InputController.PressDirection(direction));
+            AddEntry(trigger, EventTriggerType.PointerUp, () => InputController.ReleaseDirection(direction));
+            AddEntry(trigger, EventTriggerType.PointerExit, () => InputController.ReleaseDirection(direction));
+        }
+
+        private static void AddEntry(EventTrigger trigger, EventTriggerType type, UnityEngine.Events.UnityAction action)
+        {
+            var entry = new EventTrigger.Entry { eventID = type };
+            entry.callback.AddListener(_ => action());
             trigger.triggers.Add(entry);
         }
     }

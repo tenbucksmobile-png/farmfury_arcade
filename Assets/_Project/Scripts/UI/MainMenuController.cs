@@ -10,12 +10,11 @@ namespace FarmFuryArcade.UI
     /// calls SceneTransitionManager.ShowOnly on them directly) — only the Main Menu buttons and
     /// this controller's references to them were removed.
     ///
-    /// Play now opens Level Select directly instead of World Map — Level Select's scrollable tile
-    /// grid (grouped into world sections with CORN FIELD/VEGETABLE PATCH/ORCHARD/WHEAT FIELD
-    /// dividers) fully replaced what World Map's Map.png art was showing, making that intermediate
-    /// screen redundant. WorldMapScreen/WorldMapController are still built by Phase5ProjectBuilder
-    /// (same "kept but unlinked" treatment as Character Roster/Store/Leaderboards) but nothing
-    /// routes to it anymore.</summary>
+    /// Play opens Level Select directly. An intermediate "World Map" screen (Map.png background,
+    /// Play/Home nav buttons — `WorldMapController`) used to sit here; it was removed outright
+    /// (deleted, not just unlinked — see CLAUDE.md's "Removed: World Map screen") once Level
+    /// Select's scrollable tile grid (grouped into world sections with CORN FIELD/VEGETABLE
+    /// PATCH/ORCHARD/WHEAT FIELD dividers) made it fully redundant.</summary>
     public class MainMenuController : MonoBehaviour
     {
         [SerializeField] private Button playButton;

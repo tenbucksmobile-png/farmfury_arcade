@@ -1,0 +1,850 @@
+<title>Farm Fury Arcade — Maze Designer</title>
+<style>
+  :root {
+    --bg: #f7ecd3;
+    --surface: #fffaf0;
+    --surface-2: #efdfb8;
+    --ink: #2c1e0f;
+    --ink-dim: #7a6543;
+    --border: rgba(44, 30, 15, 0.16);
+    --border-strong: rgba(44, 30, 15, 0.32);
+    --accent: #c97a1f;
+    --accent-ink: #fff6e6;
+    --accent-soft: rgba(201, 122, 31, 0.14);
+
+    --tile-ground: #e4c98c;
+    --tile-ground-ink: #4a3413;
+    --tile-wall: #6b4226;
+    --tile-wall-ink: #f4e6d0;
+    --tile-crop: #8fae4f;
+    --tile-crop-ink: #22300c;
+    --tile-veg: #d6672c;
+    --tile-veg-ink: #fff3ea;
+    --tile-pellet: #f2c94c;
+    --tile-pellet-ink: #4a3a06;
+    --tile-warp: #3f8f8a;
+    --tile-warp-ink: #eafffd;
+    --tile-factory: #5b6b7a;
+    --tile-factory-ink: #f2f6f9;
+    --tile-start: #c9367a;
+    --tile-start-ink: #fff0f6;
+    --tile-water: #3f7fbf;
+    --tile-water-ink: #eaf3ff;
+
+    --shadow: 0 1px 2px rgba(44, 30, 15, 0.08), 0 8px 24px rgba(44, 30, 15, 0.08);
+    --radius: 10px;
+    --font-display: Georgia, "Iowan Old Style", "Rockwell", ui-serif, serif;
+    --font-ui: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
+    --font-mono: ui-monospace, "SF Mono", "Cascadia Code", Consolas, monospace;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #1b140b;
+      --surface: #241a10;
+      --surface-2: #33261650;
+      --ink: #f3e6cf;
+      --ink-dim: #b89e72;
+      --border: rgba(243, 230, 207, 0.14);
+      --border-strong: rgba(243, 230, 207, 0.28);
+      --accent: #e0973a;
+      --accent-ink: #241405;
+      --accent-soft: rgba(224, 151, 58, 0.18);
+
+      --tile-ground: #4a3d24;
+      --tile-ground-ink: #ecdfc0;
+      --tile-wall: #3a2413;
+      --tile-wall-ink: #e8d8bc;
+      --tile-crop: #6f8f3c;
+      --tile-crop-ink: #eef6df;
+      --tile-veg: #b6501f;
+      --tile-veg-ink: #fff1e6;
+      --tile-pellet: #caa23a;
+      --tile-pellet-ink: #2c2200;
+      --tile-warp: #2c6f6a;
+      --tile-warp-ink: #d8fffb;
+      --tile-factory: #46525e;
+      --tile-factory-ink: #eef3f7;
+      --tile-start: #a12960;
+      --tile-start-ink: #ffe6f0;
+      --tile-water: #2f5f92;
+      --tile-water-ink: #e6f0ff;
+
+      --shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 8px 24px rgba(0, 0, 0, 0.35);
+    }
+  }
+
+  :root[data-theme="dark"] {
+    --bg: #1b140b;
+    --surface: #241a10;
+    --surface-2: #33261650;
+    --ink: #f3e6cf;
+    --ink-dim: #b89e72;
+    --border: rgba(243, 230, 207, 0.14);
+    --border-strong: rgba(243, 230, 207, 0.28);
+    --accent: #e0973a;
+    --accent-ink: #241405;
+    --accent-soft: rgba(224, 151, 58, 0.18);
+
+    --tile-ground: #4a3d24;
+    --tile-ground-ink: #ecdfc0;
+    --tile-wall: #3a2413;
+    --tile-wall-ink: #e8d8bc;
+    --tile-crop: #6f8f3c;
+    --tile-crop-ink: #eef6df;
+    --tile-veg: #b6501f;
+    --tile-veg-ink: #fff1e6;
+    --tile-pellet: #caa23a;
+    --tile-pellet-ink: #2c2200;
+    --tile-warp: #2c6f6a;
+    --tile-warp-ink: #d8fffb;
+    --tile-factory: #46525e;
+    --tile-factory-ink: #eef3f7;
+    --tile-start: #a12960;
+    --tile-start-ink: #ffe6f0;
+    --tile-water: #2f5f92;
+    --tile-water-ink: #e6f0ff;
+
+    --shadow: 0 1px 2px rgba(0, 0, 0, 0.3), 0 8px 24px rgba(0, 0, 0, 0.35);
+  }
+
+  * { box-sizing: border-box; }
+
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: var(--font-ui);
+    -webkit-font-smoothing: antialiased;
+  }
+
+  .page {
+    max-width: 1180px;
+    margin: 0 auto;
+    padding: 28px 20px 60px;
+  }
+
+  header.top {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    margin-bottom: 22px;
+  }
+
+  header.top .eyebrow {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    letter-spacing: 0.09em;
+    text-transform: uppercase;
+    color: var(--accent);
+    font-weight: 600;
+  }
+
+  header.top h1 {
+    font-family: var(--font-display);
+    font-weight: 700;
+    font-size: clamp(24px, 3.4vw, 34px);
+    margin: 0;
+    text-wrap: balance;
+  }
+
+  header.top p {
+    margin: 2px 0 0;
+    color: var(--ink-dim);
+    font-size: 14px;
+    max-width: 62ch;
+  }
+
+  .layout {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 320px;
+    gap: 20px;
+    align-items: start;
+  }
+
+  @media (max-width: 880px) {
+    .layout { grid-template-columns: 1fr; }
+  }
+
+  .panel {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+  }
+
+  .panel-head {
+    padding: 14px 16px 10px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+
+  .panel-head h2 {
+    font-family: var(--font-display);
+    font-size: 16px;
+    margin: 0;
+    font-weight: 700;
+  }
+
+  .panel-head .hint {
+    font-size: 11.5px;
+    color: var(--ink-dim);
+    font-family: var(--font-mono);
+  }
+
+  .panel-body { padding: 16px; }
+
+  /* --- Controls row --- */
+  .dims-row {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    flex-wrap: wrap;
+  }
+
+  .field {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .field label {
+    font-size: 12px;
+    color: var(--ink-dim);
+    font-weight: 600;
+  }
+
+  .field input[type="number"] {
+    width: 58px;
+    padding: 6px 8px;
+    border-radius: 7px;
+    border: 1px solid var(--border-strong);
+    background: var(--surface-2);
+    color: var(--ink);
+    font-family: var(--font-mono);
+    font-size: 13px;
+  }
+
+  .field input[type="number"]:focus-visible,
+  button:focus-visible,
+  textarea:focus-visible,
+  .tile-btn:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+  }
+
+  button {
+    font-family: var(--font-ui);
+    font-size: 12.5px;
+    font-weight: 600;
+    padding: 7px 12px;
+    border-radius: 7px;
+    border: 1px solid var(--border-strong);
+    background: var(--surface-2);
+    color: var(--ink);
+    cursor: pointer;
+    transition: transform 0.08s ease, background 0.15s ease;
+  }
+
+  button:hover { background: var(--accent-soft); }
+  button:active { transform: translateY(1px); }
+
+  button.primary {
+    background: var(--accent);
+    color: var(--accent-ink);
+    border-color: transparent;
+  }
+  button.primary:hover { filter: brightness(1.06); background: var(--accent); }
+
+  .toolbar-actions {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+
+  /* --- Grid --- */
+  .grid-scroll {
+    overflow: auto;
+    padding: 16px;
+  }
+
+  .grid {
+    display: grid;
+    gap: 2px;
+    width: max-content;
+    margin: 0 auto;
+    user-select: none;
+    -webkit-user-select: none;
+  }
+
+  .cell {
+    width: 30px;
+    height: 30px;
+    border-radius: 4px;
+    border: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    font-weight: 700;
+    cursor: pointer;
+    position: relative;
+    transition: outline-color 0.1s ease;
+  }
+
+  .cell:hover { outline: 2px solid var(--accent); outline-offset: -2px; }
+
+  .cell[data-id="0"] { background: var(--tile-ground); color: var(--tile-ground-ink); }
+  .cell[data-id="1"] { background: var(--tile-wall); color: var(--tile-wall-ink); }
+  .cell[data-id="2"] { background: var(--tile-crop); color: var(--tile-crop-ink); }
+  .cell[data-id="3"] { background: var(--tile-veg); color: var(--tile-veg-ink); }
+  .cell[data-id="4"] { background: var(--tile-pellet); color: var(--tile-pellet-ink); }
+  .cell[data-id="5"] { background: var(--tile-warp); color: var(--tile-warp-ink); }
+  .cell[data-id="6"] { background: var(--tile-factory); color: var(--tile-factory-ink); }
+  .cell[data-id="7"] { background: var(--tile-start); color: var(--tile-start-ink); }
+  .cell[data-id="8"] { background: var(--tile-water); color: var(--tile-water-ink); }
+
+  .cell .glyph { pointer-events: none; }
+
+  .coord-readout {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    color: var(--ink-dim);
+    padding: 0 16px 14px;
+    min-height: 18px;
+  }
+
+  /* --- Palette --- */
+  .palette {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .tile-btn {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 10px;
+    border-radius: 8px;
+    border: 1px solid var(--border);
+    background: var(--surface-2);
+    cursor: pointer;
+    text-align: left;
+    font-family: var(--font-ui);
+  }
+
+  .tile-btn.active {
+    border-color: var(--accent);
+    background: var(--accent-soft);
+  }
+
+  .tile-btn .swatch {
+    width: 22px;
+    height: 22px;
+    border-radius: 5px;
+    flex: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    font-weight: 700;
+    border: 1px solid var(--border);
+  }
+
+  .tile-btn .label {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--ink);
+    line-height: 1.2;
+  }
+
+  .tile-btn .sub {
+    font-size: 11px;
+    color: var(--ink-dim);
+    font-family: var(--font-mono);
+  }
+
+  .tile-btn .text { display: flex; flex-direction: column; gap: 1px; }
+
+  /* --- Export --- */
+  textarea {
+    width: 100%;
+    font-family: var(--font-mono);
+    font-size: 12px;
+    line-height: 1.5;
+    background: var(--surface-2);
+    color: var(--ink);
+    border: 1px solid var(--border-strong);
+    border-radius: 8px;
+    padding: 10px;
+    resize: vertical;
+  }
+
+  #exportBlock { min-height: 200px; }
+  #importBlock { min-height: 80px; }
+
+  .export-actions {
+    display: flex;
+    gap: 8px;
+    margin-top: 8px;
+    flex-wrap: wrap;
+  }
+
+  .stat-row {
+    display: flex;
+    gap: 14px;
+    flex-wrap: wrap;
+    font-family: var(--font-mono);
+    font-size: 12px;
+    color: var(--ink-dim);
+    margin-bottom: 10px;
+  }
+
+  .stat-row b { color: var(--ink); }
+
+  .import-section {
+    margin-top: 18px;
+    padding-top: 14px;
+    border-top: 1px dashed var(--border-strong);
+  }
+
+  .import-section h3 {
+    font-family: var(--font-display);
+    font-size: 14px;
+    margin: 0 0 8px;
+  }
+
+  .legend-note {
+    font-size: 11.5px;
+    color: var(--ink-dim);
+    line-height: 1.5;
+    margin-top: 10px;
+  }
+
+  .copy-flash {
+    color: var(--accent);
+    font-weight: 700;
+  }
+</style>
+
+<div class="page">
+  <header class="top">
+    <span class="eyebrow">Farm Fury Arcade — Level Tool</span>
+    <h1>Maze Designer</h1>
+    <p>Paint the corridor layout, then copy the export block into chat. Tile ids match the game's own convention exactly, so what you build here can be pasted straight into <code>LevelData_01</code> with no reinterpretation.</p>
+  </header>
+
+  <div class="layout">
+    <div class="panel">
+      <div class="panel-head">
+        <h2>Grid</h2>
+        <span class="hint" id="hoverCoord">hover a cell&hellip;</span>
+      </div>
+      <div class="panel-body" style="padding-bottom: 0;">
+        <div class="dims-row">
+          <div class="field">
+            <label for="widthInput">Width</label>
+            <input type="number" id="widthInput" min="5" max="30" value="12" />
+          </div>
+          <div class="field">
+            <label for="heightInput">Height</label>
+            <input type="number" id="heightInput" min="5" max="30" value="9" />
+          </div>
+          <button id="resizeBtn">Apply size</button>
+          <div class="toolbar-actions">
+            <button id="fillWallsBtn">Fill all walls</button>
+            <button id="clearGroundBtn">Clear to ground</button>
+            <button id="borderWallsBtn">Wall the border</button>
+          </div>
+        </div>
+      </div>
+      <div class="grid-scroll">
+        <div class="grid" id="grid"></div>
+      </div>
+    </div>
+
+    <div style="display:flex; flex-direction:column; gap:20px;">
+      <div class="panel">
+        <div class="panel-head">
+          <h2>Tiles</h2>
+          <span class="hint">click, then paint</span>
+        </div>
+        <div class="panel-body">
+          <div class="palette" id="palette"></div>
+          <p class="legend-note">Click-drag paints a run of the selected tile. Player Start is exclusive — placing a new one clears the last. Warp tunnel edges (id 5) are meant for the two border cells of a row only, but the tool won't stop you from painting more.</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="panel" style="margin-top: 20px;">
+    <div class="panel-head">
+      <h2>Export</h2>
+      <span class="hint">updates live as you paint</span>
+    </div>
+    <div class="panel-body">
+      <div class="stat-row" id="statRow"></div>
+      <textarea id="exportBlock" readonly spellcheck="false"></textarea>
+      <div class="export-actions">
+        <button class="primary" id="copyBtn">Copy export block</button>
+        <span id="copyFlash" class="copy-flash" style="opacity:0; transition: opacity .3s;">Copied</span>
+      </div>
+
+      <div class="import-section">
+        <h3>Load a previously exported grid</h3>
+        <textarea id="importBlock" placeholder="Paste a FLAT= line here, then click Load."></textarea>
+        <div class="export-actions">
+          <button id="loadBtn">Load</button>
+          <span id="loadFlash" class="copy-flash" style="opacity:0; transition: opacity .3s;">Loaded</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  var TILE_TYPES = [
+    { id: 0, name: "Ground", glyph: "·", sub: "walkable, empty" },
+    { id: 1, name: "Wall", glyph: "#", sub: "blocks movement" },
+    { id: 2, name: "Crop Kernel", glyph: "c", sub: "corn pickup" },
+    { id: 3, name: "Vegetable", glyph: "v", sub: "carrot pickup" },
+    { id: 4, name: "Power Pellet", glyph: "P", sub: "sunflower/gold/rainbow" },
+    { id: 5, name: "Warp Edge", glyph: "~", sub: "tunnel row endpoint" },
+    { id: 6, name: "Robot Factory", glyph: "F", sub: "robot spawn room" },
+    { id: 7, name: "Player Start", glyph: "★", sub: "one per maze" },
+    { id: 8, name: "Water", glyph: "≈", sub: "Ducky-only crossing" }
+  ];
+
+  var state = {
+    width: 12,
+    height: 9,
+    // grid[y][x], y=0 is the BOTTOM row (matches GridToWorld's no-flip convention)
+    grid: [],
+    selectedTile: 1,
+    painting: false,
+    paintValue: 1
+  };
+
+  function makeWalledGrid(width, height) {
+    var g = [];
+    for (var y = 0; y < height; y++) {
+      var row = [];
+      for (var x = 0; x < width; x++) row.push(1);
+      g.push(row);
+    }
+    return g;
+  }
+
+  state.grid = makeWalledGrid(state.width, state.height);
+
+  var gridEl = document.getElementById("grid");
+  var paletteEl = document.getElementById("palette");
+  var hoverCoordEl = document.getElementById("hoverCoord");
+  var statRowEl = document.getElementById("statRow");
+  var exportEl = document.getElementById("exportBlock");
+
+  function buildPalette() {
+    paletteEl.innerHTML = "";
+    TILE_TYPES.forEach(function (t) {
+      var btn = document.createElement("div");
+      btn.className = "tile-btn" + (t.id === state.selectedTile ? " active" : "");
+      btn.setAttribute("role", "button");
+      btn.setAttribute("tabindex", "0");
+      btn.dataset.id = t.id;
+
+      var swatch = document.createElement("div");
+      swatch.className = "swatch";
+      swatch.setAttribute("data-id", t.id);
+      swatch.textContent = t.glyph;
+
+      var text = document.createElement("div");
+      text.className = "text";
+      var label = document.createElement("div");
+      label.className = "label";
+      label.textContent = t.id + " · " + t.name;
+      var sub = document.createElement("div");
+      sub.className = "sub";
+      sub.textContent = t.sub;
+      text.appendChild(label);
+      text.appendChild(sub);
+
+      btn.appendChild(swatch);
+      btn.appendChild(text);
+
+      btn.addEventListener("click", function () {
+        state.selectedTile = t.id;
+        buildPalette();
+      });
+      btn.addEventListener("keydown", function (e) {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault();
+          state.selectedTile = t.id;
+          buildPalette();
+        }
+      });
+
+      paletteEl.appendChild(btn);
+    });
+  }
+
+  function tileGlyph(id) {
+    for (var i = 0; i < TILE_TYPES.length; i++) if (TILE_TYPES[i].id === id) return TILE_TYPES[i].glyph;
+    return "?";
+  }
+
+  function paintCell(x, y, value) {
+    if (value === 7) {
+      // Exclusive player start: clear any existing 7 first.
+      for (var yy = 0; yy < state.height; yy++) {
+        for (var xx = 0; xx < state.width; xx++) {
+          if (state.grid[yy][xx] === 7) state.grid[yy][xx] = 0;
+        }
+      }
+    }
+    state.grid[y][x] = value;
+  }
+
+  function buildGrid() {
+    gridEl.style.gridTemplateColumns = "repeat(" + state.width + ", 30px)";
+    gridEl.innerHTML = "";
+
+    // Render top-of-screen first: editor row 0 (top) corresponds to grid y = height-1.
+    for (var editorRow = 0; editorRow < state.height; editorRow++) {
+      var y = state.height - 1 - editorRow;
+      for (var x = 0; x < state.width; x++) {
+        var cell = document.createElement("div");
+        cell.className = "cell";
+        cell.dataset.x = x;
+        cell.dataset.y = y;
+        refreshCellVisual(cell, x, y);
+
+        cell.addEventListener("mousedown", function (e) {
+          e.preventDefault();
+          state.painting = true;
+          state.paintValue = state.selectedTile;
+          var cx = parseInt(this.dataset.x, 10), cy = parseInt(this.dataset.y, 10);
+          paintCell(cx, cy, state.paintValue);
+          refreshCellVisual(this, cx, cy);
+          updateExport();
+        });
+        cell.addEventListener("mouseenter", function (e) {
+          var cx = parseInt(this.dataset.x, 10), cy = parseInt(this.dataset.y, 10);
+          hoverCoordEl.textContent = "x=" + cx + ", y=" + cy + "  (tile " + state.grid[cy][cx] + ")";
+          if (state.painting) {
+            paintCell(cx, cy, state.paintValue);
+            refreshCellVisual(this, cx, cy);
+            updateExport();
+          }
+        });
+        gridEl.appendChild(cell);
+      }
+    }
+
+    document.addEventListener("mouseup", function () {
+      if (state.painting) {
+        state.painting = false;
+        // A player-start repaint can change other cells' glyphs; do a full refresh.
+        refreshAllCells();
+        updateExport();
+      }
+    });
+  }
+
+  function refreshCellVisual(cellEl, x, y) {
+    var id = state.grid[y][x];
+    cellEl.dataset.id = id;
+    cellEl.title = "x=" + x + ", y=" + y;
+    cellEl.innerHTML = "<span class=\"glyph\">" + tileGlyph(id) + "</span>";
+  }
+
+  function refreshAllCells() {
+    var cells = gridEl.children;
+    for (var i = 0; i < cells.length; i++) {
+      var c = cells[i];
+      refreshCellVisual(c, parseInt(c.dataset.x, 10), parseInt(c.dataset.y, 10));
+    }
+  }
+
+  function resize(newWidth, newHeight) {
+    var newGrid = makeWalledGrid(newWidth, newHeight);
+    var copyW = Math.min(newWidth, state.width);
+    var copyH = Math.min(newHeight, state.height);
+    for (var y = 0; y < copyH; y++) {
+      for (var x = 0; x < copyW; x++) {
+        newGrid[y][x] = state.grid[y][x];
+      }
+    }
+    state.width = newWidth;
+    state.height = newHeight;
+    state.grid = newGrid;
+    buildGrid();
+    updateExport();
+  }
+
+  function updateExport() {
+    var flatIds = [];
+    var counts = {};
+    var factoryMinX = null, factoryMaxX = null, factoryMinY = null, factoryMaxY = null;
+    var playerStart = null;
+    var warpRows = [];
+
+    for (var y = 0; y < state.height; y++) {
+      var rowHasWarp = false;
+      for (var x = 0; x < state.width; x++) {
+        var id = state.grid[y][x];
+        flatIds.push(id);
+        counts[id] = (counts[id] || 0) + 1;
+        if (id === 6) {
+          if (factoryMinX === null || x < factoryMinX) factoryMinX = x;
+          if (factoryMaxX === null || x > factoryMaxX) factoryMaxX = x;
+          if (factoryMinY === null || y < factoryMinY) factoryMinY = y;
+          if (factoryMaxY === null || y > factoryMaxY) factoryMaxY = y;
+        }
+        if (id === 7) playerStart = { x: x, y: y };
+        if (id === 5) rowHasWarp = true;
+      }
+      if (rowHasWarp) warpRows.push(y);
+    }
+
+    var lines = [];
+    lines.push("WIDTH=" + state.width);
+    lines.push("HEIGHT=" + state.height);
+    lines.push("PLAYER_START=" + (playerStart ? (playerStart.x + "," + playerStart.y) : "(none placed)"));
+    lines.push("FACTORY_BOUNDS=" + (factoryMinX !== null
+      ? ("x " + factoryMinX + ".." + factoryMaxX + ", y " + factoryMinY + ".." + factoryMaxY +
+         "  (center " + Math.round((factoryMinX + factoryMaxX) / 2) + "," + Math.round((factoryMinY + factoryMaxY) / 2) + ")")
+      : "(none painted)"));
+    lines.push("WARP_ROWS=" + (warpRows.length ? warpRows.join(",") : "(none)"));
+    lines.push("");
+    lines.push("# Grid preview, top row = highest y, letters = tile ids 0-8:");
+    for (var editorRow = 0; editorRow < state.height; editorRow++) {
+      var yy = state.height - 1 - editorRow;
+      var rowStr = "y=" + String(yy).padStart(2, " ") + "  ";
+      for (var xx = 0; xx < state.width; xx++) {
+        rowStr += state.grid[yy][xx];
+      }
+      lines.push(rowStr);
+    }
+    lines.push("");
+    lines.push("# FLAT (row-major, x + y*width, y=0 first) — paste this back into chat:");
+    lines.push("FLAT=" + flatIds.join(","));
+
+    exportEl.value = lines.join("\n");
+
+    var statParts = [];
+    statParts.push("<span><b>" + state.width + "×" + state.height + "</b> tiles</span>");
+    statParts.push("<span>walls: <b>" + (counts[1] || 0) + "</b></span>");
+    statParts.push("<span>open: <b>" + (flatIds.length - (counts[1] || 0)) + "</b></span>");
+    statParts.push("<span>player start: <b>" + (playerStart ? "set" : "missing") + "</b></span>");
+    statParts.push("<span>factory: <b>" + (factoryMinX !== null ? "painted" : "missing") + "</b></span>");
+    statRowEl.innerHTML = statParts.join("");
+  }
+
+  function loadFromFlat(text) {
+    var flatMatch = text.match(/FLAT=([0-9,]+)/);
+    var widthMatch = text.match(/WIDTH=(\d+)/);
+    var heightMatch = text.match(/HEIGHT=(\d+)/);
+    if (!flatMatch || !widthMatch || !heightMatch) {
+      return false;
+    }
+    var w = parseInt(widthMatch[1], 10);
+    var h = parseInt(heightMatch[1], 10);
+    var ids = flatMatch[1].split(",").map(function (s) { return parseInt(s, 10); });
+    if (ids.length !== w * h) return false;
+
+    var g = makeWalledGrid(w, h);
+    var i = 0;
+    for (var y = 0; y < h; y++) {
+      for (var x = 0; x < w; x++) {
+        g[y][x] = ids[i++];
+      }
+    }
+    state.width = w;
+    state.height = h;
+    state.grid = g;
+    document.getElementById("widthInput").value = w;
+    document.getElementById("heightInput").value = h;
+    buildGrid();
+    updateExport();
+    return true;
+  }
+
+  // --- wire up controls ---
+  buildPalette();
+  buildGrid();
+  updateExport();
+
+  document.getElementById("resizeBtn").addEventListener("click", function () {
+    var w = Math.max(5, Math.min(30, parseInt(document.getElementById("widthInput").value, 10) || state.width));
+    var h = Math.max(5, Math.min(30, parseInt(document.getElementById("heightInput").value, 10) || state.height));
+    resize(w, h);
+  });
+
+  document.getElementById("fillWallsBtn").addEventListener("click", function () {
+    state.grid = makeWalledGrid(state.width, state.height);
+    buildGrid();
+    updateExport();
+  });
+
+  document.getElementById("clearGroundBtn").addEventListener("click", function () {
+    var g = [];
+    for (var y = 0; y < state.height; y++) {
+      var row = [];
+      for (var x = 0; x < state.width; x++) row.push(0);
+      g.push(row);
+    }
+    state.grid = g;
+    buildGrid();
+    updateExport();
+  });
+
+  document.getElementById("borderWallsBtn").addEventListener("click", function () {
+    for (var x = 0; x < state.width; x++) {
+      state.grid[0][x] = 1;
+      state.grid[state.height - 1][x] = 1;
+    }
+    for (var y = 0; y < state.height; y++) {
+      state.grid[y][0] = 1;
+      state.grid[y][state.width - 1] = 1;
+    }
+    buildGrid();
+    updateExport();
+  });
+
+  document.getElementById("copyBtn").addEventListener("click", function () {
+    exportEl.select();
+    var flash = document.getElementById("copyFlash");
+    function showFlash() {
+      flash.style.opacity = "1";
+      setTimeout(function () { flash.style.opacity = "0"; }, 1200);
+    }
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(exportEl.value).then(showFlash, function () {
+        document.execCommand("copy");
+        showFlash();
+      });
+    } else {
+      document.execCommand("copy");
+      showFlash();
+    }
+  });
+
+  document.getElementById("loadBtn").addEventListener("click", function () {
+    var ok = loadFromFlat(document.getElementById("importBlock").value);
+    var flash = document.getElementById("loadFlash");
+    flash.textContent = ok ? "Loaded" : "Couldn't parse — check the FLAT= line";
+    flash.style.opacity = "1";
+    setTimeout(function () { flash.style.opacity = "0"; }, 1600);
+  });
+})();
+</script>

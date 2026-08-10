@@ -15,15 +15,16 @@ namespace FarmFuryArcade.UI
     /// whole world roadmap even before it's unlocked. Flicking cycles which badge sits
     /// centred/full-scale; tapping the already-centred (unlocked) badge reveals that world's level tile grid
     /// and shrinks the badge down into a small persistent indicator top-left of the screen; tapping
-    /// that indicator again returns to world select. Reached from World Map's Play button (see
-    /// WorldMapController.levelSelectScreen) instead of jumping straight into gameplay.
+    /// that indicator again returns to world select. Reached directly from Main Menu's Play
+    /// button (see MainMenuController.levelSelectScreen) — an intermediate "World Map" screen used
+    /// to sit here but was removed outright once this screen made it redundant (see CLAUDE.md's
+    /// "Removed: World Map screen").
     ///
     /// Tapping an unlocked tile loads that level and shows the gameplay screen directly
-    /// (GameManager.LoadLevel + SceneTransitionManager.ShowOnly) — the same two calls
-    /// WorldMapController.OnPlayTapped already used before this screen existed. There is
-    /// deliberately no "Matchup Screen" step: that screen (a VS-card + 3-2-1-GO countdown between
-    /// World Map and Gameplay) was removed from this project after playtesting read it as tonally
-    /// mismatched (see CLAUDE.md's "Removed: Matchup screen"), so this doesn't resurrect it.
+    /// (GameManager.LoadLevel + SceneTransitionManager.ShowOnly). There is deliberately no
+    /// "Matchup Screen" step either: that screen (a VS-card + 3-2-1-GO countdown) was removed from
+    /// this project after playtesting read it as tonally mismatched (see CLAUDE.md's "Removed:
+    /// Matchup screen"), so this doesn't resurrect it.
     /// </summary>
     public class LevelSelectController : MonoBehaviour
     {

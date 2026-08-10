@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.EventSystems;
 using UnityEngine.InputSystem;
@@ -6,14 +7,29 @@ using UnityEngine.InputSystem;
 namespace FarmFuryArcade.Gameplay
 {
     /// <summary>
-    /// Detects WASD/arrow keys (desktop) and swipe gestures (mobile touch, or mouse drag in the
-    /// Editor for testing) and raises OnDirectionInput. GridMovement instances subscribe directly;
-    /// there is exactly one active character in Phase 2, so a static event is enough — Phase 4's
-    /// character-swap system can route this through GameManager.CurrentCharacter instead if needed.
+    /// Detects WASD/arrow keys (desktop), the on-screen D-pad, and swipe gestures (mobile touch, or
+    /// mouse drag in the Editor for testing), and exposes "what direction is currently commanded"
+    /// as a single static value (CurrentHeldDirection) plus a change event. GridMovement instances
+    /// read this directly; there is exactly one active character at a time, so a static value is
+    /// enough — Phase 4's character-swap system can route this through GameManager.CurrentCharacter
+    /// instead if needed.
+    ///
+    /// Movement is hold-to-move: a character only moves while a direction is actively held, stops
+    /// the instant it's released, and switching directions (including a full 180) is instantaneous
+    /// with no cooldown — see GridMovement's own doc comment for how it consumes this. Keyboard and
+    /// the on-screen D-pad both have true press/release semantics, tracked in a shared "currently
+    /// held" stack (most-recently-pressed wins if two directions are held at once — e.g. tapping
+    /// Down while still holding Right switches to Down immediately, and releasing Down reverts to
+    /// Right if it's still held). A swipe has no natural "hold" — it sets the direction directly
+    /// (bypassing the stack) and that direction persists until overridden by a keyboard/D-pad press
+    /// or another swipe, same "flick and go" convention mobile Pac-Man-style games use.
     /// </summary>
     public class InputController : MonoBehaviour
     {
-        public static event Action<Direction> OnDirectionInput;
+        public static event Action<Direction> OnHeldDirectionChanged;
+        public static Direction CurrentHeldDirection { get; private set; } = Direction.None;
+
+        private static readonly List<Direction> HeldStack = new List<Direction>();
 
         /// <summary>Space — activates whichever character's AbilityBase is currently active
         /// (Phase 4). Exactly one AbilityBase instance is ever enabled at a time, so a static
@@ -25,11 +41,52 @@ namespace FarmFuryArcade.Gameplay
 
         [SerializeField] private float minSwipeDistancePixels = 50f;
 
-        /// <summary>Raises OnDirectionInput exactly like a keyboard press or swipe would — the
-        /// on-screen directional pad (GameplayHUD's DirectionalPadController) calls this from each
-        /// button's onClick instead of duplicating the event/subscription mechanics GridMovement
-        /// already listens to.</summary>
-        public static void RaiseDirectionInput(Direction dir) => OnDirectionInput?.Invoke(dir);
+        /// <summary>Starts commanding this direction — called on a keyboard key-down or the
+        /// on-screen D-pad's PointerDown. A direction already held is a no-op.</summary>
+        public static void PressDirection(Direction dir)
+        {
+            if (dir == Direction.None || HeldStack.Contains(dir))
+            {
+                return;
+            }
+            HeldStack.Insert(0, dir);
+            RefreshHeldDirection();
+        }
+
+        /// <summary>Stops commanding this direction — called on a keyboard key-up or the
+        /// on-screen D-pad's PointerUp/PointerExit. If another direction is still held, control
+        /// falls back to whichever was pressed most recently among those still held.</summary>
+        public static void ReleaseDirection(Direction dir)
+        {
+            if (HeldStack.Remove(dir))
+            {
+                RefreshHeldDirection();
+            }
+        }
+
+        private static void RefreshHeldDirection()
+        {
+            Direction next = HeldStack.Count > 0 ? HeldStack[0] : Direction.None;
+            if (next == CurrentHeldDirection)
+            {
+                return;
+            }
+            CurrentHeldDirection = next;
+            OnHeldDirectionChanged?.Invoke(next);
+        }
+
+        /// <summary>A completed swipe sets the direction directly rather than going through the
+        /// press/release stack — there's no physical "hold" to release. Persists until a keyboard/
+        /// D-pad press or another swipe overrides it.</summary>
+        private static void SetSwipeDirection(Direction dir)
+        {
+            if (dir == CurrentHeldDirection)
+            {
+                return;
+            }
+            CurrentHeldDirection = dir;
+            OnHeldDirectionChanged?.Invoke(dir);
+        }
 
         /// <summary>Raises OnAbilityActivateInput exactly like Space would — the Gameplay HUD's
         /// character portrait (doubling as the on-screen ability button, since Space has no touch
@@ -43,14 +100,36 @@ namespace FarmFuryArcade.Gameplay
 
         private void Update()
         {
-            Direction keyboardDirection = DirectionUtils.FromKeyboard();
-            if (keyboardDirection != Direction.None)
-            {
-                OnDirectionInput?.Invoke(keyboardDirection);
-            }
-
+            UpdateKeyboardHeld();
             HandlePointerSwipe();
             HandleAbilityAndSwapKeys();
+        }
+
+        private void UpdateKeyboardHeld()
+        {
+            var kb = Keyboard.current;
+            if (kb == null)
+            {
+                return;
+            }
+
+            SyncKey(kb.upArrowKey.isPressed || kb.wKey.isPressed, Direction.Up);
+            SyncKey(kb.downArrowKey.isPressed || kb.sKey.isPressed, Direction.Down);
+            SyncKey(kb.leftArrowKey.isPressed || kb.aKey.isPressed, Direction.Left);
+            SyncKey(kb.rightArrowKey.isPressed || kb.dKey.isPressed, Direction.Right);
+        }
+
+        private static void SyncKey(bool isPressed, Direction dir)
+        {
+            bool inStack = HeldStack.Contains(dir);
+            if (isPressed && !inStack)
+            {
+                PressDirection(dir);
+            }
+            else if (!isPressed && inStack)
+            {
+                ReleaseDirection(dir);
+            }
         }
 
         private void HandleAbilityAndSwapKeys()
@@ -102,7 +181,7 @@ namespace FarmFuryArcade.Gameplay
 
                 if (delta.magnitude >= minSwipeDistancePixels)
                 {
-                    OnDirectionInput?.Invoke(DirectionUtils.FromSwipeVector(delta));
+                    SetSwipeDirection(DirectionUtils.FromSwipeVector(delta));
                 }
             }
         }

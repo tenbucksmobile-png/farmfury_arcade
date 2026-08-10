@@ -227,35 +227,44 @@ namespace FarmFuryArcade.EditorTools
             EditorUtility.SetDirty(data);
         }
 
-        /// <summary>Deterministic seed for the recursive-backtracker maze generator below — keeps
-        /// LevelData_01 identical across re-runs of Build All, matching every other builder
-        /// method's "safe to re-run" idempotency.</summary>
-        private const int MazeSeed = 20260728;
+        /// <summary>LevelData_01's maze is now a fixed, hand-authored layout (not procedurally
+        /// generated) — designed by the user via a purpose-built maze-designer web tool and pasted
+        /// back verbatim as a row-major tile-id grid. Two earlier procedural approaches were tried
+        /// and both produced technically-valid-but-open-reading mazes (a mirrored half-board with a
+        /// seam corridor, then a full-width recursive-backtracker whose fixed seed happened to
+        /// connect entire rows); hand authorship sidesteps that whole failure class since every
+        /// tile is a deliberate choice. `Rows` below is ordered top-of-screen first (highest y) to
+        /// match how the maze reads on screen and how the design tool exports it; `ParseRows`
+        /// converts to the `grid[x,y]` convention `LevelData.SetMazeLayout` expects (y=0 at the
+        /// bottom, since GridToWorld maps grid y directly to world Y with no flip).</summary>
+        private static readonly string[] Rows =
+        {
+            "111111111111", // y=8 (top)
+            "172222322231", // y=7
+            "121111111211", // y=6
+            "532221622235", // y=5
+            "111121112121", // y=4
+            "122232223121", // y=3
+            "112121131121", // y=2
+            "532232242235", // y=1
+            "111111111111", // y=0 (bottom)
+        };
 
-        /// <summary>Regenerates LevelData_01 as an actual Pac-Man-style corridor maze (1-tile-wide
-        /// paths + wall blocks) instead of the old sparse-2x2-blocks-on-open-floor layout, which
-        /// read as barely a maze at all once real corn-tile floor/wall art landed. Built via a
-        /// randomized recursive backtracker over the LEFT half only (x = 1..leftHalfMax), then
-        /// mirrored onto the right half (width-1-x) for a classic symmetric arcade-maze look — an
-        /// even `width` splits cleanly into two equal halves with no leftover center column. A
-        /// handful of extra connector walls are re-opened afterward so the board has loops
-        /// (multiple routes around robots) rather than being a single spanning tree with only one
-        /// path anywhere. The two warp rows, robot factory box, and player-start clearing are then
-        /// stamped on top, exactly where Phase3ProjectBuilder.UpdateLevelData01Robots's hardcoded
-        /// robot spawn position expects them, so that builder doesn't need touching when only this
-        /// method's own constants change — but it DOES need to change together whenever
-        /// `width`/`height` change, since that coordinate isn't derived from these constants
-        /// automatically.
-        ///
-        /// `width`/`height` are 12x9, this game's fixed maze size for every level (hardcoded here,
-        /// not a per-level choice) — reduced from 14x16 without compensating by enlarging each
-        /// tile, unlike the earlier 28x31 -> 14x16 halving, which doubled tile size specifically to
-        /// keep the board's total footprint the same. This time the board is deliberately smaller on
-        /// screen, showing more of GameplayBackdrop's art around it. Tile size itself doesn't
-        /// actually depend on these constants at all — CameraFollow.ApplyOrthographicSizeForAspect
-        /// derives orthographicSize purely from CellScreenHeightFraction, a fixed tile-size-to-
-        /// screen-height ratio independent of maze dimensions — so no camera-side changes were
-        /// needed for this resize.</summary>
+        private static int[,] ParseRows(string[] rows, int width, int height)
+        {
+            var grid = new int[width, height];
+            for (int editorRow = 0; editorRow < height; editorRow++)
+            {
+                int y = height - 1 - editorRow;
+                string row = rows[editorRow];
+                for (int x = 0; x < width; x++)
+                {
+                    grid[x, y] = row[x] - '0';
+                }
+            }
+            return grid;
+        }
+
         private static void BuildLevelData01()
         {
             Directory.CreateDirectory(Path.GetDirectoryName(LevelDataPath)!);
@@ -268,133 +277,36 @@ namespace FarmFuryArcade.EditorTools
 
             const int width = 12;
             const int height = 9;
-            var grid = new int[width, height];
-            for (int x = 0; x < width; x++)
-            {
-                for (int y = 0; y < height; y++)
-                {
-                    grid[x, y] = 1; // fully walled; corridors carved below
-                }
-            }
+            var grid = ParseRows(Rows, width, height);
 
-            // Full-width carve, not "carve one half and mirror" — the mirror approach (left half
-            // only, leftHalfMax=(width-2)/2, then grid[width-1-x,y]=grid[x,y]) put the seam between
-            // the two halves at two ADJACENT room columns (x=5 and its mirror x=6 at this board's
-            // width) with no wall ever separating them, since every room cell is unconditionally
-            // open (that's what "every cell is part of the spanning tree" means). The result was a
-            // permanent 2-tile-wide corridor straight down the middle, and — because a 12-wide board
-            // only fit 3 room columns per half — most of the board read as wide-open rather than
-            // single-tile corridors. A full-width backtracker (room columns at every odd x from 1 to
-            // width-2, no mirroring) gives 5 room columns with normal single-tile spacing between
-            // them and no seam duplication, at the cost of the left/right symmetry the mirror used
-            // to guarantee — correctness over cosmetics per playtest feedback.
-            CarveMazeCorridors(grid, width, height);
-
-            // GridToWorld maps grid.y directly to world Y with no flip, so higher y is higher on
-            // screen — row N counting from the top is y = height - N. Rows 3 and 7 from the top
-            // (spec'd directly, not derived) land on y=6 and y=2: one above the robot factory box,
-            // one below it, each with a warp-tunnel edge (id 5) at both x=0 and x=width-1.
-            // WarpTunnel teleports on trigger overlap (instant, see WarpTunnel.OnTriggerEnter2D) —
-            // it never required a walkable lane spanning the whole row. This used to force the
-            // ENTIRE row open (x=1..width-2), bulldozing whatever 1-tile-wide corridors
-            // CarveMazeCorridors had already carved there and leaving two full-width open bands
-            // across the board — exactly the "completely open in the middle" maze look flagged in
-            // playtest. Now it only opens the single interior tile next to each border edge (just
-            // enough for the tunnel tile itself to be reachable); everything else in the row keeps
-            // whatever wall/corridor pattern the maze generator produced.
-            int warpRowTop = height - 3;
-            int warpRowBottom = height - 7;
-            foreach (int warpRow in new[] { warpRowTop, warpRowBottom })
-            {
-                grid[1, warpRow] = 0;
-                grid[width - 2, warpRow] = 0;
-                grid[0, warpRow] = 5;
-                grid[width - 1, warpRow] = 5;
-            }
-
-            // Sits strictly between the two warp rows (y=3..5, vs warp rows at y=2/y=6) so stamping
-            // it doesn't overwrite either tunnel edge.
-            const int fx0 = 4, fx1 = 7, fy0 = 3, fy1 = 5;
-            for (int x = fx0; x <= fx1; x++)
-            {
-                for (int y = fy0; y <= fy1; y++)
-                {
-                    grid[x, y] = 6;
-                }
-            }
-
-            // Bottommost interior row (y=1, just above the y=0 wall row) — the only row left once
-            // the factory box and both warp rows claim the rest of this much shorter 7-interior-row
-            // board.
-            var playerStart = new Vector2Int(6, 1);
-            for (int x = 5; x <= 7; x++)
-            {
-                grid[x, 1] = 0;
-            }
-            grid[playerStart.x, playerStart.y] = 7;
-
-            // Power pellets and vegetables are scattered randomly across every open floor tile
-            // (deterministically — same MazeSeed-derived RNG as corridor carving, so rebuilds stay
-            // reproducible) rather than fixed one-per-corner pellets / two hand-anchored BFS
-            // vegetable clusters. Every remaining open tile becomes a corn kernel in the fill pass
-            // below regardless, so this is really just "re-roll some of those kernel tiles as
-            // something rarer, picked at random."
-            var openFloor = new List<Vector2Int>();
-            for (int x = 1; x < width - 1; x++)
-            {
-                for (int y = 1; y < height - 1; y++)
-                {
-                    if (grid[x, y] == 0)
-                    {
-                        openFloor.Add(new Vector2Int(x, y));
-                    }
-                }
-            }
-
-            var scatterRng = new System.Random(MazeSeed + 1);
-            for (int i = openFloor.Count - 1; i > 0; i--)
-            {
-                int j = scatterRng.Next(i + 1);
-                (openFloor[i], openFloor[j]) = (openFloor[j], openFloor[i]);
-            }
-
-            const int pelletCount = 4;
-            const int vegetableCount = 10;
-            int scatterIndex = 0;
-            for (int i = 0; i < pelletCount && scatterIndex < openFloor.Count; i++, scatterIndex++)
-            {
-                var c = openFloor[scatterIndex];
-                grid[c.x, c.y] = 4;
-            }
-            for (int i = 0; i < vegetableCount && scatterIndex < openFloor.Count; i++, scatterIndex++)
-            {
-                var c = openFloor[scatterIndex];
-                grid[c.x, c.y] = 3;
-            }
-
-            // Every remaining open corridor tile gets a crop kernel — the classic "dot in every
-            // lane" Pac-Man look, and simplest way to guarantee no leftover unused floor tiles.
+            Vector2Int playerStart = default;
+            var warpRows = new List<int>();
+            int factoryMinX = int.MaxValue, factoryMaxX = int.MinValue, factoryMinY = int.MaxValue, factoryMaxY = int.MinValue;
             int kernels = 0, vegetables = 0, pellets = 0;
-            for (int x = 1; x < width - 1; x++)
+
+            for (int y = 0; y < height; y++)
             {
-                for (int y = 1; y < height - 1; y++)
+                bool rowHasWarp = false;
+                for (int x = 0; x < width; x++)
                 {
                     switch (grid[x, y])
                     {
-                        case 0:
-                            grid[x, y] = 2;
-                            kernels++;
+                        case 2: kernels++; break;
+                        case 3: vegetables++; break;
+                        case 4: pellets++; break;
+                        case 5: rowHasWarp = true; break;
+                        case 6:
+                            factoryMinX = Mathf.Min(factoryMinX, x);
+                            factoryMaxX = Mathf.Max(factoryMaxX, x);
+                            factoryMinY = Mathf.Min(factoryMinY, y);
+                            factoryMaxY = Mathf.Max(factoryMaxY, y);
                             break;
-                        case 2:
-                            kernels++;
-                            break;
-                        case 3:
-                            vegetables++;
-                            break;
-                        case 4:
-                            pellets++;
-                            break;
+                        case 7: playerStart = new Vector2Int(x, y); break;
                     }
+                }
+                if (rowHasWarp)
+                {
+                    warpRows.Add(y);
                 }
             }
 
@@ -403,11 +315,15 @@ namespace FarmFuryArcade.EditorTools
             level.mazeType = MazeType.CornField;
             level.SetMazeLayout(grid);
             level.playerStartPosition = playerStart;
-            level.robotFactoryPosition = new Vector2Int((fx0 + fx1) / 2, (fy0 + fy1) / 2);
+            // Robots spawn from the middle of the maze — the factory box's own centre, derived from
+            // whatever cells were painted id 6, not a hardcoded position. Keep
+            // Phase3ProjectBuilder.UpdateLevelData01Robots's spawnPosition in sync with this if the
+            // maze is redesigned again.
+            level.robotFactoryPosition = new Vector2Int((factoryMinX + factoryMaxX) / 2, (factoryMinY + factoryMaxY) / 2);
             level.baseCharacterSpeed = 4.0f;
             level.baseRobotSpeed = 3.5f;
             level.robotSpawns = new RobotSpawnData[0]; // No robots yet — Phase 3
-            level.warpTunnelRows = new[] { warpRowTop, warpRowBottom };
+            level.warpTunnelRows = warpRows.ToArray();
             // Explicitly cleared, not just left untouched — UpdateLevelData01Water used to set
             // this to stamp a (now-removed, dead-code, never-called) water gate; without resetting
             // it here, a full regeneration would otherwise carry a stale value forward forever
@@ -416,88 +332,6 @@ namespace FarmFuryArcade.EditorTools
             level.totalCropsRequired = kernels + vegetables + pellets;
 
             EditorUtility.SetDirty(level);
-        }
-
-        /// <summary>Fraction of remaining connector walls reopened after the spanning tree is
-        /// carved, adding loops back into what would otherwise be a maze with exactly one path
-        /// between any two points. Dropped from 0.22 to 0.05 per playtest feedback: robots read as
-        /// "falling into a loop of going in one line" — the wide multi-path open areas the higher
-        /// value produced gave robot AI long straight runs with no real branching decision to make.
-        /// Kept slightly above zero (a pure spanning tree) rather than 0, so a few loops still exist
-        /// for the player to escape into — "only single paths" as the dominant character of the
-        /// board, not literally every last connector sealed.</summary>
-        private const double LoopReopenChance = 0.05;
-
-        /// <summary>Randomized recursive backtracker over the FULL-width cell lattice (odd x in
-        /// 1..width-2, odd y in 1..height-2 are "room" cells; the even coordinate between two
-        /// adjacent visited cells is the connector carved open to join them). Produces a spanning
-        /// tree of 1-tile-wide corridors, then reopens LoopReopenChance of the remaining connector
-        /// walls so the maze has a few loops instead of exactly one path between any two points.
-        /// Previously ran over the left half only and mirrored the result — see BuildLevelData01's
-        /// call site for why that produced a permanent 2-tile-wide seam down the middle instead of
-        /// genuine single-tile corridors.</summary>
-        private static void CarveMazeCorridors(int[,] grid, int width, int height)
-        {
-            var rng = new System.Random(MazeSeed);
-            var visited = new bool[width, height];
-            var cellStack = new Stack<Vector2Int>();
-            var start = new Vector2Int(1, 1);
-            grid[start.x, start.y] = 0;
-            visited[start.x, start.y] = true;
-            cellStack.Push(start);
-
-            Vector2Int[] cellDirs = { new Vector2Int(2, 0), new Vector2Int(-2, 0), new Vector2Int(0, 2), new Vector2Int(0, -2) };
-            var neighbors = new List<Vector2Int>();
-
-            while (cellStack.Count > 0)
-            {
-                var current = cellStack.Peek();
-                neighbors.Clear();
-                foreach (var d in cellDirs)
-                {
-                    var next = current + d;
-                    if (next.x >= 1 && next.x <= width - 2 && next.y >= 1 && next.y <= height - 2 && !visited[next.x, next.y])
-                    {
-                        neighbors.Add(next);
-                    }
-                }
-
-                if (neighbors.Count == 0)
-                {
-                    cellStack.Pop();
-                    continue;
-                }
-
-                var chosen = neighbors[rng.Next(neighbors.Count)];
-                var between = new Vector2Int((current.x + chosen.x) / 2, (current.y + chosen.y) / 2);
-                grid[chosen.x, chosen.y] = 0;
-                grid[between.x, between.y] = 0;
-                visited[chosen.x, chosen.y] = true;
-                cellStack.Push(chosen);
-            }
-
-            // Horizontal connectors sit at even x, odd y (between two horizontally-adjacent cells).
-            for (int x = 2; x < width - 2; x += 2)
-            {
-                for (int y = 1; y <= height - 2; y += 2)
-                {
-                    if (grid[x, y] == 1 && grid[x - 1, y] == 0 && grid[x + 1, y] == 0 && rng.NextDouble() < LoopReopenChance)
-                    {
-                        grid[x, y] = 0;
-                    }
-                }
-            }
-            // Vertical connectors sit at odd x, even y (between two vertically-adjacent cells).
-            for (int x = 1; x <= width - 2; x += 2)
-            {
-                for (int y = 2; y <= height - 3; y += 2)
-                {
-                    if (grid[x, y] == 1 && grid[x, y - 1] == 0 && grid[x, y + 1] == 0 && rng.NextDouble() < LoopReopenChance)
-                    {
-                        grid[x, y] = 0;
-                    }
-                }
-            }
         }
 
         private static void WireScene(GameObject wallPrefab, GameObject groundPrefab, GameObject cropKernelPrefab,

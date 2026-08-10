@@ -6,9 +6,9 @@ namespace FarmFuryArcade.Gameplay
     /// <summary>
     /// Picks the current direction's walk frames from CharacterData.walkAnimationFrames, which is
     /// expected in the fixed order [Up0,Up1,Down0,Down1,Left0,Left1,Right0,Right1] (8 entries).
-    /// If a CharacterData has fewer than 8 frames (true for every character until real art is
-    /// imported), the SpriteRenderer's placeholder sprite from the prefab is left untouched —
-    /// direction/frame selection logic still runs so it's ready the moment art is assigned.
+    /// If a CharacterData has fewer than 8 frames (still true for Horace/Billy, which have no
+    /// uploaded art yet), the SpriteRenderer's placeholder sprite from the prefab is left
+    /// untouched — direction/frame selection logic still runs so it's ready the moment art lands.
     /// </summary>
     [RequireComponent(typeof(SpriteRenderer))]
     public class CharacterAnimator : MonoBehaviour
