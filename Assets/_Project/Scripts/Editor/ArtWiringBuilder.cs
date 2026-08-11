@@ -47,6 +47,12 @@ namespace FarmFuryArcade.EditorTools
         private const string WallPrefabPath = BlockPrefabFolder + "/Wall_CornField.prefab";
         private const string GroundPrefabPath = BlockPrefabFolder + "/Ground_CornField.prefab";
         private const string WarpTunnelPrefabPath = BlockPrefabFolder + "/WarpTunnel.prefab";
+        // World 2 (VegPatch) — built by Phase2ProjectBuilder.BuildAll alongside the CornField ones.
+        private const string WallVegPatchPrefabPath = BlockPrefabFolder + "/Wall_VegPatch.prefab";
+        private const string WarpTunnelVegPatchPrefabPath = BlockPrefabFolder + "/WarpTunnel_VegPatch.prefab";
+        private const string CropKernelVegPatchPrefabPath = BlockPrefabFolder + "/Crop_Kernel_VegPatch.prefab";
+        private const string CropVegetableVegPatchPrefabPath = BlockPrefabFolder + "/Crop_Vegetable_VegPatch.prefab";
+        private const string CoinPrefabPath = BlockPrefabFolder + "/Pickup_Coin.prefab";
 
         private const string ShockwavePrefabPath = AbilityPrefabFolder + "/Shockwave.prefab";
         private const string BounceTrailPrefabPath = AbilityPrefabFolder + "/BounceTrail.prefab";
@@ -66,8 +72,15 @@ namespace FarmFuryArcade.EditorTools
         private const string Carrot = "Assets/_Project/Sprites/Environment/carrot.png";
         private const string CoinIcon = "Assets/_Project/Sprites/Environment/Collectable Coin.png";
         private const string SunflowerPellet = "Assets/_Project/Sprites/Environment/RarePellets_sunflower.png";
+        // GoldenWheatPellet ("maize") is no longer wired to anything — the 3-tier pellet visual
+        // (Sunflower/GoldenWheat/Rainbow) was replaced by one themed sprite per world (see
+        // TileMapRenderer.MazeArtSet.pelletSprite's doc comment); left declared since the file is
+        // still uploaded, same "unused, not a bug" convention as Btn_music.png etc.
         private const string GoldenWheatPellet = "Assets/_Project/Sprites/Environment/RarePellets_maize.png";
         private const string RainbowPellet = "Assets/_Project/Sprites/Environment/RarePellets_apple.png";
+        // ---- World theme crops (CornField's vegetable-tier + all of VegPatch's crops) ----------
+        private const string CornCob = "Assets/_Project/Sprites/Environment/CornCob.png";
+        private const string Cabbage = "Assets/_Project/Sprites/Environment/cabbage.png";
         private const string LandingBackground = "Assets/_Project/Sprites/UI/landing.png";
 
         // ---- Sprite paths (this batch) ----------------------------------------------------------
@@ -83,7 +96,14 @@ namespace FarmFuryArcade.EditorTools
         private const string WoollyEffect = "Assets/_Project/Sprites/Characters/Wooly_effect.png";
         private const string PercyFront = "Assets/_Project/Sprites/Characters/Percy_front.png";
         private const string PercyBack = "Assets/_Project/Sprites/Characters/Percy_back.png";
-        private const string PercyLeft = "Assets/_Project/Sprites/Characters/Perccy_left.png"; // uploaded filename typo
+        // PercyLeft ("Perccy_left.png", uploaded filename typo) never actually existed on disk —
+        // WireNewCharacters' SetWalkFrames("Percy", ...) call always fell back to front/back for
+        // Left, so Percy had no real directional art at all until this real left/right walk-cycle
+        // pair landed (matching Cluck/Bessie's 2-frame flick convention).
+        private const string PercyLeftWalk0 = "Assets/_Project/Sprites/Characters/Flat1.png";
+        private const string PercyLeftWalk1 = "Assets/_Project/Sprites/Characters/Flat2.png";
+        private const string PercyRightWalk0 = "Assets/_Project/Sprites/Characters/Right1.png";
+        private const string PercyRightWalk1 = "Assets/_Project/Sprites/Characters/Right2.png";
         private const string PercyEffect = "Assets/_Project/Sprites/Characters/Percy_effect.png";
         private const string DuckyFront = "Assets/_Project/Sprites/Characters/Ducky_front.png";
         private const string DuckyBack = "Assets/_Project/Sprites/Characters/Ducky_back.png";
@@ -114,6 +134,15 @@ namespace FarmFuryArcade.EditorTools
         private const string WallCornTiles = "Assets/_Project/Sprites/UI/CornTiles.png";
         private const string FloorTile = "Assets/_Project/Sprites/UI/FloorTile.png";
         private const string WarpTile = "Assets/_Project/Sprites/UI/WarpTile.png";
+
+        // ---- World 2 (VegPatch) maze/backdrop art ------------------------------------------------
+        private const string VegTile = "Assets/_Project/Sprites/UI/VegTile.png";
+        private const string VeggiePatchWarp = "Assets/_Project/Sprites/UI/VeggiePatchWarp.png";
+        private const string VegetableGardenBackdrop = "Assets/_Project/Sprites/UI/VegatableGarden.png";
+
+        // ---- Level Complete star row (filled/empty), replacing StarDisplay's tinted placeholder --
+        private const string FilledStar = "Assets/_Project/Sprites/UI/ScoreStar.png";
+        private const string EmptyStar = "Assets/_Project/Sprites/UI/ClearStar.png";
 
         private const string ScoutFront = "Assets/_Project/Sprites/Robots/ScoutRobot_front.png";
         private const string ScoutBack = "Assets/_Project/Sprites/Robots/ScoutRobot_back.png";
@@ -227,6 +256,7 @@ namespace FarmFuryArcade.EditorTools
             WireMazeTiles();
             WireGameplayBackdrop();
             WireBackgrounds();
+            WireLevelCompleteStars();
 
             WireNewCharacters();
             WireCharacterSelectCards();
@@ -258,7 +288,7 @@ namespace FarmFuryArcade.EditorTools
             CoinIcon, SunflowerPellet, GoldenWheatPellet, RainbowPellet, LandingBackground,
             BessieFront, BessieBack, BessieLeft, BessieLeft2, BessieRight, BessieRight2,
             WoollyFront, WoollyBack, WoollyLeft, WoollyEffect,
-            PercyFront, PercyBack, PercyLeft, PercyEffect, DuckyFront, DuckyBack, BessieSlam,
+            PercyFront, PercyBack, PercyLeftWalk0, PercyLeftWalk1, PercyRightWalk0, PercyRightWalk1, PercyEffect, DuckyFront, DuckyBack, BessieSlam,
             ScoutFront, ScoutBack, ScoutLeft, ScoutRight, PatrolFront, PatrolBack, PatrolLeft, PatrolRight,
             HeavyFront, HeavyBack, DrifterFront, DrifterLeft, DrifterRight, RobotEyes,
             LevelCompletePanel, LevelFailedPanel, PausedPanel,
@@ -270,6 +300,7 @@ namespace FarmFuryArcade.EditorTools
             GeraldFront, GeraldBack, GeraldLeft,
             CluckRight, CluckRightWalk2, CluckLeftWalk,
             WallCornTiles, FloorTile, WarpTile, WheatfieldBackdrop, SettingsBackground, PauseBackground,
+            VegTile, VeggiePatchWarp, VegetableGardenBackdrop, FilledStar, EmptyStar, CornCob, Cabbage,
             LevelTileLocked, LevelTileUnlocked, LevelTile1Star, LevelTile2Stars, LevelTile3Stars,
             BgLevelSelect, DividerWorldBanner,
             SelectLevelText, CornFieldText, VegetablePatchText, OrchardText, WheatfieldText, SettingsSignText,
@@ -463,6 +494,42 @@ namespace FarmFuryArcade.EditorTools
             WireCharacterPrefabSprite($"{CharacterPrefabFolder}/Bessie.prefab", front);
         }
 
+        /// <summary>Percy's real directional art — same 2-frame flick convention as Cluck/Bessie.
+        /// He had no genuine Left/Right art before this (PercyLeft pointed at a misspelled,
+        /// never-uploaded filename, so SetWalkFrames always fell back to front/back for every
+        /// direction).</summary>
+        private static void WirePercy()
+        {
+            var front = Load(PercyFront);
+            var back = Load(PercyBack);
+            var left0 = Load(PercyLeftWalk0);
+            var left1 = Load(PercyLeftWalk1);
+            var right0 = Load(PercyRightWalk0);
+            var right1 = Load(PercyRightWalk1);
+
+            string path = $"{CharacterDataFolder}/CharacterData_Percy.asset";
+            var data = AssetDatabase.LoadAssetAtPath<CharacterData>(path);
+            if (data != null)
+            {
+                data.walkAnimationFrames = new[]
+                {
+                    back, back,                                          // Up0, Up1
+                    front, front,                                        // Down0, Down1
+                    left0 != null ? left0 : back, left1 != null ? left1 : (left0 != null ? left0 : back),    // Left0, Left1
+                    right0 != null ? right0 : back, right1 != null ? right1 : (right0 != null ? right0 : back) // Right0, Right1
+                };
+                data.hasDedicatedRightArt = right0 != null;
+                data.portraitSprite = front;
+                EditorUtility.SetDirty(data);
+            }
+            else
+            {
+                Debug.LogWarning($"[ArtWiringBuilder] CharacterData_Percy not found at {path}");
+            }
+
+            WireCharacterPrefabSprite($"{CharacterPrefabFolder}/Percy.prefab", front);
+        }
+
         private static void WireHarvester()
         {
             var front = Load(HarvesterFront);
@@ -511,42 +578,86 @@ namespace FarmFuryArcade.EditorTools
             EditorUtility.SetDirty(data);
         }
 
+        /// <summary>Per-world crop/pellet reskin: CornField keeps CornKernel.png for its
+        /// kernel-tier crop but now uses CornCob.png (not carrot.png) for its vegetable-tier crop;
+        /// VegPatch's kernel-tier crop takes over carrot.png, its vegetable-tier crop uses
+        /// cabbage.png. Every pellet in a maze now shows a single world-themed sprite (sunflower
+        /// glow for CornField, apple for VegPatch) via TileMapRenderer.SetPelletSprite — see
+        /// MazeArtSet.pelletSprite's doc comment for why the old 3-tier visual (Sunflower/
+        /// GoldenWheat/Rainbow) was dropped. Also wires World 1's bonus coin pickup.</summary>
         private static void WireCropsAndPellets()
         {
             SetPrefabSprite(CropCornPrefabPath, Load(CornKernel));
-            SetPrefabSprite(CropVegetablePrefabPath, Load(Carrot));
+            SetPrefabSprite(CropVegetablePrefabPath, Load(CornCob));
             SetPrefabSprite(PowerPelletPrefabPath, Load(SunflowerPellet));
+            SetPrefabSprite(CropKernelVegPatchPrefabPath, Load(Carrot));
+            SetPrefabSprite(CropVegetableVegPatchPrefabPath, Load(Cabbage));
+            SetPrefabSprite(CoinPrefabPath, Load(CoinIcon));
 
-            // Wire the 3 pellet-tier sprites onto the scene's TileMapRenderer (RollPelletTier
-            // picks the tier at spawn time; see TileMapRenderer.ConfigurePelletTier).
             EditorSceneManager.OpenScene(ScenePath);
             var managersGO = GameObject.Find("GameManagers");
             var tileMapRenderer = managersGO != null ? managersGO.GetComponent<TileMapRenderer>() : null;
             if (tileMapRenderer != null)
             {
-                var so = new SerializedObject(tileMapRenderer);
-                so.FindProperty("sunflowerPelletSprite").objectReferenceValue = Load(SunflowerPellet);
-                so.FindProperty("goldenWheatPelletSprite").objectReferenceValue = Load(GoldenWheatPellet);
-                so.FindProperty("rainbowPelletSprite").objectReferenceValue = Load(RainbowPellet);
-                so.ApplyModifiedPropertiesWithoutUndo();
+                tileMapRenderer.SetPelletSprite(MazeType.CornField, Load(SunflowerPellet));
+                tileMapRenderer.SetPelletSprite(MazeType.VegPatch, Load(RainbowPellet));
+                EditorUtility.SetDirty(tileMapRenderer);
             }
             else
             {
-                Debug.LogWarning("[ArtWiringBuilder] Could not find TileMapRenderer on GameManagers to wire pellet tier sprites.");
+                Debug.LogWarning("[ArtWiringBuilder] Could not find TileMapRenderer on GameManagers to wire pellet sprites.");
             }
 
             EditorSceneManager.SaveScene(EditorSceneManager.GetActiveScene());
         }
 
-        /// <summary>Wires the maze wall/ground/warp-tunnel tile art. All 3 prefabs are
-        /// instantiated per-cell by TileMapRenderer at scale 1 (same convention crops/pellets
-        /// already use), so a straight SpriteRenderer swap is enough — no tiling/atlas slicing,
-        /// since each uploaded file is a single complete tile image, not a tileset.</summary>
+        /// <summary>Wires the maze wall/ground/warp-tunnel tile art. All prefabs are instantiated
+        /// per-cell by TileMapRenderer at scale 1 (same convention crops/pellets already use), so a
+        /// straight SpriteRenderer swap is enough — no tiling/atlas slicing, since each uploaded
+        /// file is a single complete tile image, not a tileset. Also wires World 2 (VegPatch)'s
+        /// wall/warp art (Wall_VegPatch/WarpTunnel_VegPatch, built by Phase2ProjectBuilder alongside
+        /// the CornField ones) — ground has no dedicated VegPatch art yet, so GroundPrefabPath (the
+        /// same Ground_CornField prefab) stays the only ground sprite wired, matching
+        /// Phase2ProjectBuilder.WireScene's MazeArtSets, where both worlds' entries already share
+        /// that one groundPrefab reference.</summary>
         private static void WireMazeTiles()
         {
             SetPrefabSprite(WallPrefabPath, Load(WallCornTiles));
             SetPrefabSprite(GroundPrefabPath, Load(FloorTile));
             SetPrefabSprite(WarpTunnelPrefabPath, Load(WarpTile));
+            SetPrefabSprite(WallVegPatchPrefabPath, Load(VegTile));
+            SetPrefabSprite(WarpTunnelVegPatchPrefabPath, Load(VeggiePatchWarp));
+        }
+
+        /// <summary>Wires real filled/empty star art onto LevelCompleteScreen's StarDisplay —
+        /// see StarDisplay's doc comment for why it previously read as flat "brown boxes" instead of
+        /// stars (a baked-color placeholder square being double-tinted at runtime).</summary>
+        private static void WireLevelCompleteStars()
+        {
+            var filled = Load(FilledStar);
+            var empty = Load(EmptyStar);
+            if (filled == null || empty == null)
+            {
+                Debug.LogWarning($"[ArtWiringBuilder] {FilledStar} or {EmptyStar} not found — StarDisplay keeps its placeholder star shape.");
+                return;
+            }
+
+            EditorSceneManager.OpenScene(ScenePath);
+            var canvasTransform = GameObject.Find("Canvas")?.transform;
+            var starDisplay = canvasTransform?.Find("LevelCompleteScreen/PanelArt/ShelfContent/Stars")
+                ?.GetComponent<StarDisplay>();
+            if (starDisplay == null)
+            {
+                Debug.LogWarning("[ArtWiringBuilder] Could not find LevelCompleteScreen's StarDisplay to wire star art.");
+                return;
+            }
+
+            var so = new SerializedObject(starDisplay);
+            so.FindProperty("filledStarSprite").objectReferenceValue = filled;
+            so.FindProperty("emptyStarSprite").objectReferenceValue = empty;
+            so.ApplyModifiedPropertiesWithoutUndo();
+
+            EditorSceneManager.SaveScene(EditorSceneManager.GetActiveScene());
         }
 
         /// <summary>Gameplay had no art behind the maze grid at all — just the camera's clear
@@ -626,6 +737,33 @@ namespace FarmFuryArcade.EditorTools
             float heightUnits = widthUnits / imageAspect;
             backdropGO.transform.localScale = new Vector3(widthUnits, heightUnits, 1f);
             backdropGO.transform.position = new Vector3(centerX, centerY, 0f);
+
+            // The above only sets a static Editor-time preview (sized against LevelData_01, which
+            // is always loaded in the Editor at wiring time) — TileMapRenderer.ApplyBackdrop is
+            // what actually swaps this sprite per-level at runtime, keyed by MazeType, so it also
+            // needs both worlds' backdrop sprites registered on its MazeArtSets. VegatableGarden.png
+            // (World 2/VegPatch) is wired here alongside World1_Cornfield.png (World 1/CornField)
+            // rather than needing its own method, since both are simple "look up TileMapRenderer,
+            // call SetBackdropSprite" calls.
+            var tileMapRenderer = GameObject.Find("GameManagers")?.GetComponent<TileMapRenderer>();
+            if (tileMapRenderer != null)
+            {
+                tileMapRenderer.SetBackdropSprite(MazeType.CornField, sprite);
+                var vegPatchBackdrop = Load(VegetableGardenBackdrop);
+                if (vegPatchBackdrop != null)
+                {
+                    tileMapRenderer.SetBackdropSprite(MazeType.VegPatch, vegPatchBackdrop);
+                }
+                else
+                {
+                    Debug.LogWarning($"[ArtWiringBuilder] {VegetableGardenBackdrop} not found — VegPatch levels will fall back to CornField's backdrop at runtime.");
+                }
+                EditorUtility.SetDirty(tileMapRenderer);
+            }
+            else
+            {
+                Debug.LogWarning("[ArtWiringBuilder] Could not find TileMapRenderer on GameManagers to register per-world backdrop sprites.");
+            }
 
             EditorSceneManager.SaveScene(EditorSceneManager.GetActiveScene());
         }
@@ -766,9 +904,7 @@ namespace FarmFuryArcade.EditorTools
             SetWalkFrames("Woolly", woollyFront, Load(WoollyBack), Load(WoollyLeft));
             WireCharacterPrefabSprite($"{CharacterPrefabFolder}/Woolly.prefab", woollyFront);
 
-            var percyFront = Load(PercyFront);
-            SetWalkFrames("Percy", percyFront, Load(PercyBack), Load(PercyLeft));
-            WireCharacterPrefabSprite($"{CharacterPrefabFolder}/Percy.prefab", percyFront);
+            WirePercy();
 
             var duckyFront = Load(DuckyFront);
             SetWalkFrames("Ducky", duckyFront, Load(DuckyBack), null);
@@ -929,7 +1065,6 @@ namespace FarmFuryArcade.EditorTools
             var pause = Load(BtnPause);
             var settings = Load(BtnSettings);
             var home = Load(BtnHome);
-            var skip = Load(BtnSkip);
             var back = Load(BtnBack);
             var plaque = Load(BtnPlaque);
 
@@ -963,9 +1098,12 @@ namespace FarmFuryArcade.EditorTools
 
             SetImageSprite(canvasTransform, "StoreComingSoonOverlay/Content/CloseButton", back);
 
-            // Replay/Next Level/Home were removed per the 2026-07-31 mockup — see
-            // LevelCompleteController's doc comment — replaced by a single Skip button.
-            SetImageSprite(canvasTransform, "LevelCompleteScreen/SkipButton", skip);
+            // Replay/Next Level/Home were removed per the 2026-07-31 mockup in favor of a single
+            // Skip button, later replaced again with this Play/Home/Settings row — see
+            // LevelCompleteController's doc comment for what each does.
+            SetImageSprite(canvasTransform, "LevelCompleteScreen/ActionButtons/PlayButton", play);
+            SetImageSprite(canvasTransform, "LevelCompleteScreen/ActionButtons/HomeButton", home);
+            SetImageSprite(canvasTransform, "LevelCompleteScreen/ActionButtons/SettingsButton", settings);
             SetImageSprite(canvasTransform, "LevelCompleteScreen/NewCharacterUnlockOverlay/UnlockContent/ContinueButton", play);
 
             SetImageSprite(canvasTransform, "LevelFailedScreen/PanelArt/RestartButton", Load(RestartButtonArt));

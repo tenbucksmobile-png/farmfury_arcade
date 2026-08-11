@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using UnityEngine;
 using FarmFuryArcade.Data;
 using FarmFuryArcade.Gameplay;
+using FarmFuryArcade.Utilities;
 
 namespace FarmFuryArcade.Core
 {
@@ -15,17 +16,67 @@ namespace FarmFuryArcade.Core
     /// </summary>
     public class TileMapRenderer : MonoBehaviour
     {
+        /// <summary>Per-world wall/ground/warp-tunnel prefabs and gameplay backdrop, keyed by
+        /// MazeType — introduced when World 2 (VegPatch) art landed, since every level up to then
+        /// was CornField and a single global prefab/backdrop set was enough. Ground has no
+        /// dedicated per-world art yet (only wall/warp/backdrop images have been uploaded per
+        /// world so far), so multiple MazeArtSets are free to point at the same shared
+        /// groundPrefab — see Phase2ProjectBuilder.WireScene, which does exactly that for
+        /// VegPatch (reuses Ground_CornField's FloorTile.png/soil look, which reads fine for a
+        /// vegetable patch too).</summary>
+        [System.Serializable]
+        public class MazeArtSet
+        {
+            public MazeType mazeType;
+            public GameObject wallPrefab;
+            public GameObject groundPrefab;
+            public GameObject warpTunnelPrefab;
+            public Sprite backdropSprite;
+
+            /// <summary>Per-world crop prefabs — CornField uses CornKernel.png/CornCob.png,
+            /// VegPatch uses carrot.png/cabbage.png. Moved off TileMapRenderer's own fields (which
+            /// used to be global/shared across every world) once World 2 needed its own crop art.</summary>
+            public GameObject cropKernelPrefab;
+            public GameObject cropVegetablePrefab;
+
+            /// <summary>Single sprite shown on EVERY power pellet in this world, regardless of
+            /// which tier (Sunflower/GoldenWheat/Rainbow) it rolled — replaces the old 3
+            /// tier-specific sprite fields, which were shared globally across every world and
+            /// didn't reflect any world's own theme. RollPelletTier's random duration roll (8s/15s/
+            /// 30s) and the "only 1 non-Sunflower pellet per maze" cap are untouched; only the
+            /// VISUAL got simplified to one look per world (sunflower glow for CornField, apple for
+            /// VegPatch) — SpawnCollectEffectIfRare/PlayRarePelletPickupSfx still key off the real
+            /// tier, so collecting the special pellet still feels distinct even though every pellet
+            /// in the maze looks the same up front.</summary>
+            public Sprite pelletSprite;
+
+            /// <summary>Extra pickup scattered on top of already-rendered tiles (not tied to any
+            /// grid tile id) — currently just CornField's coin. Deliberately NOT counted in
+            /// LevelData.totalCropsRequired (that's computed once at LevelData build time from the
+            /// grid's own kernel/vegetable/pellet counts, with no knowledge of this runtime-only
+            /// addition), so collecting it is optional and never blocks level completion. Null/0 for
+            /// a world that doesn't have one yet.</summary>
+            public GameObject bonusPickupPrefab;
+            public int bonusPickupCount;
+
+            /// <summary>VegPatch-only: ignores the maze grid's own tile-id-2-vs-3 split and instead
+            /// randomly picks `vegetableQuota` of the maze's crop-eligible cells (either id) to
+            /// render as the vegetable (cabbage) prefab, rendering the rest as the kernel (carrot)
+            /// prefab — guarantees exactly `vegetableQuota` cabbages per level regardless of how a
+            /// hand-authored or generated grid happened to split id 2 vs id 3, since that request
+            /// was for a fixed count ("10 cabbages") rather than whatever the grid design put there.
+            /// Doesn't change LevelData.totalCropsRequired either — it's the same total number of
+            /// crop-eligible cells either way, just relabeling which prefab renders at each one.</summary>
+            public bool useRandomVegetableQuota;
+            public int vegetableQuota;
+        }
+
         [SerializeField] private Transform mazeParent;
-        [SerializeField] private GameObject wallPrefab;
-        [SerializeField] private GameObject groundPrefab;
-        [SerializeField] private GameObject cropKernelPrefab;
-        [SerializeField] private GameObject cropVegetablePrefab;
+        [SerializeField] private List<MazeArtSet> mazeArtSets = new List<MazeArtSet>();
         [SerializeField] private GameObject powerPelletPrefab;
-        [SerializeField] private GameObject warpTunnelPrefab;
         [SerializeField] private GameObject waterTilePrefab;
-        [SerializeField] private Sprite sunflowerPelletSprite;
-        [SerializeField] private Sprite goldenWheatPelletSprite;
-        [SerializeField] private Sprite rainbowPelletSprite;
+
+        private SpriteRenderer _gameplayBackdrop;
 
         /// <summary>World units per grid cell. Raised from 1 to make tiles/sprites read bigger on
         /// screen without touching the camera's orthographicSize — since the camera's view stays a
@@ -65,9 +116,11 @@ namespace FarmFuryArcade.Core
             _currentLevel = data;
             _rarePelletsSpawned = 0;
 
+            var artSet = ResolveArtSet(data.mazeType);
             var layout = data.MazeLayout;
             var warpTunnelsByRow = new Dictionary<int, List<WarpTunnel>>();
             var waterTilesByRow = new Dictionary<int, List<WaterTile>>();
+            var forcedVegetableCells = BuildForcedVegetableCells(artSet, data, layout);
 
             for (int x = 0; x < data.mazeWidth; x++)
             {
@@ -79,29 +132,31 @@ namespace FarmFuryArcade.Core
 
                     if (tileId == TileWall)
                     {
-                        var wallGO = Instantiate(wallPrefab, worldPos, Quaternion.identity, mazeParent);
+                        var wallGO = Instantiate(artSet.wallPrefab, worldPos, Quaternion.identity, mazeParent);
                         _spawned.Add(wallGO);
                         _wallsByCell[cell] = wallGO;
                         continue;
                     }
 
-                    _spawned.Add(Instantiate(groundPrefab, worldPos, Quaternion.identity, mazeParent));
+                    _spawned.Add(Instantiate(artSet.groundPrefab, worldPos, Quaternion.identity, mazeParent));
 
                     switch (tileId)
                     {
                         case TileCropKernel:
-                            _spawned.Add(Instantiate(cropKernelPrefab, worldPos, Quaternion.identity, mazeParent));
-                            break;
                         case TileCropVegetable:
-                            _spawned.Add(Instantiate(cropVegetablePrefab, worldPos, Quaternion.identity, mazeParent));
+                            bool renderAsVegetable = artSet.useRandomVegetableQuota
+                                ? forcedVegetableCells.Contains(cell)
+                                : tileId == TileCropVegetable;
+                            var cropPrefab = renderAsVegetable ? artSet.cropVegetablePrefab : artSet.cropKernelPrefab;
+                            _spawned.Add(Instantiate(cropPrefab, worldPos, Quaternion.identity, mazeParent));
                             break;
                         case TilePowerPellet:
                             var pelletGO = Instantiate(powerPelletPrefab, worldPos, Quaternion.identity, mazeParent);
                             _spawned.Add(pelletGO);
-                            ConfigurePelletTier(pelletGO);
+                            ConfigurePelletTier(pelletGO, artSet);
                             break;
                         case TileWarpEdge:
-                            var warpGO = Instantiate(warpTunnelPrefab, worldPos, Quaternion.identity, mazeParent);
+                            var warpGO = Instantiate(artSet.warpTunnelPrefab, worldPos, Quaternion.identity, mazeParent);
                             _spawned.Add(warpGO);
                             var warp = warpGO.GetComponent<WarpTunnel>();
                             if (!warpTunnelsByRow.TryGetValue(y, out var list))
@@ -128,13 +183,199 @@ namespace FarmFuryArcade.Core
 
             PairWarpTunnels(warpTunnelsByRow);
             PairWaterTiles(waterTilesByRow);
+            ApplyBackdrop(data, artSet);
+            SpawnBonusPickups(artSet, data);
         }
 
-        /// <summary>Rolls a weighted tier (Sunflower common, GoldenWheat uncommon, Rainbow rare —
-        /// matching the "RarePellets" art naming) and applies its sprite/type to a spawned pellet.
-        /// Sprite fields are optional — a pellet with no tier art assigned keeps the prefab's
-        /// default sprite, same fallback convention as everywhere else art isn't wired yet.</summary>
-        private void ConfigurePelletTier(GameObject pelletGO)
+        /// <summary>Builds the set of crop-eligible cells (tile id 2 or 3) that should render the
+        /// vegetable prefab instead of the kernel prefab, for worlds using
+        /// MazeArtSet.useRandomVegetableQuota. Returns an empty (non-null) set when the world
+        /// doesn't use this — callers can Contains() unconditionally without a null check.</summary>
+        private static HashSet<Vector2Int> BuildForcedVegetableCells(MazeArtSet artSet, LevelData data, int[,] layout)
+        {
+            var result = new HashSet<Vector2Int>();
+            if (!artSet.useRandomVegetableQuota)
+            {
+                return result;
+            }
+
+            var cropCells = new List<Vector2Int>();
+            for (int x = 0; x < data.mazeWidth; x++)
+            {
+                for (int y = 0; y < data.mazeHeight; y++)
+                {
+                    if (layout[x, y] == TileCropKernel || layout[x, y] == TileCropVegetable)
+                    {
+                        cropCells.Add(new Vector2Int(x, y));
+                    }
+                }
+            }
+
+            Shuffle(cropCells);
+            int quota = Mathf.Min(artSet.vegetableQuota, cropCells.Count);
+            for (int i = 0; i < quota; i++)
+            {
+                result.Add(cropCells[i]);
+            }
+            return result;
+        }
+
+        /// <summary>Scatters MazeArtSet.bonusPickupCount copies of bonusPickupPrefab onto random
+        /// walkable cells (any non-wall tile id, on top of whatever else is already there) — see
+        /// MazeArtSet.bonusPickupPrefab's doc comment for why this is separate from
+        /// totalCropsRequired. A no-op for a world with no bonus pickup configured.</summary>
+        private void SpawnBonusPickups(MazeArtSet artSet, LevelData data)
+        {
+            if (artSet.bonusPickupPrefab == null || artSet.bonusPickupCount <= 0)
+            {
+                return;
+            }
+
+            var candidates = new List<Vector2Int>();
+            for (int x = 0; x < data.mazeWidth; x++)
+            {
+                for (int y = 0; y < data.mazeHeight; y++)
+                {
+                    if (data.MazeLayout[x, y] != TileWall)
+                    {
+                        candidates.Add(new Vector2Int(x, y));
+                    }
+                }
+            }
+
+            Shuffle(candidates);
+            int count = Mathf.Min(artSet.bonusPickupCount, candidates.Count);
+            for (int i = 0; i < count; i++)
+            {
+                _spawned.Add(Instantiate(artSet.bonusPickupPrefab, GridToWorld(candidates[i]), Quaternion.identity, mazeParent));
+            }
+        }
+
+        private static void Shuffle<T>(List<T> list)
+        {
+            for (int i = list.Count - 1; i > 0; i--)
+            {
+                int j = Random.Range(0, i + 1);
+                (list[i], list[j]) = (list[j], list[i]);
+            }
+        }
+
+        /// <summary>Falls back to the first configured set (CornField, always index 0 per
+        /// Phase2ProjectBuilder.WireScene) if a level's mazeType has no matching entry yet — e.g. a
+        /// future World 3/4 maze authored before its own art has been wired. Logs once per call
+        /// rather than throwing, since a missing art set is a content gap, not a fatal error.</summary>
+        private MazeArtSet ResolveArtSet(MazeType mazeType)
+        {
+            var match = mazeArtSets.Find(set => set.mazeType == mazeType);
+            if (match != null)
+            {
+                return match;
+            }
+
+            if (mazeArtSets.Count > 0)
+            {
+                Debug.LogWarning($"[TileMapRenderer] No MazeArtSet configured for {mazeType} — falling back to {mazeArtSets[0].mazeType}'s art.");
+                return mazeArtSets[0];
+            }
+
+            Debug.LogError("[TileMapRenderer] No MazeArtSets configured at all — maze will render with null prefabs.");
+            return new MazeArtSet();
+        }
+
+        /// <summary>Swaps the shared GameplayBackdrop sprite to match the level's world every time a
+        /// maze loads (ArtWiringBuilder.WireGameplayBackdrop only sets an Editor-time preview
+        /// default and doesn't run at runtime). Re-derives the "cover" scale from the sprite's own
+        /// aspect ratio each call — cheap (once per level load, not per frame) and correct even if a
+        /// future world's backdrop art has a different aspect ratio than CornField's ~16:9. See
+        /// ArtWiringBuilder.WireGameplayBackdrop's doc comment for why this formula looks the way it
+        /// does (matching camera view width vs. maze world footprint, whichever needs more coverage).</summary>
+        private void ApplyBackdrop(LevelData data, MazeArtSet artSet)
+        {
+            if (artSet.backdropSprite == null)
+            {
+                return;
+            }
+
+            EnsureGameplayBackdrop();
+            _gameplayBackdrop.sprite = artSet.backdropSprite;
+            _gameplayBackdrop.sortingOrder = -5;
+
+            float mazeWorldWidth = (data.mazeWidth - 1) * CellSize;
+            float mazeWorldHeight = (data.mazeHeight - 1) * CellSize;
+
+            const float safetyMargin = 1.6f;
+            float orthoSize = CellSize / (2f * CameraFollow.CellScreenHeightFraction);
+            float targetCameraViewWidth = 2f * orthoSize * CameraFollow.MaxSupportedAspect;
+            float requiredWidth = (Mathf.Max(mazeWorldWidth, targetCameraViewWidth) + CellSize) * safetyMargin;
+            float requiredHeight = (mazeWorldHeight + CellSize) * safetyMargin;
+
+            float imageAspect = artSet.backdropSprite.rect.width / artSet.backdropSprite.rect.height;
+            float widthUnits = Mathf.Max(requiredWidth, requiredHeight * imageAspect);
+            float heightUnits = widthUnits / imageAspect;
+            _gameplayBackdrop.transform.localScale = new Vector3(widthUnits, heightUnits, 1f);
+            _gameplayBackdrop.transform.position = new Vector3(mazeWorldWidth / 2f, mazeWorldHeight / 2f, 0f);
+        }
+
+        private void EnsureGameplayBackdrop()
+        {
+            if (_gameplayBackdrop != null)
+            {
+                return;
+            }
+
+            var go = GameObject.Find("GameplayBackdrop");
+            if (go == null)
+            {
+                go = new GameObject("GameplayBackdrop");
+                go.transform.SetParent(mazeParent, false);
+                go.AddComponent<SpriteRenderer>();
+            }
+            _gameplayBackdrop = go.GetComponent<SpriteRenderer>();
+        }
+
+        /// <summary>Called once from Phase2ProjectBuilder.WireScene to configure the full per-world
+        /// prefab list; ArtWiringBuilder.SetBackdropSprite mutates individual entries' backdropSprite
+        /// afterward once art is uploaded, rather than needing to rebuild this whole list.</summary>
+        public void SetMazeArtSets(List<MazeArtSet> sets)
+        {
+            mazeArtSets = sets;
+        }
+
+        /// <summary>Assigns (or updates) the backdrop sprite for one world's MazeArtSet, adding a
+        /// new bare entry if that MazeType hasn't been configured yet — used by
+        /// ArtWiringBuilder.WireMazeTiles once a world's backdrop art is uploaded, independent of
+        /// whether its wall/warp prefabs were wired in the same pass.</summary>
+        public void SetBackdropSprite(MazeType mazeType, Sprite sprite)
+        {
+            var match = mazeArtSets.Find(set => set.mazeType == mazeType);
+            if (match == null)
+            {
+                match = new MazeArtSet { mazeType = mazeType };
+                mazeArtSets.Add(match);
+            }
+            match.backdropSprite = sprite;
+        }
+
+        /// <summary>Assigns (or updates) the single pellet sprite for one world's MazeArtSet — see
+        /// MazeArtSet.pelletSprite's doc comment. Used by ArtWiringBuilder.WireCropsAndPellets.</summary>
+        public void SetPelletSprite(MazeType mazeType, Sprite sprite)
+        {
+            var match = mazeArtSets.Find(set => set.mazeType == mazeType);
+            if (match == null)
+            {
+                match = new MazeArtSet { mazeType = mazeType };
+                mazeArtSets.Add(match);
+            }
+            match.pelletSprite = sprite;
+        }
+
+        /// <summary>Rolls a weighted tier (Sunflower common, GoldenWheat uncommon, Rainbow rare)
+        /// purely for PowerPelletManager.GetDuration's 8s/15s/30s variety and
+        /// SpawnCollectEffectIfRare/PlayRarePelletPickupSfx's "something extra-special" cue —
+        /// applies artSet.pelletSprite regardless of which tier won, since every pellet in a given
+        /// world now shows that world's one themed look (see MazeArtSet.pelletSprite's doc
+        /// comment for why the old 3-sprite-tier visual was dropped).</summary>
+        private void ConfigurePelletTier(GameObject pelletGO, MazeArtSet artSet)
         {
             var tier = RollPelletTier();
 
@@ -160,21 +401,9 @@ namespace FarmFuryArcade.Core
             }
 
             var sr = pelletGO.GetComponent<SpriteRenderer>();
-            if (sr == null)
+            if (sr != null && artSet.pelletSprite != null)
             {
-                return;
-            }
-
-            Sprite tierSprite = tier switch
-            {
-                PowerPelletType.GoldenWheat => goldenWheatPelletSprite,
-                PowerPelletType.Rainbow => rainbowPelletSprite,
-                _ => sunflowerPelletSprite
-            };
-
-            if (tierSprite != null)
-            {
-                sr.sprite = tierSprite;
+                sr.sprite = artSet.pelletSprite;
             }
         }
 

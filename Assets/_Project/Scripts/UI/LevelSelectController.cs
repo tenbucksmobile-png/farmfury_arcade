@@ -72,6 +72,13 @@ namespace FarmFuryArcade.UI
         private Coroutine _shieldRevealRoutine;
         private int? _selectedWorld;
 
+        /// <summary>Set by OpenLevelSelectForLevel (LevelCompleteController's Play button) before
+        /// this screen is shown — consumed once by the next OpenLevelSelect() to jump straight into
+        /// that level's world tile grid (via the same reveal path a normal badge tap uses) instead
+        /// of landing on world select. Left null for every other entry point (Main Menu's Play,
+        /// LevelComplete's Home), which land on world select as usual.</summary>
+        private int? _pendingWorldToOpen;
+
         private void Awake()
         {
             backButton.onClick.AddListener(OnBackButtonClicked);
@@ -85,12 +92,35 @@ namespace FarmFuryArcade.UI
 
         /// <summary>Entry point called every time the screen becomes active (wired to OnEnable, not
         /// just Awake, so re-opening this screen after playing a level always reflects the latest
-        /// save data). Always re-opens into world select rather than remembering the last-viewed
-        /// world — which world shields are available can have changed since the player was last
-        /// here.</summary>
+        /// save data). Always rebuilds world select first — which world shields are available can
+        /// have changed since the player was last here — then, if OpenLevelSelectForLevel queued a
+        /// target level, immediately reveals that level's world tile grid on top of it (consuming
+        /// the pending target so the next plain open, e.g. via Home, lands on world select as
+        /// usual).</summary>
         public void OpenLevelSelect()
         {
             ShowWorldSelect();
+
+            if (!_pendingWorldToOpen.HasValue)
+            {
+                return;
+            }
+
+            int world = _pendingWorldToOpen.Value;
+            _pendingWorldToOpen = null;
+            int localIndex = _shownWorlds.IndexOf(world);
+            if (localIndex >= 0 && localIndex < _shieldObjects.Count)
+            {
+                SelectWorld(world, _shieldObjects[localIndex]);
+            }
+        }
+
+        /// <summary>Called by LevelCompleteController's Play button before showing this screen, so
+        /// the next OpenLevelSelect() (fired by OnEnable) jumps straight to the world containing the
+        /// level that was just unlocked, instead of the default world-select landing.</summary>
+        public void OpenLevelSelectForLevel(int levelIndex)
+        {
+            _pendingWorldToOpen = levelIndex / UnlockProgression.LevelsPerWorld;
         }
 
         /// <summary>Shows all 4 world badges in the carousel (not just unlocked ones) and hides the

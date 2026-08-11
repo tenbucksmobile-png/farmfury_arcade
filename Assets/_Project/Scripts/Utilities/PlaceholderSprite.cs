@@ -10,6 +10,7 @@ namespace FarmFuryArcade.Utilities
             new System.Collections.Generic.Dictionary<Color, Sprite>();
         private static readonly System.Collections.Generic.Dictionary<Color, Sprite> CircleCache =
             new System.Collections.Generic.Dictionary<Color, Sprite>();
+        private static Sprite _starSprite;
 
         public static Sprite Get(Color color)
         {
@@ -58,6 +59,89 @@ namespace FarmFuryArcade.Utilities
             var sprite = Sprite.Create(texture, new Rect(0, 0, size, size), new Vector2(0.5f, 0.5f), size);
             CircleCache[color] = sprite;
             return sprite;
+        }
+
+        /// <summary>A single cached white 5-point star shape (alpha-only outside the points), meant
+        /// to be tinted via the consuming Image's own `color` field rather than baked pre-colored
+        /// like Get()/GetCircle() — StarDisplay.SetStars already does exactly that (gold vs dim
+        /// grey). UIBuilderHelpers.CreateStarDisplay used to build each star from CreateImage's
+        /// baked-color square instead, which meant StarDisplay's runtime tint multiplied on top of
+        /// an already-grey baked pixel (0.35 grey * gold ≈ dark olive/brown) instead of showing clean
+        /// gold — the flat "brown box" look a 2026-08 screenshot review caught. A 2x2-supersampled
+        /// point-in-polygon rasterization gives a reasonably anti-aliased edge without needing a
+        /// dedicated star icon asset.</summary>
+        public static Sprite GetStar()
+        {
+            if (_starSprite != null)
+            {
+                return _starSprite;
+            }
+
+            const int size = 128;
+            const int outerPoints = 5;
+            float outerRadius = size * 0.5f;
+            float innerRadius = outerRadius * 0.4f;
+            var center = new Vector2(size / 2f, size / 2f);
+
+            var vertices = new Vector2[outerPoints * 2];
+            for (int i = 0; i < vertices.Length; i++)
+            {
+                // Start pointing straight up (-90 degrees), alternating outer/inner radius.
+                float angle = -Mathf.PI / 2f + i * Mathf.PI / outerPoints;
+                float radius = (i % 2 == 0) ? outerRadius : innerRadius;
+                vertices[i] = center + new Vector2(Mathf.Cos(angle), Mathf.Sin(angle)) * radius;
+            }
+
+            var texture = new Texture2D(size, size) { filterMode = FilterMode.Bilinear };
+            const int supersample = 2;
+            for (int y = 0; y < size; y++)
+            {
+                for (int x = 0; x < size; x++)
+                {
+                    int hits = 0;
+                    for (int sy = 0; sy < supersample; sy++)
+                    {
+                        for (int sx = 0; sx < supersample; sx++)
+                        {
+                            var sample = new Vector2(
+                                x + (sx + 0.5f) / supersample,
+                                y + (sy + 0.5f) / supersample);
+                            if (IsPointInPolygon(sample, vertices))
+                            {
+                                hits++;
+                            }
+                        }
+                    }
+                    float alpha = (float)hits / (supersample * supersample);
+                    texture.SetPixel(x, y, new Color(1f, 1f, 1f, alpha));
+                }
+            }
+            texture.Apply();
+
+            _starSprite = Sprite.Create(texture, new Rect(0, 0, size, size), new Vector2(0.5f, 0.5f), size);
+            return _starSprite;
+        }
+
+        /// <summary>Standard ray-casting point-in-polygon test (even-odd rule) — used by GetStar()'s
+        /// rasterizer.</summary>
+        private static bool IsPointInPolygon(Vector2 point, Vector2[] polygon)
+        {
+            bool inside = false;
+            for (int i = 0, j = polygon.Length - 1; i < polygon.Length; j = i++)
+            {
+                Vector2 a = polygon[i];
+                Vector2 b = polygon[j];
+                bool crosses = (a.y > point.y) != (b.y > point.y);
+                if (crosses)
+                {
+                    float xIntersect = (b.x - a.x) * (point.y - a.y) / (b.y - a.y) + a.x;
+                    if (point.x < xIntersect)
+                    {
+                        inside = !inside;
+                    }
+                }
+            }
+            return inside;
         }
     }
 }

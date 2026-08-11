@@ -38,6 +38,43 @@
     --font-mono: ui-monospace, "SF Mono", "Cascadia Code", Consolas, monospace;
   }
 
+  /* World 2 (Veg Patch) reskin — only the wall/warp tiles change color, since those are the two
+     tile types with dedicated per-world art (Wall_VegPatch/VegTile.png,
+     WarpTunnel_VegPatch/VeggiePatchWarp.png). Ground/crop/vegetable/pellet/factory/start/water
+     keep their universal gameplay-convention colors regardless of world, matching how
+     TileMapRenderer.MazeArtSet actually reuses Ground_CornField for VegPatch too. */
+  :root[data-world="veg"] {
+    --accent: #4c8c3f;
+    --accent-ink: #f4fff0;
+    --accent-soft: rgba(76, 140, 63, 0.14);
+    --tile-wall: #3f5c28;
+    --tile-wall-ink: #eafbe0;
+    --tile-warp: #7a4fb0;
+    --tile-warp-ink: #f6ecff;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root[data-world="veg"]:not([data-theme="light"]) {
+      --accent: #7fc26a;
+      --accent-ink: #142408;
+      --accent-soft: rgba(127, 194, 106, 0.18);
+      --tile-wall: #2c4018;
+      --tile-wall-ink: #e2f5d6;
+      --tile-warp: #5c3a8c;
+      --tile-warp-ink: #f0e4ff;
+    }
+  }
+
+  :root[data-theme="dark"][data-world="veg"] {
+    --accent: #7fc26a;
+    --accent-ink: #142408;
+    --accent-soft: rgba(127, 194, 106, 0.18);
+    --tile-wall: #2c4018;
+    --tile-wall-ink: #e2f5d6;
+    --tile-warp: #5c3a8c;
+    --tile-warp-ink: #f0e4ff;
+  }
+
   @media (prefers-color-scheme: dark) {
     :root:not([data-theme="light"]) {
       --bg: #1b140b;
@@ -153,6 +190,32 @@
     color: var(--ink-dim);
     font-size: 14px;
     max-width: 62ch;
+  }
+
+  .world-toggle {
+    display: flex;
+    gap: 8px;
+    margin-top: 10px;
+  }
+
+  .world-btn {
+    font-family: var(--font-ui);
+    font-size: 12.5px;
+    font-weight: 600;
+    padding: 7px 14px;
+    border-radius: 999px;
+    border: 1px solid var(--border-strong);
+    background: var(--surface);
+    color: var(--ink-dim);
+    cursor: pointer;
+  }
+
+  .world-btn:hover { background: var(--accent-soft); color: var(--ink); }
+
+  .world-btn.active {
+    background: var(--accent);
+    color: var(--accent-ink);
+    border-color: transparent;
   }
 
   .layout {
@@ -436,9 +499,13 @@
 
 <div class="page">
   <header class="top">
-    <span class="eyebrow">Farm Fury Arcade — Level Tool</span>
+    <span class="eyebrow" id="worldEyebrow">Farm Fury Arcade — Level Tool — World 1: Corn Field</span>
     <h1>Maze Designer</h1>
-    <p>Paint the corridor layout, then copy the export block into chat. Tile ids match the game's own convention exactly, so what you build here can be pasted straight into <code>LevelData_01</code> with no reinterpretation.</p>
+    <p>Paint the corridor layout, then copy the export block into chat. Tile ids match the game's own convention exactly, so what you build here can be pasted straight into a <code>LevelData</code> asset with no reinterpretation. Pick the world below so the export carries that along and the palette matches that world's actual wall/warp art.</p>
+    <div class="world-toggle" id="worldToggle" role="group" aria-label="World">
+      <button type="button" class="world-btn active" data-world="corn">World 1 — Corn Field</button>
+      <button type="button" class="world-btn" data-world="veg">World 2 — Veg Patch</button>
+    </div>
   </header>
 
   <div class="layout">
@@ -525,6 +592,11 @@
     { id: 8, name: "Water", glyph: "≈", sub: "Ducky-only crossing" }
   ];
 
+  var WORLDS = {
+    corn: { label: "World 1: Corn Field", mazeType: "CornField" },
+    veg: { label: "World 2: Veg Patch", mazeType: "VegPatch" }
+  };
+
   var state = {
     width: 12,
     height: 9,
@@ -532,7 +604,8 @@
     grid: [],
     selectedTile: 1,
     painting: false,
-    paintValue: 1
+    paintValue: 1,
+    world: "corn"
   };
 
   function makeWalledGrid(width, height) {
@@ -717,6 +790,7 @@
     }
 
     var lines = [];
+    lines.push("WORLD=" + WORLDS[state.world].label + " (mazeType=" + WORLDS[state.world].mazeType + ")");
     lines.push("WIDTH=" + state.width);
     lines.push("HEIGHT=" + state.height);
     lines.push("PLAYER_START=" + (playerStart ? (playerStart.x + "," + playerStart.y) : "(none placed)"));
@@ -750,6 +824,18 @@
     statRowEl.innerHTML = statParts.join("");
   }
 
+  function setWorld(world) {
+    if (!WORLDS[world]) return;
+    state.world = world;
+    document.documentElement.setAttribute("data-world", world);
+    document.getElementById("worldEyebrow").textContent = "Farm Fury Arcade — Level Tool — " + WORLDS[world].label;
+    var buttons = document.querySelectorAll(".world-btn");
+    for (var i = 0; i < buttons.length; i++) {
+      buttons[i].classList.toggle("active", buttons[i].dataset.world === world);
+    }
+    updateExport();
+  }
+
   function loadFromFlat(text) {
     var flatMatch = text.match(/FLAT=([0-9,]+)/);
     var widthMatch = text.match(/WIDTH=(\d+)/);
@@ -774,6 +860,19 @@
     state.grid = g;
     document.getElementById("widthInput").value = w;
     document.getElementById("heightInput").value = h;
+
+    // Restore world selection if the pasted export carries a mazeType= tag (older exports won't
+    // have this — those just keep whichever world is currently selected).
+    var worldMatch = text.match(/mazeType=(\w+)/);
+    if (worldMatch) {
+      for (var key in WORLDS) {
+        if (WORLDS[key].mazeType === worldMatch[1]) {
+          setWorld(key);
+          break;
+        }
+      }
+    }
+
     buildGrid();
     updateExport();
     return true;
@@ -782,7 +881,15 @@
   // --- wire up controls ---
   buildPalette();
   buildGrid();
+  setWorld(state.world);
   updateExport();
+
+  var worldButtons = document.querySelectorAll(".world-btn");
+  for (var wi = 0; wi < worldButtons.length; wi++) {
+    worldButtons[wi].addEventListener("click", function () {
+      setWorld(this.dataset.world);
+    });
+  }
 
   document.getElementById("resizeBtn").addEventListener("click", function () {
     var w = Math.max(5, Math.min(30, parseInt(document.getElementById("widthInput").value, 10) || state.width));

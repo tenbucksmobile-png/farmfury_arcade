@@ -22,6 +22,65 @@ namespace FarmFuryArcade.EditorTools
     {
         private const string ScenePath = "Assets/_Project/Scenes/Game.unity";
         private const string LevelDataPath = "Assets/_Project/ScriptableObjects/Resources/Levels/LevelData_01.asset";
+        private const string LevelData02Path = "Assets/_Project/ScriptableObjects/Resources/Levels/LevelData_02.asset";
+        private const string LevelData03Path = "Assets/_Project/ScriptableObjects/Resources/Levels/LevelData_03.asset";
+        private const string LevelData04Path = "Assets/_Project/ScriptableObjects/Resources/Levels/LevelData_04.asset";
+        // Note: LevelData_05.asset / levelNumber 4 are already used by Phase3ProjectBuilder's
+        // separate 20x20 multi-robot test maze — this project's designed 12x9 progression levels
+        // continue at 06 to avoid colliding with it. LevelData_09 onward are algorithmically
+        // generated (recursive-backtracker + extra loop edges on a half-density cell grid, which
+        // provably can't produce the open-2x2-block failure mode two earlier hand-tuned procedural
+        // attempts hit — see BuildLevel's doc comment) to fill out the full 25-level World 1 set
+        // (UnlockProgression.LevelsPerWorld) without hand-authoring every one via the maze designer.
+        private const string LevelData06Path = "Assets/_Project/ScriptableObjects/Resources/Levels/LevelData_06.asset";
+        private const string LevelData07Path = "Assets/_Project/ScriptableObjects/Resources/Levels/LevelData_07.asset";
+        private const string LevelData08Path = "Assets/_Project/ScriptableObjects/Resources/Levels/LevelData_08.asset";
+        private const string LevelData09Path = "Assets/_Project/ScriptableObjects/Resources/Levels/LevelData_09.asset";
+        private const string LevelData10Path = "Assets/_Project/ScriptableObjects/Resources/Levels/LevelData_10.asset";
+        private const string LevelData11Path = "Assets/_Project/ScriptableObjects/Resources/Levels/LevelData_11.asset";
+        private const string LevelData12Path = "Assets/_Project/ScriptableObjects/Resources/Levels/LevelData_12.asset";
+        private const string LevelData13Path = "Assets/_Project/ScriptableObjects/Resources/Levels/LevelData_13.asset";
+        private const string LevelData14Path = "Assets/_Project/ScriptableObjects/Resources/Levels/LevelData_14.asset";
+        private const string LevelData15Path = "Assets/_Project/ScriptableObjects/Resources/Levels/LevelData_15.asset";
+        private const string LevelData16Path = "Assets/_Project/ScriptableObjects/Resources/Levels/LevelData_16.asset";
+        private const string LevelData17Path = "Assets/_Project/ScriptableObjects/Resources/Levels/LevelData_17.asset";
+        private const string LevelData18Path = "Assets/_Project/ScriptableObjects/Resources/Levels/LevelData_18.asset";
+        private const string LevelData19Path = "Assets/_Project/ScriptableObjects/Resources/Levels/LevelData_19.asset";
+        private const string LevelData20Path = "Assets/_Project/ScriptableObjects/Resources/Levels/LevelData_20.asset";
+        private const string LevelData21Path = "Assets/_Project/ScriptableObjects/Resources/Levels/LevelData_21.asset";
+        private const string LevelData22Path = "Assets/_Project/ScriptableObjects/Resources/Levels/LevelData_22.asset";
+        private const string LevelData23Path = "Assets/_Project/ScriptableObjects/Resources/Levels/LevelData_23.asset";
+        private const string LevelData24Path = "Assets/_Project/ScriptableObjects/Resources/Levels/LevelData_24.asset";
+        private const string LevelData25Path = "Assets/_Project/ScriptableObjects/Resources/Levels/LevelData_25.asset";
+        // World 2 (VegPatch) — continues levelNumber sequentially after World 1's 25 (0-24), so
+        // World 2 occupies levelNumber 25-49 / LevelData_26 through LevelData_50, matching
+        // UnlockProgression.LevelsPerWorld's 25-per-world convention. Algorithmically generated
+        // the same way as World 1's LevelData_09-25 — see BuildLevel's doc comment.
+        private const string LevelData26Path = "Assets/_Project/ScriptableObjects/Resources/Levels/LevelData_26.asset";
+        private const string LevelData27Path = "Assets/_Project/ScriptableObjects/Resources/Levels/LevelData_27.asset";
+        private const string LevelData28Path = "Assets/_Project/ScriptableObjects/Resources/Levels/LevelData_28.asset";
+        private const string LevelData29Path = "Assets/_Project/ScriptableObjects/Resources/Levels/LevelData_29.asset";
+        private const string LevelData30Path = "Assets/_Project/ScriptableObjects/Resources/Levels/LevelData_30.asset";
+        private const string LevelData31Path = "Assets/_Project/ScriptableObjects/Resources/Levels/LevelData_31.asset";
+        private const string LevelData32Path = "Assets/_Project/ScriptableObjects/Resources/Levels/LevelData_32.asset";
+        private const string LevelData33Path = "Assets/_Project/ScriptableObjects/Resources/Levels/LevelData_33.asset";
+        private const string LevelData34Path = "Assets/_Project/ScriptableObjects/Resources/Levels/LevelData_34.asset";
+        private const string LevelData35Path = "Assets/_Project/ScriptableObjects/Resources/Levels/LevelData_35.asset";
+        private const string LevelData36Path = "Assets/_Project/ScriptableObjects/Resources/Levels/LevelData_36.asset";
+        private const string LevelData37Path = "Assets/_Project/ScriptableObjects/Resources/Levels/LevelData_37.asset";
+        private const string LevelData38Path = "Assets/_Project/ScriptableObjects/Resources/Levels/LevelData_38.asset";
+        private const string LevelData39Path = "Assets/_Project/ScriptableObjects/Resources/Levels/LevelData_39.asset";
+        private const string LevelData40Path = "Assets/_Project/ScriptableObjects/Resources/Levels/LevelData_40.asset";
+        private const string LevelData41Path = "Assets/_Project/ScriptableObjects/Resources/Levels/LevelData_41.asset";
+        private const string LevelData42Path = "Assets/_Project/ScriptableObjects/Resources/Levels/LevelData_42.asset";
+        private const string LevelData43Path = "Assets/_Project/ScriptableObjects/Resources/Levels/LevelData_43.asset";
+        private const string LevelData44Path = "Assets/_Project/ScriptableObjects/Resources/Levels/LevelData_44.asset";
+        private const string LevelData45Path = "Assets/_Project/ScriptableObjects/Resources/Levels/LevelData_45.asset";
+        private const string LevelData46Path = "Assets/_Project/ScriptableObjects/Resources/Levels/LevelData_46.asset";
+        private const string LevelData47Path = "Assets/_Project/ScriptableObjects/Resources/Levels/LevelData_47.asset";
+        private const string LevelData48Path = "Assets/_Project/ScriptableObjects/Resources/Levels/LevelData_48.asset";
+        private const string LevelData49Path = "Assets/_Project/ScriptableObjects/Resources/Levels/LevelData_49.asset";
+        private const string LevelData50Path = "Assets/_Project/ScriptableObjects/Resources/Levels/LevelData_50.asset";
         private const string CharacterDataPath = "Assets/_Project/ScriptableObjects/Resources/Characters/CharacterData_Cluck.asset";
         private const string CharacterPrefabFolder = "Assets/_Project/Prefabs/Characters";
         private const string BlockPrefabFolder = "Assets/_Project/Prefabs/Blocks";
@@ -29,33 +88,105 @@ namespace FarmFuryArcade.EditorTools
         [MenuItem("Farm Fury Arcade/Phase 2/Build All")]
         public static void BuildAll()
         {
-            GameObject wallPrefab = BuildWallPrefab();
+            GameObject wallPrefab = BuildWallPrefab("Wall_CornField", new Color(0.29f, 0.17f, 0.10f)); // GDD Wall Brown #4A2C1A
             GameObject groundPrefab = BuildGroundPrefab();
             GameObject cropKernelPrefab = BuildCropPrefab("Crop_Corn", CropType.Corn, 10, new Color(0.96f, 0.78f, 0.26f), 0.35f);
             GameObject cropVegetablePrefab = BuildCropPrefab("Crop_Vegetable", CropType.Vegetable, 50, new Color(0.30f, 0.69f, 0.31f), 0.5f);
             GameObject pelletCollectEffectPrefab = BuildPelletCollectEffectPrefab();
             GameObject powerPelletPrefab = BuildPowerPelletPrefab(pelletCollectEffectPrefab);
-            GameObject warpTunnelPrefab = BuildWarpTunnelPrefab();
+            GameObject warpTunnelPrefab = BuildWarpTunnelPrefab("WarpTunnel", new Color(0.55f, 0.27f, 0.68f)); // placeholder "barn door" purple
             GameObject cluckPrefab = BuildCluckPrefab();
+
+            // World 2 (VegPatch) wall/warp-tunnel prefabs — ground reuses Ground_CornField (no
+            // dedicated VegPatch ground art has been uploaded yet; soil reads fine for a vegetable
+            // patch too) per TileMapRenderer.MazeArtSet's doc comment. Placeholder colors only
+            // until ArtWiringBuilder.WireMazeTiles sets the real VegTile.png/VeggiePatchWarp.png
+            // sprites.
+            GameObject wallPrefabVegPatch = BuildWallPrefab("Wall_VegPatch", new Color(0.24f, 0.42f, 0.20f));
+            GameObject warpTunnelPrefabVegPatch = BuildWarpTunnelPrefab("WarpTunnel_VegPatch", new Color(0.55f, 0.27f, 0.68f));
+
+            // World 2 (VegPatch) crop prefabs — carrot.png takes over as the kernel-tier crop
+            // (World 1's kernel-tier prefab, Crop_Corn, keeps CornKernel.png), cabbage.png as the
+            // vegetable-tier crop. Placeholder colors only until ArtWiringBuilder sets the real
+            // sprites.
+            GameObject cropKernelPrefabVegPatch = BuildCropPrefab("Crop_Kernel_VegPatch", CropType.Corn, 10, new Color(0.85f, 0.45f, 0.15f), 0.35f);
+            GameObject cropVegetablePrefabVegPatch = BuildCropPrefab("Crop_Vegetable_VegPatch", CropType.Vegetable, 50, new Color(0.35f, 0.6f, 0.25f), 0.5f);
+
+            // World 1's bonus coin pickup — scattered on top of already-rendered tiles by
+            // TileMapRenderer.SpawnBonusPickups, not part of the maze grid itself. See
+            // TileMapRenderer.MazeArtSet.bonusPickupPrefab's doc comment for why it's excluded from
+            // LevelData.totalCropsRequired.
+            GameObject coinPrefab = BuildCoinPrefab();
 
             BuildCharacterData();
             BuildLevelData01();
+            BuildLevelData02();
+            BuildLevelData03();
+            BuildLevelData04();
+            BuildLevelData06();
+            BuildLevelData07();
+            BuildLevelData08();
+            BuildLevelData09();
+            BuildLevelData10();
+            BuildLevelData11();
+            BuildLevelData12();
+            BuildLevelData13();
+            BuildLevelData14();
+            BuildLevelData15();
+            BuildLevelData16();
+            BuildLevelData17();
+            BuildLevelData18();
+            BuildLevelData19();
+            BuildLevelData20();
+            BuildLevelData21();
+            BuildLevelData22();
+            BuildLevelData23();
+            BuildLevelData24();
+            BuildLevelData25();
+            BuildLevelData26();
+            BuildLevelData27();
+            BuildLevelData28();
+            BuildLevelData29();
+            BuildLevelData30();
+            BuildLevelData31();
+            BuildLevelData32();
+            BuildLevelData33();
+            BuildLevelData34();
+            BuildLevelData35();
+            BuildLevelData36();
+            BuildLevelData37();
+            BuildLevelData38();
+            BuildLevelData39();
+            BuildLevelData40();
+            BuildLevelData41();
+            BuildLevelData42();
+            BuildLevelData43();
+            BuildLevelData44();
+            BuildLevelData45();
+            BuildLevelData46();
+            BuildLevelData47();
+            BuildLevelData48();
+            BuildLevelData49();
+            BuildLevelData50();
 
-            WireScene(wallPrefab, groundPrefab, cropKernelPrefab, cropVegetablePrefab, powerPelletPrefab, warpTunnelPrefab, cluckPrefab);
+            WireScene(wallPrefab, groundPrefab, cropKernelPrefab, cropVegetablePrefab, powerPelletPrefab, warpTunnelPrefab, cluckPrefab,
+                wallPrefabVegPatch, warpTunnelPrefabVegPatch, cropKernelPrefabVegPatch, cropVegetablePrefabVegPatch, coinPrefab);
 
             AssetDatabase.SaveAssets();
             AssetDatabase.Refresh();
-            Debug.Log("[Phase2ProjectBuilder] Phase 2 prefabs, LevelData_01, CharacterData_Cluck, and Game.unity wiring complete.");
+            Debug.Log("[Phase2ProjectBuilder] Phase 2 prefabs, LevelData_01 through LevelData_50 (World 1 + World 2's full 25-level sets, minus the LevelData_05 robot test maze), CharacterData_Cluck, and Game.unity wiring complete.");
         }
 
-        private static GameObject BuildWallPrefab()
+        /// <summary>Generalized from a hardcoded "Wall_CornField" so World 2's Wall_VegPatch could
+        /// reuse it — see BuildAll's VegPatch wiring below.</summary>
+        private static GameObject BuildWallPrefab(string name, Color placeholderColor)
         {
-            var go = new GameObject("Wall_CornField");
+            var go = new GameObject(name);
             var sr = go.AddComponent<SpriteRenderer>();
-            sr.sprite = PlaceholderSprite.Get(new Color(0.29f, 0.17f, 0.10f)); // GDD Wall Brown #4A2C1A
+            sr.sprite = PlaceholderSprite.Get(placeholderColor);
             go.transform.localScale = Vector3.one * TileMapRenderer.CellSize;
             go.AddComponent<BoxCollider2D>();
-            return SaveAndDestroy(go, BlockPrefabFolder + "/Wall_CornField.prefab");
+            return SaveAndDestroy(go, BlockPrefabFolder + "/" + name + ".prefab");
         }
 
         private static GameObject BuildGroundPrefab()
@@ -81,6 +212,23 @@ namespace FarmFuryArcade.EditorTools
             pickup.cropType = cropType;
             pickup.points = points;
             return SaveAndDestroy(go, BlockPrefabFolder + "/" + name + ".prefab");
+        }
+
+        /// <summary>World 1's bonus coin — scattered by TileMapRenderer.SpawnBonusPickups on top of
+        /// already-rendered tiles (not tied to any grid tile id), sortingOrder 3 so it renders above
+        /// ground(-1)/crops(default 0) but below characters(5).</summary>
+        private static GameObject BuildCoinPrefab()
+        {
+            var go = new GameObject("Pickup_Coin");
+            var sr = go.AddComponent<SpriteRenderer>();
+            sr.sprite = PlaceholderSprite.Get(new Color(1f, 0.85f, 0.2f)); // placeholder gold
+            sr.sortingOrder = 3;
+            go.transform.localScale = Vector3.one * 0.5f * TileMapRenderer.CellSize;
+            var col = go.AddComponent<CircleCollider2D>();
+            col.isTrigger = true;
+            col.radius = 0.5f;
+            go.AddComponent<CoinPickup>();
+            return SaveAndDestroy(go, BlockPrefabFolder + "/Pickup_Coin.prefab");
         }
 
         private static GameObject BuildPowerPelletPrefab(GameObject collectEffectPrefab)
@@ -110,17 +258,19 @@ namespace FarmFuryArcade.EditorTools
             return SaveAndDestroy(go, BlockPrefabFolder + "/PelletCollectBurst.prefab");
         }
 
-        private static GameObject BuildWarpTunnelPrefab()
+        /// <summary>Generalized from a hardcoded "WarpTunnel" so World 2's WarpTunnel_VegPatch
+        /// could reuse it — see BuildAll's VegPatch wiring below.</summary>
+        private static GameObject BuildWarpTunnelPrefab(string name, Color placeholderColor)
         {
-            var go = new GameObject("WarpTunnel");
+            var go = new GameObject(name);
             var sr = go.AddComponent<SpriteRenderer>();
-            sr.sprite = PlaceholderSprite.Get(new Color(0.55f, 0.27f, 0.68f)); // placeholder "barn door" purple
+            sr.sprite = PlaceholderSprite.Get(placeholderColor);
             go.transform.localScale = Vector3.one * TileMapRenderer.CellSize;
             var col = go.AddComponent<BoxCollider2D>();
             col.isTrigger = true;
             col.size = Vector2.one * 0.9f;
             go.AddComponent<WarpTunnel>();
-            return SaveAndDestroy(go, BlockPrefabFolder + "/WarpTunnel.prefab");
+            return SaveAndDestroy(go, BlockPrefabFolder + "/" + name + ".prefab");
         }
 
         private static GameObject BuildCluckPrefab()
@@ -265,19 +415,34 @@ namespace FarmFuryArcade.EditorTools
             return grid;
         }
 
-        private static void BuildLevelData01()
+        /// <summary>Shared body for every BuildLevelDataNN() method — extracted once LevelData_09
+        /// onward made repeating this ~50-line block by hand impractical. Scans the parsed grid for
+        /// tile ids 2/3/4 (crop/vegetable/pellet counts), 5 (warp rows), 6 (factory box centre), and
+        /// 7 (player start) — none of those are hand-maintained coordinates, so a maze can be edited
+        /// or regenerated freely without touching this method. LevelData_09..LevelData_25 are
+        /// algorithmically generated (see the gen script this was ported from): a recursive
+        /// backtracker carves a spanning tree over cell positions on ODD-ODD grid coordinates only
+        /// (connectors between adjacent cells sit on exactly-one-even coordinates), with extra random
+        /// loop edges added afterward for multiple routes. Every EVEN-EVEN grid point is therefore
+        /// never carved by construction, and any 2x2 all-open square necessarily contains exactly one
+        /// EVEN-EVEN point — so the open-2x2-block failure mode documented above (from the two
+        /// earlier hand-tuned procedural attempts) can't occur here regardless of how many loop edges
+        /// get added. Warp portals/factory/player-start/pellet placements are applied as later
+        /// overwrites of already-open path tiles, never opening new tiles, so this invariant holds
+        /// for the finished maze too.</summary>
+        private static void BuildLevel(string path, string[] rows, int levelNumber, string levelName, MazeType mazeType = MazeType.CornField)
         {
-            Directory.CreateDirectory(Path.GetDirectoryName(LevelDataPath)!);
-            var level = AssetDatabase.LoadAssetAtPath<LevelData>(LevelDataPath);
+            Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+            var level = AssetDatabase.LoadAssetAtPath<LevelData>(path);
             if (level == null)
             {
                 level = ScriptableObject.CreateInstance<LevelData>();
-                AssetDatabase.CreateAsset(level, LevelDataPath);
+                AssetDatabase.CreateAsset(level, path);
             }
 
             const int width = 12;
             const int height = 9;
-            var grid = ParseRows(Rows, width, height);
+            var grid = ParseRows(rows, width, height);
 
             Vector2Int playerStart = default;
             var warpRows = new List<int>();
@@ -310,32 +475,770 @@ namespace FarmFuryArcade.EditorTools
                 }
             }
 
-            level.levelNumber = 0;
-            level.levelName = "The Corn Field - 01";
-            level.mazeType = MazeType.CornField;
+            level.levelNumber = levelNumber;
+            level.levelName = levelName;
+            level.mazeType = mazeType;
             level.SetMazeLayout(grid);
             level.playerStartPosition = playerStart;
             // Robots spawn from the middle of the maze — the factory box's own centre, derived from
             // whatever cells were painted id 6, not a hardcoded position. Keep
-            // Phase3ProjectBuilder.UpdateLevelData01Robots's spawnPosition in sync with this if the
-            // maze is redesigned again.
+            // Phase3ProjectBuilder.UpdateLevelData01Robots's spawnPosition in sync with this if
+            // LevelData_01 specifically is redesigned again.
             level.robotFactoryPosition = new Vector2Int((factoryMinX + factoryMaxX) / 2, (factoryMinY + factoryMaxY) / 2);
             level.baseCharacterSpeed = 4.0f;
             level.baseRobotSpeed = 3.5f;
             level.robotSpawns = new RobotSpawnData[0]; // No robots yet — Phase 3
             level.warpTunnelRows = warpRows.ToArray();
-            // Explicitly cleared, not just left untouched — UpdateLevelData01Water used to set
-            // this to stamp a (now-removed, dead-code, never-called) water gate; without resetting
-            // it here, a full regeneration would otherwise carry a stale value forward forever
-            // (this method rebuilds the grid from scratch, but never used to touch this field).
             level.waterTeleportRows = new int[0];
             level.totalCropsRequired = kernels + vegetables + pellets;
 
             EditorUtility.SetDirty(level);
         }
 
+        private static void BuildLevelData01() => BuildLevel(LevelDataPath, Rows, 0, "The Corn Field - 01");
+
+        /// <summary>LevelData_02, same maze-designer-tool-sourced/hand-authored convention as
+        /// LevelData_01's `Rows` above.</summary>
+        private static readonly string[] Rows02 =
+        {
+            "111111115111", // y=8 (top)
+            "132222342271", // y=7
+            "121211212131", // y=6
+            "121261311121", // y=5
+            "521132213225", // y=4
+            "132221222121", // y=3
+            "121111212121", // y=2
+            "123122322321", // y=1
+            "111111115111", // y=0 (bottom)
+        };
+
+        private static void BuildLevelData02() => BuildLevel(LevelData02Path, Rows02, 1, "The Corn Field - 02");
+
+        /// <summary>LevelData_03, same maze-designer-tool-sourced/hand-authored convention as
+        /// LevelData_01's `Rows` above.</summary>
+        private static readonly string[] Rows03 =
+        {
+            "111511111111", // y=8 (top)
+            "522232322125", // y=7
+            "121112112221", // y=6
+            "121362211131", // y=5
+            "121111322121", // y=4
+            "132221213131", // y=3
+            "121111212121", // y=2
+            "172322312241", // y=1
+            "111511111111", // y=0 (bottom)
+        };
+
+        private static void BuildLevelData03() => BuildLevel(LevelData03Path, Rows03, 2, "The Corn Field - 03");
+
+        /// <summary>LevelData_04, same maze-designer-tool-sourced/hand-authored convention as
+        /// LevelData_01's `Rows` above.</summary>
+        private static readonly string[] Rows04 =
+        {
+            "111111111111", // y=8 (top)
+            "522322232225", // y=7
+            "112111211111", // y=6
+            "121161312231", // y=5
+            "123221211141", // y=4
+            "121132223131", // y=3
+            "112121212121", // y=2
+            "522321317225", // y=1
+            "111111111111", // y=0 (bottom)
+        };
+
+        private static void BuildLevelData04() => BuildLevel(LevelData04Path, Rows04, 3, "The Corn Field - 04");
+
+        /// <summary>LevelData_06 (the 5th designed 12x9 progression level — numbered 06 to avoid
+        /// colliding with Phase3ProjectBuilder's separate 20x20 multi-robot test maze at
+        /// LevelData_05/levelNumber 4), same maze-designer-tool-sourced/hand-authored convention
+        /// as LevelData_01's `Rows` above.</summary>
+        private static readonly string[] Rows06 =
+        {
+            "111111111151", // y=8 (top)
+            "122222326131", // y=7
+            "121111121221", // y=6
+            "132237121121", // y=5
+            "121111123131", // y=4
+            "522223112125", // y=3
+            "121112132211", // y=2
+            "141322221321", // y=1
+            "111111111151", // y=0 (bottom)
+        };
+
+        private static void BuildLevelData06() => BuildLevel(LevelData06Path, Rows06, 5, "The Corn Field - 06");
+
+        /// <summary>LevelData_07, same convention as LevelData_06 above.</summary>
+        private static readonly string[] Rows07 =
+        {
+            "111111151111", // y=8 (top)
+            "531232221135", // y=7
+            "121711121121", // y=6
+            "121116121131", // y=5
+            "132223123221", // y=4
+            "121131121121", // y=3
+            "121222121121", // y=2
+            "131312222241", // y=1
+            "111111151111", // y=0 (bottom)
+        };
+
+        private static void BuildLevelData07() => BuildLevel(LevelData07Path, Rows07, 6, "The Corn Field - 07");
+
+        /// <summary>LevelData_08, same convention as LevelData_06 above.</summary>
+        private static readonly string[] Rows08 =
+        {
+            "111111111151", // y=8 (top)
+            "132222227121", // y=7
+            "121113151131", // y=6
+            "121416122321", // y=5
+            "131211121121", // y=4
+            "121232231121", // y=3
+            "521111111131", // y=2
+            "122232232221", // y=1
+            "111111151111", // y=0 (bottom)
+        };
+
+        private static void BuildLevelData08() => BuildLevel(LevelData08Path, Rows08, 7, "The Corn Field - 08");
+
+        // ---- LevelData_09 through LevelData_25: algorithmically generated (see BuildLevel's doc
+        // comment for the generation/validation approach). ----
+
+        private static readonly string[] Rows09 =
+        {
+            "111111111111", // y=8 (top)
+            "522222122325", // y=7
+            "121613121211", // y=6
+            "521212121225", // y=5
+            "111313121211", // y=4
+            "132222133211", // y=3
+            "131117111211", // y=2
+            "521233322345", // y=1
+            "111111111111", // y=0 (bottom)
+        };
+
+        private static void BuildLevelData09() => BuildLevel(LevelData09Path, Rows09, 8, "The Corn Field - 09");
+
+        private static readonly string[] Rows10 =
+        {
+            "151111111511", // y=8 (top)
+            "131633222311", // y=7
+            "121211111411", // y=6
+            "531212123235", // y=5
+            "121212121311", // y=4
+            "173322121211", // y=3
+            "111311121311", // y=2
+            "122223221211", // y=1
+            "111111111111", // y=0 (bottom)
+        };
+
+        private static void BuildLevelData10() => BuildLevel(LevelData10Path, Rows10, 9, "The Corn Field - 10");
+
+        private static readonly string[] Rows11 =
+        {
+            "151111111511", // y=8 (top)
+            "522232221325", // y=7
+            "121112161211", // y=6
+            "522212321325", // y=5
+            "121213121211", // y=4
+            "522212221725", // y=3
+            "121212121411", // y=2
+            "131323323211", // y=1
+            "111111111111", // y=0 (bottom)
+        };
+
+        private static void BuildLevelData11() => BuildLevel(LevelData11Path, Rows11, 10, "The Corn Field - 11");
+
+        private static readonly string[] Rows12 =
+        {
+            "111111111111", // y=8 (top)
+            "522732322235", // y=7
+            "131116111211", // y=6
+            "122222232211", // y=5
+            "131211121211", // y=4
+            "531323131225", // y=3
+            "131214121211", // y=2
+            "531212223325", // y=1
+            "111111111111", // y=0 (bottom)
+        };
+
+        private static void BuildLevelData12() => BuildLevel(LevelData12Path, Rows12, 11, "The Corn Field - 12");
+
+        private static readonly string[] Rows13 =
+        {
+            "111111111111", // y=8 (top)
+            "132212221311", // y=7
+            "121212121311", // y=6
+            "522326131225", // y=5
+            "121111121211", // y=4
+            "521233124225", // y=3
+            "131212111211", // y=2
+            "121317223311", // y=1
+            "151111111511", // y=0 (bottom)
+        };
+
+        private static void BuildLevelData13() => BuildLevel(LevelData13Path, Rows13, 12, "The Corn Field - 13");
+
+        private static readonly string[] Rows14 =
+        {
+            "151111111511", // y=8 (top)
+            "522322332235", // y=7
+            "121112121111", // y=6
+            "132332222311", // y=5
+            "121213161211", // y=4
+            "122413272311", // y=3
+            "121211111211", // y=2
+            "523232223225", // y=1
+            "111111111111", // y=0 (bottom)
+        };
+
+        private static void BuildLevelData14() => BuildLevel(LevelData14Path, Rows14, 13, "The Corn Field - 14");
+
+        private static readonly string[] Rows15 =
+        {
+            "111111111111", // y=8 (top)
+            "121222332211", // y=7
+            "121212121211", // y=6
+            "522312623225", // y=5
+            "121112111311", // y=4
+            "121222122211", // y=3
+            "111212131111", // y=2
+            "132374232211", // y=1
+            "151111111511", // y=0 (bottom)
+        };
+
+        private static void BuildLevelData15() => BuildLevel(LevelData15Path, Rows15, 14, "The Corn Field - 15");
+
+        private static readonly string[] Rows16 =
+        {
+            "151111111511", // y=8 (top)
+            "123236222311", // y=7
+            "131211111211", // y=6
+            "171422322311", // y=5
+            "111112111111", // y=4
+            "532322222225", // y=3
+            "121212111211", // y=2
+            "531223222225", // y=1
+            "111111111111", // y=0 (bottom)
+        };
+
+        private static void BuildLevelData16() => BuildLevel(LevelData16Path, Rows16, 15, "The Corn Field - 16");
+
+        private static readonly string[] Rows17 =
+        {
+            "151111111511", // y=8 (top)
+            "123222222411", // y=7
+            "131111161211", // y=6
+            "131223321311", // y=5
+            "121711121311", // y=4
+            "532212231325", // y=3
+            "111212111211", // y=2
+            "532312222235", // y=1
+            "151111111511", // y=0 (bottom)
+        };
+
+        private static void BuildLevelData17() => BuildLevel(LevelData17Path, Rows17, 16, "The Corn Field - 17");
+
+        private static readonly string[] Rows18 =
+        {
+            "151111111511", // y=8 (top)
+            "522723222225", // y=7
+            "121312121111", // y=6
+            "121232163311", // y=5
+            "121212111211", // y=4
+            "121212123311", // y=3
+            "131212121211", // y=2
+            "521222241225", // y=1
+            "111111111111", // y=0 (bottom)
+        };
+
+        private static void BuildLevelData18() => BuildLevel(LevelData18Path, Rows18, 17, "The Corn Field - 18");
+
+        private static readonly string[] Rows19 =
+        {
+            "111111111111", // y=8 (top)
+            "132622331211", // y=7
+            "121112121311", // y=6
+            "532312121245", // y=5
+            "111112131211", // y=4
+            "532332122235", // y=3
+            "131111111211", // y=2
+            "131222332711", // y=1
+            "151111111511", // y=0 (bottom)
+        };
+
+        private static void BuildLevelData19() => BuildLevel(LevelData19Path, Rows19, 18, "The Corn Field - 19");
+
+        private static readonly string[] Rows20 =
+        {
+            "111111111111", // y=8 (top)
+            "121342232211", // y=7
+            "131211121211", // y=6
+            "532622131325", // y=5
+            "121212121211", // y=4
+            "522223121225", // y=3
+            "131313121211", // y=2
+            "527333221325", // y=1
+            "151111111511", // y=0 (bottom)
+        };
+
+        private static void BuildLevelData20() => BuildLevel(LevelData20Path, Rows20, 19, "The Corn Field - 20");
+
+        private static readonly string[] Rows21 =
+        {
+            "111111111111", // y=8 (top)
+            "133222321211", // y=7
+            "131311121211", // y=6
+            "521632221225", // y=5
+            "121211121211", // y=4
+            "521322121225", // y=3
+            "121112171211", // y=2
+            "142222123311", // y=1
+            "111111111111", // y=0 (bottom)
+        };
+
+        private static void BuildLevelData21() => BuildLevel(LevelData21Path, Rows21, 20, "The Corn Field - 21");
+
+        private static readonly string[] Rows22 =
+        {
+            "111111111111", // y=8 (top)
+            "522226232235", // y=7
+            "121211111311", // y=6
+            "122212221211", // y=5
+            "121117111211", // y=4
+            "132312221211", // y=3
+            "111212131311", // y=2
+            "122422322211", // y=1
+            "151111111511", // y=0 (bottom)
+        };
+
+        private static void BuildLevelData22() => BuildLevel(LevelData22Path, Rows22, 21, "The Corn Field - 22");
+
+        private static readonly string[] Rows23 =
+        {
+            "111111111111", // y=8 (top)
+            "132436233311", // y=7
+            "121113111211", // y=6
+            "531322122225", // y=5
+            "121211121111", // y=4
+            "521312221225", // y=3
+            "111212111211", // y=2
+            "522312722325", // y=1
+            "151111111511", // y=0 (bottom)
+        };
+
+        private static void BuildLevelData23() => BuildLevel(LevelData23Path, Rows23, 22, "The Corn Field - 23");
+
+        private static readonly string[] Rows24 =
+        {
+            "111111111111", // y=8 (top)
+            "522622223235", // y=7
+            "121211111211", // y=6
+            "131223422311", // y=5
+            "131111111311", // y=4
+            "122322321711", // y=3
+            "111111121211", // y=2
+            "132222231211", // y=1
+            "151111111511", // y=0 (bottom)
+        };
+
+        private static void BuildLevelData24() => BuildLevel(LevelData24Path, Rows24, 23, "The Corn Field - 24");
+
+        private static readonly string[] Rows25 =
+        {
+            "151111111511", // y=8 (top)
+            "122316223711", // y=7
+            "131112111311", // y=6
+            "122333221211", // y=5
+            "121111141211", // y=4
+            "532222321225", // y=3
+            "111111111311", // y=2
+            "123222232211", // y=1
+            "111111111111", // y=0 (bottom)
+        };
+
+        private static void BuildLevelData25() => BuildLevel(LevelData25Path, Rows25, 24, "The Corn Field - 25");
+
+        // ---- LevelData_26 through LevelData_50: World 2 (VegPatch), algorithmically generated
+        // the same way as World 1's LevelData_09-25. ----
+
+        private static readonly string[] Rows26 =
+        {
+            "151111111511", // y=8 (top)
+            "132232622211", // y=7
+            "121112111211", // y=6
+            "121327221311", // y=5
+            "121211111211", // y=4
+            "132313222211", // y=3
+            "111112121211", // y=2
+            "134232222211", // y=1
+            "151111111511", // y=0 (bottom)
+        };
+
+        private static void BuildLevelData26() => BuildLevel(LevelData26Path, Rows26, 25, "The Veggie Patch - 01", MazeType.VegPatch);
+
+        private static readonly string[] Rows27 =
+        {
+            "151111111511", // y=8 (top)
+            "121226272311", // y=7
+            "121211121211", // y=6
+            "121312221211", // y=5
+            "121212111211", // y=4
+            "122322131311", // y=3
+            "131212131211", // y=2
+            "132423123211", // y=1
+            "151111111511", // y=0 (bottom)
+        };
+
+        private static void BuildLevelData27() => BuildLevel(LevelData27Path, Rows27, 26, "The Veggie Patch - 02", MazeType.VegPatch);
+
+        private static readonly string[] Rows28 =
+        {
+            "151111111511", // y=8 (top)
+            "133222227211", // y=7
+            "121112121211", // y=6
+            "521224221325", // y=5
+            "131612121311", // y=4
+            "121212232311", // y=3
+            "111212121211", // y=2
+            "122212222311", // y=1
+            "111111111111", // y=0 (bottom)
+        };
+
+        private static void BuildLevelData28() => BuildLevel(LevelData28Path, Rows28, 27, "The Veggie Patch - 03", MazeType.VegPatch);
+
+        private static readonly string[] Rows29 =
+        {
+            "111111111111", // y=8 (top)
+            "522326223225", // y=7
+            "121111111311", // y=6
+            "171223221211", // y=5
+            "131112111211", // y=4
+            "122322222211", // y=3
+            "111111121211", // y=2
+            "123223241211", // y=1
+            "151111111511", // y=0 (bottom)
+        };
+
+        private static void BuildLevelData29() => BuildLevel(LevelData29Path, Rows29, 28, "The Veggie Patch - 04", MazeType.VegPatch);
+
+        private static readonly string[] Rows30 =
+        {
+            "151111111511", // y=8 (top)
+            "122223633211", // y=7
+            "131211111311", // y=6
+            "521322232225", // y=5
+            "111113131111", // y=4
+            "132222173311", // y=3
+            "121212111311", // y=2
+            "541222222235", // y=1
+            "151111111511", // y=0 (bottom)
+        };
+
+        private static void BuildLevelData30() => BuildLevel(LevelData30Path, Rows30, 29, "The Veggie Patch - 05", MazeType.VegPatch);
+
+        private static readonly string[] Rows31 =
+        {
+            "151111111511", // y=8 (top)
+            "522223226225", // y=7
+            "121111131211", // y=6
+            "521233231235", // y=5
+            "121211121311", // y=4
+            "121242322711", // y=3
+            "111212131111", // y=2
+            "122313222211", // y=1
+            "151111111511", // y=0 (bottom)
+        };
+
+        private static void BuildLevelData31() => BuildLevel(LevelData31Path, Rows31, 30, "The Veggie Patch - 06", MazeType.VegPatch);
+
+        private static readonly string[] Rows32 =
+        {
+            "151111111511", // y=8 (top)
+            "522322322225", // y=7
+            "111211111311", // y=6
+            "122226234211", // y=5
+            "121211111211", // y=4
+            "522212132235", // y=3
+            "111212131211", // y=2
+            "522212322735", // y=1
+            "111111111111", // y=0 (bottom)
+        };
+
+        private static void BuildLevelData32() => BuildLevel(LevelData32Path, Rows32, 31, "The Veggie Patch - 07", MazeType.VegPatch);
+
+        private static readonly string[] Rows33 =
+        {
+            "111111111111", // y=8 (top)
+            "122622222211", // y=7
+            "121111111211", // y=6
+            "522222222235", // y=5
+            "111111121211", // y=4
+            "522213221225", // y=3
+            "141212111711", // y=2
+            "531222222225", // y=1
+            "111111111111", // y=0 (bottom)
+        };
+
+        private static void BuildLevelData33() => BuildLevel(LevelData33Path, Rows33, 32, "The Veggie Patch - 08", MazeType.VegPatch);
+
+        private static readonly string[] Rows34 =
+        {
+            "111111111111", // y=8 (top)
+            "124322223211", // y=7
+            "121111121211", // y=6
+            "522327221225", // y=5
+            "111211161211", // y=4
+            "522212232325", // y=3
+            "121212111211", // y=2
+            "122222122311", // y=1
+            "151111111511", // y=0 (bottom)
+        };
+
+        private static void BuildLevelData34() => BuildLevel(LevelData34Path, Rows34, 33, "The Veggie Patch - 09", MazeType.VegPatch);
+
+        private static readonly string[] Rows35 =
+        {
+            "111111111111", // y=8 (top)
+            "522222162225", // y=7
+            "121213121211", // y=6
+            "521212122245", // y=5
+            "121313111211", // y=4
+            "521312232235", // y=3
+            "121311121211", // y=2
+            "521232272225", // y=1
+            "111111111111", // y=0 (bottom)
+        };
+
+        private static void BuildLevelData35() => BuildLevel(LevelData35Path, Rows35, 34, "The Veggie Patch - 10", MazeType.VegPatch);
+
+        private static readonly string[] Rows36 =
+        {
+            "111111111111", // y=8 (top)
+            "132222222411", // y=7
+            "121112121311", // y=6
+            "522213226225", // y=5
+            "121111121211", // y=4
+            "122213221311", // y=3
+            "131212121211", // y=2
+            "531233127225", // y=1
+            "151111111511", // y=0 (bottom)
+        };
+
+        private static void BuildLevelData36() => BuildLevel(LevelData36Path, Rows36, 35, "The Veggie Patch - 11", MazeType.VegPatch);
+
+        private static readonly string[] Rows37 =
+        {
+            "151111111511", // y=8 (top)
+            "123223221211", // y=7
+            "141111121211", // y=6
+            "521322123735", // y=5
+            "121216131211", // y=4
+            "122212121311", // y=3
+            "111113121311", // y=2
+            "122222122211", // y=1
+            "111111111111", // y=0 (bottom)
+        };
+
+        private static void BuildLevelData37() => BuildLevel(LevelData37Path, Rows37, 36, "The Veggie Patch - 12", MazeType.VegPatch);
+
+        private static readonly string[] Rows38 =
+        {
+            "151111111511", // y=8 (top)
+            "132223222211", // y=7
+            "121211161211", // y=6
+            "132212222211", // y=5
+            "121112111311", // y=4
+            "532222131375", // y=3
+            "121411121211", // y=2
+            "531322232235", // y=1
+            "111111111111", // y=0 (bottom)
+        };
+
+        private static void BuildLevelData38() => BuildLevel(LevelData38Path, Rows38, 37, "The Veggie Patch - 13", MazeType.VegPatch);
+
+        private static readonly string[] Rows39 =
+        {
+            "151111111511", // y=8 (top)
+            "522222262225", // y=7
+            "111112111211", // y=6
+            "132212221211", // y=5
+            "121211121211", // y=4
+            "121422221211", // y=3
+            "121211111211", // y=2
+            "123323732211", // y=1
+            "151111111511", // y=0 (bottom)
+        };
+
+        private static void BuildLevelData39() => BuildLevel(LevelData39Path, Rows39, 38, "The Veggie Patch - 14", MazeType.VegPatch);
+
+        private static readonly string[] Rows40 =
+        {
+            "151111111511", // y=8 (top)
+            "531236222245", // y=7
+            "131212111111", // y=6
+            "123212222211", // y=5
+            "131111111211", // y=4
+            "523222122235", // y=3
+            "121112171211", // y=2
+            "123322321311", // y=1
+            "111111111111", // y=0 (bottom)
+        };
+
+        private static void BuildLevelData40() => BuildLevel(LevelData40Path, Rows40, 39, "The Veggie Patch - 15", MazeType.VegPatch);
+
+        private static readonly string[] Rows41 =
+        {
+            "111111111111", // y=8 (top)
+            "521326322225", // y=7
+            "121212121211", // y=6
+            "527222141335", // y=5
+            "121111131211", // y=4
+            "121223232211", // y=3
+            "111211131311", // y=2
+            "522212222325", // y=1
+            "151111111511", // y=0 (bottom)
+        };
+
+        private static void BuildLevelData41() => BuildLevel(LevelData41Path, Rows41, 40, "The Veggie Patch - 16", MazeType.VegPatch);
+
+        private static readonly string[] Rows42 =
+        {
+            "111111111111", // y=8 (top)
+            "522232322225", // y=7
+            "121112131111", // y=6
+            "121362132211", // y=5
+            "131112111311", // y=4
+            "122232122211", // y=3
+            "121212121311", // y=2
+            "132412721211", // y=1
+            "151111111511", // y=0 (bottom)
+        };
+
+        private static void BuildLevelData42() => BuildLevel(LevelData42Path, Rows42, 41, "The Veggie Patch - 17", MazeType.VegPatch);
+
+        private static readonly string[] Rows43 =
+        {
+            "151111111511", // y=8 (top)
+            "122222321311", // y=7
+            "121111121211", // y=6
+            "131222221311", // y=5
+            "141216121311", // y=4
+            "122313121311", // y=3
+            "111212121211", // y=2
+            "132272232211", // y=1
+            "151111111511", // y=0 (bottom)
+        };
+
+        private static void BuildLevelData43() => BuildLevel(LevelData43Path, Rows43, 42, "The Veggie Patch - 18", MazeType.VegPatch);
+
+        private static readonly string[] Rows44 =
+        {
+            "151111111511", // y=8 (top)
+            "122222227211", // y=7
+            "131111121311", // y=6
+            "122223261211", // y=5
+            "121211111211", // y=4
+            "121324123211", // y=3
+            "111112121111", // y=2
+            "122222222211", // y=1
+            "151111111511", // y=0 (bottom)
+        };
+
+        private static void BuildLevelData44() => BuildLevel(LevelData44Path, Rows44, 43, "The Veggie Patch - 19", MazeType.VegPatch);
+
+        private static readonly string[] Rows45 =
+        {
+            "111111111111", // y=8 (top)
+            "123226123211", // y=7
+            "121213131711", // y=6
+            "522212231325", // y=5
+            "121211111211", // y=4
+            "131222121211", // y=3
+            "111212121211", // y=2
+            "122422322211", // y=1
+            "151111111511", // y=0 (bottom)
+        };
+
+        private static void BuildLevelData45() => BuildLevel(LevelData45Path, Rows45, 44, "The Veggie Patch - 20", MazeType.VegPatch);
+
+        private static readonly string[] Rows46 =
+        {
+            "111111111111", // y=8 (top)
+            "122216233211", // y=7
+            "121312121111", // y=6
+            "132322222211", // y=5
+            "121112111211", // y=4
+            "132212231211", // y=3
+            "111112121211", // y=2
+            "534322337225", // y=1
+            "151111111511", // y=0 (bottom)
+        };
+
+        private static void BuildLevelData46() => BuildLevel(LevelData46Path, Rows46, 45, "The Veggie Patch - 21", MazeType.VegPatch);
+
+        private static readonly string[] Rows47 =
+        {
+            "151111111511", // y=8 (top)
+            "122262232211", // y=7
+            "141212111311", // y=6
+            "532232232225", // y=5
+            "121113121111", // y=4
+            "522327322325", // y=3
+            "111213111211", // y=2
+            "523313222225", // y=1
+            "111111111111", // y=0 (bottom)
+        };
+
+        private static void BuildLevelData47() => BuildLevel(LevelData47Path, Rows47, 46, "The Veggie Patch - 22", MazeType.VegPatch);
+
+        private static readonly string[] Rows48 =
+        {
+            "111111111111", // y=8 (top)
+            "534672323325", // y=7
+            "121111111211", // y=6
+            "532212222225", // y=5
+            "111113121211", // y=4
+            "523222121325", // y=3
+            "131111121211", // y=2
+            "521222232225", // y=1
+            "111111111111", // y=0 (bottom)
+        };
+
+        private static void BuildLevelData48() => BuildLevel(LevelData48Path, Rows48, 47, "The Veggie Patch - 23", MazeType.VegPatch);
+
+        private static readonly string[] Rows49 =
+        {
+            "151111111511", // y=8 (top)
+            "121322243211", // y=7
+            "131316121211", // y=6
+            "532212221325", // y=5
+            "111111111211", // y=4
+            "533212322225", // y=3
+            "121213121211", // y=2
+            "122372132211", // y=1
+            "151111111511", // y=0 (bottom)
+        };
+
+        private static void BuildLevelData49() => BuildLevel(LevelData49Path, Rows49, 48, "The Veggie Patch - 24", MazeType.VegPatch);
+
+        private static readonly string[] Rows50 =
+        {
+            "111111111111", // y=8 (top)
+            "123232222311", // y=7
+            "121211111711", // y=6
+            "521216222235", // y=5
+            "121312111211", // y=4
+            "133232231211", // y=3
+            "111111121211", // y=2
+            "522432221235", // y=1
+            "111111111111", // y=0 (bottom)
+        };
+
+        private static void BuildLevelData50() => BuildLevel(LevelData50Path, Rows50, 49, "The Veggie Patch - 25", MazeType.VegPatch);
+
         private static void WireScene(GameObject wallPrefab, GameObject groundPrefab, GameObject cropKernelPrefab,
-            GameObject cropVegetablePrefab, GameObject powerPelletPrefab, GameObject warpTunnelPrefab, GameObject cluckPrefab)
+            GameObject cropVegetablePrefab, GameObject powerPelletPrefab, GameObject warpTunnelPrefab, GameObject cluckPrefab,
+            GameObject wallPrefabVegPatch, GameObject warpTunnelPrefabVegPatch,
+            GameObject cropKernelPrefabVegPatch, GameObject cropVegetablePrefabVegPatch, GameObject coinPrefab)
         {
             EditorSceneManager.OpenScene(ScenePath);
 
@@ -367,13 +1270,43 @@ namespace FarmFuryArcade.EditorTools
 
             var tileMapSO = new SerializedObject(tileMapRenderer);
             tileMapSO.FindProperty("mazeParent").objectReferenceValue = mazeParent;
-            tileMapSO.FindProperty("wallPrefab").objectReferenceValue = wallPrefab;
-            tileMapSO.FindProperty("groundPrefab").objectReferenceValue = groundPrefab;
-            tileMapSO.FindProperty("cropKernelPrefab").objectReferenceValue = cropKernelPrefab;
-            tileMapSO.FindProperty("cropVegetablePrefab").objectReferenceValue = cropVegetablePrefab;
             tileMapSO.FindProperty("powerPelletPrefab").objectReferenceValue = powerPelletPrefab;
-            tileMapSO.FindProperty("warpTunnelPrefab").objectReferenceValue = warpTunnelPrefab;
             tileMapSO.ApplyModifiedPropertiesWithoutUndo();
+
+            // Per-world wall/ground/warp-tunnel/crop prefabs, keyed by MazeType — CornField's entry
+            // points at the exact same prefabs every level up to now has always used, so World 1's
+            // rendering is unchanged; VegPatch's entry is new (World 2). Ground has no dedicated
+            // per-world art yet, so both entries share groundPrefab (Ground_CornField's soil look
+            // reads fine for a vegetable patch too — see TileMapRenderer.MazeArtSet's doc comment).
+            // Set directly (not via SerializedObject) since List<T> fields don't need
+            // FindProperty's array plumbing here and this runs in a batch-mode Editor script, not
+            // an Inspector session that needs Undo support.
+            tileMapRenderer.SetMazeArtSets(new List<TileMapRenderer.MazeArtSet>
+            {
+                new TileMapRenderer.MazeArtSet
+                {
+                    mazeType = MazeType.CornField,
+                    wallPrefab = wallPrefab,
+                    groundPrefab = groundPrefab,
+                    warpTunnelPrefab = warpTunnelPrefab,
+                    cropKernelPrefab = cropKernelPrefab,
+                    cropVegetablePrefab = cropVegetablePrefab,
+                    bonusPickupPrefab = coinPrefab,
+                    bonusPickupCount = 1,
+                },
+                new TileMapRenderer.MazeArtSet
+                {
+                    mazeType = MazeType.VegPatch,
+                    wallPrefab = wallPrefabVegPatch,
+                    groundPrefab = groundPrefab,
+                    warpTunnelPrefab = warpTunnelPrefabVegPatch,
+                    cropKernelPrefab = cropKernelPrefabVegPatch,
+                    cropVegetablePrefab = cropVegetablePrefabVegPatch,
+                    useRandomVegetableQuota = true,
+                    vegetableQuota = 10,
+                },
+            });
+            EditorUtility.SetDirty(tileMapRenderer);
 
             // characterParent/cluckPrefab moved off SceneController onto CharacterManager in
             // Phase 4 (which now owns all player spawning, including character swapping) — only

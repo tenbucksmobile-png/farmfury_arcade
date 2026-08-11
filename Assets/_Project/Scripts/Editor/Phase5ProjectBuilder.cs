@@ -1302,10 +1302,13 @@ namespace FarmFuryArcade.EditorTools
         /// PanelArt child (same square-art-on-landscape-overlay pattern BuildPauseMenu uses, for the
         /// same reason — stretching a square card full-screen distorts it), a small star row +
         /// score readout positioned on the art's own wooden shelf (SetAnchorRect fractions measured
-        /// off the art, same convention as Pause's button fractions), and a single Btn_skip.png
-        /// button bottom-right. The previous crop/robot/time/perfect-bonus breakdown, combo
-        /// achievements, "new best" badge, and Replay/Next Level/Home button row are gone — see
-        /// LevelCompleteController's doc comment for why.</summary>
+        /// off the art, same convention as Pause's button fractions), and a 3-button row (Play/Home/
+        /// Settings — see LevelCompleteController's doc comment for what each does) near the bottom,
+        /// replacing an earlier single Btn_skip.png button in the same spot. The previous crop/
+        /// robot/time/perfect-bonus breakdown, combo achievements, and "new best" badge are gone.
+        /// LogoImage's inset matches the 100px fix already applied to Settings/Pause/Level Select
+        /// (see CLAUDE.md's device-frame-review notes) — this screen hadn't gotten that pass yet and
+        /// was still clipping against the yellow safe-area guide at the old 40px inset.</summary>
         private static (GameObject root, NewCharacterUnlockScreen unlockScreen) BuildLevelComplete(Transform canvasTransform)
         {
             var root = CreatePanel("LevelCompleteScreen", canvasTransform, Color.black);
@@ -1315,7 +1318,7 @@ namespace FarmFuryArcade.EditorTools
             var logoImage = logoImageGO.GetComponent<Image>();
             logoImage.sprite = PlaceholderSprite.Get(Color.clear);
             logoImage.preserveAspect = true;
-            AnchorTopLeft((RectTransform)logoImageGO.transform, new Vector2(300f, 170f), new Vector2(40f, -40f));
+            AnchorTopLeft((RectTransform)logoImageGO.transform, new Vector2(300f, 170f), new Vector2(100f, -40f));
 
             var panelArtGO = new GameObject("PanelArt", typeof(RectTransform), typeof(Image), typeof(AspectRatioFitter));
             panelArtGO.transform.SetParent(root.transform, false);
@@ -1338,11 +1341,20 @@ namespace FarmFuryArcade.EditorTools
             var starDisplayGO = CreateStarDisplay("Stars", shelfGO.transform, 28);
             var scoreText = CreateText("ScoreText", shelfGO.transform, "0", 34f, TextAlignmentOptions.Center, 44f, new Color(0.3f, 0.2f, 0.1f));
 
-            var skipButton = CreateButton("SkipButton", root.transform, string.Empty, new Color(0.85f, 0.55f, 0.1f), 28f, 160f, out _);
-            Object.DestroyImmediate(skipButton.transform.Find("SkipButton_Label").gameObject);
-            // AnchorBottomRight needs a negative X inset to move inward (see CreateRoundBackButton's
-            // doc comment) — this was previously +100, leaving SkipButton mostly clipped off-screen.
-            AnchorBottomRight((RectTransform)skipButton.transform, new Vector2(160f, 160f), new Vector2(-100f, 70f));
+            // Play/Home/Settings row, replacing the old single SkipButton in the same general
+            // bottom-of-card spot. CreateHorizontalGroup's childControlWidth+childForceExpandWidth
+            // (both true) split the row's width evenly across the 3 buttons — no per-button width
+            // needs setting.
+            var actionRow = CreateHorizontalGroup("ActionButtons", root.transform, 24f);
+            actionRow.GetComponent<LayoutElement>().preferredHeight = 130f;
+            AnchorBottomCenter((RectTransform)actionRow.transform, new Vector2(480f, 130f), new Vector2(0f, 70f));
+
+            var playButton = CreateButton("PlayButton", actionRow.transform, string.Empty, new Color(0.85f, 0.55f, 0.1f), 28f, 130f, out _);
+            Object.DestroyImmediate(playButton.transform.Find("PlayButton_Label").gameObject);
+            var homeButton = CreateButton("HomeButton", actionRow.transform, string.Empty, new Color(0.85f, 0.55f, 0.1f), 28f, 130f, out _);
+            Object.DestroyImmediate(homeButton.transform.Find("HomeButton_Label").gameObject);
+            var settingsButton = CreateButton("SettingsButton", actionRow.transform, string.Empty, new Color(0.85f, 0.55f, 0.1f), 28f, 130f, out _);
+            Object.DestroyImmediate(settingsButton.transform.Find("SettingsButton_Label").gameObject);
 
             // New Character Unlock overlay, layered on top of Level Complete
             var unlockRoot = CreatePanel("NewCharacterUnlockOverlay", root.transform, new Color(0.05f, 0.05f, 0.02f, 0.95f));
@@ -1371,7 +1383,9 @@ namespace FarmFuryArcade.EditorTools
             var so = new SerializedObject(controller);
             so.FindProperty("starDisplay").objectReferenceValue = starDisplayGO.GetComponent<StarDisplay>();
             so.FindProperty("scoreText").objectReferenceValue = scoreText;
-            so.FindProperty("skipButton").objectReferenceValue = skipButton;
+            so.FindProperty("playButton").objectReferenceValue = playButton;
+            so.FindProperty("homeButton").objectReferenceValue = homeButton;
+            so.FindProperty("settingsButton").objectReferenceValue = settingsButton;
             so.FindProperty("unlockScreen").objectReferenceValue = unlockScreen;
             so.ApplyModifiedPropertiesWithoutUndo();
 
@@ -1641,7 +1655,8 @@ namespace FarmFuryArcade.EditorTools
             SetRefs(chooseCharacterScreen, ("pauseMenuScreen", pause));
 
             SetRefs(levelComplete.GetComponent<LevelCompleteController>(),
-                ("levelSelectScreen", levelSelect), ("unlockScreen", unlockScreen));
+                ("levelSelectScreen", levelSelect), ("levelSelectController", levelSelect.GetComponent<LevelSelectController>()),
+                ("settingsPanel", settingsPanel), ("unlockScreen", unlockScreen));
 
             SetRefs(levelFailed.GetComponent<LevelFailedController>(),
                 ("gameplayScreen", gameplay), ("levelSelectScreen", levelSelect));

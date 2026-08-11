@@ -117,6 +117,36 @@ source of truth for what's on each cell — tile ids follow this convention:
 `LevelData.waterTeleportRows` pairs id-8 tiles per row, same convention as `warpTunnelRows`, but
 walking onto water is **not** an automatic teleport — see Characters & Abilities (SkipShotAbility).
 
+**Per-world art (`TileMapRenderer.MazeArtSet`):** wall/ground/warp-tunnel prefabs, the gameplay
+backdrop, crop prefabs, and the power-pellet sprite all used to be single fields shared globally
+across every level — fine when only CornField existed, wrong once World 2 (VegPatch) needed its
+own look. `TileMapRenderer` now holds a `List<MazeArtSet>` keyed by `MazeType`, resolved per
+`RenderMaze` call via `ResolveArtSet` (falls back to index 0 — always CornField — if a `MazeType`
+has no entry yet, e.g. an authored-but-unwired World 3). `Phase2ProjectBuilder.WireScene` builds
+the full list; `ArtWiringBuilder.SetBackdropSprite`/`SetPelletSprite` mutate individual entries
+afterward once art is uploaded, adding a bare entry if needed rather than requiring the whole list
+rebuilt. `groundPrefab` is shared across both current worlds (`Ground_CornField`'s soil reads fine
+for a vegetable patch too — no dedicated VegPatch ground art exists).
+
+Two other per-world behaviors live on `MazeArtSet`:
+- **`bonusPickupPrefab`/`bonusPickupCount`** — extra pickups scattered on random walkable cells on
+  top of whatever else is already there, not tied to any grid tile id. CornField spawns 1
+  `Pickup_Coin` per level this way (`CoinPickup` component, collected via `CropCollector` but
+  deliberately does **not** call `GameManager.NotifyCropCollected` — it's bonus, invisible to
+  `LevelData.totalCropsRequired`, and never blocks level completion).
+- **`useRandomVegetableQuota`/`vegetableQuota`** — VegPatch-only: ignores the grid's own tile-id-2-
+  vs-3 split and instead randomly picks `vegetableQuota` (10) of the maze's crop-eligible cells to
+  render as the vegetable (cabbage) prefab, the rest as the kernel (carrot) prefab. Guarantees an
+  exact cabbage count per level regardless of how a level was hand-drawn or generated;
+  `totalCropsRequired` is unaffected since it's the same total pickup count either way.
+
+Every power pellet in a maze now shows **one single sprite per world** (`MazeArtSet.pelletSprite`
+— sunflower-glow for CornField, apple for VegPatch) rather than the old 3-way Sunflower/GoldenWheat/
+Rainbow visual split. `RollPelletTier`'s random tier (and the "only 1 non-Sunflower per maze" cap)
+still drives `PowerPelletManager.GetDuration` (8s/15s/30s) and
+`SpawnCollectEffectIfRare`/`PlayRarePelletPickupSfx` exactly as before — only the sprite stopped
+varying by tier, so the duration/effect variety is invisible up front but still felt.
+
 Crop/vegetable/pellet/warp-tunnel positions are **not** stored as separate arrays — an earlier
 pass had `CropPlacement[]`/`PowerPelletPlacement[]` fields on `LevelData`, but these were removed
 in favor of scanning the grid for tile ids 2–5, since the GDD's own convention table already
@@ -1078,16 +1108,32 @@ values from the GDD's color palette where one exists (e.g. walls = Wall Brown `#
   kept-but-unlinked `WorldDivider` prefab (see the Level Select architecture section) — it's no
   longer the world badges' background, since the `*Sign.png` files already bake in the full badge
   art (shield + rope + name text) with nothing separate needed on top.
-- **Level Complete is stars + score only, not a full breakdown.** Rebuilt to the same 2026-07-31
-  Canva mockup pass: root is `World1_Cornfield.png` + `Logo.png` top-left (same as Pause/Choose
-  Character), `LevelComplete.png` is an aspect-locked `PanelArt` child (same square-art-on-
-  landscape-overlay fix Pause already had — see its bullet above), a small star row + score text
-  sit on the art's own wooden shelf (`SetAnchorRect` fractions measured off the art), and a single
-  `Btn_skip.png` button (bottom-right) replaces the old Replay/Next Level/Home row — see
-  `LevelCompleteController`'s doc comment and the "Score breakdown categories" note above for what
-  got dropped from display (not from the underlying computation). The coin icon that used to sit
-  next to a "+N coins" text (`ArtWiringBuilder.AddCoinIcon`) was removed along with that text —
-  `Collectable Coin.png` is currently unwired again.
+- **Level Complete is stars + score only, not a full breakdown.** Root is `World1_Cornfield.png` +
+  `Logo.png` top-left (same as Pause/Choose Character; inset widened 40→100 to clear the yellow
+  safe-area guide, matching the fix already applied elsewhere), `LevelComplete.png` is an
+  aspect-locked `PanelArt` child (same square-art-on-landscape-overlay fix Pause already had), a
+  small star row + score text sit on the art's own wooden shelf (`SetAnchorRect` fractions measured
+  off the art) — see the "Score breakdown categories" note above for what got dropped from display
+  (not from the underlying computation).
+  A single `Btn_skip.png` button (Level Select) briefly replaced the old Replay/Next Level/Home
+  row, then was itself replaced by a 3-button row in the same spot
+  (`Phase5ProjectBuilder.BuildLevelComplete`'s `ActionButtons` horizontal group) — see
+  `LevelCompleteController`'s doc comment:
+  - **Play** — calls `LevelSelectController.OpenLevelSelectForLevel(nextLevelIndex)` then shows
+    Level Select, jumping straight to the tile grid for the world containing the level that was
+    just unlocked (the same reveal animation a normal world-badge tap uses), rather than landing on
+    world select and making the player navigate there. This is what actually exercises the unlock
+    chain end to end after finishing a level.
+  - **Home** — shows Level Select with no pending target, landing on world select as usual.
+  - **Settings** — opens the shared `SettingsPanel` overlay (same as Main Menu/Pause).
+  The star row itself was a "brown boxes" bug caught in a screenshot review: `StarDisplay` used to
+  tint a `CreateImage`-baked solid-color square via its own `.color`, double-applying color (0.35
+  grey × gold ≈ dark olive, not clean gold). Fixed by giving `StarDisplay` real
+  `ScoreStar.png`/`ClearStar.png` sprites (`filledStarSprite`/`emptyStarSprite`, wired by
+  `ArtWiringBuilder.WireLevelCompleteStars`) with a procedural `PlaceholderSprite.GetStar()`
+  (white, star-shaped alpha) fallback if that art's ever missing — `UIBuilderHelpers.
+  CreateStarDisplay` builds each star Image directly now instead of going through `CreateImage`,
+  for the same double-tint reason.
 - **Device-frame screenshot review pass (2026-08-01)**, following up on the 2026-07-31 mockups
   above with actual on-device sizing/positioning corrections, screen by screen:
   - **Settings** — title banner enlarged (~1.23x, `TitleImage`) but kept at its original top
@@ -1201,6 +1247,17 @@ values from the GDD's color palette where one exists (e.g. walls = Wall Brown `#
   SetIconsForTargetGroup`, Standalone + the default/`Unknown` group) — a project-settings change,
   not a scene/prefab one.
 
+**Percy now has full directional art**: real Left (`Flat1.png`→`Flat2.png` flick) and Right
+(`Right1.png`→`Right2.png` flick) walk-cycle frames (`ArtWiringBuilder.WirePercy`,
+`hasDedicatedRightArt = true`) — his earlier "Left" reference (`Perccy_left.png`) was a misspelled
+filename that never actually existed on disk, so he had zero real directional art before this and
+silently fell back to front/back for every direction. His Bounce Roll ability effect
+(`Percy_effect.png`, wired onto `BounceTrail.prefab`) is also in now — Percy's art is complete.
+
+**Level Complete's star row uses real star art** (`ScoreStar.png` filled / `ClearStar.png` empty,
+`ArtWiringBuilder.WireLevelCompleteStars` → `StarDisplay.filledStarSprite`/`emptyStarSprite`) —
+see the Level Complete bullet above for the "brown boxes" double-tint bug this replaced.
+
 **Still missing / not wired:** Horace/Billy character art (Gerald now has art — see above), Drone
 robot art, a Vulnerable-state robot sprite, Gerald's Puff Up effect art (`Gerald_effect.png`,
 uploaded but unwired — see above), and the Loading Screen background (uploaded, unwired — see
@@ -1223,11 +1280,21 @@ convention that every prefab's existing `localScale` (e.g. crop 0.35, pellet 0.7
 tuned around, so no prefab scale values needed to change when real art went in.
 
 **Audio** — `Audio/Music/BackgroundMusic.mp3` is wired onto `AudioManager.backgroundMusicClip`
-(`ArtWiringBuilder.WireAudio`) and starts looping automatically in `AudioManager.Start()` as soon
-as the app launches (no fade-in — that's reserved for switching tracks later, not the initial
-start). `SaveManager.MusicVolume`'s default was lowered from `1f` to `0.5f` so it plays soft/
-background-level out of the box rather than at full volume; still fully overridable via the
-Settings slider.
+(`ArtWiringBuilder.WireAudio`). `AudioManager.Start()` calls `ResumeBackgroundMusic()` as a
+safety-net auto-play, guarded by a `_musicStarted` flag set the first time `PlayMusic` runs from
+anywhere — since Unity calls every active object's `OnEnable` before any object's `Start()`,
+`MainMenuController.OnEnable`'s `PlayLandingMusic()` always claims `_musicStarted` first when Main
+Menu is present, so this fallback can never override Main Menu's own landing track with gameplay
+music; it only matters in a context with no `MainMenuController` (e.g. a test harness).
+`SaveManager.MusicVolume`'s default was lowered from `1f` to `0.5f` so it plays soft/background-
+level out of the box rather than at full volume; still fully overridable via the Settings slider.
+
+`AudioManager.musicSourceA`/`musicSourceB`/`sfxPool` are `AudioSource` children created by
+`Phase5ProjectBuilder.WireAudioSources` (called from `AddManagers`, part of `BuildAll`) — **not**
+something `ArtWiringBuilder` can fix on its own, since it only assigns `AudioClip`/`Sprite`
+references, never creates GameObjects. If these fields are ever empty (check the `AudioManager`
+component's serialized fields directly in `Game.unity` if in doubt), every `PlayMusic`/`PlaySFX`
+call silently no-ops — re-run `Phase5ProjectBuilder.BuildAll` to fix it, not `ArtWiringBuilder`.
 
 `Audio/SFX/EatRobot.mp3` (despite living in the SFX folder, it's used as a second **music** track,
 not a one-shot) plays for the exact duration a power pellet is active — `PowerPelletManager`
@@ -1319,7 +1386,28 @@ and reopen the project normally to confirm nothing was corrupted.
   singletons — done.
 - **Phase 2** (movement & maze): tile-id-driven maze rendering, grid movement with intersection/
   reversal rules, crop/vegetable/power-pellet pickup, warp tunnels, scoring, level completion —
-  done.
+  done. **50 real levels now exist** across the first two worlds: `LevelData_01`-`25` (World 1,
+  Corn Field, `levelNumber` 0-24) and `LevelData_26`-`50` (World 2, Veg Patch, `levelNumber`
+  25-49) — `LevelData_05` stays reserved for Phase 3's separate 20x20 multi-robot test maze.
+  World 1's `01`-`04`/`06`-`08` are hand-authored via `Tools/maze-designer.html` (a standalone
+  click-to-paint web page, repo root — now has a World 1/World 2 toggle that reskins the wall/warp
+  swatch colors to match each world's real art and tags the exported grid with
+  `WORLD=... (mazeType=...)`, so a pasted-back export says which `MazeType` to build it with); the
+  rest of both worlds are algorithmically
+  generated (`Phase2ProjectBuilder`'s per-level `BuildLevelDataNN` methods, all delegating to the
+  shared `BuildLevel(path, rows, levelNumber, levelName, mazeType)` helper — a recursive-
+  backtracker maze on a half-density cell grid, provably unable to produce an open-2x2-block
+  since every EVEN-EVEN grid coordinate is never carved).
+  ⚠️ **`Phase2ProjectBuilder.BuildAll` rebuilds `Cluck.prefab` and every `LevelData` asset from
+  scratch on every run — including resetting `robotSpawns` to empty and any hand-tuned Editor-only
+  state.** Phase 3 gives `LevelData_01` its 2 robot spawns and Phase 4 adds `CharacterBase`/
+  `EggDropAbility`/etc. to Cluck; re-running Phase 2 alone **silently wipes both** back out
+  without erroring (this bit a real session: repeated Phase 2 reruns while iterating on maze/art
+  wiring left `LevelData_01.robotSpawns` empty and Cluck missing `CharacterBase`/`PlayerHealth`,
+  which broke robot spawning, character-swap, ability use, and — since `CharacterBase.Initialize`
+  is what pushes `CharacterData` into `CharacterAnimator` — even looked like "Cluck's left/right
+  walk changed"). **Always re-run the full `Phase2 → Phase3 → Phase4 → Phase5 → ArtWiringBuilder`
+  chain in order after touching Phase 2**, never just Phase 2 + ArtWiringBuilder in isolation.
 - **Phase 3** (enemies & AI): 6 robot AI types (Harvester/Scout/Patrol/Drifter/Heavy/Drone) with
   distinct targeting behaviours, Chase/Scatter/Vulnerable/Defeated/Returning state machine,
   power-pellet-driven vulnerability (`PowerPelletManager`), chain scoring (`ChaseScoreManager`),

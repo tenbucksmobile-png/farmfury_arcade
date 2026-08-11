@@ -50,6 +50,7 @@ namespace FarmFuryArcade.Core
         private int _sfxPoolCursor;
         private bool _usingSourceA = true;
         private Coroutine _musicFadeRoutine;
+        private bool _musicStarted;
 
         protected override void Awake()
         {
@@ -58,12 +59,30 @@ namespace FarmFuryArcade.Core
             ApplySfxVolume();
         }
 
+        /// <summary>Safety-net auto-play matching backgroundMusicClip's own tooltip ("started once
+        /// as soon as the app launches") — this used to be documented but never actually
+        /// implemented, so nothing played until whatever screen's OnEnable happened to call
+        /// PlayMusic first. Guarded by _musicStarted so it can never override Main Menu's own
+        /// landingMusicClip: Unity calls every active object's OnEnable before any object's Start()
+        /// runs, so MainMenuController.OnEnable (which calls PlayLandingMusic on the same launch
+        /// frame) always sets _musicStarted first when Main Menu is present — this only fires the
+        /// fallback in a context with no such screen (e.g. a test harness).</summary>
+        private void Start()
+        {
+            if (!_musicStarted)
+            {
+                ResumeBackgroundMusic();
+            }
+        }
+
         public void PlayMusic(AudioClip clip, bool fade = true)
         {
             if (clip == null)
             {
                 return;
             }
+
+            _musicStarted = true;
 
             var incoming = _usingSourceA ? musicSourceB : musicSourceA;
             var outgoing = _usingSourceA ? musicSourceA : musicSourceB;

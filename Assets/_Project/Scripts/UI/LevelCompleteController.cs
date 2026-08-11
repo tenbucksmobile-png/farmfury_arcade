@@ -14,20 +14,27 @@ namespace FarmFuryArcade.UI
     ///
     /// Rebuilt to a Canva mockup (2026-07-31): LevelComplete.png's panel only has room for the
     /// "LEVEL COMPLETE!" banner (baked into the art), 3 stars, and a score readout on its wooden
-    /// shelf — the previous crop/robot/time/perfect-bonus breakdown, combo-achievements line, "new
-    /// best" badge, and the Replay/Next Level/Home button row are gone. A single Skip button
-    /// (bottom-right, per the mockup) is the only way off this screen now — it returns to Level
-    /// Select rather than jumping straight into another level, since the coin/star/unlock data this
-    /// screen used to summarize piecemeal is already visible there (world badges reflect newly
-    /// unlocked worlds automatically on open — see LevelSelectController.IsWorldAvailable — and the
-    /// tile grid reflects the just-earned stars the same way).
+    /// shelf — the previous crop/robot/time/perfect-bonus breakdown, combo-achievements line, and
+    /// "new best" badge are gone.
+    ///
+    /// A single Skip button used to be the only way off this screen (returning to Level Select) —
+    /// replaced with 3 buttons per a later mockup: Play jumps straight into Level Select's tile grid
+    /// for the world containing the level that was just unlocked (via
+    /// LevelSelectController.OpenLevelSelectForLevel, so the player immediately sees the newly
+    /// unlocked tile rather than having to navigate there manually — this is what actually exercises
+    /// the unlock chain end to end), Home returns to Level Select's world-select state (one step
+    /// further back), and Settings opens the same SettingsPanel overlay Main Menu/Pause use.
     /// </summary>
     public class LevelCompleteController : MonoBehaviour
     {
         [SerializeField] private StarDisplay starDisplay;
         [SerializeField] private TextMeshProUGUI scoreText;
-        [SerializeField] private Button skipButton;
+        [SerializeField] private Button playButton;
+        [SerializeField] private Button homeButton;
+        [SerializeField] private Button settingsButton;
         [SerializeField] private GameObject levelSelectScreen;
+        [SerializeField] private LevelSelectController levelSelectController;
+        [SerializeField] private SettingsPanel settingsPanel;
         [SerializeField] private NewCharacterUnlockScreen unlockScreen;
 
         private const float StarStepSeconds = 0.35f;
@@ -36,7 +43,9 @@ namespace FarmFuryArcade.UI
 
         private void Awake()
         {
-            skipButton.onClick.AddListener(Skip);
+            playButton.onClick.AddListener(Play);
+            homeButton.onClick.AddListener(Home);
+            settingsButton.onClick.AddListener(() => settingsPanel.Show());
         }
 
         private void OnEnable()
@@ -79,6 +88,18 @@ namespace FarmFuryArcade.UI
             scoreText.text = target.ToString("N0");
         }
 
-        private void Skip() => SceneTransitionManager.Instance.ShowOnly(levelSelectScreen);
+        /// <summary>Targets the level right after the one just completed — the one whose unlock
+        /// this celebration is actually about, per UnlockProgression's "predecessor needs 1+ star"
+        /// chain.</summary>
+        private void Play()
+        {
+            int nextLevelIndex = GameManager.Instance.CurrentLevel != null
+                ? GameManager.Instance.CurrentLevel.levelNumber + 1
+                : 0;
+            levelSelectController.OpenLevelSelectForLevel(nextLevelIndex);
+            SceneTransitionManager.Instance.ShowOnly(levelSelectScreen);
+        }
+
+        private void Home() => SceneTransitionManager.Instance.ShowOnly(levelSelectScreen);
     }
 }

@@ -37,6 +37,17 @@ namespace FarmFuryArcade.Gameplay
                     AudioManager.Instance?.PlayRarePelletPickupSfx();
                 }
                 Destroy(other.gameObject);
+                return;
+            }
+
+            var coin = other.GetComponent<CoinPickup>();
+            if (coin != null)
+            {
+                // Deliberately does NOT call GameManager.NotifyCropCollected — see CoinPickup's
+                // doc comment for why it's excluded from LevelData.totalCropsRequired.
+                SaveManager.Instance?.AddCoins(coin.coinValue);
+                AudioManager.Instance?.PlayCornPickupSfx(); // no dedicated coin SFX uploaded yet
+                Destroy(other.gameObject);
             }
         }
     }

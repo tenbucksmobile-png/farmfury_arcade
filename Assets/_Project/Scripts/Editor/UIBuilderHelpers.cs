@@ -323,10 +323,25 @@ namespace FarmFuryArcade.EditorTools
             var rowGO = CreateHorizontalGroup(name, parent, 4f);
             rowGO.GetComponent<LayoutElement>().preferredHeight = starSize;
 
+            // Built directly (not via CreateImage) — CreateImage bakes its color into a solid
+            // square sprite, which StarDisplay.SetStars then ALSO tints at runtime, double-applying
+            // color (0.35 grey * gold ≈ dark olive/brown, not clean gold — the flat "brown box" look
+            // a 2026-08 screenshot review caught). PlaceholderSprite.GetStar() is plain white with a
+            // star-shaped alpha channel, so Image.color is the only color source and actually
+            // reads as a star, not a square.
             var images = new Image[3];
             for (int i = 0; i < 3; i++)
             {
-                images[i] = CreateImage($"{name}_Star{i}", rowGO.transform, new Color(0.35f, 0.35f, 0.35f), starSize, starSize);
+                var starGO = new GameObject($"{name}_Star{i}", typeof(RectTransform), typeof(Image), typeof(LayoutElement));
+                starGO.transform.SetParent(rowGO.transform, false);
+                var img = starGO.GetComponent<Image>();
+                img.sprite = PlaceholderSprite.GetStar();
+                img.preserveAspect = true;
+                img.color = new Color(0.35f, 0.35f, 0.35f); // StarDisplay.EmptyColor's default until SetStars runs
+                var le = starGO.GetComponent<LayoutElement>();
+                le.preferredWidth = starSize;
+                le.preferredHeight = starSize;
+                images[i] = img;
             }
 
             var starDisplay = rowGO.gameObject.AddComponent<FarmFuryArcade.UI.StarDisplay>();
