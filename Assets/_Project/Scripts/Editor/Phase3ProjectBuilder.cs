@@ -44,12 +44,13 @@ namespace FarmFuryArcade.EditorTools
             AddPlayerHealthToCluck();
             UpdateLevelData01Robots();
             BuildLevelData05();
+            AssignRobotSpawnsToRemainingLevels();
 
             WireScene(harvesterPrefab, scoutPrefab, patrolPrefab, drifterPrefab, heavyPrefab, dronePrefab);
 
             AssetDatabase.SaveAssets();
             AssetDatabase.Refresh();
-            Debug.Log("[Phase3ProjectBuilder] Phase 3 robot prefabs, RobotData, LevelData_01/05, and Game.unity wiring complete.");
+            Debug.Log("[Phase3ProjectBuilder] Phase 3 robot prefabs, RobotData, LevelData_01/05 plus robot spawns for every other real level, and Game.unity wiring complete.");
         }
 
         private static GameObject BuildRobotPrefab(string name, System.Type robotComponentType, Color color)
@@ -322,6 +323,68 @@ namespace FarmFuryArcade.EditorTools
             };
 
             EditorUtility.SetDirty(level);
+        }
+
+        private const string LevelsFolder = "Assets/_Project/ScriptableObjects/Resources/Levels";
+
+        /// <summary>Robot type mix in escalating difficulty order — used to pick the first N types
+        /// for a level's robot count. Heavy/Drone (tankier/wall-ignoring) are held back for a
+        /// world's own later levels rather than appearing from level 1.</summary>
+        private static readonly RobotType[] DifficultyOrder =
+        {
+            RobotType.Harvester, RobotType.Scout, RobotType.Patrol, RobotType.Drifter, RobotType.Heavy, RobotType.Drone
+        };
+
+        /// <summary>Every real level except LevelData_01 (hand-tuned by UpdateLevelData01Robots)
+        /// and LevelData_05 (the dedicated robot-count test maze, hand-tuned by BuildLevelData05)
+        /// used to ship with `robotSpawns = new RobotSpawnData[0]` — Phase2ProjectBuilder.BuildLevel
+        /// always sets that as a placeholder ("No robots yet — Phase 3") and nothing ever filled it
+        /// in for levels 02-04/06-50, so no robots ever spawned there. Applies a difficulty curve
+        /// that resets per world (position-in-world = levelNumber % 25, matching
+        /// UnlockProgression.LevelsPerWorld's own convention): 2 robots for a world's first 5
+        /// levels, 3 for the next 7, 4 for the next 7, 5 for the last 6 — all spawned at the level's
+        /// own robotFactoryPosition (derived from the maze, never hardcoded), staggered 4s apart
+        /// starting at 2s, matching LevelData_01's own 2s/6s Harvester/Scout timing.</summary>
+        private static void AssignRobotSpawnsToRemainingLevels()
+        {
+            for (int n = 1; n <= 50; n++)
+            {
+                if (n == 1 || n == 5)
+                {
+                    continue;
+                }
+
+                string path = $"{LevelsFolder}/LevelData_{n:00}.asset";
+                var level = AssetDatabase.LoadAssetAtPath<LevelData>(path);
+                if (level == null)
+                {
+                    continue;
+                }
+
+                int positionInWorld = level.levelNumber % 25;
+                int robotCount = positionInWorld switch
+                {
+                    < 5 => 2,
+                    < 12 => 3,
+                    < 19 => 4,
+                    _ => 5
+                };
+
+                var factory = level.robotFactoryPosition;
+                var spawns = new RobotSpawnData[robotCount];
+                for (int i = 0; i < robotCount; i++)
+                {
+                    spawns[i] = new RobotSpawnData
+                    {
+                        robotType = DifficultyOrder[i],
+                        spawnDelay = 2f + i * 4f,
+                        spawnPosition = factory
+                    };
+                }
+
+                level.robotSpawns = spawns;
+                EditorUtility.SetDirty(level);
+            }
         }
 
         private static void WireScene(GameObject harvesterPrefab, GameObject scoutPrefab, GameObject patrolPrefab,

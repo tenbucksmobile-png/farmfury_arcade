@@ -1408,6 +1408,16 @@ and reopen the project normally to confirm nothing was corrupted.
   is what pushes `CharacterData` into `CharacterAnimator` — even looked like "Cluck's left/right
   walk changed"). **Always re-run the full `Phase2 → Phase3 → Phase4 → Phase5 → ArtWiringBuilder`
   chain in order after touching Phase 2**, never just Phase 2 + ArtWiringBuilder in isolation.
+  **Every real level now has robot spawns**, not just `LevelData_01`/`_05` — until this session
+  `Phase2ProjectBuilder.BuildLevel` always stamped `robotSpawns = []` ("No robots yet — Phase 3")
+  and nothing ever filled it in for the other 48 levels, so no robots ever spawned outside of
+  those two. `Phase3ProjectBuilder.AssignRobotSpawnsToRemainingLevels` now loops every
+  `LevelData_01`-`50` (skipping `01`/`05`, hand-tuned separately) and applies a difficulty curve
+  that resets per world (`levelNumber % 25`): 2 robots (Harvester+Scout, matching `LevelData_01`'s
+  own tuning) for a world's first 5 levels, 3 for the next 7, 4 for the next 7, 5 for the last 6 —
+  all spawned at that level's own `robotFactoryPosition`, staggered 4s apart starting at 2s. Purely
+  a first-pass default (like the algorithmically generated mazes themselves); retune per-level via
+  the same method if the curve plays wrong.
 - **Phase 3** (enemies & AI): 6 robot AI types (Harvester/Scout/Patrol/Drifter/Heavy/Drone) with
   distinct targeting behaviours, Chase/Scatter/Vulnerable/Defeated/Returning state machine,
   power-pellet-driven vulnerability (`PowerPelletManager`), chain scoring (`ChaseScoreManager`),

@@ -20,7 +20,13 @@ MonoBehaviour:
   mazeHeight: 9
   playerStartPosition: {x: 10, y: 7}
   robotFactoryPosition: {x: 4, y: 5}
-  robotSpawns: []
+  robotSpawns:
+  - robotType: 0
+    spawnDelay: 2
+    spawnPosition: {x: 4, y: 5}
+  - robotType: 1
+    spawnDelay: 6
+    spawnPosition: {x: 4, y: 5}
   warpTunnelRows: 000000000400000008000000
   waterTeleportRows: 
   totalCropsRequired: 46
