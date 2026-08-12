@@ -50,6 +50,11 @@ namespace FarmFuryArcade.UI
                 ? $"Speed: {data.movementSpeed:F1}\nAbility: {data.specialAbility}\nCooldown: {data.abilityCooldown:F0}s\n{data.abilityDescription}"
                 : string.Empty;
 
+            // Must activate before starting any coroutine — this overlay starts inactive
+            // (Phase5ProjectBuilder.BuildLevelComplete), and StartCoroutine throws on an inactive
+            // GameObject.
+            gameObject.SetActive(true);
+
             if (characterCardImage != null)
             {
                 var cardArt = data != null ? data.selectCardArt : null;
@@ -66,8 +71,6 @@ namespace FarmFuryArcade.UI
                 if (_cardRevealRoutine != null) StopCoroutine(_cardRevealRoutine);
                 _cardRevealRoutine = StartCoroutine(RevealCardRoutine());
             }
-
-            gameObject.SetActive(true);
 
             if (goldenParticlesPlaceholder != null)
             {
