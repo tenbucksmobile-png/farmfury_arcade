@@ -360,21 +360,32 @@ ability:
 
 | Character | Ability | Effect | Cooldown |
 |---|---|---|---|
-| Cluck | EggDrop | 1 egg at her current position; any robot walking over it is stunned 5s (not defeated) | 15s |
-| Bessie | GroundSlam | Stuns every robot within 2 tiles instantly; shockwave + camera shake | 20s |
+| Cluck | EggDrop | 1 egg at her current position; any robot walking over it is instantly defeated | 15s |
+| Bessie | GroundSlam | Instantly defeats every robot within 2 tiles; shockwave + camera shake | 20s |
 | Percy | BounceRoll | Next wall he hits becomes walkable 2s (glows while phaseable) | 30s |
 | Woolly | TripleClone | Spawns 2 AI clones (`WoollyClone`) that wander/collect crops for 10s | 25s |
 | Ducky | SkipShot | Teleports across an adjacent unused water tile pair — once per pair per maze | 2s (debounce only — the real gate is per-pair, see `WaterTile.Used`) |
-| Horace | RearKick | Nearest robot within 3 tiles (Manhattan) knocked back 4 tiles, stunned 2s on landing | 18s |
+| Horace | RearKick | Nearest robot within 3 tiles (Manhattan) knocked back 4 tiles, instantly defeated on landing | 18s |
 | Gerald | PuffUp | 3x scale, 5s, instantly defeats any robot touched, half speed, can't use warp tunnels | 45s |
 | Billy | HeadbuttThrough | Permanently destroys the next 3 walls he hits | 40s |
 
+**Every ability-created robot hazard now defeats on contact, not just stuns** (`ForceDefeat`,
+bypassing the Vulnerable requirement — same convention `PuffUpAbility` already used) — a later
+gameplay rule change: a deployed ability effect a robot runs through should kill it outright.
+Applies to `EggHazard`, `GroundSlamAbility`, and `RobotBase.KnockBack` (used by `RearKickAbility`,
+which dropped its now-unused stun-duration parameter accordingly). The only two characters this
+doesn't touch are Percy (`BounceRoll`) and Ducky (`SkipShot`), neither of which has a robot-facing
+hazard to begin with.
+
 **Robot mechanics abilities lean on** (`RobotBase`, additive Phase 4): `Stun(duration)`/
-`IsStunned` (freezes state-cycle + movement, ignored by Defeated/Returning "eyes"),
-`KnockBack(direction, tiles, stunAfter)`/`IsKnockedBack` (coroutine slide, stops early at a wall,
-then stuns), `ForceDefeat()` (bypasses the Vulnerable-state requirement `RegisterHit` has — used
-by PuffUp only). `RobotVisual` tints stunned/knocked-back robots with a dark flicker, same
-placeholder-colour convention as Vulnerable/Defeated.
+`IsStunned` (freezes state-cycle + movement, ignored by Defeated/Returning "eyes" — still used by
+`ComboSystem`'s Full Fury, the one remaining stun-only effect), `KnockBack(direction, tiles)`/
+`IsKnockedBack` (coroutine slide, stops early at a wall, then calls `ForceDefeat()` — no longer
+takes a stun-duration parameter), `ForceDefeat()` (bypasses the Vulnerable-state requirement
+`RegisterHit` has — used by `PuffUpAbility`, `EggHazard`, `GroundSlamAbility`, and `KnockBack`).
+`RobotVisual` tints stunned/knocked-back robots with a dark flicker, same placeholder-colour
+convention as Vulnerable/Defeated (knocked-back robots are mid-slide only briefly before landing
+into `ForceDefeat`, so that tint is on-screen only for the slide itself now).
 
 **Wall mutation** lives on `TileMapRenderer`, not `LevelData` — `SetTemporaryWalkable(cell, bool)`
 overrides a single cell's walkability without touching the maze asset (Percy calls it, then
@@ -644,12 +655,27 @@ Reached from Main Menu's Play button. Two states on one screen (`LevelSelectScre
   is anchored 40px down with a 320px height, so its real bottom edge sits at `360px` from the
   screen top, 160px past where the old 200px reserve let scroll content start; the grid's first
   row was rendering crowded right against/under the banner as a result. 420px clears it with
-  ~60px of breathing room. Auto-scrolled to centre the highest-unlocked level on open. The grid's
-  own container GameObject (`LevelSelectController.PopulateLevelGrid`'s `section`) gets an
-  explicit `LayoutElement` with a computed `preferredWidth`/`preferredHeight` (rows × cellSize +
-  spacing + padding) — the parent `Content`'s `VerticalLayoutGroup` has `childControlHeight/Width = false` (see
-  `CreateVerticalScrollView`), so without this the `ContentSizeFitter` could under-report the total
-  height and the `ScrollRect` would have nothing to scroll. Tile sprites are fully state-driven
+  ~60px of breathing room. Auto-scrolled to centre the highest-unlocked level on open.
+
+  **The grid used to be effectively unscrollable past its first ~1 row** ("shoots back", can't
+  reach lower-numbered — i.e. more recently unlocked — levels): the grid's own container GameObject
+  (`LevelSelectController.PopulateLevelGrid`'s `section`) used to rely on an explicit
+  `LayoutElement` with a computed `preferredWidth`/`preferredHeight` (rows × cellSize + spacing +
+  padding), on the assumption that the parent `Content`'s `VerticalLayoutGroup` — which has
+  `childControlHeight/Width = false` (see `CreateVerticalScrollView`) — would "read this section's
+  size directly" from that `LayoutElement` instead of forcing one. That assumption was wrong:
+  Unity's `HorizontalOrVerticalLayoutGroup.GetChildSizes`, when `controlSize` (i.e.
+  `childControlHeight`) is false, reads the child's raw `RectTransform.sizeDelta` directly and
+  never calls `LayoutUtility.GetPreferredSize` at all — so the `LayoutElement` was silently
+  ignored, and `section`'s `sizeDelta` stayed at Unity's GameObject-creation default (100×100)
+  forever. `Content`'s `ContentSizeFitter` therefore only ever grew tall enough for a 100px-tall
+  child regardless of how many rows of tiles were actually inside it — confirmed via an Edit-mode
+  diagnostic (`SceneCleanupBuilder.DiagnoseLevelSelectScrollRange`, which calls `PopulateLevelGrid`
+  directly via reflection and measures `Content` vs `Viewport` height with no Play mode needed —
+  headless Play mode reliably hangs at Play-mode entry in this environment, before any game code
+  runs, so this sidesteps that entirely). Fixed by setting `section.sizeDelta` directly instead of
+  relying on a `LayoutElement` a `childControlHeight=false` parent will never actually read. Tile
+  sprites are fully state-driven
   (`LevelTileController.spriteLocked/spriteUnlocked/sprite1Star/sprite2Stars/sprite3Stars`, wired
   from `LevelTile_Locked/unlocked-notplayed/1Star/2Stars/3Stars.png`) — no code changes needed
   when new levels are authored, a slot with no real `LevelData` just renders locked. Tapping a
@@ -1148,15 +1174,18 @@ values from the GDD's color palette where one exists (e.g. walls = Wall Brown `#
 - **Level Complete is stars + score only, not a full breakdown.** Root is `World1_Cornfield.png` +
   `Logo.png` top-left (same as Pause/Choose Character; inset widened 40→100 to clear the yellow
   safe-area guide, matching the fix already applied elsewhere), `LevelComplete.png` is an
-  aspect-locked `PanelArt` child (same square-art-on-landscape-overlay fix Pause already had), a
-  small star row + score text sit on the art's own wooden shelf (`SetAnchorRect` fractions measured
-  off the art) — see the "Score breakdown categories" note above for what got dropped from display
-  (not from the underlying computation).
+  aspect-locked `PanelArt` child (same square-art-on-landscape-overlay fix Pause already had). The
+  star row + score text (`ShelfContent`, a vertical group) live in the card art's actual blank
+  middle area — not the low band near the horseshoe/star-rating frame decoration, which is where
+  an earlier pass placed them by mistake (band was 0.06–0.30 up the card, overlapping that
+  decoration; moved to 0.36–0.62, centred in the genuinely blank zone). Score font enlarged twice
+  (34→52→66pt) after repeated feedback that it read as too small/low — see the "Score breakdown
+  categories" note above for what got dropped from display (not from the underlying computation).
   A single `Btn_skip.png` button (Level Select) briefly replaced the old Replay/Next Level/Home
-  row, then was itself replaced by a 3-button row in the same spot
-  (`Phase5ProjectBuilder.BuildLevelComplete`'s `ActionButtons` horizontal group, anchored
-  bottom-right — moved off bottom-center per a device-frame review, which sat outside the yellow
-  safe-area guide on a real aspect) — see `LevelCompleteController`'s doc comment:
+  row, then was itself replaced by a 3-button Play/Home/Settings row, which was later **split**:
+  Play now stands alone bottom-left (`AnchorBottomLeft`, matching the safe-area inset every other
+  screen's back button uses), Home/Settings stay paired in a bottom-right `ActionButtons` group —
+  see `LevelCompleteController`'s doc comment for what each does:
   - **Play** — calls `LevelSelectController.OpenLevelSelectForLevel(nextLevelIndex)` then shows
     Level Select, jumping straight to the tile grid for the world containing the level that was
     just unlocked (the same reveal animation a normal world-badge tap uses), rather than landing on
@@ -1164,6 +1193,13 @@ values from the GDD's color palette where one exists (e.g. walls = Wall Brown `#
     chain end to end after finishing a level.
   - **Home** — shows Level Select with no pending target, landing on world select as usual.
   - **Settings** — opens the shared `SettingsPanel` overlay (same as Main Menu/Pause).
+
+  **Gotcha hit when Play was split out of `ActionButtons`:** `ArtWiringBuilder.WireButtons` still
+  targeted the old path `LevelCompleteScreen/ActionButtons/PlayButton` — since `SetImageSprite`
+  fails silently (just a console warning) rather than throwing, Play kept rendering as its
+  placeholder solid-color square with no error surfaced anywhere obvious. Fixed by updating the
+  path to `LevelCompleteScreen/PlayButton`; worth checking for this same silent-path-mismatch
+  pattern any time a button gets reparented.
   The star row itself was a "brown boxes" bug caught in a screenshot review: `StarDisplay` used to
   tint a `CreateImage`-baked solid-color square via its own `.color`, double-applying color (0.35
   grey × gold ≈ dark olive, not clean gold). Fixed by giving `StarDisplay` real
@@ -1172,6 +1208,22 @@ values from the GDD's color palette where one exists (e.g. walls = Wall Brown `#
   (white, star-shaped alpha) fallback if that art's ever missing — `UIBuilderHelpers.
   CreateStarDisplay` builds each star Image directly now instead of going through `CreateImage`,
   for the same double-tint reason.
+- **New Character Unlock overlay was fully rebuilt** to a Canva mockup — full-screen
+  `World1_Cornfield.png` backdrop, `Logo.png` top-left, an `unlocked.png` wood-sign banner
+  top-centre, and the character's own `selectCardArt` (the same per-character framed card
+  `ChooseCharacterScreen` uses, e.g. `Percy_Pig.png`) large and centred. That art already has the
+  character's name baked in (confirmed by opening the file directly — the frame, portrait circle,
+  *and* a "Percy" nameplate are all one image), so this screen needs no separate name/title/stats
+  text at all — the old version's `bannerText`/`titleText`/`statsText`/`goldenParticlesPlaceholder`
+  fields and their GameObjects are gone entirely, not just hidden. No Continue button either — the
+  mockup has none; `NewCharacterUnlockScreen` auto-dismisses itself after `autoDismissSeconds`
+  (2.5s) instead. The card still fades+scales in on reveal (`cardRevealStartScale` 0.4→1, same
+  "pop into view" convention `CharacterSelectCard`'s selection animation uses) — an even earlier
+  version of this reveal used a Y-axis RectTransform rotation ("card flip"), which read as broken
+  rather than 3D: this Canvas renders in `RenderMode.ScreenSpaceOverlay` (no perspective camera at
+  all), so a rotated RectTransform is drawn via a flat orthographic squash with zero depth cue —
+  for most of the rotation sweep the card was a razor-thin, unreadable sliver overlapping
+  neighbouring UI. Scale has no equivalent degenerate mid-state.
 - **Device-frame screenshot review pass (2026-08-01)**, following up on the 2026-07-31 mockups
   above with actual on-device sizing/positioning corrections, screen by screen:
   - **Settings** — title banner enlarged (~1.23x, `TitleImage`) but kept at its original top
@@ -1259,8 +1311,9 @@ values from the GDD's color palette where one exists (e.g. walls = Wall Brown `#
   same convention crops/pellets already used) now use `CornTiles.png`/`FloorTile.png`/
   `WarpTile.png` respectively instead of `PlaceholderSprite` colour squares — each uploaded file is
   a single complete tile image, not a tileset, so no atlas-slicing was needed.
-- **Card frames** — `Card.png` wired onto the New Character Unlock screen's card `Image` and the
-  `RosterCard` prefab's root `Image`.
+- **Card frames** — `Card.png` wired onto the `RosterCard` prefab's root `Image`. The New Character
+  Unlock screen no longer has a generic card frame of its own to wire — see its own rebuilt-screen
+  bullet further down.
 - **Character/robot portrait sprites** — `CharacterData.portraitSprite`/`RobotData.portraitSprite`
   (fields that existed since Phase 4/3 but were never populated) now get each character/robot's
   front sprite, wired alongside their walk-cycle/directional art in

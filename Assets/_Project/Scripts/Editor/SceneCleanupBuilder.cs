@@ -1,8 +1,11 @@
 using System.Linq;
+using System.Reflection;
 using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
+using UnityEngine.UI;
 using FarmFuryArcade.Core;
+using FarmFuryArcade.UI;
 using FarmFuryArcade.Utilities;
 
 namespace FarmFuryArcade.EditorTools
@@ -138,6 +141,143 @@ namespace FarmFuryArcade.EditorTools
             Debug.Log($"[SceneCleanupBuilder] Set 3 stars on levels 0-{UnlockProgression.TotalLevels - 1} " +
                       "so every real level (World 1 + World 2) is unlocked and tappable in Level Select. " +
                       "Press Play and open Level Select — World 2's badge is now selectable.");
+        }
+
+        private static int _sfxDiagFrame;
+
+        /// <summary>Minimal, self-contained Play Mode check for "SFX doesn't play" reports — opens
+        /// the scene, enters Play mode, waits a few frames for AudioManager/SaveManager to Awake,
+        /// fires PlayCornPickupSfx() directly, then checks AudioManager.IsAnySfxPlaying(). Exits
+        /// after ~8 frames rather than running any Phase*Test battery — RunPlayModeVerification
+        /// (which runs the full Phase1-5Test chain over up to 30 real seconds) repeatedly hung/
+        /// crashed in this environment before ever reaching a result; this avoids that path
+        /// entirely so the SFX question actually gets answered.</summary>
+        [MenuItem("Farm Fury Arcade/Debug/Run SFX Playback Diagnostic")]
+        public static void RunSfxPlaybackDiagnostic()
+        {
+            EditorSceneManager.OpenScene(ScenePath);
+            _sfxDiagFrame = 0;
+            EditorApplication.update += OnSfxDiagUpdate;
+            EditorApplication.isPlaying = true;
+        }
+
+        private static void OnSfxDiagUpdate()
+        {
+            if (!EditorApplication.isPlaying)
+            {
+                return;
+            }
+
+            _sfxDiagFrame++;
+
+            if (_sfxDiagFrame == 5)
+            {
+                var audioManager = AudioManager.Instance;
+                if (audioManager == null)
+                {
+                    Debug.LogError("[SfxDiagnostic] FAIL: AudioManager.Instance is null 5 frames into Play mode.");
+                }
+                else
+                {
+                    Debug.Log("[SfxDiagnostic] AudioManager found — calling PlayCornPickupSfx().");
+                    audioManager.PlayCornPickupSfx();
+                }
+            }
+            else if (_sfxDiagFrame == 8)
+            {
+                var audioManager = AudioManager.Instance;
+                bool playing = audioManager != null && audioManager.IsAnySfxPlaying();
+                Debug.Log(playing
+                    ? "[SfxDiagnostic] PASS: PlayCornPickupSfx started audio on a pooled AudioSource."
+                    : "[SfxDiagnostic] FAIL: PlayCornPickupSfx did NOT start any pooled AudioSource playing.");
+
+                EditorApplication.update -= OnSfxDiagUpdate;
+                EditorApplication.isPlaying = false;
+                EditorApplication.delayCall += () => EditorApplication.Exit(0);
+            }
+        }
+
+        /// <summary>Diagnoses "Level Select won't scroll down to new levels" reports without
+        /// entering Play mode at all (RunPlayModeVerification/RunSfxPlaybackDiagnostic both hang
+        /// reliably at Play-mode entry in this environment, before any game code runs — an
+        /// environment-level issue this sidesteps entirely). Calls LevelSelectController's private
+        /// PopulateLevelGrid(0) directly via reflection on the Editor-mode scene instance, forces a
+        /// layout rebuild, then logs the resulting Content vs Viewport heights — if Content isn't
+        /// meaningfully taller than Viewport, that's the bug (ScrollRect has nothing real to scroll,
+        /// so every drag springs back immediately, reading as "shoots back, can't reach lower
+        /// levels"). DataManager/SaveManager singletons aren't available in Edit mode, so this
+        /// can't call ScrollToCurrentLevel (which needs them) — measuring the grid's own size is
+        /// enough to answer the actual question.</summary>
+        [MenuItem("Farm Fury Arcade/Debug/Diagnose Level Select Scroll Range")]
+        public static void DiagnoseLevelSelectScrollRange()
+        {
+            EditorSceneManager.OpenScene(ScenePath);
+
+            var screenGO = GameObject.Find("Canvas")?.transform.Find("LevelSelectScreen")?.gameObject;
+            var controller = screenGO != null ? screenGO.GetComponent<LevelSelectController>() : null;
+            if (controller == null)
+            {
+                Debug.LogError("[LevelSelectDiag] Could not find LevelSelectScreen/LevelSelectController.");
+                return;
+            }
+
+            var type = typeof(LevelSelectController);
+            var flags = BindingFlags.NonPublic | BindingFlags.Instance;
+
+            var populateMethod = type.GetMethod("PopulateLevelGrid", flags);
+            var contentField = type.GetField("contentParent", flags);
+            var scrollRectField = type.GetField("scrollRect", flags);
+
+            if (populateMethod == null || contentField == null || scrollRectField == null)
+            {
+                Debug.LogError("[LevelSelectDiag] Reflection lookup failed — field/method names may have changed.");
+                return;
+            }
+
+            // LevelSelectScreen (and everything under it) starts inactive in a freshly-opened,
+            // never-Played scene — SceneTransitionManager.ShowOnly leaves only MainMenuScreen
+            // active at rest. Unity's layout system skips inactive hierarchies entirely
+            // (ILayoutElement lookups check isActiveAndEnabled, which reflects activeInHierarchy,
+            // not just activeSelf), so every layout computation below would silently return 0
+            // without this — not a runtime bug, an artifact of measuring an inactive screen.
+            screenGO.SetActive(true);
+
+            populateMethod.Invoke(controller, new object[] { 0 });
+
+            var contentParent = (RectTransform)contentField.GetValue(controller);
+            var scrollRect = (ScrollRect)scrollRectField.GetValue(controller);
+            scrollRect.gameObject.SetActive(true);
+
+            var section = contentParent.childCount > 0 ? contentParent.GetChild(0) as RectTransform : null;
+            var sectionLayoutElement = section != null ? section.GetComponent<LayoutElement>() : null;
+            var sectionGrid = section != null ? section.GetComponent<GridLayoutGroup>() : null;
+
+            Debug.Log($"[LevelSelectDiag] contentParent childCount after populate: {contentParent.childCount}, " +
+                      $"section childCount (tiles): {(section != null ? section.childCount : -1)}, " +
+                      $"section.LayoutElement.preferredHeight: {(sectionLayoutElement != null ? sectionLayoutElement.preferredHeight : -999f)}, " +
+                      $"section GridLayoutGroup found: {sectionGrid != null}.");
+
+            // Rebuild bottom-up explicitly (section first, then its parent) rather than relying on
+            // a single ForceRebuildLayoutImmediate(contentParent) call to recurse correctly, to
+            // isolate whether propagation itself is the problem.
+            if (section != null)
+            {
+                LayoutRebuilder.ForceRebuildLayoutImmediate(section);
+                Debug.Log($"[LevelSelectDiag] After rebuilding section alone: section.rect.height = {section.rect.height:F1}.");
+            }
+
+            Canvas.ForceUpdateCanvases();
+            LayoutRebuilder.ForceRebuildLayoutImmediate(contentParent);
+
+            float contentHeight = contentParent.rect.height;
+            float viewportHeight = scrollRect.viewport != null ? scrollRect.viewport.rect.height : -1f;
+            float scrollRange = contentHeight - viewportHeight;
+
+            Debug.Log($"[LevelSelectDiag] World 1 grid populated. Content height: {contentHeight:F1}, " +
+                      $"Viewport height: {viewportHeight:F1}, scrollable range: {scrollRange:F1}px.");
+            Debug.Log(scrollRange > 100f
+                ? "[LevelSelectDiag] PASS: plenty of real scroll range — content is genuinely taller than the viewport."
+                : "[LevelSelectDiag] FAIL: little or no scroll range — this is why drags spring back immediately.");
         }
 
         private static void DedupeAndDisable<T>() where T : MonoBehaviour

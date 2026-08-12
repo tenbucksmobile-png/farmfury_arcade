@@ -199,19 +199,21 @@ namespace FarmFuryArcade.Enemies
         }
 
         /// <summary>Slides this robot up to tiles cells in direction (stopping early at a wall),
-        /// freezing its AI for the slide, then stuns it for stunDurationAfterLanding. Used by
-        /// RearKickAbility.</summary>
-        public virtual void KnockBack(Vector2Int direction, int tiles, float stunDurationAfterLanding)
+        /// freezing its AI for the slide, then defeats it on landing (ForceDefeat, bypassing the
+        /// Vulnerable requirement — same convention as PuffUpAbility). Used by RearKickAbility.
+        /// Was a stun; changed per a gameplay rule that a deployed ability hazard should kill a
+        /// robot that runs through it, not just incapacitate it.</summary>
+        public virtual void KnockBack(Vector2Int direction, int tiles)
         {
             if (CurrentState == RobotState.Defeated || CurrentState == RobotState.Returning)
             {
                 return;
             }
 
-            StartCoroutine(KnockBackRoutine(direction, tiles, stunDurationAfterLanding));
+            StartCoroutine(KnockBackRoutine(direction, tiles));
         }
 
-        private IEnumerator KnockBackRoutine(Vector2Int direction, int tiles, float stunAfter)
+        private IEnumerator KnockBackRoutine(Vector2Int direction, int tiles)
         {
             const float slideSecondsPerTile = 0.08f;
             IsKnockedBack = true;
@@ -240,7 +242,7 @@ namespace FarmFuryArcade.Enemies
             }
 
             IsKnockedBack = false;
-            Stun(stunAfter);
+            ForceDefeat();
         }
 
         /// <summary>Defeats this robot regardless of state (unlike RegisterHit, which requires

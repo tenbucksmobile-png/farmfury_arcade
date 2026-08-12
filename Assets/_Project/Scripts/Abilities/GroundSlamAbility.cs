@@ -5,13 +5,16 @@ using FarmFuryArcade.Utilities;
 
 namespace FarmFuryArcade.Abilities
 {
-    /// <summary>Bessie's ability. Instant AoE: every robot within radiusTiles is stunned.
+    /// <summary>Bessie's ability. Instant AoE: every robot within radiusTiles is instantly
+    /// defeated (ForceDefeat, bypassing the Vulnerable requirement — same convention as
+    /// PuffUpAbility). Was a stun; changed per a gameplay rule that a deployed ability hazard
+    /// should kill a robot that runs through it, not just incapacitate it — applies to every
+    /// character's ability-created robot hazard except Percy (BounceRoll) and Ducky (SkipShot).
     /// Double Slam combo (Bessie -> Bessie via swap) doubles the radius to 4 tiles for this use.</summary>
     public class GroundSlamAbility : AbilityBase
     {
         private const float BaseRadiusTiles = 2f;
         private const float ComboRadiusTiles = 4f;
-        private const float StunDuration = 4f; // was 3f — extended per a gameplay pass
 
         [SerializeField] private GameObject shockwavePrefab;
         [SerializeField] private float shakeDuration = 0.3f;
@@ -27,7 +30,7 @@ namespace FarmFuryArcade.Abilities
             {
                 if (Vector2Int.Distance(origin, robot.CurrentGridPosition) <= radius)
                 {
-                    robot.Stun(StunDuration);
+                    robot.ForceDefeat();
                 }
             }
 

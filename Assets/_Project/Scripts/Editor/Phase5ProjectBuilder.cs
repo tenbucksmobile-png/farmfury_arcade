@@ -681,7 +681,9 @@ namespace FarmFuryArcade.EditorTools
             // own doc comment for the same convention), unlike AnchorBottomLeft's positive-is-inward.
             const float clusterButtonSize = 120f;
             const float clusterSpacing = 20f;
-            const float clusterInsetX = -90f;
+            // Deepened (-90 -> -160) per a gameplay-screen review — the cluster (Pause button in
+            // particular) was still crossing the yellow safe-area guide's right edge.
+            const float clusterInsetX = -160f;
             const float clusterInsetY = 90f;
 
             // Character portrait sits at the bottom of the cluster (closer to the corner), enlarged
@@ -1334,23 +1336,26 @@ namespace FarmFuryArcade.EditorTools
             panelArtFitter.aspectMode = AspectRatioFitter.AspectMode.FitInParent;
             panelArtFitter.aspectRatio = 1f;
 
-            // Star row + score sit on the art's own wooden shelf, near the bottom of the square
-            // card — the baked-in "LEVEL COMPLETE!" banner and its 3 decorative (always-filled)
-            // stars up top are art, not these; this is the one part of the card actually left blank
-            // for content. Band widened (0.14-0.28 -> 0.06-0.30) and spacing increased (4 -> 16) so
-            // the score has real room below the stars instead of being squeezed down against the
-            // horseshoe art at the very bottom edge — it previously read as a barely-visible sliver.
-            var shelfGO = CreateVerticalGroup("ShelfContent", panelArtGO.transform, 16f, 0);
-            SetAnchorRect((RectTransform)shelfGO.transform, 0.27f, 0.06f, 0.73f, 0.30f);
+            // Star row + score sit in the art's own blank middle area (between the 3 decorative
+            // always-filled stars up top and the horseshoe/star-rating frame near the bottom — the
+            // baked-in "LEVEL COMPLETE!" banner and those decorative stars are art, not these).
+            // Band moved up from 0.06-0.30 (which sat low enough to overlap the horseshoe frame
+            // art, not the actual blank space) to 0.36-0.62, roughly centred in that blank zone.
+            // Font enlarged again (52 -> 66) and spacing increased (16 -> 20) per repeated feedback
+            // that it still read as too small/low.
+            var shelfGO = CreateVerticalGroup("ShelfContent", panelArtGO.transform, 20f, 0);
+            SetAnchorRect((RectTransform)shelfGO.transform, 0.27f, 0.36f, 0.73f, 0.62f);
             var starDisplayGO = CreateStarDisplay("Stars", shelfGO.transform, 28);
-            var scoreText = CreateText("ScoreText", shelfGO.transform, "0", 52f, TextAlignmentOptions.Center, 64f, new Color(0.3f, 0.2f, 0.1f));
+            var scoreText = CreateText("ScoreText", shelfGO.transform, "0", 66f, TextAlignmentOptions.Center, 80f, new Color(0.3f, 0.2f, 0.1f));
 
             // Play/Home/Settings used to be one bottom-right row; split per feedback — Play now
             // sits alone bottom-left (matching the same bottom-left safe-area inset every other
-            // screen's back button uses), Home/Settings stay paired bottom-right.
+            // screen's back button uses), Home/Settings stay paired bottom-right. Inset deepened
+            // (100,70 -> 150,110) — it was still crossing the yellow safe-area guide's corner at
+            // the original inset.
             var playButton = CreateButton("PlayButton", root.transform, string.Empty, new Color(0.85f, 0.55f, 0.1f), 28f, 130f, out _);
             Object.DestroyImmediate(playButton.transform.Find("PlayButton_Label").gameObject);
-            AnchorBottomLeft((RectTransform)playButton.transform, new Vector2(130f, 130f), new Vector2(100f, 70f));
+            AnchorBottomLeft((RectTransform)playButton.transform, new Vector2(130f, 130f), new Vector2(150f, 110f));
 
             var actionRow = CreateHorizontalGroup("ActionButtons", root.transform, 24f);
             actionRow.GetComponent<LayoutElement>().preferredHeight = 130f;
@@ -1367,26 +1372,41 @@ namespace FarmFuryArcade.EditorTools
             var settingsButton = CreateButton("SettingsButton", actionRow.transform, string.Empty, new Color(0.85f, 0.55f, 0.1f), 28f, 130f, out _);
             Object.DestroyImmediate(settingsButton.transform.Find("SettingsButton_Label").gameObject);
 
-            // New Character Unlock overlay, layered on top of Level Complete
-            var unlockRoot = CreatePanel("NewCharacterUnlockOverlay", root.transform, new Color(0.05f, 0.05f, 0.02f, 0.95f));
-            var unlockGroup = CreateVerticalGroup("UnlockContent", unlockRoot.transform, 10f, 30);
-            var particles = CreateImage("GoldenParticles", unlockRoot.transform, new Color(1f, 0.84f, 0f, 0.3f), 400f, 400f);
-            var particlesRect = (RectTransform)particles.transform;
-            particlesRect.anchorMin = particlesRect.anchorMax = new Vector2(0.5f, 0.5f);
-            var bannerText = CreateText("Banner", unlockGroup.transform, "NEW SQUAD MEMBER!", 30f, TextAlignmentOptions.Center, 44f, new Color(1f, 0.84f, 0f));
-            var unlockCard = CreateImage("CharacterCard", unlockGroup.transform, new Color(1f, 0.84f, 0f), 160f, 160f);
-            var unlockTitle = CreateText("UnlockTitle", unlockGroup.transform, string.Empty, 34f, TextAlignmentOptions.Center, 50f);
-            var unlockStats = CreateText("UnlockStats", unlockGroup.transform, string.Empty, 20f, TextAlignmentOptions.Center, 120f);
-            var continueButton = CreateButton("ContinueButton", unlockGroup.transform, "Continue", new Color(0.3f, 0.75f, 0.35f), out _);
+            // New Character Unlock overlay, layered on top of Level Complete — rebuilt to match a
+            // Canva mockup: full-screen night-farm backdrop (same World1_Cornfield.png convention
+            // as Pause/Choose Character/this screen's own root), Logo top-left, a wood-sign
+            // "Unlocked" banner top-centre, and the character's own selectCardArt large and
+            // centred (that art already has the character's name baked in — see
+            // NewCharacterUnlockScreen's doc comment — so no separate name/title/stats text is
+            // needed at all). No Continue button — the mockup has none; the screen auto-dismisses
+            // itself (NewCharacterUnlockScreen.autoDismissSeconds).
+            var unlockRoot = CreatePanel("NewCharacterUnlockOverlay", root.transform, Color.black);
+
+            var unlockLogoGO = new GameObject("LogoImage", typeof(RectTransform), typeof(Image));
+            unlockLogoGO.transform.SetParent(unlockRoot.transform, false);
+            var unlockLogoImage = unlockLogoGO.GetComponent<Image>();
+            unlockLogoImage.sprite = PlaceholderSprite.Get(Color.clear);
+            unlockLogoImage.preserveAspect = true;
+            AnchorTopLeft((RectTransform)unlockLogoGO.transform, new Vector2(300f, 170f), new Vector2(100f, -50f));
+
+            var unlockBannerGO = new GameObject("UnlockedBanner", typeof(RectTransform), typeof(Image));
+            unlockBannerGO.transform.SetParent(unlockRoot.transform, false);
+            var unlockBannerImage = unlockBannerGO.GetComponent<Image>();
+            unlockBannerImage.sprite = PlaceholderSprite.Get(Color.clear);
+            unlockBannerImage.preserveAspect = true;
+            AnchorTopCenter((RectTransform)unlockBannerGO.transform, new Vector2(700f, 220f), new Vector2(0f, -60f));
+
+            // Enlarged (550 -> 850) per feedback that it read as very small — the mockup's card
+            // fills most of the vertical space between the banner and the bottom of the screen.
+            var unlockCard = CreateImage("CharacterCard", unlockRoot.transform, new Color(1f, 0.84f, 0f), 850f, 850f);
+            var unlockCardRect = (RectTransform)unlockCard.transform;
+            unlockCardRect.anchorMin = unlockCardRect.anchorMax = new Vector2(0.5f, 0.5f);
+            unlockCardRect.anchoredPosition = new Vector2(0f, -60f);
+            unlockCard.preserveAspect = true;
 
             var unlockScreen = unlockRoot.AddComponent<NewCharacterUnlockScreen>();
             var unlockSO = new SerializedObject(unlockScreen);
-            unlockSO.FindProperty("bannerText").objectReferenceValue = bannerText;
-            unlockSO.FindProperty("titleText").objectReferenceValue = unlockTitle;
             unlockSO.FindProperty("characterCardImage").objectReferenceValue = unlockCard;
-            unlockSO.FindProperty("statsText").objectReferenceValue = unlockStats;
-            unlockSO.FindProperty("continueButton").objectReferenceValue = continueButton;
-            unlockSO.FindProperty("goldenParticlesPlaceholder").objectReferenceValue = particles;
             unlockSO.ApplyModifiedPropertiesWithoutUndo();
             unlockRoot.SetActive(false);
 
@@ -1422,8 +1442,13 @@ namespace FarmFuryArcade.EditorTools
             var panelArtRect = (RectTransform)panelArtGO.transform;
             panelArtRect.anchorMin = Vector2.zero;
             panelArtRect.anchorMax = Vector2.one;
-            panelArtRect.offsetMin = Vector2.zero;
-            panelArtRect.offsetMax = Vector2.zero;
+            // Inset (was a bare 0/0 full-stretch) — the square card's top ribbon banner and bottom
+            // rope corners were touching/crossing the yellow safe-area guide's top and bottom edges
+            // on a real landscape aspect, since FitInParent at 100% of the screen height leaves no
+            // margin at all in the dimension that's actually the constraint. 80px top/bottom, 40px
+            // left/right shrinks the box AspectRatioFitter fits into, not just the visible art.
+            panelArtRect.offsetMin = new Vector2(40f, 80f);
+            panelArtRect.offsetMax = new Vector2(-40f, -80f);
             panelArtGO.GetComponent<Image>().sprite = PlaceholderSprite.Get(Color.clear);
             var panelArtFitter = panelArtGO.GetComponent<AspectRatioFitter>();
             panelArtFitter.aspectMode = AspectRatioFitter.AspectMode.FitInParent;

@@ -309,14 +309,24 @@ namespace FarmFuryArcade.UI
             }
 
             // contentParent's own VerticalLayoutGroup has childControlHeight/Width = false (see
-            // CreateVerticalScrollView), so it reads this section's size directly rather than
-            // forcing one — an explicit LayoutElement guarantees ContentSizeFitter sees the full
-            // multi-row height regardless of GridLayoutGroup's own ILayoutElement reporting, so the
-            // ScrollRect always has real scrollable content instead of silently fitting on one screen.
+            // CreateVerticalScrollView) — this does NOT mean "read the child's LayoutElement
+            // instead of forcing a size" (the assumption an earlier version of this comment made).
+            // Unity's HorizontalOrVerticalLayoutGroup.GetChildSizes, when controlSize is false,
+            // reads the child's raw RectTransform.sizeDelta directly and never calls
+            // LayoutUtility.GetPreferredSize at all — so a LayoutElement here was silently ignored,
+            // and section's sizeDelta stayed at Unity's GameObject-creation default (100x100)
+            // forever. contentParent's ContentSizeFitter therefore only ever grew tall enough for a
+            // 100px child, regardless of how many rows of tiles were actually inside it — every
+            // world's tile grid was effectively unscrollable past its first ~1 row, reading as "the
+            // scroll immediately springs back, can't reach lower levels" (confirmed via an
+            // Edit-mode diagnostic: SceneCleanupBuilder.DiagnoseLevelSelectScrollRange). Fixed by
+            // setting section's own RectTransform.sizeDelta directly instead of relying on a
+            // LayoutElement a childControlHeight=false parent will never actually read.
             int rows = Mathf.CeilToInt(tileCount / (float)grid.constraintCount);
-            var sectionLayout = section.AddComponent<LayoutElement>();
-            sectionLayout.preferredWidth = grid.constraintCount * grid.cellSize.x + (grid.constraintCount - 1) * grid.spacing.x;
-            sectionLayout.preferredHeight = grid.padding.vertical + rows * grid.cellSize.y + Mathf.Max(0, rows - 1) * grid.spacing.y;
+            var sectionRect = (RectTransform)section.transform;
+            sectionRect.sizeDelta = new Vector2(
+                grid.constraintCount * grid.cellSize.x + (grid.constraintCount - 1) * grid.spacing.x,
+                grid.padding.vertical + rows * grid.cellSize.y + Mathf.Max(0, rows - 1) * grid.spacing.y);
         }
 
         private void InstantiateTile(int levelIndex, Transform parent)

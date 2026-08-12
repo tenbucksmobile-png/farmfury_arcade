@@ -7,10 +7,14 @@ namespace FarmFuryArcade.Abilities
     /// <summary>Sits as a hazard until a robot walks over it, then plays a 2-frame crack/burst
     /// animation (crackedSprite -> burstSprite, half a second each) and disappears — one-shot per
     /// egg now, not reusable within its lifetime like the original "eggs persist for 15 seconds"
-    /// version. lifetimeSeconds is still a fallback auto-destroy for an egg nothing ever walks over.</summary>
+    /// version. lifetimeSeconds is still a fallback auto-destroy for an egg nothing ever walks over.
+    /// A robot that walks over it is now instantly defeated (ForceDefeat, bypassing the Vulnerable
+    /// requirement — same convention as PuffUpAbility) rather than just stunned, per a gameplay
+    /// rule change: a deployed ability hazard a robot runs through should kill it, not just
+    /// incapacitate it. Applies to every character's ability-created robot hazard except Percy
+    /// (BounceRoll) and Ducky (SkipShot), neither of which has one.</summary>
     public class EggHazard : MonoBehaviour
     {
-        private const float StunDuration = 6f; // was 5f — extended per a gameplay pass
         private const float BurstFrameSeconds = 0.5f;
 
         [SerializeField] private float lifetimeSeconds = 15f;
@@ -45,7 +49,7 @@ namespace FarmFuryArcade.Abilities
                 return;
             }
 
-            robot.Stun(StunDuration);
+            robot.ForceDefeat();
             StartCoroutine(BurstThenDisappear());
         }
 

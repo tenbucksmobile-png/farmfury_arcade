@@ -7,13 +7,13 @@ namespace FarmFuryArcade.Abilities
 {
     /// <summary>Horace's ability. Finds the nearest robot within 3-tile Manhattan distance and
     /// knocks it back 4 tiles (8 with the Crossfire combo, Billy -> Horace) in Horace's current
-    /// facing direction, stunning it 2 seconds on landing (RobotBase.KnockBack handles the
-    /// slide-then-stun and stops early at a wall).</summary>
+    /// facing direction, defeating it on landing (RobotBase.KnockBack handles the slide-then-
+    /// defeat and stops early at a wall). Was a stun; changed per a gameplay rule that a deployed
+    /// ability hazard should kill a robot that runs through it, not just incapacitate it.</summary>
     public class RearKickAbility : AbilityBase
     {
         private const int SearchRadiusTiles = 3;
         private const int KnockbackTiles = 4;
-        private const float LandingStunDuration = 3f; // was 2f — extended per a gameplay pass
 
         [SerializeField] private GameObject buckEffectPrefab;
 
@@ -32,7 +32,7 @@ namespace FarmFuryArcade.Abilities
             Vector2Int knockDirection = DirectionUtils.ToVector(facing);
 
             SpawnBuckEffect(target.transform.position, knockDirection.x >= 0);
-            target.KnockBack(knockDirection, distance, LandingStunDuration);
+            target.KnockBack(knockDirection, distance);
         }
 
         private void SpawnBuckEffect(Vector3 position, bool movingRight)

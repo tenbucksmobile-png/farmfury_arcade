@@ -387,9 +387,9 @@ namespace FarmFuryArcade.EditorTools
         private static void BuildCharacterData()
         {
             BuildCharacterDataAsset(CharacterType.Cluck, "Cluck", 3.8f, AbilityType.EggDrop, 15f,
-                "Drops 3 eggs in her current lane that stun any robot walking over them for 1s.", 0, false);
+                "Drops 3 eggs in her current lane that instantly defeat any robot walking over them.", 0, false);
             BuildCharacterDataAsset(CharacterType.Bessie, "Bessie", 3.6f, AbilityType.GroundSlam, 20f,
-                "Instant shockwave stuns every robot within 2 tiles.", 0, false);
+                "Instant shockwave instantly defeats every robot within 2 tiles.", 0, false);
             BuildCharacterDataAsset(CharacterType.Percy, "Percy", 5.0f, AbilityType.BounceRoll, 30f,
                 "The next wall Percy hits becomes walkable for 2 seconds.", 5, false);
             BuildCharacterDataAsset(CharacterType.Woolly, "Woolly", 4.6f, AbilityType.TripleClone, 25f,
@@ -397,7 +397,7 @@ namespace FarmFuryArcade.EditorTools
             BuildCharacterDataAsset(CharacterType.Ducky, "Ducky", 5.0f, AbilityType.SkipShot, 2f,
                 "Teleports across an adjacent water tile pair — once per pair per maze.", 15, true);
             BuildCharacterDataAsset(CharacterType.Horace, "Horace", 5.0f, AbilityType.RearKick, 18f,
-                "Kicks the nearest robot within 3 tiles back 4 tiles and stuns it on landing.", 20, false);
+                "Kicks the nearest robot within 3 tiles back 4 tiles and defeats it on landing.", 20, false);
             BuildCharacterDataAsset(CharacterType.Gerald, "Gerald", 4.0f, AbilityType.PuffUp, 45f,
                 "Inflates to 3x size for 5s — any robot touched is instantly defeated. Half speed, no warp tunnels while puffed.", 30, false);
             BuildCharacterDataAsset(CharacterType.Billy, "Billy", 4.0f, AbilityType.HeadbuttThrough, 40f,

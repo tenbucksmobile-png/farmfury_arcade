@@ -194,6 +194,8 @@ namespace FarmFuryArcade.EditorTools
         // scene as Bg_LevelSelect.png's composition but a different piece of art (previously unused
         // — see CLAUDE.md's Art status section prior to this).
         private const string PauseBackground = "Assets/_Project/Sprites/UI/World1_Cornfield.png";
+        // New Character Unlock overlay's wood-sign banner, per its own 2026-08 Canva mockup.
+        private const string UnlockedBannerSprite = "Assets/_Project/Sprites/UI/unlocked.png";
 
         // ---- Level Select (filenames as actually uploaded — note LevelTile_unlocked-notplayed.png
         // and LevelTile_1Star.png differ slightly from the originally-specced
@@ -319,7 +321,7 @@ namespace FarmFuryArcade.EditorTools
             DuckyAbilityLeft, DuckyAbilityRight,
             HoraceFront, HoraceLeft1, HoraceLeft2, HoraceRight2, HoraceAbilityBuckLeft, HoraceAbilityBuckRight,
             ScoutFront, ScoutBack, ScoutLeft, ScoutRight, PatrolFront, PatrolBack, PatrolLeft, PatrolRight,
-            HeavyFront, HeavyBack, DrifterFront, DrifterLeft, DrifterRight, RobotEyes,
+            HeavyFront, HeavyBack, DrifterFront, DrifterLeft, DrifterRight, DrifterBack, RobotEyes,
             LevelCompletePanel, LevelFailedPanel, PausedPanel,
             BtnPlay, BtnPause, BtnSettings, BtnQuit, BtnMusic, BtnNoSound, BtnHome, BtnSkip, BtnBack, BtnPlaque,
             RetryButtonArt, MenuButtonArt, ResumeButtonArt, SwapCharacterButtonArt, RestartButtonArt,
@@ -331,7 +333,7 @@ namespace FarmFuryArcade.EditorTools
             WallCornTiles, FloorTile, WarpTile, WheatfieldBackdrop, SettingsBackground, PauseBackground,
             VegTile, VeggiePatchWarp, VegetableGardenBackdrop, FilledStar, EmptyStar, CornCob, Cabbage,
             LevelTileLocked, LevelTileUnlocked, LevelTile1Star, LevelTile2Stars, LevelTile3Stars,
-            BgLevelSelect, DividerWorldBanner, WaterTileSprite,
+            BgLevelSelect, DividerWorldBanner, WaterTileSprite, UnlockedBannerSprite,
             SelectLevelText, CornFieldText, VegetablePatchText, OrchardText, WheatfieldText, SettingsSignText,
             LogoImage, CluckEggIcon, CluckEggCracked, CluckEggBurst
         };
@@ -1174,6 +1176,12 @@ namespace FarmFuryArcade.EditorTools
             SetScreenBackground(canvasTransform, "LevelCompleteScreen", Load(PauseBackground));
             SetImageSprite(canvasTransform, "LevelCompleteScreen/PanelArt", Load(LevelCompletePanel));
             SetImageSprite(canvasTransform, "LevelCompleteScreen/LogoImage", Load(LogoImage));
+            // New Character Unlock overlay — rebuilt to its own Canva mockup (full-screen backdrop,
+            // Logo, "Unlocked" wood-sign banner, large centred character card — see
+            // BuildLevelComplete's doc comment for why no separate name/title/stats text exists).
+            SetScreenBackground(canvasTransform, "LevelCompleteScreen/NewCharacterUnlockOverlay", Load(PauseBackground));
+            SetImageSprite(canvasTransform, "LevelCompleteScreen/NewCharacterUnlockOverlay/LogoImage", Load(LogoImage));
+            SetImageSprite(canvasTransform, "LevelCompleteScreen/NewCharacterUnlockOverlay/UnlockedBanner", Load(UnlockedBannerSprite));
             // Rebuilt to a 2026-08-01 mockup — Bg_LevelSelect.png (night farm) root background, with
             // LevelFailed.png moved onto an aspect-locked PanelArt child (see BuildLevelFailed's own
             // doc comment for why the old full-screen stretch distorted the square card art).
@@ -1272,8 +1280,11 @@ namespace FarmFuryArcade.EditorTools
 
             // Replay/Next Level/Home were removed per the 2026-07-31 mockup in favor of a single
             // Skip button, later replaced again with this Play/Home/Settings row — see
-            // LevelCompleteController's doc comment for what each does.
-            SetImageSprite(canvasTransform, "LevelCompleteScreen/ActionButtons/PlayButton", play);
+            // LevelCompleteController's doc comment for what each does. PlayButton was later split
+            // out of ActionButtons to stand alone bottom-left (a device-frame review moved it
+            // off the Home/Settings pair) — this path wasn't updated at the time, leaving it on
+            // its placeholder color despite the button existing and working functionally.
+            SetImageSprite(canvasTransform, "LevelCompleteScreen/PlayButton", play);
             SetImageSprite(canvasTransform, "LevelCompleteScreen/ActionButtons/HomeButton", home);
             SetImageSprite(canvasTransform, "LevelCompleteScreen/ActionButtons/SettingsButton", settings);
             SetImageSprite(canvasTransform, "LevelCompleteScreen/NewCharacterUnlockOverlay/UnlockContent/ContinueButton", play);

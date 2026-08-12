@@ -45,10 +45,10 @@ namespace FarmFuryArcade.Core
             yield return TestEggDropSpawnsThreeEggs();
 
             yield return WaitSeconds(2.3f); // Harvester's spawnDelay per LevelData_01
-            yield return TestEggStunsRobot();
+            yield return TestEggDefeatsRobot();
 
             yield return TestSwapToBessie();
-            yield return TestGroundSlamStunsNearbyRobot();
+            yield return TestGroundSlamDefeatsNearbyRobot();
 
             TestUnlockManager();
 
@@ -87,13 +87,13 @@ namespace FarmFuryArcade.Core
                 : "[Phase4Test] FAIL: ability did not enter cooldown after activating.");
         }
 
-        private IEnumerator TestEggStunsRobot()
+        private IEnumerator TestEggDefeatsRobot()
         {
             var harvester = FindFirstObjectByType<HarvesterRobot>();
             var egg = FindFirstObjectByType<EggHazard>();
             if (harvester == null || egg == null)
             {
-                Debug.LogWarning("[Phase4Test] SKIP egg-stun test: missing Harvester or egg.");
+                Debug.LogWarning("[Phase4Test] SKIP egg-defeat test: missing Harvester or egg.");
                 yield break;
             }
 
@@ -102,9 +102,9 @@ namespace FarmFuryArcade.Core
             yield return new WaitForFixedUpdate();
             yield return null;
 
-            Debug.Log(harvester.IsStunned
-                ? "[Phase4Test] PASS: robot walking over an egg is stunned."
-                : "[Phase4Test] FAIL: robot did not become stunned after overlapping an egg.");
+            Debug.Log(harvester.CurrentState == RobotState.Defeated
+                ? "[Phase4Test] PASS: robot walking over an egg is defeated."
+                : "[Phase4Test] FAIL: robot did not become defeated after overlapping an egg.");
         }
 
         private IEnumerator TestSwapToBessie()
@@ -127,7 +127,7 @@ namespace FarmFuryArcade.Core
                 : "[Phase4Test] FAIL: Bessie's CharacterBase/speed did not differ from Cluck's as expected.");
         }
 
-        private IEnumerator TestGroundSlamStunsNearbyRobot()
+        private IEnumerator TestGroundSlamDefeatsNearbyRobot()
         {
             var ability = GetActiveAbility<GroundSlamAbility>();
             var harvester = FindFirstObjectByType<HarvesterRobot>();
@@ -145,9 +145,9 @@ namespace FarmFuryArcade.Core
             bool activated = ability.TryActivate();
             yield return null;
 
-            Debug.Log(activated && harvester.IsStunned
-                ? "[Phase4Test] PASS: Ground Slam stunned a robot within its radius."
-                : $"[Phase4Test] FAIL: activated={activated}, robot stunned={harvester.IsStunned}.");
+            Debug.Log(activated && harvester.CurrentState == RobotState.Defeated
+                ? "[Phase4Test] PASS: Ground Slam defeated a robot within its radius."
+                : $"[Phase4Test] FAIL: activated={activated}, robot state={harvester.CurrentState}.");
         }
 
         private void TestUnlockManager()
