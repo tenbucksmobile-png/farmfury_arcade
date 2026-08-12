@@ -24,11 +24,11 @@ namespace FarmFuryArcade.UI
         [SerializeField] private Button continueButton;
         [SerializeField] private Image goldenParticlesPlaceholder;
 
-        [Tooltip("Seconds for the card's fade-in + rotate-to-front reveal.")]
+        [Tooltip("Seconds for the card's fade-in + scale-up reveal.")]
         [SerializeField] private float cardRevealDuration = 0.6f;
 
-        [Tooltip("Starting Y rotation (degrees) the card reveals from — 90 reads as edge-on, about to face the viewer.")]
-        [SerializeField] private float cardRevealStartAngle = 90f;
+        [Tooltip("Starting scale (as a fraction of full size) the card reveals from — 0.4 reads as a clear but not too-dramatic pop-in.")]
+        [SerializeField] private float cardRevealStartScale = 0.4f;
 
         private Coroutine _particleRoutine;
         private Coroutine _cardRevealRoutine;
@@ -94,15 +94,25 @@ namespace FarmFuryArcade.UI
             gameObject.SetActive(false);
         }
 
-        /// <summary>Fades the card in (alpha 0->1) while rotating it around Y from
-        /// cardRevealStartAngle down to 0 (facing the viewer) — a cheap "card flip reveal" that
-        /// needs no 3D camera setup, since an orthographic Canvas already foreshortens a Y-rotated
-        /// RectTransform the same way a true perspective flip would. Eased with an ease-out curve
-        /// (Mathf.Sin) so the reveal settles rather than snapping to rest.</summary>
+        /// <summary>Fades the card in (alpha 0->1) while scaling it up from cardRevealStartScale to
+        /// full size — a "pop into view" reveal, same convention CharacterSelectCard's selection
+        /// animation already uses. Eased with an ease-out curve (Mathf.Sin) so the reveal settles
+        /// rather than snapping to rest.
+        ///
+        /// This replaced an earlier attempt at a Y-axis "card flip" (rotating the RectTransform
+        /// from 90 degrees down to 0) — that looked broken rather than 3D: this Canvas renders in
+        /// RenderMode.ScreenSpaceOverlay, which has no perspective camera at all, so a rotated
+        /// RectTransform is drawn via a flat orthographic squash with zero depth cue. For most of
+        /// the 90->0 degree sweep the card was a razor-thin, unreadable sliver overlapping
+        /// neighboring UI — only the final ~30% of the animation (roughly below 40-50 degrees)
+        /// looked like an actual card. A screenshot caught mid-animation read as a rendering bug,
+        /// but it was the rotation working exactly as coded — the effect itself just doesn't work
+        /// in this render mode. Scale has no equivalent degenerate mid-state.</summary>
         private IEnumerator RevealCardRoutine()
         {
             var cardTransform = characterCardImage.rectTransform;
             var baseColor = characterCardImage.color;
+            var targetScale = cardTransform.localScale;
 
             float t = 0f;
             while (t < cardRevealDuration)
@@ -111,13 +121,13 @@ namespace FarmFuryArcade.UI
                 float progress = Mathf.Clamp01(t / cardRevealDuration);
                 float eased = Mathf.Sin(progress * Mathf.PI * 0.5f);
 
-                cardTransform.localRotation = Quaternion.Euler(0f, Mathf.Lerp(cardRevealStartAngle, 0f, eased), 0f);
+                cardTransform.localScale = Vector3.Lerp(targetScale * cardRevealStartScale, targetScale, eased);
                 characterCardImage.color = new Color(baseColor.r, baseColor.g, baseColor.b, eased);
 
                 yield return null;
             }
 
-            cardTransform.localRotation = Quaternion.identity;
+            cardTransform.localScale = targetScale;
             characterCardImage.color = baseColor;
             _cardRevealRoutine = null;
         }

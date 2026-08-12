@@ -1345,21 +1345,23 @@ namespace FarmFuryArcade.EditorTools
             var starDisplayGO = CreateStarDisplay("Stars", shelfGO.transform, 28);
             var scoreText = CreateText("ScoreText", shelfGO.transform, "0", 52f, TextAlignmentOptions.Center, 64f, new Color(0.3f, 0.2f, 0.1f));
 
-            // Play/Home/Settings row, replacing the old single SkipButton in the same general
-            // bottom-of-card spot. CreateHorizontalGroup's childControlWidth+childForceExpandWidth
-            // (both true) split the row's width evenly across the 3 buttons — no per-button width
-            // needs setting.
+            // Play/Home/Settings used to be one bottom-right row; split per feedback — Play now
+            // sits alone bottom-left (matching the same bottom-left safe-area inset every other
+            // screen's back button uses), Home/Settings stay paired bottom-right.
+            var playButton = CreateButton("PlayButton", root.transform, string.Empty, new Color(0.85f, 0.55f, 0.1f), 28f, 130f, out _);
+            Object.DestroyImmediate(playButton.transform.Find("PlayButton_Label").gameObject);
+            AnchorBottomLeft((RectTransform)playButton.transform, new Vector2(130f, 130f), new Vector2(100f, 70f));
+
             var actionRow = CreateHorizontalGroup("ActionButtons", root.transform, 24f);
             actionRow.GetComponent<LayoutElement>().preferredHeight = 130f;
             // Bottom-right (was bottom-center) per a device-frame review — bottom-center sat
             // outside the yellow safe-area guide on a real aspect. Inset deepened again (-100 ->
-            // -220) per a follow-up review — the row (Play in particular) still crossed the yellow
-            // guide's right edge at -100. Negative X moves inward for a right-pivoted anchor (see
-            // CreateRoundBackButton's doc comment).
-            AnchorBottomRight((RectTransform)actionRow.transform, new Vector2(480f, 130f), new Vector2(-220f, 70f));
+            // -220) per a follow-up review — the row (Play, when it was still part of this group)
+            // still crossed the yellow guide's right edge at -100. Negative X moves inward for a
+            // right-pivoted anchor (see CreateRoundBackButton's doc comment). Width shrunk to match
+            // now that it's only 2 buttons instead of 3.
+            AnchorBottomRight((RectTransform)actionRow.transform, new Vector2(320f, 130f), new Vector2(-220f, 70f));
 
-            var playButton = CreateButton("PlayButton", actionRow.transform, string.Empty, new Color(0.85f, 0.55f, 0.1f), 28f, 130f, out _);
-            Object.DestroyImmediate(playButton.transform.Find("PlayButton_Label").gameObject);
             var homeButton = CreateButton("HomeButton", actionRow.transform, string.Empty, new Color(0.85f, 0.55f, 0.1f), 28f, 130f, out _);
             Object.DestroyImmediate(homeButton.transform.Find("HomeButton_Label").gameObject);
             var settingsButton = CreateButton("SettingsButton", actionRow.transform, string.Empty, new Color(0.85f, 0.55f, 0.1f), 28f, 130f, out _);
