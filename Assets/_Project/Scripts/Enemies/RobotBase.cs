@@ -56,8 +56,10 @@ namespace FarmFuryArcade.Enemies
         /// factory and respawning into Chase, per playtest feedback that "floating eyes" walking back
         /// through the maze read as a bug, not a feature. RobotSpawner.SpawnLevelRobots already
         /// destroys and recreates every robot fresh on the next LoadLevel, so a new level/stage is the
-        /// only thing that brings a defeated robot back. ResetAllRobotsToFactory (the player-death
-        /// reset) also checks this so a permanently-defeated robot doesn't get revived by dying.</summary>
+        /// only thing that brings a defeated robot back. RobotSpawner.ResetAllRobotsToFactory also
+        /// checks this (a permanently-defeated robot should stay gone if it's ever called) — it's no
+        /// longer invoked on player death, though (see PlayerHealth.DeathSequence): only the
+        /// character respawns now, robots stay wherever they are.</summary>
         public bool IsPermanentlyDefeated { get; private set; }
 
         /// <summary>Live lookup of whichever character is currently active, via CharacterManager

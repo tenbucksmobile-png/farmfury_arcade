@@ -109,6 +109,37 @@ namespace FarmFuryArcade.EditorTools
         [MenuItem("Farm Fury Arcade/Debug/Enable LevelSelectTest For One Run")]
         public static void EnableLevelSelectTestForOneRun() => EnableForOneDebugRun<LevelSelectTest>();
 
+        [MenuItem("Farm Fury Arcade/Debug/Enable Phase5Test For One Run")]
+        public static void EnablePhase5TestForOneRun() => EnableForOneDebugRun<Phase5Test>();
+
+        // Matches SaveManager's own private LevelStarsKeyPrefix exactly — duplicated here rather
+        // than exposed publicly on SaveManager, since this is a PlayerPrefs write, not something
+        // that needs a live SaveManager instance (works in Edit mode, before ever entering Play).
+        private const string LevelStarsKeyPrefix = "FFA_LevelStars_";
+
+        /// <summary>Testing shortcut — grants 3 stars on every level slot (0 through
+        /// UnlockProgression.TotalLevels-1) via PlayerPrefs directly, so every real level (both
+        /// World 1's 25 and World 2's 25, per Phase2ProjectBuilder) shows unlocked in Level Select,
+        /// including the World 2 badge itself (its gate is Level 25 at 2+ stars — see
+        /// LevelSelectController.IsWorldAvailable). Slots beyond the real 50 LevelData assets are
+        /// harmlessly starred too; UnlockProgression.IsLevelUnlocked still requires
+        /// DataManager.GetLevelData(index) != null regardless of stars, so an unauthored slot stays
+        /// locked either way. Doesn't touch SaveManager.ResetAllProgress or any other save state —
+        /// only ever raises stars (SetLevelStars' own semantics), never lowers them, so re-running
+        /// this is always safe.</summary>
+        [MenuItem("Farm Fury Arcade/Debug/Unlock All Levels (Testing)")]
+        public static void UnlockAllLevelsForTesting()
+        {
+            for (int i = 0; i < UnlockProgression.TotalLevels; i++)
+            {
+                PlayerPrefs.SetInt(LevelStarsKeyPrefix + i, 3);
+            }
+            PlayerPrefs.Save();
+            Debug.Log($"[SceneCleanupBuilder] Set 3 stars on levels 0-{UnlockProgression.TotalLevels - 1} " +
+                      "so every real level (World 1 + World 2) is unlocked and tappable in Level Select. " +
+                      "Press Play and open Level Select — World 2's badge is now selectable.");
+        }
+
         private static void DedupeAndDisable<T>() where T : MonoBehaviour
         {
             var instances = Resources.FindObjectsOfTypeAll<T>()

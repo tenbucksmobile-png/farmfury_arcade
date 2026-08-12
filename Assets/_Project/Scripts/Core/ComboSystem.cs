@@ -126,7 +126,7 @@ namespace FarmFuryArcade.Core
             {
                 foreach (var robot in UnityEngine.Object.FindObjectsByType<RobotBase>(FindObjectsSortMode.None))
                 {
-                    robot.Stun(5f);
+                    robot.Stun(6f); // was 5f — extended per the same gameplay pass as the other stun-based abilities
                 }
             });
         }

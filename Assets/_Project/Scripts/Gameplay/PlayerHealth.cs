@@ -54,7 +54,11 @@ namespace FarmFuryArcade.Gameplay
                 return;
             }
 
-            if (robot.CurrentState == RobotState.Chase || robot.CurrentState == RobotState.Scatter)
+            // A Stunned/KnockedBack robot is still technically Chase/Scatter (Stun only freezes its
+            // AI/movement, not its state) but is meant to read as incapacitated — a robot an
+            // ability just hit shouldn't be able to kill the player it was used to protect against.
+            bool incapacitated = robot.IsStunned || robot.IsKnockedBack;
+            if ((robot.CurrentState == RobotState.Chase || robot.CurrentState == RobotState.Scatter) && !incapacitated)
             {
                 StartCoroutine(DeathSequence());
             }
@@ -87,14 +91,13 @@ namespace FarmFuryArcade.Gameplay
                 yield return new WaitForSeconds(remaining);
             }
 
+            // Only the character respawns here — robots stay wherever they currently are rather
+            // than being reset back to the factory (that used to happen on every player death).
             transform.position = _spawnWorldPosition;
             if (_spriteRenderer != null)
             {
                 SetAlpha(1f);
             }
-
-            var spawner = FindFirstObjectByType<Enemies.RobotSpawner>();
-            spawner?.ResetAllRobotsToFactory();
 
             _movement.enabled = true;
             IsRespawning = false;

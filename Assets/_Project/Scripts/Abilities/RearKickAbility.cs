@@ -13,7 +13,9 @@ namespace FarmFuryArcade.Abilities
     {
         private const int SearchRadiusTiles = 3;
         private const int KnockbackTiles = 4;
-        private const float LandingStunDuration = 2f;
+        private const float LandingStunDuration = 3f; // was 2f — extended per a gameplay pass
+
+        [SerializeField] private GameObject buckEffectPrefab;
 
         protected override void Execute()
         {
@@ -29,7 +31,19 @@ namespace FarmFuryArcade.Abilities
             Direction facing = Movement.CurrentDirection == Direction.None ? Direction.Down : Movement.CurrentDirection;
             Vector2Int knockDirection = DirectionUtils.ToVector(facing);
 
+            SpawnBuckEffect(target.transform.position, knockDirection.x >= 0);
             target.KnockBack(knockDirection, distance, LandingStunDuration);
+        }
+
+        private void SpawnBuckEffect(Vector3 position, bool movingRight)
+        {
+            if (buckEffectPrefab == null)
+            {
+                return;
+            }
+
+            var go = Instantiate(buckEffectPrefab, position, Quaternion.identity);
+            go.GetComponent<HoraceBuckEffect>()?.PlayForDirection(movingRight);
         }
 
         private static RobotBase FindNearestRobotWithinManhattan(Vector2Int origin, int maxDistance)

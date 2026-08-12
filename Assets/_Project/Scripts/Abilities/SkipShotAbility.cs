@@ -13,6 +13,7 @@ namespace FarmFuryArcade.Abilities
     public class SkipShotAbility : AbilityBase
     {
         [SerializeField] private GameObject woolClonePrefab;
+        [SerializeField] private GameObject splashEffectPrefab;
 
         protected override void Execute()
         {
@@ -24,13 +25,28 @@ namespace FarmFuryArcade.Abilities
                 return;
             }
 
+            Vector3 departurePosition = transform.position;
+            bool movingRight = source.PairedWater.transform.position.x >= departurePosition.x;
+
             transform.position = source.PairedWater.transform.position;
             source.MarkUsed();
+            SpawnSplashEffect(departurePosition, movingRight);
 
             if (ComboSystem.Instance != null && ComboSystem.Instance.ConsumeDoubleWoolClones())
             {
                 SpawnWoolCloneCombo();
             }
+        }
+
+        private void SpawnSplashEffect(Vector3 position, bool movingRight)
+        {
+            if (splashEffectPrefab == null)
+            {
+                return;
+            }
+
+            var go = Instantiate(splashEffectPrefab, position, Quaternion.identity);
+            go.GetComponent<DuckySplashEffect>()?.PlayForDirection(movingRight);
         }
 
         private WaterTile FindAdjacentUnusedWater(Vector2Int pos)

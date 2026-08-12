@@ -17,7 +17,7 @@ namespace FarmFuryArcade.Core
     /// two call sites are involved.
     /// SFX clips under Assets/_Project/Audio/SFX/ are wired to specific gameplay triggers — see
     /// PlayAnimalDeathSfx/PlayCornPickupSfx/PlayPowerReadySfx/PlayRarePelletPickupSfx/
-    /// PlayRobotRespawnSfx and their call sites (PlayerHealth, CropCollector, PowerPelletManager,
+    /// PlayRobotRespawnSfx and their call sites (PlayerHealth, CropCollector, AbilityBase,
     /// RobotBase respectively).
     /// </summary>
     public class AudioManager : Singleton<AudioManager>
@@ -241,6 +241,24 @@ namespace FarmFuryArcade.Core
             {
                 SaveManager.Instance.SfxOn = !muted;
             }
+        }
+
+        /// <summary>Diagnostic-only — lets Phase5Test confirm a PlaySFX call actually started audio
+        /// playback on a pooled source, rather than just trusting that no exception was thrown.</summary>
+        public bool IsAnySfxPlaying()
+        {
+            if (sfxPool == null)
+            {
+                return false;
+            }
+            foreach (var source in sfxPool)
+            {
+                if (source != null && source.isPlaying)
+                {
+                    return true;
+                }
+            }
+            return false;
         }
 
         public void StopAllAudio()

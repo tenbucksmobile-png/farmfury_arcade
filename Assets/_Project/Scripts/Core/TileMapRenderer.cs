@@ -118,7 +118,7 @@ namespace FarmFuryArcade.Core
 
             var artSet = ResolveArtSet(data.mazeType);
             var layout = data.MazeLayout;
-            var warpTunnelsByRow = new Dictionary<int, List<WarpTunnel>>();
+            var warpTunnels = new List<(int x, int y, WarpTunnel warp)>();
             var waterTilesByRow = new Dictionary<int, List<WaterTile>>();
             var forcedVegetableCells = BuildForcedVegetableCells(artSet, data, layout);
 
@@ -159,12 +159,7 @@ namespace FarmFuryArcade.Core
                             var warpGO = Instantiate(artSet.warpTunnelPrefab, worldPos, Quaternion.identity, mazeParent);
                             _spawned.Add(warpGO);
                             var warp = warpGO.GetComponent<WarpTunnel>();
-                            if (!warpTunnelsByRow.TryGetValue(y, out var list))
-                            {
-                                list = new List<WarpTunnel>();
-                                warpTunnelsByRow[y] = list;
-                            }
-                            list.Add(warp);
+                            warpTunnels.Add((x, y, warp));
                             break;
                         case TileWater:
                             var waterGO = Instantiate(waterTilePrefab, worldPos, Quaternion.identity, mazeParent);
@@ -181,7 +176,7 @@ namespace FarmFuryArcade.Core
                 }
             }
 
-            PairWarpTunnels(warpTunnelsByRow);
+            PairWarpTunnels(warpTunnels);
             PairWaterTiles(waterTilesByRow);
             ApplyBackdrop(data, artSet);
             SpawnBonusPickups(artSet, data);
@@ -421,21 +416,62 @@ namespace FarmFuryArcade.Core
             return PowerPelletType.Sunflower;
         }
 
-        private static void PairWarpTunnels(Dictionary<int, List<WarpTunnel>> warpTunnelsByRow)
+        /// <summary>Two-pass pairing: same-row first (this covers both the classic left/right-edge
+        /// case AND same-row pairs that sit at non-edge columns, e.g. two openings through the same
+        /// top wall at different x positions — several algorithmically generated mazes use exactly
+        /// that shape), then whatever's left over gets paired by same-column (covers a genuinely
+        /// vertical pair, e.g. one tile at (x,0) and another at (x,mazeHeight-1), which never share a
+        /// row at all). An earlier version tried to guess the pairing axis per-tile from whether it
+        /// sat on a left/right-edge column — that heuristic was wrong for the same-row/non-edge-column
+        /// case above, misrouting those tiles into column pairing and stranding them, since they don't
+        /// actually share a column with anything. Row-first-then-column needs no per-tile guessing:
+        /// it just keeps trying the two conventions a maze can use until every tile is paired.</summary>
+        private static void PairWarpTunnels(List<(int x, int y, WarpTunnel warp)> warpTunnels)
         {
-            foreach (var kvp in warpTunnelsByRow)
+            var remaining = new List<(int x, int y, WarpTunnel warp)>(warpTunnels);
+
+            PairByAxis(remaining, t => t.y, "row");
+            PairByAxis(remaining, t => t.x, "column");
+
+            foreach (var (x, y, _) in remaining)
             {
-                var tunnels = kvp.Value;
-                if (tunnels.Count == 2)
+                Debug.LogWarning($"[TileMapRenderer] Warp tile at ({x},{y}) has no row-mate or " +
+                                  "column-mate to pair with — it will not teleport anything.");
+            }
+        }
+
+        /// <summary>Groups tunnels still in `remaining` by the given axis key; any group of exactly
+        /// 2 gets paired and removed from `remaining`. Groups of 1 (or 3+) are left in `remaining`
+        /// for the next pass (or the final unpaired warning) rather than logged here, since a lone
+        /// leftover from the row pass is expected to resolve in the column pass.</summary>
+        private static void PairByAxis(List<(int x, int y, WarpTunnel warp)> remaining,
+            System.Func<(int x, int y, WarpTunnel warp), int> axisKey, string axisLabel)
+        {
+            var groups = new Dictionary<int, List<(int x, int y, WarpTunnel warp)>>();
+            foreach (var tunnel in remaining)
+            {
+                int key = axisKey(tunnel);
+                if (!groups.TryGetValue(key, out var list))
                 {
-                    tunnels[0].PairedWarp = tunnels[1];
-                    tunnels[1].PairedWarp = tunnels[0];
+                    list = new List<(int x, int y, WarpTunnel warp)>();
+                    groups[key] = list;
                 }
-                else
+                list.Add(tunnel);
+            }
+
+            foreach (var kvp in groups)
+            {
+                if (kvp.Value.Count != 2)
                 {
-                    Debug.LogWarning($"[TileMapRenderer] Row {kvp.Key} has {tunnels.Count} warp tunnel " +
-                                      "tiles; expected exactly 2 (left/right edge) to pair them.");
+                    continue;
                 }
+
+                var a = kvp.Value[0];
+                var b = kvp.Value[1];
+                a.warp.PairedWarp = b.warp;
+                b.warp.PairedWarp = a.warp;
+                remaining.Remove(a);
+                remaining.Remove(b);
             }
         }
 

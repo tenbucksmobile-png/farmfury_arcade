@@ -42,6 +42,8 @@ namespace FarmFuryArcade.EditorTools
             GameObject bounceTrailPrefab = BuildBounceTrailPrefab();
             GameObject woolClonePrefab = BuildWoolClonePrefab();
             GameObject waterTilePrefab = BuildWaterTilePrefab();
+            GameObject duckySplashPrefab = BuildDuckySplashPrefab();
+            GameObject horaceBuckPrefab = BuildHoraceBuckPrefab();
 
             GameObject cluckPrefab = AddCharacterBaseAndAbilityToCluck(eggPrefab);
 
@@ -75,11 +77,17 @@ namespace FarmFuryArcade.EditorTools
                 {
                     var so = new SerializedObject(ability);
                     so.FindProperty("woolClonePrefab").objectReferenceValue = woolClonePrefab;
+                    so.FindProperty("splashEffectPrefab").objectReferenceValue = duckySplashPrefab;
                     so.ApplyModifiedPropertiesWithoutUndo();
                 });
 
             GameObject horacePrefab = BuildCharacterPrefab("Horace", new Color(0.45f, 0.30f, 0.15f),
-                typeof(RearKickAbility), 18f, null);
+                typeof(RearKickAbility), 18f, ability =>
+                {
+                    var so = new SerializedObject(ability);
+                    so.FindProperty("buckEffectPrefab").objectReferenceValue = horaceBuckPrefab;
+                    so.ApplyModifiedPropertiesWithoutUndo();
+                });
 
             GameObject geraldPrefab = BuildCharacterPrefab("Gerald", new Color(0.65f, 0.60f, 0.50f),
                 typeof(PuffUpAbility), 45f, null);
@@ -230,6 +238,28 @@ namespace FarmFuryArcade.EditorTools
             sr.sortingOrder = 4;
             go.transform.localScale = Vector3.one * 0.6f * TileMapRenderer.CellSize;
             return SaveAndDestroy(go, $"{AbilityPrefabFolder}/BounceTrail.prefab");
+        }
+
+        private static GameObject BuildDuckySplashPrefab()
+        {
+            var go = new GameObject("DuckySplash");
+            var sr = go.AddComponent<SpriteRenderer>();
+            sr.sprite = PlaceholderSprite.Get(new Color(0.4f, 0.75f, 0.95f, 0.7f));
+            sr.sortingOrder = 5;
+            go.transform.localScale = Vector3.one * TileMapRenderer.CellSize;
+            go.AddComponent<DuckySplashEffect>();
+            return SaveAndDestroy(go, $"{AbilityPrefabFolder}/DuckySplash.prefab");
+        }
+
+        private static GameObject BuildHoraceBuckPrefab()
+        {
+            var go = new GameObject("HoraceBuck");
+            var sr = go.AddComponent<SpriteRenderer>();
+            sr.sprite = PlaceholderSprite.Get(new Color(0.75f, 0.5f, 0.25f, 0.7f));
+            sr.sortingOrder = 5;
+            go.transform.localScale = Vector3.one * TileMapRenderer.CellSize;
+            go.AddComponent<HoraceBuckEffect>();
+            return SaveAndDestroy(go, $"{AbilityPrefabFolder}/HoraceBuck.prefab");
         }
 
         private static GameObject BuildWoolClonePrefab()

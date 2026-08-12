@@ -17,7 +17,7 @@ namespace FarmFuryArcade.EditorTools
     /// Phase 3 scaffolding: builds the 6 robot prefabs + RobotData assets, adds PlayerHealth to
     /// the existing Cluck prefab, wires RobotSpawner/PowerPelletManager/ChaseScoreManager onto
     /// Game.unity's GameManagers, gives LevelData_01 its 2 spec'd robot spawns, and creates
-    /// LevelData_05 (3 robots) for later testing. Safe to re-run, same convention as
+    /// LevelData_RobotTest (3 robots) for later testing. Safe to re-run, same convention as
     /// Phase1ProjectBuilder/Phase2ProjectBuilder.
     /// </summary>
     public static class Phase3ProjectBuilder
@@ -27,7 +27,13 @@ namespace FarmFuryArcade.EditorTools
         private const string RobotDataFolder = "Assets/_Project/ScriptableObjects/Resources/Robots";
         private const string CluckPrefabPath = "Assets/_Project/Prefabs/Characters/Cluck.prefab";
         private const string LevelData01Path = "Assets/_Project/ScriptableObjects/Resources/Levels/LevelData_01.asset";
-        private const string LevelData05Path = "Assets/_Project/ScriptableObjects/Resources/Levels/LevelData_05.asset";
+        // Was LevelData_05.asset/levelNumber 4 — that slot is now Phase2ProjectBuilder's real
+        // "Corn Field - 05" maze (see its own doc comment for the bug this used to cause: this test
+        // maze was silently player-reachable as "Level 5" in Level Select, showing as a mostly-open
+        // field with no interior walls). Renamed to its own file with an out-of-range levelNumber
+        // (-1) so DataManager still loads it (for the Phase3Test debug button below) but
+        // LevelSelectController's 0-99 tile range never sees it.
+        private const string LevelDataRobotTestPath = "Assets/_Project/ScriptableObjects/Resources/Levels/LevelData_RobotTest.asset";
 
         [MenuItem("Farm Fury Arcade/Phase 3/Build All")]
         public static void BuildAll()
@@ -50,7 +56,7 @@ namespace FarmFuryArcade.EditorTools
 
             AssetDatabase.SaveAssets();
             AssetDatabase.Refresh();
-            Debug.Log("[Phase3ProjectBuilder] Phase 3 robot prefabs, RobotData, LevelData_01/05 plus robot spawns for every other real level, and Game.unity wiring complete.");
+            Debug.Log("[Phase3ProjectBuilder] Phase 3 robot prefabs, RobotData, LevelData_01 plus robot spawns for every other real level, LevelData_RobotTest, and Game.unity wiring complete.");
         }
 
         private static GameObject BuildRobotPrefab(string name, System.Type robotComponentType, Color color)
@@ -219,15 +225,16 @@ namespace FarmFuryArcade.EditorTools
         }
 
         /// <summary>A second, smaller level purely for exercising 3 robots together (Harvester,
-        /// Scout, Patrol) — not part of the level-select flow yet, just a DataManager-loadable
+        /// Scout, Patrol) — deliberately kept out of the level-select flow via an out-of-range
+        /// levelNumber (see LevelDataRobotTestPath's doc comment above); just a DataManager-loadable
         /// asset for manual/automated Phase 3 testing.</summary>
         private static void BuildLevelData05()
         {
-            var level = AssetDatabase.LoadAssetAtPath<LevelData>(LevelData05Path);
+            var level = AssetDatabase.LoadAssetAtPath<LevelData>(LevelDataRobotTestPath);
             if (level == null)
             {
                 level = ScriptableObject.CreateInstance<LevelData>();
-                AssetDatabase.CreateAsset(level, LevelData05Path);
+                AssetDatabase.CreateAsset(level, LevelDataRobotTestPath);
             }
 
             const int width = 20;
@@ -305,8 +312,8 @@ namespace FarmFuryArcade.EditorTools
 
             var factoryCenter = new Vector2Int((fx0 + fx1) / 2, (fy0 + fy1) / 2);
 
-            level.levelNumber = 4;
-            level.levelName = "Robot Test Field - 05";
+            level.levelNumber = -1;
+            level.levelName = "Robot Test Field";
             level.mazeType = MazeType.CornField;
             level.SetMazeLayout(grid);
             level.playerStartPosition = playerStart;
@@ -336,7 +343,6 @@ namespace FarmFuryArcade.EditorTools
         };
 
         /// <summary>Every real level except LevelData_01 (hand-tuned by UpdateLevelData01Robots)
-        /// and LevelData_05 (the dedicated robot-count test maze, hand-tuned by BuildLevelData05)
         /// used to ship with `robotSpawns = new RobotSpawnData[0]` — Phase2ProjectBuilder.BuildLevel
         /// always sets that as a placeholder ("No robots yet — Phase 3") and nothing ever filled it
         /// in for levels 02-04/06-50, so no robots ever spawned there. Applies a difficulty curve
@@ -349,7 +355,11 @@ namespace FarmFuryArcade.EditorTools
         {
             for (int n = 1; n <= 50; n++)
             {
-                if (n == 1 || n == 5)
+                // LevelData_01 is hand-tuned separately by UpdateLevelData01Robots. LevelData_05
+                // used to be skipped here too (it held the reserved robot-test maze, not a real
+                // progression level) — it's now a real Phase2ProjectBuilder-generated maze like
+                // every other level and needs the same spawn-curve treatment.
+                if (n == 1)
                 {
                     continue;
                 }

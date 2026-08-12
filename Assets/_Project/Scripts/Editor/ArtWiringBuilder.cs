@@ -57,6 +57,10 @@ namespace FarmFuryArcade.EditorTools
         private const string ShockwavePrefabPath = AbilityPrefabFolder + "/Shockwave.prefab";
         private const string BounceTrailPrefabPath = AbilityPrefabFolder + "/BounceTrail.prefab";
         private const string WoollyClonePrefabPath = AbilityPrefabFolder + "/WoollyClone.prefab";
+        private const string WaterTilePrefabPath = AbilityPrefabFolder + "/WaterTile.prefab";
+        private const string DuckySplashPrefabPath = AbilityPrefabFolder + "/DuckySplash.prefab";
+        private const string HoraceBuckPrefabPath = AbilityPrefabFolder + "/HoraceBuck.prefab";
+        private const string WaterTileSprite = "Assets/_Project/Sprites/UI/Water_tile.png";
 
         private const string RosterCardPrefabPath = UIPrefabFolder + "/RosterCard.prefab";
 
@@ -93,6 +97,7 @@ namespace FarmFuryArcade.EditorTools
         private const string WoollyFront = "Assets/_Project/Sprites/Characters/Wooly_front.png";
         private const string WoollyBack = "Assets/_Project/Sprites/Characters/Wooly_back.png";
         private const string WoollyLeft = "Assets/_Project/Sprites/Characters/Wooly_left.png";
+        private const string WoollyRight = "Assets/_Project/Sprites/Characters/Wooly_right.png";
         private const string WoollyEffect = "Assets/_Project/Sprites/Characters/Wooly_effect.png";
         private const string PercyFront = "Assets/_Project/Sprites/Characters/Percy_front.png";
         private const string PercyBack = "Assets/_Project/Sprites/Characters/Percy_back.png";
@@ -107,10 +112,28 @@ namespace FarmFuryArcade.EditorTools
         private const string PercyEffect = "Assets/_Project/Sprites/Characters/Percy_effect.png";
         private const string DuckyFront = "Assets/_Project/Sprites/Characters/Ducky_front.png";
         private const string DuckyBack = "Assets/_Project/Sprites/Characters/Ducky_back.png";
+        private const string DuckyLeft = "Assets/_Project/Sprites/Characters/Ducky_left.png";
+        private const string DuckyRight = "Assets/_Project/Sprites/Characters/Ducky_right.png";
+        // SkipShot's departure splash — mirrored per direction, chosen at runtime by
+        // SkipShotAbility based on which way she's actually skipping.
+        private const string DuckyAbilityLeft = "Assets/_Project/Sprites/Characters/Ducky_ability_left.png";
+        private const string DuckyAbilityRight = "Assets/_Project/Sprites/Characters/Ducky_ability_right.png";
         private const string BessieSlam = "Assets/_Project/Sprites/Characters/BessieSlam.png";
         private const string GeraldFront = "Assets/_Project/Sprites/Characters/Gerald_front.png";
         private const string GeraldBack = "Assets/_Project/Sprites/Characters/Gerald_back.png";
         private const string GeraldLeft = "Assets/_Project/Sprites/Characters/Gerald_left.png";
+        private const string HoraceFront = "Assets/_Project/Sprites/Characters/Horace_front.png";
+        // Horace_left.png (no suffix) is an earlier/superseded draft — Horace_left1/Left2.png are
+        // the real 2-frame walk-cycle pair (same "extra art, no slot for it yet" convention as
+        // Cluck_rightwalk.png). No back art yet — Up falls back to front. Only one Right frame
+        // (right2, no "right1") exists so far — used for both Right0/Right1 slots.
+        private const string HoraceLeft1 = "Assets/_Project/Sprites/Characters/Horace_left1.png";
+        private const string HoraceLeft2 = "Assets/_Project/Sprites/Characters/Horace_Left2.png";
+        private const string HoraceRight2 = "Assets/_Project/Sprites/Characters/Horace_right2.png";
+        // Rear Kick's landing-impact "buck" — mirrored per knockback direction, same convention as
+        // Ducky's splash.
+        private const string HoraceAbilityBuckLeft = "Assets/_Project/Sprites/Characters/Horace_ability_buckleft.png";
+        private const string HoraceAbilityBuckRight = "Assets/_Project/Sprites/Characters/Horace_ability_buckright.png";
 
         // ---- Sprite paths (this batch: Cluck 2nd-frame walk cycle + real Right art) ------------
         private const string CluckRight = "Assets/_Project/Sprites/Characters/Cluck_right.png";
@@ -155,6 +178,7 @@ namespace FarmFuryArcade.EditorTools
         private const string HeavyFront = "Assets/_Project/Sprites/Robots/HeavyRobot_front.png";
         private const string HeavyBack = "Assets/_Project/Sprites/Robots/HeavyRobot_back.png";
         private const string DrifterFront = "Assets/_Project/Sprites/Robots/DriftRobot_front.png";
+        private const string DrifterBack = "Assets/_Project/Sprites/Robots/DriftRobot_back.png";
         private const string DrifterLeft = "Assets/_Project/Sprites/Robots/DriftRobot_left.png";
         private const string DrifterRight = "Assets/_Project/Sprites/Robots/DriftRobot_right.png";
         private const string RobotEyes = "Assets/_Project/Sprites/Robots/RobotEyes.png";
@@ -232,7 +256,10 @@ namespace FarmFuryArcade.EditorTools
         private const string CluckCard = "Assets/_Project/Sprites/UI/Cluck_Chicken.png";
         private const string BessieCard = "Assets/_Project/Sprites/UI/Bessie_Cow.png";
         private const string PercyCard = "Assets/_Project/Sprites/UI/Percy_Pig.png";
-        private const string WoollyCard = "Assets/_Project/Sprites/UI/Woolly_Sheep.png";
+        // Was "Woolly_Sheep.png" (double-L) — the actual uploaded filename is single-L "Wooly_Sheep.png"
+        // (matching the same "Wooly" spelling every other Woolly asset uses), so this never resolved
+        // and Woolly's select-card art silently stayed unwired since the card system was added.
+        private const string WoollyCard = "Assets/_Project/Sprites/UI/Wooly_Sheep.png";
         private const string DuckyCard = "Assets/_Project/Sprites/UI/Ducky_Duck.png";
         private const string HoraceCard = "Assets/_Project/Sprites/UI/Horace_Horse.png";
         private const string GeraldCard = "Assets/_Project/Sprites/UI/Gerald_Turkey.png";
@@ -287,8 +314,10 @@ namespace FarmFuryArcade.EditorTools
             CluckFront, CluckBack, CluckLeft, HarvesterFront, HarvesterBack, HarvesterLeft, HarvesterRight, CornKernel, Carrot,
             CoinIcon, SunflowerPellet, GoldenWheatPellet, RainbowPellet, LandingBackground,
             BessieFront, BessieBack, BessieLeft, BessieLeft2, BessieRight, BessieRight2,
-            WoollyFront, WoollyBack, WoollyLeft, WoollyEffect,
-            PercyFront, PercyBack, PercyLeftWalk0, PercyLeftWalk1, PercyRightWalk0, PercyRightWalk1, PercyEffect, DuckyFront, DuckyBack, BessieSlam,
+            WoollyFront, WoollyBack, WoollyLeft, WoollyRight, WoollyEffect,
+            PercyFront, PercyBack, PercyLeftWalk0, PercyLeftWalk1, PercyRightWalk0, PercyRightWalk1, PercyEffect, DuckyFront, DuckyBack, DuckyLeft, DuckyRight, BessieSlam,
+            DuckyAbilityLeft, DuckyAbilityRight,
+            HoraceFront, HoraceLeft1, HoraceLeft2, HoraceRight2, HoraceAbilityBuckLeft, HoraceAbilityBuckRight,
             ScoutFront, ScoutBack, ScoutLeft, ScoutRight, PatrolFront, PatrolBack, PatrolLeft, PatrolRight,
             HeavyFront, HeavyBack, DrifterFront, DrifterLeft, DrifterRight, RobotEyes,
             LevelCompletePanel, LevelFailedPanel, PausedPanel,
@@ -302,7 +331,7 @@ namespace FarmFuryArcade.EditorTools
             WallCornTiles, FloorTile, WarpTile, WheatfieldBackdrop, SettingsBackground, PauseBackground,
             VegTile, VeggiePatchWarp, VegetableGardenBackdrop, FilledStar, EmptyStar, CornCob, Cabbage,
             LevelTileLocked, LevelTileUnlocked, LevelTile1Star, LevelTile2Stars, LevelTile3Stars,
-            BgLevelSelect, DividerWorldBanner,
+            BgLevelSelect, DividerWorldBanner, WaterTileSprite,
             SelectLevelText, CornFieldText, VegetablePatchText, OrchardText, WheatfieldText, SettingsSignText,
             LogoImage, CluckEggIcon, CluckEggCracked, CluckEggBurst
         };
@@ -494,6 +523,117 @@ namespace FarmFuryArcade.EditorTools
             WireCharacterPrefabSprite($"{CharacterPrefabFolder}/Bessie.prefab", front);
         }
 
+        /// <summary>Woolly's real Right art (Wooly_right.png) — she previously had only
+        /// front/back/left, so Right silently fell back to a mirrored Left via SetWalkFrames'
+        /// leftOrFront convention. Wired explicitly (not through SetWalkFrames) so
+        /// hasDedicatedRightArt is set and Right renders un-mirrored, same convention as
+        /// WireCluck/WirePercy.</summary>
+        private static void WireWoolly()
+        {
+            var front = Load(WoollyFront);
+            var back = Load(WoollyBack);
+            var left = Load(WoollyLeft);
+            var right = Load(WoollyRight);
+
+            string path = $"{CharacterDataFolder}/CharacterData_Woolly.asset";
+            var data = AssetDatabase.LoadAssetAtPath<CharacterData>(path);
+            if (data != null)
+            {
+                Sprite leftOrFront = left != null ? left : front;
+                data.walkAnimationFrames = new[]
+                {
+                    back, back,                              // Up0, Up1
+                    front, front,                            // Down0, Down1
+                    leftOrFront, leftOrFront,                 // Left0, Left1
+                    right != null ? right : leftOrFront, right != null ? right : leftOrFront // Right0, Right1
+                };
+                data.hasDedicatedRightArt = right != null;
+                data.portraitSprite = front;
+                EditorUtility.SetDirty(data);
+            }
+            else
+            {
+                Debug.LogWarning($"[ArtWiringBuilder] CharacterData_Woolly not found at {path}");
+            }
+
+            WireCharacterPrefabSprite($"{CharacterPrefabFolder}/Woolly.prefab", front);
+        }
+
+        /// <summary>Ducky's real Left/Right art (Ducky_left.png/Ducky_right.png) — she previously had
+        /// only front/back, so SetWalkFrames' leftOrFront fallback used front for every side-facing
+        /// direction (see its own doc comment: "Ducky has no profile art"). Wired explicitly (not
+        /// through SetWalkFrames) so hasDedicatedRightArt is set and Right renders un-mirrored, same
+        /// convention as WireCluck/WirePercy/WireWoolly.</summary>
+        private static void WireDucky()
+        {
+            var front = Load(DuckyFront);
+            var back = Load(DuckyBack);
+            var left = Load(DuckyLeft);
+            var right = Load(DuckyRight);
+
+            string path = $"{CharacterDataFolder}/CharacterData_Ducky.asset";
+            var data = AssetDatabase.LoadAssetAtPath<CharacterData>(path);
+            if (data != null)
+            {
+                Sprite leftOrFront = left != null ? left : front;
+                data.walkAnimationFrames = new[]
+                {
+                    back, back,                              // Up0, Up1
+                    front, front,                            // Down0, Down1
+                    leftOrFront, leftOrFront,                 // Left0, Left1
+                    right != null ? right : leftOrFront, right != null ? right : leftOrFront // Right0, Right1
+                };
+                data.hasDedicatedRightArt = right != null;
+                data.portraitSprite = front;
+                EditorUtility.SetDirty(data);
+            }
+            else
+            {
+                Debug.LogWarning($"[ArtWiringBuilder] CharacterData_Ducky not found at {path}");
+            }
+
+            WireCharacterPrefabSprite($"{CharacterPrefabFolder}/Ducky.prefab", front);
+        }
+
+        /// <summary>Horace's first real art — previously a solid-colour placeholder square in every
+        /// direction. Left gets a real 2-frame walk cycle (Horace_left1/Left2.png — Horace_left.png,
+        /// no suffix, is an earlier superseded draft left unreferenced, same "extra art, no slot for
+        /// it yet" convention as Cluck_rightwalk.png); Right has only one uploaded frame
+        /// (Horace_right2.png, no "right1") so it repeats for both Right0/Right1, same as any
+        /// single-pose direction elsewhere — it's still real, dedicated art, not a Left mirror, so
+        /// hasDedicatedRightArt is still set. No Up/back art yet — Up falls back to front.</summary>
+        private static void WireHorace()
+        {
+            var front = Load(HoraceFront);
+            var left1 = Load(HoraceLeft1);
+            var left2 = Load(HoraceLeft2);
+            var right2 = Load(HoraceRight2);
+
+            string path = $"{CharacterDataFolder}/CharacterData_Horace.asset";
+            var data = AssetDatabase.LoadAssetAtPath<CharacterData>(path);
+            if (data != null)
+            {
+                Sprite left1OrFront = left1 != null ? left1 : front;
+                Sprite left2OrFront = left2 != null ? left2 : left1OrFront;
+                data.walkAnimationFrames = new[]
+                {
+                    front, front,                             // Up0, Up1 (no back art yet)
+                    front, front,                              // Down0, Down1
+                    left1OrFront, left2OrFront,                // Left0, Left1
+                    right2 != null ? right2 : left1OrFront, right2 != null ? right2 : left2OrFront // Right0, Right1
+                };
+                data.hasDedicatedRightArt = right2 != null;
+                data.portraitSprite = front;
+                EditorUtility.SetDirty(data);
+            }
+            else
+            {
+                Debug.LogWarning($"[ArtWiringBuilder] CharacterData_Horace not found at {path}");
+            }
+
+            WireCharacterPrefabSprite($"{CharacterPrefabFolder}/Horace.prefab", front);
+        }
+
         /// <summary>Percy's real directional art — same 2-frame flick convention as Cluck/Bessie.
         /// He had no genuine Left/Right art before this (PercyLeft pointed at a misspelled,
         /// never-uploaded filename, so SetWalkFrames always fell back to front/back for every
@@ -627,6 +767,7 @@ namespace FarmFuryArcade.EditorTools
             SetPrefabSprite(WarpTunnelPrefabPath, Load(WarpTile));
             SetPrefabSprite(WallVegPatchPrefabPath, Load(VegTile));
             SetPrefabSprite(WarpTunnelVegPatchPrefabPath, Load(VeggiePatchWarp));
+            SetPrefabSprite(WaterTilePrefabPath, Load(WaterTileSprite));
         }
 
         /// <summary>Wires real filled/empty star art onto LevelCompleteScreen's StarDisplay —
@@ -824,9 +965,9 @@ namespace FarmFuryArcade.EditorTools
         /// CharacterAnimator. Only one pose per direction exists (no walk-cycle frames yet), so
         /// each direction's two slots repeat the same sprite. Right reuses Left; CharacterAnimator
         /// flips it horizontally at runtime since there's no dedicated Right art. If left is null
-        /// (Ducky has no profile art), front is used for Left/Right too — direction won't read
-        /// correctly for those two facings until profile art is added, but the character is never
-        /// left as a bare colour square.</summary>
+        /// (e.g. Gerald has no profile art yet), front is used for Left/Right too — direction won't
+        /// read correctly for those two facings until profile art is added, but the character is
+        /// never left as a bare colour square.</summary>
         private static void SetWalkFrames(string characterTypeName, Sprite front, Sprite back, Sprite left)
         {
             string path = $"{CharacterDataFolder}/CharacterData_{characterTypeName}.asset";
@@ -899,16 +1040,11 @@ namespace FarmFuryArcade.EditorTools
         private static void WireNewCharacters()
         {
             WireBessie();
-
-            var woollyFront = Load(WoollyFront);
-            SetWalkFrames("Woolly", woollyFront, Load(WoollyBack), Load(WoollyLeft));
-            WireCharacterPrefabSprite($"{CharacterPrefabFolder}/Woolly.prefab", woollyFront);
-
+            WireWoolly();
             WirePercy();
 
-            var duckyFront = Load(DuckyFront);
-            SetWalkFrames("Ducky", duckyFront, Load(DuckyBack), null);
-            WireCharacterPrefabSprite($"{CharacterPrefabFolder}/Ducky.prefab", duckyFront);
+            WireDucky();
+            WireHorace();
 
             var geraldFront = Load(GeraldFront);
             SetWalkFrames("Gerald", geraldFront, Load(GeraldBack), Load(GeraldLeft));
@@ -919,7 +1055,8 @@ namespace FarmFuryArcade.EditorTools
             // abilities which each spawn a dedicated effect prefab. Adding one is a gameplay
             // change (a new prefab + a spawn call in PuffUpAbility), not just art wiring.
 
-            // Horace and Billy still have no uploaded art yet — left as placeholder squares.
+            // Billy still has no uploaded art yet — left as a placeholder square. Horace now has
+            // real art, wired via WireHorace() above.
         }
 
         // ---- New robots (Scout, Patrol, Heavy, Drifter) + universal defeated eyes -------------
@@ -966,7 +1103,8 @@ namespace FarmFuryArcade.EditorTools
             SetRobotPortrait("Heavy", heavyFront);
 
             var drifterFront = Load(DrifterFront);
-            WireRobotVisual(DrifterPrefabPath, drifterFront, null, Load(DrifterLeft), Load(DrifterRight));
+            // Drifter now has real Back art too (previously front/left/right only, Up fell back to front).
+            WireRobotVisual(DrifterPrefabPath, drifterFront, Load(DrifterBack), Load(DrifterLeft), Load(DrifterRight));
             SetRobotPortrait("Drifter", drifterFront);
 
             // Drone has no uploaded art yet — still gets the universal defeated-eyes sprite, but
@@ -981,6 +1119,40 @@ namespace FarmFuryArcade.EditorTools
             SetPrefabSprite(ShockwavePrefabPath, Load(BessieSlam));
             SetPrefabSprite(BounceTrailPrefabPath, Load(PercyEffect));
             SetPrefabSprite(WoollyClonePrefabPath, Load(WoollyEffect));
+            SetPrefabLeftRightSprites(DuckySplashPrefabPath, Load(DuckyAbilityLeft), Load(DuckyAbilityRight));
+            SetPrefabLeftRightSprites(HoraceBuckPrefabPath, Load(HoraceAbilityBuckLeft), Load(HoraceAbilityBuckRight));
+        }
+
+        /// <summary>Like SetPrefabSprite, but for DuckySplashEffect/HoraceBuckEffect's own
+        /// leftSprite/rightSprite fields (chosen at runtime by direction) rather than a single
+        /// SpriteRenderer.sprite — the prefab's SpriteRenderer itself is left without a sprite
+        /// until PlayForDirection sets one at spawn time.</summary>
+        private static void SetPrefabLeftRightSprites(string prefabPath, Sprite left, Sprite right)
+        {
+            if ((left == null && right == null) || !File.Exists(prefabPath))
+            {
+                return;
+            }
+
+            var contents = PrefabUtility.LoadPrefabContents(prefabPath);
+            Component effect = contents.GetComponent<DuckySplashEffect>();
+            if (effect == null)
+            {
+                effect = contents.GetComponent<HoraceBuckEffect>();
+            }
+            if (effect == null)
+            {
+                Debug.LogWarning($"[ArtWiringBuilder] {prefabPath} has neither DuckySplashEffect nor HoraceBuckEffect — skipping.");
+                PrefabUtility.UnloadPrefabContents(contents);
+                return;
+            }
+
+            var so = new SerializedObject(effect);
+            if (left != null) so.FindProperty("leftSprite").objectReferenceValue = left;
+            if (right != null) so.FindProperty("rightSprite").objectReferenceValue = right;
+            so.ApplyModifiedPropertiesWithoutUndo();
+            PrefabUtility.SaveAsPrefabAsset(contents, prefabPath);
+            PrefabUtility.UnloadPrefabContents(contents);
         }
 
         // ---- Cards and full-screen panels ----------------------------------------------------

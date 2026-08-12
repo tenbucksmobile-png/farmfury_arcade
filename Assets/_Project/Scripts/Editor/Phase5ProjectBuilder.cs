@@ -484,8 +484,6 @@ namespace FarmFuryArcade.EditorTools
             // below), anchored at the exact same inset. A LogoImage was added in an earlier pass
             // without noticing that clash; removed again per feedback that the two badges overlapped.
 
-            var backButton = CreateRoundBackButton(root.transform);
-
             // TitleImage replaces the old TMP "SELECT LEVEL" text — SelectLevelSign.png is the
             // word-art itself, wired by ArtWiringBuilder. preserveAspect so it never distorts.
             // Sized/positioned to match Settings' title banner (same AnchorTopCenter treatment).
@@ -513,10 +511,9 @@ namespace FarmFuryArcade.EditorTools
             scrollViewRect.anchorMax = new Vector2(1f, 1f);
             scrollViewRect.offsetMin = Vector2.zero;
             // TitleImage (above) is anchored at y=-40 with a 320px height, so its bottom edge sits
-            // at y=-360 from the top of the screen — the previous 200px reserve here was less than
-            // that, so the tile grid's first row rendered crowded right up against/overlapping the
-            // banner. 420px clears the banner with a further ~60px of breathing room.
-            scrollViewRect.offsetMax = new Vector2(0f, -420f);
+            // at y=-360 from the top of the screen. 320px leaves a clean ~100px gap under the
+            // banner (tightened from 420px, which read as too much dead space above the tiles).
+            scrollViewRect.offsetMax = new Vector2(0f, -320f);
 
             // World-select carousel area — vertically centred on the screen (a symmetric 200px
             // margin reserved top and bottom, matching the header's own height, so the centred
@@ -553,6 +550,11 @@ namespace FarmFuryArcade.EditorTools
             var worldCarouselSO = new SerializedObject(worldCarousel);
             worldCarouselSO.FindProperty("itemSpacing").floatValue = 600f;
             worldCarouselSO.ApplyModifiedPropertiesWithoutUndo();
+
+            // Created after the ScrollView and WorldShieldContainer (both full-bleed raycastable
+            // areas) so it's the later sibling and actually receives taps instead of having them
+            // swallowed by whichever of those two draws on top of it.
+            var backButton = CreateRoundBackButton(root.transform);
 
             var lockedHintPanel = BuildLockedHintPanel(root.transform);
 
@@ -1335,11 +1337,13 @@ namespace FarmFuryArcade.EditorTools
             // Star row + score sit on the art's own wooden shelf, near the bottom of the square
             // card — the baked-in "LEVEL COMPLETE!" banner and its 3 decorative (always-filled)
             // stars up top are art, not these; this is the one part of the card actually left blank
-            // for content.
-            var shelfGO = CreateVerticalGroup("ShelfContent", panelArtGO.transform, 4f, 0);
-            SetAnchorRect((RectTransform)shelfGO.transform, 0.27f, 0.14f, 0.73f, 0.28f);
+            // for content. Band widened (0.14-0.28 -> 0.06-0.30) and spacing increased (4 -> 16) so
+            // the score has real room below the stars instead of being squeezed down against the
+            // horseshoe art at the very bottom edge — it previously read as a barely-visible sliver.
+            var shelfGO = CreateVerticalGroup("ShelfContent", panelArtGO.transform, 16f, 0);
+            SetAnchorRect((RectTransform)shelfGO.transform, 0.27f, 0.06f, 0.73f, 0.30f);
             var starDisplayGO = CreateStarDisplay("Stars", shelfGO.transform, 28);
-            var scoreText = CreateText("ScoreText", shelfGO.transform, "0", 34f, TextAlignmentOptions.Center, 44f, new Color(0.3f, 0.2f, 0.1f));
+            var scoreText = CreateText("ScoreText", shelfGO.transform, "0", 52f, TextAlignmentOptions.Center, 64f, new Color(0.3f, 0.2f, 0.1f));
 
             // Play/Home/Settings row, replacing the old single SkipButton in the same general
             // bottom-of-card spot. CreateHorizontalGroup's childControlWidth+childForceExpandWidth
@@ -1347,7 +1351,12 @@ namespace FarmFuryArcade.EditorTools
             // needs setting.
             var actionRow = CreateHorizontalGroup("ActionButtons", root.transform, 24f);
             actionRow.GetComponent<LayoutElement>().preferredHeight = 130f;
-            AnchorBottomCenter((RectTransform)actionRow.transform, new Vector2(480f, 130f), new Vector2(0f, 70f));
+            // Bottom-right (was bottom-center) per a device-frame review — bottom-center sat
+            // outside the yellow safe-area guide on a real aspect. Inset deepened again (-100 ->
+            // -220) per a follow-up review — the row (Play in particular) still crossed the yellow
+            // guide's right edge at -100. Negative X moves inward for a right-pivoted anchor (see
+            // CreateRoundBackButton's doc comment).
+            AnchorBottomRight((RectTransform)actionRow.transform, new Vector2(480f, 130f), new Vector2(-220f, 70f));
 
             var playButton = CreateButton("PlayButton", actionRow.transform, string.Empty, new Color(0.85f, 0.55f, 0.1f), 28f, 130f, out _);
             Object.DestroyImmediate(playButton.transform.Find("PlayButton_Label").gameObject);

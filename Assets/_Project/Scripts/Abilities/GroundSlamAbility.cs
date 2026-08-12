@@ -11,7 +11,7 @@ namespace FarmFuryArcade.Abilities
     {
         private const float BaseRadiusTiles = 2f;
         private const float ComboRadiusTiles = 4f;
-        private const float StunDuration = 3f;
+        private const float StunDuration = 4f; // was 3f — extended per a gameplay pass
 
         [SerializeField] private GameObject shockwavePrefab;
         [SerializeField] private float shakeDuration = 0.3f;

@@ -42,6 +42,7 @@ namespace FarmFuryArcade.Core
             yield return TestPauseFreezesTime();
             yield return TestLevelCompleteFlow();
             TestSettingsMutatesSaveAndAudio();
+            yield return TestSfxActuallyPlays();
 
             Debug.Log("[Phase5Test] --- Phase 5 verification complete ---");
         }
@@ -227,6 +228,32 @@ namespace FarmFuryArcade.Core
                 : "[Phase5Test] FAIL: SaveManager.MusicOn did not change as expected.");
 
             SaveManager.Instance.MusicOn = before; // restore
+        }
+
+        /// <summary>Diagnoses "no SFX ever plays" reports — confirms a PlaySFX call chain actually
+        /// starts audio on a pooled AudioSource, not just that the call didn't throw. Forces SfxOn
+        /// true first in case a prior manual test session (or player) left it muted via PlayerPrefs,
+        /// which would otherwise make this fail for a reason unrelated to the wiring itself.</summary>
+        private IEnumerator TestSfxActuallyPlays()
+        {
+            if (AudioManager.Instance == null || SaveManager.Instance == null)
+            {
+                Debug.LogWarning("[Phase5Test] SKIP SFX test: AudioManager/SaveManager not found.");
+                yield break;
+            }
+
+            bool sfxWasOn = SaveManager.Instance.SfxOn;
+            SaveManager.Instance.SfxOn = true;
+
+            AudioManager.Instance.PlayCornPickupSfx();
+            yield return null;
+
+            bool playing = AudioManager.Instance.IsAnySfxPlaying();
+            Debug.Log(playing
+                ? "[Phase5Test] PASS: PlayCornPickupSfx started audio on a pooled AudioSource."
+                : "[Phase5Test] FAIL: PlayCornPickupSfx did not start any pooled AudioSource playing.");
+
+            SaveManager.Instance.SfxOn = sfxWasOn;
         }
 
         /// <summary>Polls SceneTransitionManager.IsTransitioning to completion instead of

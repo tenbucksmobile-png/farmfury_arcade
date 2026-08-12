@@ -150,9 +150,43 @@ varying by tier, so the duration/effect variety is invisible up front but still 
 Crop/vegetable/pellet/warp-tunnel positions are **not** stored as separate arrays — an earlier
 pass had `CropPlacement[]`/`PowerPelletPlacement[]` fields on `LevelData`, but these were removed
 in favor of scanning the grid for tile ids 2–5, since the GDD's own convention table already
-encodes this and keeping both would mean two sources of truth. `LevelData.warpTunnelRows` lists
-which rows wrap between `x=0` and `x=mazeWidth-1`; `TileMapRenderer` pairs the two tile-id-5
-tiles per row automatically.
+encodes this and keeping both would mean two sources of truth. `LevelData.warpTunnelRows` is
+metadata only (which rows contain at least one tile id 5, used by `Phase2Test`'s SKIP check) —
+`TileMapRenderer.RenderMaze` doesn't consult it; it derives pairing itself while scanning the grid.
+
+**`TileMapRenderer.PairWarpTunnels` pairs same-row tiles first, then pairs whatever's left over by
+same-column** (`PairByAxis` run twice — `y` then `x` — on a shared "remaining" list, removing each
+matched pair before the next pass). This two-pass approach replaced two earlier, narrower attempts,
+both of which silently stranded some warp tiles (touching them did nothing —
+`WarpTunnel.PairedWarp` stayed null, and `OnTriggerEnter2D`'s own null guard no-opped the contact):
+1. **Row-only** (the original approach) — every tile grouped strictly by `y` regardless of `x`.
+   Works for the classic left/right-edge case (`x=0` and `x=mazeWidth-1` in the same row), but a
+   genuinely *vertical* pair — e.g. `LevelData_02`'s tiles at `(8,0)` and `(8,8)`, sharing a column
+   but on two different rows — could never land in the same bucket; each was stranded alone.
+2. **Edge-column-vs-edge-row classification** (the first fix) — guessed each tile's pairing axis
+   from whether it sat on a left/right-edge column (`x=0`/`x=mazeWidth-1`, pair by row) or not (pair
+   by column). This broke a *different* case several algorithmically generated levels actually use:
+   two tiles sharing a row but at **non-edge** columns (e.g. `(1,8)` and `(9,8)`, two openings
+   through the same top wall) — the classifier routed both into column pairing since neither sits at
+   `x=0`/`x=11`, and since each is alone in its own column, both were stranded.
+
+Row-first-then-column needs no per-tile axis guessing — it just tries the two conventions a maze
+can actually use (same-row, or same-column) in turn until every tile is paired, so both cases above
+resolve correctly regardless of which columns/rows the tiles happen to sit at. Any tile still
+unpaired after both passes logs `[TileMapRenderer] Warp tile at (x,y) has no row-mate or
+column-mate to pair with`.
+
+**`LevelData_08`'s maze had a genuine hand-authoring slip**, found via a full 50-level pairing audit
+(offline script, same row-then-column logic): two of its 4 warp tiles, `(0,2)` and `(10,8)`, had
+neither a row-mate nor a column-mate at all — dead on arrival regardless of which pairing algorithm
+ran. `(0,2)` was fixed by adding a real partner at `(11,2)` (which needed `(10,2)` opened from wall
+to floor first, so the destination isn't a walled-in dead end — verified this adds no 2x2-open
+block and only ever adds connectivity). `(10,8)` has no equally clean fix: its only valid vertical
+partner row (`y=0`) already holds this maze's *other* pair's tile at `(7,0)` — adding a second `y=0`
+tile there would make the row-pass greedily pair `(7,0)` with the new tile instead of each with its
+real partner (`(7,6)`/`(10,8)`), breaking both pairs to fix one. Reverted to a plain wall instead,
+matching the rest of that border row — it never worked before either way, so removing it changes
+nothing a player would notice.
 
 **Why `LevelData.mazeLayoutFlat` instead of a raw `int[,]`:** Unity's serializer doesn't support
 multi-dimensional arrays — a field declared `int[,]` silently fails to persist. The grid is
@@ -789,9 +823,11 @@ phase made for art (solid-colour placeholders instead of real sprites).
 - **`Phase3ProjectBuilder`** (`Phase 3 > Build All`) — the one you actually want day to day now.
   Builds the 6 robot prefabs + `RobotData` assets, adds `PlayerHealth` to the existing Cluck
   prefab, gives `LevelData_01` its 2 spec'd robot spawns (Harvester@2s, Scout@6s, both at
-  `robotFactoryPosition` — read from the maze, not hardcoded, see above), creates `LevelData_05`
-  (levelNumber 4 — a smaller 20×20 maze with 3 robots:
-  Harvester/Scout/Patrol) for isolated multi-robot testing, and wires `RobotSpawner`/
+  `robotFactoryPosition` — read from the maze, not hardcoded, see above), creates
+  `LevelData_RobotTest` (levelNumber -1, out of Level Select's visible range — a smaller 20×20
+  maze with 3 robots: Harvester/Scout/Patrol) for isolated multi-robot testing, assigns
+  `LevelData_05`'s (levelNumber 4, a real player-facing level — see below) robot spawns via the
+  same difficulty curve every other real level gets, and wires `RobotSpawner`/
   `PowerPelletManager`/`ChaseScoreManager` onto `GameManagers`. Also disables `Phase1Test`'s and
   `Phase2Test`'s `runOnStart` (see below for why). **Idempotent** — safe to re-run. Depends on
   Phase 2's prefabs/`LevelData_01` already existing.
@@ -956,11 +992,12 @@ values from the GDD's color palette where one exists (e.g. walls = Wall Brown `#
   abilities, each of which spawns a dedicated effect prefab; wiring it in would mean adding a new
   prefab + a spawn call in `PuffUpAbility`, a gameplay change, not just art.
 - **Robots** — `RobotVisual.SetDirectionalSprites` takes optional `left`/`right` sprites in addition
-  to `front`/`back`. Patrol has a full 4-direction set. **Harvester and Scout now also have full
-  4-direction art** — Harvester gained real Left/Right (`HarvestorRobot_left/right.png`, previously
-  front/back only) and Scout gained a real Back (`ScoutRobot_back.png`, previously front/left/right
-  only, with Up falling back to front). Drifter still has front/left/right only (no back — Up falls
-  back to front); Heavy still has front/back only. Drone has no art at all yet and keeps the
+  to `front`/`back`. Patrol has a full 4-direction set. **Harvester, Scout, and Drifter now all have
+  full 4-direction art** — Harvester gained real Left/Right (`HarvestorRobot_left/right.png`,
+  previously front/back only), Scout gained a real Back (`ScoutRobot_back.png`, previously
+  front/left/right only), and Drifter gained a real Back (`DriftRobot_back.png`, previously
+  front/left/right only, with Up falling back to front). Heavy still has front/back only (no
+  left/right — Left/Right both fall back to front, no mirroring). Drone has no art at all yet and keeps the
   colour-tint-only placeholder behaviour for its normal states.
 - **Robot Defeated state** — all 6 robot prefabs (including Drone) have `RobotEyes.png` wired via
   `RobotVisual.SetDefeatedSprite`; while Defeated, `RobotVisual.Update`
@@ -1117,8 +1154,9 @@ values from the GDD's color palette where one exists (e.g. walls = Wall Brown `#
   (not from the underlying computation).
   A single `Btn_skip.png` button (Level Select) briefly replaced the old Replay/Next Level/Home
   row, then was itself replaced by a 3-button row in the same spot
-  (`Phase5ProjectBuilder.BuildLevelComplete`'s `ActionButtons` horizontal group) — see
-  `LevelCompleteController`'s doc comment:
+  (`Phase5ProjectBuilder.BuildLevelComplete`'s `ActionButtons` horizontal group, anchored
+  bottom-right — moved off bottom-center per a device-frame review, which sat outside the yellow
+  safe-area guide on a real aspect) — see `LevelCompleteController`'s doc comment:
   - **Play** — calls `LevelSelectController.OpenLevelSelectForLevel(nextLevelIndex)` then shows
     Level Select, jumping straight to the tile grid for the world containing the level that was
     just unlocked (the same reveal animation a normal world-badge tap uses), rather than landing on
@@ -1258,19 +1296,45 @@ silently fell back to front/back for every direction. His Bounce Roll ability ef
 `ArtWiringBuilder.WireLevelCompleteStars` → `StarDisplay.filledStarSprite`/`emptyStarSprite`) —
 see the Level Complete bullet above for the "brown boxes" double-tint bug this replaced.
 
-**Still missing / not wired:** Horace/Billy character art (Gerald now has art — see above), Drone
-robot art, a Vulnerable-state robot sprite, Gerald's Puff Up effect art (`Gerald_effect.png`,
-uploaded but unwired — see above), and the Loading Screen background (uploaded, unwired — see
-above). Cluck's Egg Drop effect art and the branding Logo are both wired (see above) — do not
-re-list them here. `Map.png` and `Card.png` are **not** gaps to close — `WorldMapScreen` (which
-would have used `Map.png`) was removed outright (see "Removed: World Map screen"), and the New
-Character Unlock card / `RosterCard` were deliberately decided to stay unframed rather than get a
-generic `Card.png` border; neither constant exists in `ArtWiringBuilder` anymore, so don't
-reintroduce them speculatively. `Btn_music.png`/`Btn_nosound.png`/`Btn_quit.png` are configured
-for import settings but never assigned to any field — leftover from before `SoundButton` was
-removed from the HUD (see "Landing/Gameplay-HUD cleanup") — currently dead, not a bug.
-`ArtWiringBuilder.Load()` logs a warning whenever a referenced sprite path doesn't resolve on
-disk, so a future accidentally-dead reference like these won't be silent.
+**Ducky's art is now complete**: real Left/Right walk frames (`Ducky_left.png`/`Ducky_right.png`,
+`hasDedicatedRightArt = true`, wired via a dedicated `WireDucky()` — she previously had only
+front/back, so Right silently mirrored Left) plus a Skip Shot departure-splash effect
+(`Ducky_ability_left.png`/`Ducky_ability_right.png` on a new `DuckySplash.prefab`/
+`DuckySplashEffect` — mirrored per the actual skip direction, chosen at runtime by
+`SkipShotAbility.Execute` from the sign of the horizontal distance to her destination).
+
+**Horace has his first real art**: front + a real 2-frame Left walk cycle (`Horace_left1.png`/
+`Horace_Left2.png` — `Horace_left.png`, no suffix, is an earlier superseded draft left
+unreferenced, same "extra art, no slot for it yet" convention as `Cluck_rightwalk.png`), one Right
+frame (`Horace_right2.png`, no "right1" yet — repeats for both Right0/Right1 slots, still real
+dedicated art so `hasDedicatedRightArt = true`), and a Rear Kick landing-impact "buck" effect
+(`Horace_ability_buckleft.png`/`Horace_ability_buckright.png` on a new `HoraceBuck.prefab`/
+`HoraceBuckEffect` — mirrored per knockback direction). No Up/back art yet — Up falls back to
+front. Billy remains the only character with zero uploaded art.
+
+**Water tiles have real art** (`Water_tile.png`, wired onto the `WaterTile` prefab via
+`WireMazeTiles`) and, as of this pass, **real placements**: every level from `LevelData_16` onward
+(the point `LevelData_05`'s levelNumber-15 unlock threshold means Ducky is actually available —
+see the character-unlock table) got a Ducky-only water tile pair added to its maze, verified
+offline (same connectivity-check approach as the Level 5 maze generation) so the pair only ever
+adds a shortcut, never blocks a non-Ducky character's access to anything. `LevelData_24` is the one
+exception — its maze has no interior redundancy at all (every safe pair found involved converting
+one of its own warp tunnel tiles, which was rejected) — it has no water tile and none was forced in,
+to avoid creating a soft-lock.
+
+**Still missing / not wired:** Billy character art, Drone robot art, a Vulnerable-state robot
+sprite, Gerald's Puff Up effect art (`Gerald_effect.png`, uploaded but unwired — see above), and the
+Loading Screen background (uploaded, unwired — see above). Cluck's Egg Drop effect art and the
+branding Logo are both wired (see above) — do not re-list them here. `Map.png` and `Card.png` are
+**not** gaps to close — `WorldMapScreen` (which would have used `Map.png`) was removed outright (see
+"Removed: World Map screen"), and the New Character Unlock card / `RosterCard` were deliberately
+decided to stay unframed rather than get a generic `Card.png` border; neither constant exists in
+`ArtWiringBuilder` anymore, so don't reintroduce them speculatively. `Btn_music.png`/
+`Btn_nosound.png`/`Btn_quit.png` are configured for import settings but never assigned to any
+field — leftover from before `SoundButton` was removed from the HUD (see "Landing/Gameplay-HUD
+cleanup") — currently dead, not a bug. `ArtWiringBuilder.Load()` logs a warning whenever a
+referenced sprite path doesn't resolve on disk, so a future accidentally-dead reference like these
+won't be silent.
 
 **Texture import convention:** `ArtWiringBuilder.ConfigureSpriteImporters` sets every wired
 texture's `spritePixelsPerUnit` to that texture's own pixel width (via `TextureImporter.
@@ -1310,9 +1374,9 @@ happened rather than which clip field to reach into):
 | Clip | Method | Fires from |
 |---|---|---|
 | `Animal_death.mp3` | `PlayAnimalDeathSfx` | `PlayerHealth.DeathSequence` (start of the death sequence) |
-| `CornPickup.mp3` | `PlayCornPickupSfx` | `CropCollector`, only when `CropPickup.cropType == CropType.Corn` (not Vegetable) |
-| `PowerReady.mp3` | `PlayPowerReadySfx` | `PowerPelletManager.ActivatePower`, only on the `false → true` edge (a pellet eaten while power is already active just refreshes the duration, doesn't replay the cue) |
-| `RarePellet_pickup.mp3` | `PlayRarePelletPickupSfx` | `CropCollector`, only when `pellet.pelletType != PowerPelletType.Sunflower` — same "rare tier" gate `PelletCollectBurst` uses |
+| `CornPickup.mp3` | `PlayCornPickupSfx` | `CropCollector`, on every `CropPickup` collected — doubles as the generic crop/"pellet" pickup cue (corn kernels and vegetables alike, per feedback that carrots were silent), not corn-only despite the name |
+| `PowerReady.mp3` | `PlayPowerReadySfx` | `AbilityBase.UpdateCooldown`, the single frame a character's ability cooldown reaches exactly 0 (not power-pellet activation — that's a separate, unrelated event; see `PlayEatRobotMusic` below) |
+| `RarePellet_pickup.mp3` | `PlayRarePelletPickupSfx` | `CropCollector`, only when `pellet.pelletType != PowerPelletType.Sunflower` — same "rare tier" gate `PelletCollectBurst` uses. Fires *before* `PowerPelletManager.ActivatePower` (which crossfades music to `EatRobot.mp3`), so the pickup cue is heard first rather than being stepped on by the music swap |
 | `RobotSpawn.mp3` | `PlayRobotRespawnSfx` | `RobotSpawner.SpawnRobot` — every robot spawn, including level-start ones. Used to fire only from a defeated robot's mid-level walk back to the factory (`RobotBase.ArriveAtFactory`); that flow was removed (defeated robots now disappear permanently for the rest of the maze — see the Robot AI state-machine note above), so this was repointed to the only spawn event left, or it would have become dead code with no call site at all |
 
 When more art lands, wire it into the existing prefabs (`Prefabs/Characters/`, `Prefabs/Robots/`,
@@ -1388,7 +1452,12 @@ and reopen the project normally to confirm nothing was corrupted.
   reversal rules, crop/vegetable/power-pellet pickup, warp tunnels, scoring, level completion —
   done. **50 real levels now exist** across the first two worlds: `LevelData_01`-`25` (World 1,
   Corn Field, `levelNumber` 0-24) and `LevelData_26`-`50` (World 2, Veg Patch, `levelNumber`
-  25-49) — `LevelData_05` stays reserved for Phase 3's separate 20x20 multi-robot test maze.
+  25-49). Phase 3's separate 20x20 multi-robot test maze lives at `LevelData_RobotTest.asset`
+  (`levelNumber -1`, invisible to Level Select) — it used to sit at `LevelData_05.asset`/
+  `levelNumber 4`, which meant `DataManager` (keyed purely by `levelNumber`) surfaced it as the
+  real "Level 5" tile: tapping it loaded a mostly-open 20x20 test field instead of a designed 12x9
+  maze, reading as "blank and without walls" next to every other level. `LevelData_05` is now a
+  real, algorithmically-generated 12x9 "Corn Field - 05" level like `LevelData_09` onward.
   World 1's `01`-`04`/`06`-`08` are hand-authored via `Tools/maze-designer.html` (a standalone
   click-to-paint web page, repo root — now has a World 1/World 2 toggle that reskins the wall/warp
   swatch colors to match each world's real art and tags the exported grid with

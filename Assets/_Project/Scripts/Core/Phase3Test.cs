@@ -279,7 +279,11 @@ namespace FarmFuryArcade.Core
             GUILayout.BeginArea(new Rect(240, 110, 260, 240));
             GUILayout.Label("Phase 3 manual controls:");
             if (GUILayout.Button("Reload Level 0")) { GameManager.Instance.LoadLevel(0); FindRefs(); }
-            if (GUILayout.Button("Load Level 5 (3 robots)")) { GameManager.Instance.LoadLevel(4); FindRefs(); }
+            // -1, not 4 — levelNumber 4 is now the real "Corn Field - 05" level; the reserved
+            // multi-robot test maze lives at levelNumber -1 (LevelData_RobotTest.asset) so it
+            // never appears as a tappable tile in Level Select. See Phase3ProjectBuilder's
+            // LevelDataRobotTestPath doc comment for the bug this used to cause.
+            if (GUILayout.Button("Load Robot Test Field (3 robots)")) { GameManager.Instance.LoadLevel(-1); FindRefs(); }
             if (GUILayout.Button("Force Activate Power (8s)")) { PowerPelletManager.Instance?.ActivatePower(8f); }
             if (GUILayout.Button("Kill All Robots' Health"))
             {

@@ -25,13 +25,24 @@ namespace FarmFuryArcade.EditorTools
         private const string LevelData02Path = "Assets/_Project/ScriptableObjects/Resources/Levels/LevelData_02.asset";
         private const string LevelData03Path = "Assets/_Project/ScriptableObjects/Resources/Levels/LevelData_03.asset";
         private const string LevelData04Path = "Assets/_Project/ScriptableObjects/Resources/Levels/LevelData_04.asset";
-        // Note: LevelData_05.asset / levelNumber 4 are already used by Phase3ProjectBuilder's
-        // separate 20x20 multi-robot test maze — this project's designed 12x9 progression levels
-        // continue at 06 to avoid colliding with it. LevelData_09 onward are algorithmically
-        // generated (recursive-backtracker + extra loop edges on a half-density cell grid, which
-        // provably can't produce the open-2x2-block failure mode two earlier hand-tuned procedural
-        // attempts hit — see BuildLevel's doc comment) to fill out the full 25-level World 1 set
+        // LevelData_05.asset / levelNumber 4 used to be permanently occupied by Phase3ProjectBuilder's
+        // 20x20 multi-robot test maze, which was never meant to be player-reachable ("not part of the
+        // level-select flow yet" per its own doc comment) but leaked into World 1's real 25-level
+        // sequence anyway — DataManager keys LevelData purely by levelNumber, and
+        // UnlockProgression/LevelSelectController have no separate "is this a real level" concept, so
+        // any LevelData occupying a 0-24/25-49 slot is player-reachable by construction. Tapping tile
+        // 5 loaded that mostly-open 20x20 test field instead of a real "Corn Field - 05" maze — read
+        // as "blank and without walls" compared to every other level. Fixed by giving the test maze
+        // its own file (Phase3ProjectBuilder.LevelDataRobotTestPath -> LevelData_RobotTest.asset) and an
+        // out-of-range levelNumber (-1, invisible to DataManager.GetAllLevelData's 0-99 consumers),
+        // freeing LevelData_05.asset/levelNumber 4 for BuildLevelData05 below — a real, verified
+        // (connected, no open-2x2-block) 12x9 maze, algorithmically generated the same way as
+        // LevelData_09 onward. LevelData_09 onward are algorithmically generated (recursive-
+        // backtracker + extra loop edges on a half-density cell grid, which provably can't produce
+        // the open-2x2-block failure mode two earlier hand-tuned procedural attempts hit — see
+        // BuildLevel's doc comment) to fill out the full 25-level World 1 set
         // (UnlockProgression.LevelsPerWorld) without hand-authoring every one via the maze designer.
+        private const string LevelData05Path = "Assets/_Project/ScriptableObjects/Resources/Levels/LevelData_05.asset";
         private const string LevelData06Path = "Assets/_Project/ScriptableObjects/Resources/Levels/LevelData_06.asset";
         private const string LevelData07Path = "Assets/_Project/ScriptableObjects/Resources/Levels/LevelData_07.asset";
         private const string LevelData08Path = "Assets/_Project/ScriptableObjects/Resources/Levels/LevelData_08.asset";
@@ -123,6 +134,7 @@ namespace FarmFuryArcade.EditorTools
             BuildLevelData02();
             BuildLevelData03();
             BuildLevelData04();
+            BuildLevelData05();
             BuildLevelData06();
             BuildLevelData07();
             BuildLevelData08();
@@ -174,7 +186,7 @@ namespace FarmFuryArcade.EditorTools
 
             AssetDatabase.SaveAssets();
             AssetDatabase.Refresh();
-            Debug.Log("[Phase2ProjectBuilder] Phase 2 prefabs, LevelData_01 through LevelData_50 (World 1 + World 2's full 25-level sets, minus the LevelData_05 robot test maze), CharacterData_Cluck, and Game.unity wiring complete.");
+            Debug.Log("[Phase2ProjectBuilder] Phase 2 prefabs, LevelData_01 through LevelData_50 (World 1 + World 2's full 25-level sets), CharacterData_Cluck, and Game.unity wiring complete.");
         }
 
         /// <summary>Generalized from a hardcoded "Wall_CornField" so World 2's Wall_VegPatch could
@@ -548,10 +560,31 @@ namespace FarmFuryArcade.EditorTools
 
         private static void BuildLevelData04() => BuildLevel(LevelData04Path, Rows04, 3, "The Corn Field - 04");
 
-        /// <summary>LevelData_06 (the 5th designed 12x9 progression level — numbered 06 to avoid
-        /// colliding with Phase3ProjectBuilder's separate 20x20 multi-robot test maze at
-        /// LevelData_05/levelNumber 4), same maze-designer-tool-sourced/hand-authored convention
-        /// as LevelData_01's `Rows` above.</summary>
+        /// <summary>LevelData_05, algorithmically generated (recursive backtracker on the 5x4
+        /// odd-odd cell grid + loop edges, same convention as LevelData_09 onward — see BuildLevel's
+        /// doc comment) rather than hand-authored via the maze designer. Verified offline before
+        /// being baked in here: fully connected (every non-wall cell reachable from the player
+        /// start), no open-2x2 block anywhere, and the two warp tiles (0,5)/(11,5) both have an
+        /// open interior neighbor so the tunnel is actually usable in both directions. Replaces
+        /// what used to be a permanent gap at levelNumber 4 (see the LevelData05Path comment above
+        /// for why that gap existed and how it leaked Phase3's test maze into Level Select).</summary>
+        private static readonly string[] Rows05 =
+        {
+            "111111111111", // y=8 (top)
+            "142222222411", // y=7
+            "121112111211", // y=6
+            "522222621235", // y=5
+            "121211121211", // y=4
+            "122222122211", // y=3
+            "111112121111", // y=2
+            "122227122211", // y=1
+            "111111111111", // y=0 (bottom)
+        };
+
+        private static void BuildLevelData05() => BuildLevel(LevelData05Path, Rows05, 4, "The Corn Field - 05");
+
+        /// <summary>LevelData_06 (the 6th designed 12x9 progression level), same maze-designer-tool-
+        /// sourced/hand-authored convention as LevelData_01's `Rows` above.</summary>
         private static readonly string[] Rows06 =
         {
             "111111111151", // y=8 (top)
@@ -584,15 +617,28 @@ namespace FarmFuryArcade.EditorTools
         private static void BuildLevelData07() => BuildLevel(LevelData07Path, Rows07, 6, "The Corn Field - 07");
 
         /// <summary>LevelData_08, same convention as LevelData_06 above.</summary>
+        // Two of this maze's 4 warp tiles ((0,2) and (10,8)) originally had no row-mate or
+        // column-mate at all — a hand-authoring slip that predates TileMapRenderer's row-then-
+        // column pairing fix (see its own doc comment) and would have left both silently dead
+        // (touching them did nothing). (0,2) is fixed by giving it a real, reachable partner at
+        // (11,2) — (10,2) needed opening from wall to floor first so the new warp destination
+        // isn't a walled-in dead end (verified this adds no 2x2 open block and only ever adds
+        // connectivity, never removes it). (10,8) has no such clean fix: its only valid vertical
+        // partner row (y=0) already holds this maze's OTHER pair's tile at (7,0) — adding a second
+        // y=0 tile at (10,0) would make the row-first pairing pass greedily pair (7,0) with (10,0)
+        // instead of each with its real vertical partner ((7,6)/(10,8)), breaking both pairs
+        // instead of fixing one. Reverted to a plain wall instead, matching the rest of this
+        // border row — it never worked before this fix either way, so removing it changes nothing
+        // a player would notice, just cleans up the dead stub.
         private static readonly string[] Rows08 =
         {
-            "111111111151", // y=8 (top)
+            "111111111111", // y=8 (top)
             "132222227121", // y=7
             "121113151131", // y=6
             "121416122321", // y=5
             "131211121121", // y=4
             "121232231121", // y=3
-            "521111111131", // y=2
+            "521111111251", // y=2
             "122232232221", // y=1
             "111111151111", // y=0 (bottom)
         };
@@ -716,7 +762,7 @@ namespace FarmFuryArcade.EditorTools
             "111112111111", // y=4
             "532322222225", // y=3
             "121212111211", // y=2
-            "531223222225", // y=1
+            "531883222225", // y=1
             "111111111111", // y=0 (bottom)
         };
 
@@ -731,7 +777,7 @@ namespace FarmFuryArcade.EditorTools
             "121711121311", // y=4
             "532212231325", // y=3
             "111212111211", // y=2
-            "532312222235", // y=1
+            "532318822235", // y=1
             "151111111511", // y=0 (bottom)
         };
 
@@ -746,7 +792,7 @@ namespace FarmFuryArcade.EditorTools
             "121212111211", // y=4
             "121212123311", // y=3
             "131212121211", // y=2
-            "521222241225", // y=1
+            "521882241225", // y=1
             "111111111111", // y=0 (bottom)
         };
 
@@ -761,7 +807,7 @@ namespace FarmFuryArcade.EditorTools
             "111112131211", // y=4
             "532332122235", // y=3
             "131111111211", // y=2
-            "131222332711", // y=1
+            "131882332711", // y=1
             "151111111511", // y=0 (bottom)
         };
 
@@ -776,7 +822,7 @@ namespace FarmFuryArcade.EditorTools
             "121212121211", // y=4
             "522223121225", // y=3
             "131313121211", // y=2
-            "527333221325", // y=1
+            "527883221325", // y=1
             "151111111511", // y=0 (bottom)
         };
 
@@ -791,7 +837,7 @@ namespace FarmFuryArcade.EditorTools
             "121211121211", // y=4
             "521322121225", // y=3
             "121112171211", // y=2
-            "142222123311", // y=1
+            "148822123311", // y=1
             "111111111111", // y=0 (bottom)
         };
 
@@ -806,7 +852,7 @@ namespace FarmFuryArcade.EditorTools
             "121117111211", // y=4
             "132312221211", // y=3
             "111212131311", // y=2
-            "122422322211", // y=1
+            "122488322211", // y=1
             "151111111511", // y=0 (bottom)
         };
 
@@ -832,7 +878,7 @@ namespace FarmFuryArcade.EditorTools
             "111111111111", // y=8 (top)
             "522622223235", // y=7
             "121211111211", // y=6
-            "131223422311", // y=5
+            "131883422311", // y=5
             "131111111311", // y=4
             "122322321711", // y=3
             "111111121211", // y=2
@@ -851,7 +897,7 @@ namespace FarmFuryArcade.EditorTools
             "121111141211", // y=4
             "532222321225", // y=3
             "111111111311", // y=2
-            "123222232211", // y=1
+            "188222232211", // y=1
             "111111111111", // y=0 (bottom)
         };
 
@@ -869,7 +915,7 @@ namespace FarmFuryArcade.EditorTools
             "121211111211", // y=4
             "132313222211", // y=3
             "111112121211", // y=2
-            "134232222211", // y=1
+            "134232882211", // y=1
             "151111111511", // y=0 (bottom)
         };
 
@@ -884,7 +930,7 @@ namespace FarmFuryArcade.EditorTools
             "121212111211", // y=4
             "122322131311", // y=3
             "131212131211", // y=2
-            "132423123211", // y=1
+            "138483123211", // y=1
             "151111111511", // y=0 (bottom)
         };
 
@@ -899,7 +945,7 @@ namespace FarmFuryArcade.EditorTools
             "131612121311", // y=4
             "121212232311", // y=3
             "111212121211", // y=2
-            "122212222311", // y=1
+            "182212222811", // y=1
             "111111111111", // y=0 (bottom)
         };
 
@@ -912,7 +958,7 @@ namespace FarmFuryArcade.EditorTools
             "121111111311", // y=6
             "171223221211", // y=5
             "131112111211", // y=4
-            "122322222211", // y=3
+            "188322222211", // y=3
             "111111121211", // y=2
             "123223241211", // y=1
             "151111111511", // y=0 (bottom)
@@ -929,7 +975,7 @@ namespace FarmFuryArcade.EditorTools
             "111113131111", // y=4
             "132222173311", // y=3
             "121212111311", // y=2
-            "541222222235", // y=1
+            "541882222235", // y=1
             "151111111511", // y=0 (bottom)
         };
 
@@ -944,7 +990,7 @@ namespace FarmFuryArcade.EditorTools
             "121211121311", // y=4
             "121242322711", // y=3
             "111212131111", // y=2
-            "122313222211", // y=1
+            "122318822211", // y=1
             "151111111511", // y=0 (bottom)
         };
 
@@ -957,7 +1003,7 @@ namespace FarmFuryArcade.EditorTools
             "111211111311", // y=6
             "122226234211", // y=5
             "121211111211", // y=4
-            "522212132235", // y=3
+            "528218132235", // y=3
             "111212131211", // y=2
             "522212322735", // y=1
             "111111111111", // y=0 (bottom)
@@ -974,7 +1020,7 @@ namespace FarmFuryArcade.EditorTools
             "111111121211", // y=4
             "522213221225", // y=3
             "141212111711", // y=2
-            "531222222225", // y=1
+            "531222882225", // y=1
             "111111111111", // y=0 (bottom)
         };
 
@@ -989,7 +1035,7 @@ namespace FarmFuryArcade.EditorTools
             "111211161211", // y=4
             "522212232325", // y=3
             "121212111211", // y=2
-            "122222122311", // y=1
+            "128822122311", // y=1
             "151111111511", // y=0 (bottom)
         };
 
@@ -1004,7 +1050,7 @@ namespace FarmFuryArcade.EditorTools
             "121313111211", // y=4
             "521312232235", // y=3
             "121311121211", // y=2
-            "521232272225", // y=1
+            "521882272225", // y=1
             "111111111111", // y=0 (bottom)
         };
 
@@ -1019,7 +1065,7 @@ namespace FarmFuryArcade.EditorTools
             "121111121211", // y=4
             "122213221311", // y=3
             "131212121211", // y=2
-            "531233127225", // y=1
+            "531883127225", // y=1
             "151111111511", // y=0 (bottom)
         };
 
@@ -1034,7 +1080,7 @@ namespace FarmFuryArcade.EditorTools
             "121216131211", // y=4
             "122212121311", // y=3
             "111113121311", // y=2
-            "122222122211", // y=1
+            "182222122811", // y=1
             "111111111111", // y=0 (bottom)
         };
 
@@ -1049,7 +1095,7 @@ namespace FarmFuryArcade.EditorTools
             "121112111311", // y=4
             "532222131375", // y=3
             "121411121211", // y=2
-            "531322232235", // y=1
+            "531882232235", // y=1
             "111111111111", // y=0 (bottom)
         };
 
@@ -1064,7 +1110,7 @@ namespace FarmFuryArcade.EditorTools
             "121211121211", // y=4
             "121422221211", // y=3
             "121211111211", // y=2
-            "123323732211", // y=1
+            "128823732211", // y=1
             "151111111511", // y=0 (bottom)
         };
 
@@ -1079,7 +1125,7 @@ namespace FarmFuryArcade.EditorTools
             "131111111211", // y=4
             "523222122235", // y=3
             "121112171211", // y=2
-            "123322321311", // y=1
+            "183322321811", // y=1
             "111111111111", // y=0 (bottom)
         };
 
@@ -1094,7 +1140,7 @@ namespace FarmFuryArcade.EditorTools
             "121111131211", // y=4
             "121223232211", // y=3
             "111211131311", // y=2
-            "522212222325", // y=1
+            "522218822325", // y=1
             "151111111511", // y=0 (bottom)
         };
 
@@ -1109,7 +1155,7 @@ namespace FarmFuryArcade.EditorTools
             "131112111311", // y=4
             "122232122211", // y=3
             "121212121311", // y=2
-            "132412721211", // y=1
+            "138418721211", // y=1
             "151111111511", // y=0 (bottom)
         };
 
@@ -1124,7 +1170,7 @@ namespace FarmFuryArcade.EditorTools
             "141216121311", // y=4
             "122313121311", // y=3
             "111212121211", // y=2
-            "132272232211", // y=1
+            "132278832211", // y=1
             "151111111511", // y=0 (bottom)
         };
 
@@ -1137,7 +1183,7 @@ namespace FarmFuryArcade.EditorTools
             "131111121311", // y=6
             "122223261211", // y=5
             "121211111211", // y=4
-            "121324123211", // y=3
+            "181324123811", // y=3
             "111112121111", // y=2
             "122222222211", // y=1
             "151111111511", // y=0 (bottom)
@@ -1154,7 +1200,7 @@ namespace FarmFuryArcade.EditorTools
             "121211111211", // y=4
             "131222121211", // y=3
             "111212121211", // y=2
-            "122422322211", // y=1
+            "122488322211", // y=1
             "151111111511", // y=0 (bottom)
         };
 
@@ -1169,7 +1215,7 @@ namespace FarmFuryArcade.EditorTools
             "121112111211", // y=4
             "132212231211", // y=3
             "111112121211", // y=2
-            "534322337225", // y=1
+            "534322887225", // y=1
             "151111111511", // y=0 (bottom)
         };
 
@@ -1184,7 +1230,7 @@ namespace FarmFuryArcade.EditorTools
             "121113121111", // y=4
             "522327322325", // y=3
             "111213111211", // y=2
-            "523313222225", // y=1
+            "523318822225", // y=1
             "111111111111", // y=0 (bottom)
         };
 
@@ -1199,7 +1245,7 @@ namespace FarmFuryArcade.EditorTools
             "111113121211", // y=4
             "523222121325", // y=3
             "131111121211", // y=2
-            "521222232225", // y=1
+            "521882232225", // y=1
             "111111111111", // y=0 (bottom)
         };
 
@@ -1214,7 +1260,7 @@ namespace FarmFuryArcade.EditorTools
             "111111111211", // y=4
             "533212322225", // y=3
             "121213121211", // y=2
-            "122372132211", // y=1
+            "128372182211", // y=1
             "151111111511", // y=0 (bottom)
         };
 
@@ -1227,7 +1273,7 @@ namespace FarmFuryArcade.EditorTools
             "121211111711", // y=6
             "521216222235", // y=5
             "121312111211", // y=4
-            "133232231211", // y=3
+            "188232231211", // y=3
             "111111121211", // y=2
             "522432221235", // y=1
             "111111111111", // y=0 (bottom)

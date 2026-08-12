@@ -67,6 +67,15 @@ namespace FarmFuryArcade.Abilities
 
             CooldownRemaining = Mathf.Max(0f, CooldownRemaining - deltaTime);
             OnCooldownChanged?.Invoke(CooldownRemaining, totalCooldown);
+
+            // This only executes while CooldownRemaining was still >0 on entry (the early-return
+            // above skips it every frame after), so the moment it lands on exactly 0 is the single
+            // "ability just became usable again" transition — not every frame it happens to be
+            // ready, and not the initial "never used yet" state either.
+            if (CooldownRemaining <= 0f)
+            {
+                AudioManager.Instance?.PlayPowerReadySfx();
+            }
         }
 
         public bool TryActivate()

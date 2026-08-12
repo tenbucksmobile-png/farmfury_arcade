@@ -13,12 +13,11 @@ namespace FarmFuryArcade.Utilities
     /// (LevelTileController), not here.
     ///
     /// The world-boundary gates (levels 26-50 also need Level 25 at 2+ stars, etc.) are specified
-    /// for a 100-level, 4-world structure this project doesn't actually have content for yet (only
-    /// LevelData for levelNumber 0 and 4 exist — see DataManager.GetAllLevelData's own doc comment).
-    /// They're still implemented exactly as specified so they take effect automatically once more
-    /// levels are authored; for now they're simply unreachable (IsLevelUnlocked's normal
-    /// "previous level needs 1+ star" chain already blocks progress long before a gate would ever
-    /// be evaluated with real data).
+    /// for a 100-level, 4-world structure — worlds 1-2 (levelNumber 0-49, LevelData_01-50) now have
+    /// real content, worlds 3-4 (50-99) don't yet. They're still implemented exactly as specified
+    /// so they take effect automatically once more levels are authored; for worlds 3-4, for now
+    /// they're simply unreachable (IsLevelUnlocked's normal "previous level needs 1+ star" chain
+    /// already blocks progress long before a gate would ever be evaluated with real data).
     /// </summary>
     public static class UnlockProgression
     {

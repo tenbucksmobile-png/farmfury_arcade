@@ -30,12 +30,15 @@ namespace FarmFuryArcade.Gameplay
             {
                 ScoreManager.Instance.AddCropPoints(pellet.points);
                 GameManager.Instance.NotifyCropCollected();
-                PowerPelletManager.Instance?.ActivatePower(PowerPelletManager.GetDuration(pellet.pelletType));
-                pellet.SpawnCollectEffectIfRare();
+                // RarePelletPickupSfx fires before ActivatePower (which crossfades music to
+                // EatRobot.mp3 on the false->true edge) so the rare-pickup cue is heard first,
+                // not stepped on by the music swap starting underneath it.
                 if (pellet.pelletType != PowerPelletType.Sunflower)
                 {
                     AudioManager.Instance?.PlayRarePelletPickupSfx();
                 }
+                PowerPelletManager.Instance?.ActivatePower(PowerPelletManager.GetDuration(pellet.pelletType));
+                pellet.SpawnCollectEffectIfRare();
                 Destroy(other.gameObject);
                 return;
             }
