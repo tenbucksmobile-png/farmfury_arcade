@@ -12,6 +12,14 @@ namespace FarmFuryArcade.UI
     /// than recomputing anything. If UnlockManager unlocked a character this level, shows
     /// NewCharacterUnlockScreen as an overlay once the celebration sequence finishes.
     ///
+    /// If this completion also crossed a world's 2-star gate for the first time
+    /// (GameManager.JustUnlockedWorldIndex), NewWorldUnlockScreen bursts that world's badge in
+    /// afterward (waiting for any character-unlock card to finish first, so the two never overlap)
+    /// and, once its own reveal/pulse/hold finishes, automatically shows Level Select in its
+    /// world-select state — unlike the character-unlock celebration, which just returns silently to
+    /// this screen, this one navigates on its own since the whole point is to show the freshly
+    /// unlocked badge without requiring a tap.
+    ///
     /// Rebuilt to a Canva mockup (2026-07-31): LevelComplete.png's panel only has room for the
     /// "LEVEL COMPLETE!" banner (baked into the art), 3 stars, and a score readout on its wooden
     /// shelf — the previous crop/robot/time/perfect-bonus breakdown, combo-achievements line, and
@@ -36,6 +44,7 @@ namespace FarmFuryArcade.UI
         [SerializeField] private LevelSelectController levelSelectController;
         [SerializeField] private SettingsPanel settingsPanel;
         [SerializeField] private NewCharacterUnlockScreen unlockScreen;
+        [SerializeField] private NewWorldUnlockScreen worldUnlockScreen;
 
         private const float StarStepSeconds = 0.35f;
         private const float PreStarDelaySeconds = 0.3f;
@@ -56,6 +65,7 @@ namespace FarmFuryArcade.UI
         private IEnumerator CelebrationSequence()
         {
             var result = GameManager.Instance.LastLevelResult;
+            int? justUnlockedWorld = GameManager.Instance.JustUnlockedWorldIndex;
 
             starDisplay.SetStars(0);
             scoreText.text = "0";
@@ -72,7 +82,24 @@ namespace FarmFuryArcade.UI
             if (UnlockManager.Instance != null && UnlockManager.Instance.LastUnlockedBatch.Count > 0)
             {
                 yield return new WaitForSecondsRealtime(PreUnlockDelaySeconds);
-                unlockScreen.Show(UnlockManager.Instance.LastUnlockedBatch[0]);
+
+                // Only block on the character card's own auto-dismiss when a world-unlock
+                // celebration also needs to run right after it — otherwise this stays fire-and-
+                // forget, same as before, so the plain "unlocked a character" case is unaffected.
+                bool characterCelebrationDone = false;
+                unlockScreen.Show(UnlockManager.Instance.LastUnlockedBatch[0], () => characterCelebrationDone = true);
+
+                if (justUnlockedWorld.HasValue)
+                {
+                    yield return new WaitUntil(() => characterCelebrationDone);
+                }
+            }
+
+            if (justUnlockedWorld.HasValue && worldUnlockScreen != null && levelSelectController != null)
+            {
+                yield return new WaitForSecondsRealtime(PreUnlockDelaySeconds);
+                Sprite badge = levelSelectController.GetWorldSignSprite(justUnlockedWorld.Value);
+                worldUnlockScreen.Show(badge, () => SceneTransitionManager.Instance.ShowOnly(levelSelectScreen));
             }
         }
 

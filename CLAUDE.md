@@ -325,9 +325,11 @@ targets are resolved generically by `RobotBase.ResolveTarget()`):
 
 **Why Drone doesn't use `RobotAI`:** `RobotAI.GetValidDirections` is always wall-respecting by
 design (it's the shared pathing helper every other robot uses). Drone overrides
-`IsWalkableForThisRobot`/`ComputeDesiredDirection` to use `TileMapRenderer.IsInBounds` instead,
-so it picks the closest-to-target direction among all 4 regardless of walls — "through walls" is
-really just "walls don't factor into its direction choice."
+`IsWalkableForThisRobot`/`ComputeDesiredDirection` so a cell only needs to be in-bounds AND not on
+the maze's outer border ring to count as walkable — an interior wall is fine, the border wall
+isn't — so it picks the closest-to-target direction among all 4 regardless of interior walls,
+while still being physically unable to fly off the playable board. "Through walls" is really just
+"interior walls don't factor into its direction choice"; the border still does.
 
 **Scatter corners:** `RobotSpawner.GetScatterCorner` assigns each `RobotType` one of the four maze
 corners (inset 1 tile from the border), classic-arcade style. `DrifterRobot`'s "retreat" target
@@ -350,7 +352,10 @@ longer a Returning phase to show eyes during), but Vulnerable still swaps the pl
 `SpriteRenderer` colour (blue, flashing white in the last 2s) since no dedicated vulnerable sprite
 has been uploaded yet. Replace with a real `Robot_Vulnerable_Walk` sprite swap when that art lands.
 Harvester and Scout now have full 4-direction art (Left/Right added for Harvester, Back added for
-Scout — see "Art status" below); only Drone has none.
+Scout — see "Art status" below); Drone now has art too (a single symmetric sprite, same for every
+facing — see "Art status" below), and Heavy's art was deleted from the project (also see "Art
+status") and is deliberately excluded from `Phase3ProjectBuilder`'s auto-assigned robot roster as
+a result.
 
 **Chain scoring & power state:** `PowerPelletManager` (Core) owns the single global "frightened"
 countdown (`IsPowerActive`, `TimeRemaining`, `ActivatePower(duration)`, `OnPowerStateChanged`)
@@ -381,7 +386,7 @@ ability:
 | Character | Ability | Effect | Cooldown |
 |---|---|---|---|
 | Cluck | EggDrop | 1 egg at her current position; any robot walking over it is instantly defeated | 15s |
-| Bessie | GroundSlam | Instantly defeats every robot within 2 tiles; shockwave + camera shake | 20s |
+| Bessie | GroundSlam | Instantly defeats every robot within 2 tiles at cast, shockwave + camera shake, then the zone lingers 3s defeating any robot that wanders in afterward | 20s |
 | Percy | BounceRoll | Next wall he hits becomes walkable 2s (glows while phaseable) | 30s |
 | Woolly | TripleClone | Spawns 2 AI clones (`WoollyClone`) that wander/collect crops for 10s | 25s |
 | Ducky | SkipShot | Teleports across an adjacent unused water tile pair — once per pair per maze | 2s (debounce only — the real gate is per-pair, see `WaterTile.Used`) |
@@ -619,6 +624,36 @@ balance) in case a future screen wants to surface it again, only the display was
 `NewCharacterUnlockScreen` automatically after the star/score celebration finishes, without
 `UnlockManager` needing to know anything about UI — it just records what
 `CheckUnlocksOnLevelComplete` unlocked on its most recent call.
+
+**`GameManager.JustUnlockedWorldIndex`** is the same idea for worlds — set (or reset to null) at
+the top of every `EndLevel(true)` call, non-null only when the completed level is a world's gate
+level (its own index is the last level of a world) at 2+ stars, that world's `LevelData` actually
+exists (World 3/4 have no next-world content yet in some cases), and `SaveManager.
+HasSeenWorldUnlock(world)` is still false. That last check is the load-bearing one: an earlier
+version compared this level's stars-before-this-call to stars-after, which meant the celebration
+silently never fired for anyone who'd already 2-starred a gate level *some other way* than this
+exact `EndLevel` transition (replaying an already-qualifying level, or `SceneCleanupBuilder`'s "Set
+3 Stars on all levels" debug tool writing stars directly via `SaveManager`, bypassing `EndLevel`
+entirely) — the world was genuinely unlocked, but the player had never actually seen the
+celebration for it. `HasSeenWorldUnlock`/`SetWorldUnlockSeen` (persisted PlayerPrefs flags, same
+one-shot convention as `IsCharacterUnlocked`) fix that: the celebration fires the first time it's
+actually shown, regardless of how the stars themselves got there, and `SetWorldUnlockSeen` is
+called immediately so replaying the gate level afterward never re-fires it.
+
+`LevelCompleteController`'s celebration sequence reads this after the star/score/character-unlock
+beats: if set, it shows **`NewWorldUnlockScreen`** — the world's badge sprite
+(`LevelSelectController.GetWorldSignSprite`) bursts in with an overshoot pop, pulses
+(enlarges/shrinks) a couple of times, then — unlike `NewCharacterUnlockScreen`, which just
+auto-dismisses back to this screen on a fixed timer — waits for the player to **tap the screen**
+before calling its `onComplete` callback, which `LevelCompleteController` uses to automatically
+show Level Select in its world-select state (the newly unlocked badge already renders coloured/
+tappable there, since save data was updated before this overlay even showed). The tap gate replaced
+an original fixed-hold-then-auto-advance design after playtesting read the whole beat as "nothing
+happened, it was very fast" — by the time a player's eye caught the badge, the screen had already
+moved on. If both a character and a world unlock on the same completion, `LevelCompleteController`
+waits for the character card's own dismissal (via an optional `onDismissed` callback
+`NewCharacterUnlockScreen.Show` now accepts) before starting the world-unlock beat, so the two
+overlays never visually collide.
 
 **`ChooseCharacterScreen`** (real uGUI, `Scripts/UI/ChooseCharacterScreen.cs` +
 `CharacterSelectCard.cs`) replaced the Phase 4 `CharacterSwapUI` `OnGUI` panel. Not a
@@ -1407,32 +1442,69 @@ exception — its maze has no interior redundancy at all (every safe pair found 
 one of its own warp tunnel tiles, which was rejected) — it has no water tile and none was forced in,
 to avoid creating a soft-lock.
 
-**World 3 (Orchard) and World 4 (Wheat) art has started landing ahead of either world having any
-LevelData authored** — same "art before levels" situation VegPatch briefly went through.
-`ArtWiringBuilder.WireOrchardAndWheat` adds their `TileMapRenderer.MazeArtSet` entries additively
-via a new `TileMapRenderer.GetOrAddArtSet(MazeType)` helper (fetches-or-creates the entry, exposing
-its public fields directly, since neither `Phase2ProjectBuilder.BuildAll`'s hardcoded
+**World 3 (Orchard) is now fully wired and has all 25 real levels** (see "Development status" —
+`LevelData_51`-`75`, `levelNumber` 50-74); World 4 (Wheat) still has only art, no LevelData yet,
+same "art before levels" situation VegPatch briefly went through and Orchard itself was in until
+this session. `ArtWiringBuilder.WireOrchardAndWheat` adds their `TileMapRenderer.MazeArtSet`
+entries additively via `TileMapRenderer.GetOrAddArtSet(MazeType)` (fetches-or-creates the entry,
+exposing its public fields directly, since neither `Phase2ProjectBuilder.BuildAll`'s hardcoded
 `SetMazeArtSets` list nor a single-field setter like `SetBackdropSprite` was a good fit for wiring
-several fields on a brand-new world in one pass). Orchard has: `Wall_Orchard`/`Ground_Orchard`
-prefabs (`Orchard_WallTile.png`, and `OrchardFloorTile.png` — the latter deliberately split off a
-ground-art drop-in that originally landed on the **shared** `FloorTile.png` CornField/VegPatch
-still use, which would have silently changed both worlds' ground too; the original `FloorTile.png`
-was restored from git and the new art saved under its own filename/prefab instead), a backdrop
-(`OrchardBackground.png`), a regular every-tile pellet (`Red_Apple.png`), and a bonus pickup
-scattered ×10 (`Cherry.png`, reuses `CoinPickup`/`BuildBonusPickupPrefab` — awards `SaveManager`
-coins directly, not maze score, same as CornField's coin). Orchard's warp-tunnel/crop prefabs reuse
+several fields on a brand-new world in one pass — note `SetMazeArtSets` **replaces** the whole
+list, so `WireOrchardAndWheat` must always run *after* `Phase2ProjectBuilder.BuildAll` in the
+standard rebuild chain, or its additive entries get wiped by the next `WireScene` call). Orchard
+has: `Wall_Orchard`/`Ground_Orchard` prefabs (`Orchard_WallTile.png`, and `OrchardFloorTile.png` —
+the latter deliberately split off a ground-art drop-in that originally landed on the **shared**
+`FloorTile.png` CornField/VegPatch still use, which would have silently changed both worlds'
+ground too; the original `FloorTile.png` was restored from git and the new art saved under its own
+filename/prefab instead), a backdrop (`OrchardBackground.png`), a regular every-tile pellet
+(`Red_Apple.png`), a bonus pickup scattered ×10 (`Cherry.png`, reuses `CoinPickup`/
+`BuildBonusPickupPrefab` — awards `SaveManager` coins directly, not maze score, same as CornField's
+coin), and now a distinct **rare**-tier pellet look too (`RarePellets_apple.png` — the same
+rainbow-apple sprite VegPatch's regular pellet already uses elsewhere, reused here for a different
+purpose since `MazeArtSet` entries are independent per world) via the new `MazeArtSet.
+rarePelletSprite` field: the single pellet that wins a maze's one-rare-slot cap
+(`ConfigurePelletTier`'s `_rarePelletsSpawned` guard) shows this sprite instead of `pelletSprite`,
+falling back to `pelletSprite` for any world (CornField/VegPatch/Wheat) that hasn't set one — so
+this only ever narrows the older "every pellet, rare or not, looks the same" behaviour for worlds
+that opt in, never changes it for ones that don't. Orchard's warp-tunnel/crop prefabs still reuse
 CornField's (no dedicated art for those yet, same sharing convention VegPatch used for
-`groundPrefab` before Orchard got its own). Orchard's **rare**-tier pellet sprite is still pending a
-future upload — the current `MazeArtSet` architecture only supports one pellet look per world (see
-`MazeArtSet.pelletSprite`'s doc comment), so a distinct rare visual will need a new field once that
-art actually lands. Wheat has no wall/ground/backdrop art at all yet — only a regular pellet
-(`MiniLoaf.png`) and a bonus pickup ×1 (`RareGrainSack.png`, "Rare" naming inferred to mean scarce
-rather than plentiful, mirroring Orchard's own Cherry-vs-rare-apple naming split) were dropped in,
-so its `MazeArtSet` entry stays partial until the rest lands.
+`groundPrefab` before Orchard got its own). Wheat has no wall/ground/backdrop art at all yet — only
+a regular pellet (`MiniLoaf.png`) and a bonus pickup ×1 (`RareGrainSack.png`, "Rare" naming
+inferred to mean scarce rather than plentiful, mirroring Orchard's own Cherry-vs-rare-apple naming
+split) were dropped in, so its `MazeArtSet` entry stays partial until the rest lands (including its
+own `MiniLoaf.png`/`RareGrainSack.png`/`RareGrainSackBonus` still missing from `ArtWiringBuilder.
+SpritesToConfigure`, same PPU-misconfiguration bug Orchard's own art had until this session — flag
+before building Wheat's levels).
 
-**Still missing / not wired:** Drone robot art, a Vulnerable-state robot sprite, and the Loading
-Screen background (uploaded, unwired — see above). Cluck's Egg Drop effect art and the
-branding Logo are both wired (see above) — do not re-list them here. `Map.png` and `Card.png` are
+**Drone now has real art** (`Drone.png` — a single symmetric hovering-quadcopter sprite with no
+directional cues, so `RobotVisual` shows it for every facing via its own null-fallback rather than
+needing per-direction frames) and its wall-phasing was tightened to match the design intent:
+`DroneRobot.IsWalkableForThisRobot` used to be a bare `tileMap.IsInBounds` check, meaning it could
+fly straight through the maze's outer border wall and off the playable board — it now only phases
+through **interior** walls (any cell not on row/column 0 or `MazeWidth-1`/`MazeHeight-1`); normally
+walkable cells (open floor, a border warp-tunnel opening) are unaffected either way.
+
+**Gerald and Billy had a PPU (`spritePixelsPerUnit`) wiring bug**: `Gerald_left1.png`/
+`Gerald_right.png` and all 6 of Billy's walk sprites were loaded and assigned in their `Wire*`
+methods but missing from `ArtWiringBuilder.SpritesToConfigure` — the array that actually sets each
+texture's `spritePixelsPerUnit` to its own pixel width. Without that, those textures kept Unity's
+default PPU (100) instead, rendering up to ~5x oversized at the same `localScale` every other
+correctly-configured frame uses — Gerald would visibly balloon on his second left-walk frame and
+whenever facing right; Billy (whose art is also non-square, e.g. `Billy_Front.png` at 213×401) was
+oversized in literally every direction, all the time. Both fixed by adding the missing consts to
+`SpritesToConfigure`. **If a future character/world's art looks mis-sized only in some poses (or
+always), check this array first** before suspecting the sprite itself or `localScale` — this is now
+the second and third time this exact omission has caused it (see Orchard's wall/floor/backdrop/
+pellet/bonus consts above, found the same way).
+
+**Still missing / not wired:** a Vulnerable-state robot sprite and the Loading Screen background
+(uploaded, unwired — see above). Cluck's Egg Drop effect art and the branding Logo are both wired
+(see above) — do not re-list them here. Heavy's robot art (`HeavyRobot_front/back.png`) was
+**deleted from the project** (not merely unwired) — `ArtWiringBuilder` still references the
+filenames and logs "not found" warnings for them on every `WireAll` run; this is expected, not a
+bug to fix, and Heavy is deliberately excluded from `Phase3ProjectBuilder`'s auto-assigned robot
+roster now (see "Development status" → Phase 3) since it would otherwise appear as an untextured
+placeholder square. `Map.png` and `Card.png` are
 **not** gaps to close — `WorldMapScreen` (which would have used `Map.png`) was removed outright (see
 "Removed: World Map screen"), and the New Character Unlock card / `RosterCard` were deliberately
 decided to stay unframed rather than get a generic `Card.png` border; neither constant exists in
@@ -1474,7 +1546,7 @@ crossfades back to the regular background track via `ResumeBackgroundMusic()` wh
 reaches zero (`PowerPelletManager.CountDown`'s end). Both go through the same `PlayMusic`
 crossfade `AudioManager` already had — no new fade logic needed, just two named entry points.
 
-All 5 SFX clips under `Audio/SFX/` are wired to a specific gameplay trigger, each via a named
+All 6 SFX clips under `Audio/SFX/` are wired to a specific gameplay trigger, each via a named
 `AudioManager` method (`PlayXSfx()`, not a raw `PlaySFX(clip)` call, so call sites read as what
 happened rather than which clip field to reach into):
 
@@ -1482,6 +1554,7 @@ happened rather than which clip field to reach into):
 |---|---|---|
 | `Animal_death.mp3` | `PlayAnimalDeathSfx` | `PlayerHealth.DeathSequence` (start of the death sequence) |
 | `CornPickup.mp3` | `PlayCornPickupSfx` | `CropCollector`, on every `CropPickup` collected — doubles as the generic crop/"pellet" pickup cue (corn kernels and vegetables alike, per feedback that carrots were silent), not corn-only despite the name |
+| `CoinPickup.mp3` | `PlayCoinPickupSfx` | `CropCollector`, on every `CoinPickup` collected — previously reused `PlayCornPickupSfx` as a placeholder before this clip existed; now a distinct cue |
 | `PowerReady.mp3` | `PlayPowerReadySfx` | `AbilityBase.UpdateCooldown`, the single frame a character's ability cooldown reaches exactly 0 (not power-pellet activation — that's a separate, unrelated event; see `PlayEatRobotMusic` below) |
 | `RarePellet_pickup.mp3` | `PlayRarePelletPickupSfx` | `CropCollector`, only when `pellet.pelletType != PowerPelletType.Sunflower` — same "rare tier" gate `PelletCollectBurst` uses. Fires *before* `PowerPelletManager.ActivatePower` (which crossfades music to `EatRobot.mp3`), so the pickup cue is heard first rather than being stepped on by the music swap |
 | `RobotSpawn.mp3` | `PlayRobotRespawnSfx` | `RobotSpawner.SpawnRobot` — every robot spawn, including level-start ones. Used to fire only from a defeated robot's mid-level walk back to the factory (`RobotBase.ArriveAtFactory`); that flow was removed (defeated robots now disappear permanently for the rest of the maze — see the Robot AI state-machine note above), so this was repointed to the only spawn event left, or it would have become dead code with no call site at all |
@@ -1557,9 +1630,23 @@ and reopen the project normally to confirm nothing was corrupted.
   singletons — done.
 - **Phase 2** (movement & maze): tile-id-driven maze rendering, grid movement with intersection/
   reversal rules, crop/vegetable/power-pellet pickup, warp tunnels, scoring, level completion —
-  done. **50 real levels now exist** across the first two worlds: `LevelData_01`-`25` (World 1,
-  Corn Field, `levelNumber` 0-24) and `LevelData_26`-`50` (World 2, Veg Patch, `levelNumber`
-  25-49). Phase 3's separate 20x20 multi-robot test maze lives at `LevelData_RobotTest.asset`
+  done. **75 real levels now exist** across the first three worlds: `LevelData_01`-`25` (World 1,
+  Corn Field, `levelNumber` 0-24), `LevelData_26`-`50` (World 2, Veg Patch, `levelNumber` 25-49),
+  and `LevelData_51`-`75` (World 3, Orchard, `levelNumber` 50-74). World 3's 25 levels are entirely
+  algorithmically generated (no hand-authored ones, unlike World 1's `01`-`04`/`06`-`08`) by a
+  one-shot offline generator (not kept in the repo — same "generator not committed, only its baked
+  output is" convention every algorithmically-generated level here follows) using a cleaner,
+  explicitly-provable version of the same pillar/room scheme: interior room cells sit at ODD x in
+  `{1,3,5,7,9}` and ODD y in `{1,3,5,7}` (5x4 = 20 rooms per maze), pillars at BOTH-even interior
+  coordinates are never carved (same no-open-2x2-block guarantee as World 1/2's generator, just
+  with the "never carved" set spelled out explicitly rather than inferred), and a recursive-
+  backtracker spanning tree plus 5-8 extra loop edges connects them. Warp pairs are TOP/BOTTOM
+  (same room column, y=0 and y=8) rather than LEFT/RIGHT, since the height (9) divides evenly into
+  the room/pillar scheme with zero wasted margin while the width (12) doesn't quite (column `x=10`
+  stays a permanent one-tile wall margin before the right border) — column pairing sidesteps that
+  asymmetry entirely. All 25 were verified offline (full connectivity via flood fill from the
+  player start, zero open-2x2 blocks, both warp tiles adjacent to an open cell) before being baked
+  in. Phase 3's separate 20x20 multi-robot test maze lives at `LevelData_RobotTest.asset`
   (`levelNumber -1`, invisible to Level Select) — it used to sit at `LevelData_05.asset`/
   `levelNumber 4`, which meant `DataManager` (keyed purely by `levelNumber`) surfaced it as the
   real "Level 5" tile: tapping it loaded a mostly-open 20x20 test field instead of a designed 12x9
@@ -1584,16 +1671,23 @@ and reopen the project normally to confirm nothing was corrupted.
   is what pushes `CharacterData` into `CharacterAnimator` — even looked like "Cluck's left/right
   walk changed"). **Always re-run the full `Phase2 → Phase3 → Phase4 → Phase5 → ArtWiringBuilder`
   chain in order after touching Phase 2**, never just Phase 2 + ArtWiringBuilder in isolation.
-  **Every real level now has robot spawns**, not just `LevelData_01`/`_05` — until this session
-  `Phase2ProjectBuilder.BuildLevel` always stamped `robotSpawns = []` ("No robots yet — Phase 3")
-  and nothing ever filled it in for the other 48 levels, so no robots ever spawned outside of
-  those two. `Phase3ProjectBuilder.AssignRobotSpawnsToRemainingLevels` now loops every
-  `LevelData_01`-`50` (skipping `01`/`05`, hand-tuned separately) and applies a difficulty curve
-  that resets per world (`levelNumber % 25`): 2 robots (Harvester+Scout, matching `LevelData_01`'s
-  own tuning) for a world's first 5 levels, 3 for the next 7, 4 for the next 7, 5 for the last 6 —
-  all spawned at that level's own `robotFactoryPosition`, staggered 4s apart starting at 2s. Purely
-  a first-pass default (like the algorithmically generated mazes themselves); retune per-level via
-  the same method if the curve plays wrong.
+  **Every real level now has robot spawns**, not just `LevelData_01`/`_05` — until an earlier
+  session `Phase2ProjectBuilder.BuildLevel` always stamped `robotSpawns = []` ("No robots yet —
+  Phase 3") and nothing ever filled it in for the other levels, so no robots ever spawned outside
+  of those two. `Phase3ProjectBuilder.AssignRobotSpawnsToRemainingLevels` now loops every
+  `LevelData_01`-`75` (skipping `01`, hand-tuned separately) and applies a difficulty curve that
+  resets per world (`levelNumber % 25`): 2 robots for a world's first 5 levels, 3 for the next 7, 4
+  for the next 7, 5 for the last 6 — all spawned at that level's own `robotFactoryPosition`,
+  staggered 4s apart starting at 2s. Purely a first-pass default (like the algorithmically
+  generated mazes themselves); retune per-level via the same method if the curve plays wrong.
+  **`DifficultyOrder` (Harvester, Scout, Patrol, Drifter, Drone) no longer includes Heavy** — its
+  art (`HeavyRobot_front/back.png`) was deleted from the project, so it would otherwise render as
+  an untextured placeholder square. Removing it from the 5-type roster means the "5 robots" tier
+  (a world's last 6 levels) now brings Drone into the standard curve for the first time, rather
+  than topping out at 4 real distinct types with Heavy as an unusable 5th. Heavy's `RobotData`/
+  prefab/`HeavyRobot.cs` still exist and still build — just never auto-assigned by this curve
+  anymore. Re-running this method (e.g. as part of the full Phase 2→5 chain) will revert any
+  level's spawns back to the curve, including levels that previously had Heavy in their top tier.
 - **Phase 3** (enemies & AI): 6 robot AI types (Harvester/Scout/Patrol/Drifter/Heavy/Drone) with
   distinct targeting behaviours, Chase/Scatter/Vulnerable/Defeated/Returning state machine,
   power-pellet-driven vulnerability (`PowerPelletManager`), chain scoring (`ChaseScoreManager`),

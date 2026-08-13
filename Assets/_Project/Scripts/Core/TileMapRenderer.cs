@@ -50,6 +50,15 @@ namespace FarmFuryArcade.Core
             /// in the maze looks the same up front.</summary>
             public Sprite pelletSprite;
 
+            /// <summary>Optional distinct look for the single "rare" (non-Sunflower-tier) pellet a
+            /// maze is allowed to roll — see ConfigurePelletTier's _rarePelletsSpawned cap. Null for
+            /// any world that hasn't had dedicated rare-pellet art uploaded yet, in which case
+            /// ConfigurePelletTier falls back to pelletSprite exactly as before (every pellet, rare
+            /// or not, showing the one themed look) — this field only ever narrows that "always the
+            /// same sprite" behaviour for worlds that opt in, it never changes it for ones that
+            /// don't.</summary>
+            public Sprite rarePelletSprite;
+
             /// <summary>Extra pickup scattered on top of already-rendered tiles (not tied to any
             /// grid tile id) — currently just CornField's coin. Deliberately NOT counted in
             /// LevelData.totalCropsRequired (that's computed once at LevelData build time from the
@@ -382,13 +391,16 @@ namespace FarmFuryArcade.Core
 
         /// <summary>Rolls a weighted tier (Sunflower common, GoldenWheat uncommon, Rainbow rare)
         /// purely for PowerPelletManager.GetDuration's 8s/15s/30s variety and
-        /// SpawnCollectEffectIfRare/PlayRarePelletPickupSfx's "something extra-special" cue —
-        /// applies artSet.pelletSprite regardless of which tier won, since every pellet in a given
-        /// world now shows that world's one themed look (see MazeArtSet.pelletSprite's doc
-        /// comment for why the old 3-sprite-tier visual was dropped).</summary>
+        /// SpawnCollectEffectIfRare/PlayRarePelletPickupSfx's "something extra-special" cue. Visual
+        /// is artSet.pelletSprite for every pellet EXCEPT the one that actually won the maze's
+        /// single rare-tier slot, which shows artSet.rarePelletSprite instead if that world has one
+        /// — see MazeArtSet.rarePelletSprite's doc comment. A world with no rarePelletSprite set
+        /// keeps the older "every pellet, rare or not, shows the one themed look" behaviour exactly
+        /// as before.</summary>
         private void ConfigurePelletTier(GameObject pelletGO, MazeArtSet artSet)
         {
             var tier = RollPelletTier();
+            bool wonRareSlot = false;
 
             // Only 1 rare (non-Sunflower) pellet is allowed per maze — any roll beyond the first
             // falls back to Sunflower rather than being re-rolled, keeping the odds honest for
@@ -402,6 +414,7 @@ namespace FarmFuryArcade.Core
                 else
                 {
                     _rarePelletsSpawned++;
+                    wonRareSlot = true;
                 }
             }
 
@@ -412,9 +425,13 @@ namespace FarmFuryArcade.Core
             }
 
             var sr = pelletGO.GetComponent<SpriteRenderer>();
-            if (sr != null && artSet.pelletSprite != null)
+            if (sr != null)
             {
-                sr.sprite = artSet.pelletSprite;
+                Sprite chosen = wonRareSlot && artSet.rarePelletSprite != null ? artSet.rarePelletSprite : artSet.pelletSprite;
+                if (chosen != null)
+                {
+                    sr.sprite = chosen;
+                }
             }
         }
 

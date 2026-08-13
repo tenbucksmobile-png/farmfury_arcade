@@ -31,9 +31,14 @@ namespace FarmFuryArcade.UI
         [SerializeField] private float autoDismissSeconds = 2.5f;
 
         private Coroutine _showRoutine;
+        private System.Action _onDismissed;
 
-        public void Show(CharacterType type)
+        /// <summary>onDismissed (optional) fires once, right after the card's own auto-dismiss —
+        /// lets a caller chain a follow-up celebration (e.g. a new-world-unlock burst) without it
+        /// visually overlapping this card's own reveal/hold.</summary>
+        public void Show(CharacterType type, System.Action onDismissed = null)
         {
+            _onDismissed = onDismissed;
             var data = DataManager.Instance.GetCharacterData(type);
 
             if (characterCardImage != null)
@@ -108,6 +113,10 @@ namespace FarmFuryArcade.UI
 
             _showRoutine = null;
             Hide();
+
+            var callback = _onDismissed;
+            _onDismissed = null;
+            callback?.Invoke();
         }
     }
 }

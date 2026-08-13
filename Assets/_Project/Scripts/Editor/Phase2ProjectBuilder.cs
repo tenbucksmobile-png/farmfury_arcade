@@ -92,6 +92,35 @@ namespace FarmFuryArcade.EditorTools
         private const string LevelData48Path = "Assets/_Project/ScriptableObjects/Resources/Levels/LevelData_48.asset";
         private const string LevelData49Path = "Assets/_Project/ScriptableObjects/Resources/Levels/LevelData_49.asset";
         private const string LevelData50Path = "Assets/_Project/ScriptableObjects/Resources/Levels/LevelData_50.asset";
+        // World 3 (Orchard) — continues levelNumber sequentially after World 2's 50 (25-49), so
+        // World 3 occupies levelNumber 50-74 / LevelData_51 through LevelData_75, matching
+        // UnlockProgression.LevelsPerWorld's 25-per-world convention. See BuildLevelData51's doc
+        // comment (near BuildLevelData50) for how these were generated.
+        private const string LevelData51Path = "Assets/_Project/ScriptableObjects/Resources/Levels/LevelData_51.asset";
+        private const string LevelData52Path = "Assets/_Project/ScriptableObjects/Resources/Levels/LevelData_52.asset";
+        private const string LevelData53Path = "Assets/_Project/ScriptableObjects/Resources/Levels/LevelData_53.asset";
+        private const string LevelData54Path = "Assets/_Project/ScriptableObjects/Resources/Levels/LevelData_54.asset";
+        private const string LevelData55Path = "Assets/_Project/ScriptableObjects/Resources/Levels/LevelData_55.asset";
+        private const string LevelData56Path = "Assets/_Project/ScriptableObjects/Resources/Levels/LevelData_56.asset";
+        private const string LevelData57Path = "Assets/_Project/ScriptableObjects/Resources/Levels/LevelData_57.asset";
+        private const string LevelData58Path = "Assets/_Project/ScriptableObjects/Resources/Levels/LevelData_58.asset";
+        private const string LevelData59Path = "Assets/_Project/ScriptableObjects/Resources/Levels/LevelData_59.asset";
+        private const string LevelData60Path = "Assets/_Project/ScriptableObjects/Resources/Levels/LevelData_60.asset";
+        private const string LevelData61Path = "Assets/_Project/ScriptableObjects/Resources/Levels/LevelData_61.asset";
+        private const string LevelData62Path = "Assets/_Project/ScriptableObjects/Resources/Levels/LevelData_62.asset";
+        private const string LevelData63Path = "Assets/_Project/ScriptableObjects/Resources/Levels/LevelData_63.asset";
+        private const string LevelData64Path = "Assets/_Project/ScriptableObjects/Resources/Levels/LevelData_64.asset";
+        private const string LevelData65Path = "Assets/_Project/ScriptableObjects/Resources/Levels/LevelData_65.asset";
+        private const string LevelData66Path = "Assets/_Project/ScriptableObjects/Resources/Levels/LevelData_66.asset";
+        private const string LevelData67Path = "Assets/_Project/ScriptableObjects/Resources/Levels/LevelData_67.asset";
+        private const string LevelData68Path = "Assets/_Project/ScriptableObjects/Resources/Levels/LevelData_68.asset";
+        private const string LevelData69Path = "Assets/_Project/ScriptableObjects/Resources/Levels/LevelData_69.asset";
+        private const string LevelData70Path = "Assets/_Project/ScriptableObjects/Resources/Levels/LevelData_70.asset";
+        private const string LevelData71Path = "Assets/_Project/ScriptableObjects/Resources/Levels/LevelData_71.asset";
+        private const string LevelData72Path = "Assets/_Project/ScriptableObjects/Resources/Levels/LevelData_72.asset";
+        private const string LevelData73Path = "Assets/_Project/ScriptableObjects/Resources/Levels/LevelData_73.asset";
+        private const string LevelData74Path = "Assets/_Project/ScriptableObjects/Resources/Levels/LevelData_74.asset";
+        private const string LevelData75Path = "Assets/_Project/ScriptableObjects/Resources/Levels/LevelData_75.asset";
         private const string CharacterDataPath = "Assets/_Project/ScriptableObjects/Resources/Characters/CharacterData_Cluck.asset";
         private const string CharacterPrefabFolder = "Assets/_Project/Prefabs/Characters";
         private const string BlockPrefabFolder = "Assets/_Project/Prefabs/Blocks";
@@ -192,13 +221,38 @@ namespace FarmFuryArcade.EditorTools
             BuildLevelData48();
             BuildLevelData49();
             BuildLevelData50();
+            BuildLevelData51();
+            BuildLevelData52();
+            BuildLevelData53();
+            BuildLevelData54();
+            BuildLevelData55();
+            BuildLevelData56();
+            BuildLevelData57();
+            BuildLevelData58();
+            BuildLevelData59();
+            BuildLevelData60();
+            BuildLevelData61();
+            BuildLevelData62();
+            BuildLevelData63();
+            BuildLevelData64();
+            BuildLevelData65();
+            BuildLevelData66();
+            BuildLevelData67();
+            BuildLevelData68();
+            BuildLevelData69();
+            BuildLevelData70();
+            BuildLevelData71();
+            BuildLevelData72();
+            BuildLevelData73();
+            BuildLevelData74();
+            BuildLevelData75();
 
             WireScene(wallPrefab, groundPrefab, cropKernelPrefab, cropVegetablePrefab, powerPelletPrefab, warpTunnelPrefab, cluckPrefab,
                 wallPrefabVegPatch, warpTunnelPrefabVegPatch, cropKernelPrefabVegPatch, cropVegetablePrefabVegPatch, coinPrefab);
 
             AssetDatabase.SaveAssets();
             AssetDatabase.Refresh();
-            Debug.Log("[Phase2ProjectBuilder] Phase 2 prefabs, LevelData_01 through LevelData_50 (World 1 + World 2's full 25-level sets), CharacterData_Cluck, and Game.unity wiring complete.");
+            Debug.Log("[Phase2ProjectBuilder] Phase 2 prefabs, LevelData_01 through LevelData_75 (World 1 + World 2 + World 3's full 25-level sets), CharacterData_Cluck, and Game.unity wiring complete.");
         }
 
         /// <summary>Generalized from a hardcoded "Wall_CornField" so World 2's Wall_VegPatch could
@@ -1314,6 +1368,489 @@ namespace FarmFuryArcade.EditorTools
         };
 
         private static void BuildLevelData50() => BuildLevel(LevelData50Path, Rows50, 49, "The Veggie Patch - 25", MazeType.VegPatch);
+
+        // World 3 (Orchard) — continues levelNumber sequentially after World 2's 50 (25-49), so
+        // World 3 occupies levelNumber 50-74 / LevelData_51 through LevelData_75, matching
+        // UnlockProgression.LevelsPerWorld's 25-per-world convention. Algorithmically generated the
+        // same recursive-backtracker-plus-loop-edges way as World 1/2's own generated levels (see
+        // BuildLevel's doc comment) — offline generator (OrchardMazeGeneratorTemp, not kept in the
+        // repo, same "generator not committed, only its baked output is" convention as World 1/2's
+        // generated levels) verified every maze's full connectivity, absence of any open 2x2 block,
+        // and that both warp tiles have a usable open neighbor before this was baked in.
+        /// <summary>LevelData_51 (The Orchard - 01), algorithmically generated the same
+        /// recursive-backtracker-plus-loop-edges way as World 1/2's own generated levels — verified
+        /// offline (full connectivity, no open 2x2 block, both warp tiles reachable) before being
+        /// baked in here.</summary>
+        private static readonly string[] Rows51 =
+        {
+            "151111111111", // y=8 (top)
+            "122423322211", // y=7
+            "121212131211", // y=6
+            "133322123311", // y=5
+            "121212121211", // y=4
+            "121216231211", // y=3
+            "121212121211", // y=2
+            "172242132211", // y=1
+            "151111111111", // y=0 (bottom)
+        };
+
+        private static void BuildLevelData51() => BuildLevel(LevelData51Path, Rows51, 50, "The Orchard - 01", MazeType.Orchard);
+
+        /// <summary>LevelData_52 (The Orchard - 02), algorithmically generated the same
+        /// recursive-backtracker-plus-loop-edges way as World 1/2's own generated levels — verified
+        /// offline (full connectivity, no open 2x2 block, both warp tiles reachable) before being
+        /// baked in here.</summary>
+        private static readonly string[] Rows52 =
+        {
+            "111511111111", // y=8 (top)
+            "122222232211", // y=7
+            "121212121311", // y=6
+            "133316222211", // y=5
+            "121111121111", // y=4
+            "144233122211", // y=3
+            "121212131311", // y=2
+            "122322222711", // y=1
+            "111511111111", // y=0 (bottom)
+        };
+
+        private static void BuildLevelData52() => BuildLevel(LevelData52Path, Rows52, 51, "The Orchard - 02", MazeType.Orchard);
+
+        /// <summary>LevelData_53 (The Orchard - 03), algorithmically generated the same
+        /// recursive-backtracker-plus-loop-edges way as World 1/2's own generated levels — verified
+        /// offline (full connectivity, no open 2x2 block, both warp tiles reachable) before being
+        /// baked in here.</summary>
+        private static readonly string[] Rows53 =
+        {
+            "111115111111", // y=8 (top)
+            "173422222311", // y=7
+            "121112121211", // y=6
+            "122232231211", // y=5
+            "131113121211", // y=4
+            "123226223211", // y=3
+            "121411111211", // y=2
+            "132232222211", // y=1
+            "111115111111", // y=0 (bottom)
+        };
+
+        private static void BuildLevelData53() => BuildLevel(LevelData53Path, Rows53, 52, "The Orchard - 03", MazeType.Orchard);
+
+        /// <summary>LevelData_54 (The Orchard - 04), algorithmically generated the same
+        /// recursive-backtracker-plus-loop-edges way as World 1/2's own generated levels — verified
+        /// offline (full connectivity, no open 2x2 block, both warp tiles reachable) before being
+        /// baked in here.</summary>
+        private static readonly string[] Rows54 =
+        {
+            "111111151111", // y=8 (top)
+            "133223231711", // y=7
+            "121212121311", // y=6
+            "123236241211", // y=5
+            "121312111211", // y=4
+            "122222242211", // y=3
+            "111212111311", // y=2
+            "122232222211", // y=1
+            "111111151111", // y=0 (bottom)
+        };
+
+        private static void BuildLevelData54() => BuildLevel(LevelData54Path, Rows54, 53, "The Orchard - 04", MazeType.Orchard);
+
+        /// <summary>LevelData_55 (The Orchard - 05), algorithmically generated the same
+        /// recursive-backtracker-plus-loop-edges way as World 1/2's own generated levels — verified
+        /// offline (full connectivity, no open 2x2 block, both warp tiles reachable) before being
+        /// baked in here.</summary>
+        private static readonly string[] Rows55 =
+        {
+            "111111111511", // y=8 (top)
+            "122322122211", // y=7
+            "121211131311", // y=6
+            "121222222311", // y=5
+            "131212121211", // y=4
+            "121226222211", // y=3
+            "121313121311", // y=2
+            "172324142311", // y=1
+            "111111111511", // y=0 (bottom)
+        };
+
+        private static void BuildLevelData55() => BuildLevel(LevelData55Path, Rows55, 54, "The Orchard - 05", MazeType.Orchard);
+
+        /// <summary>LevelData_56 (The Orchard - 06), algorithmically generated the same
+        /// recursive-backtracker-plus-loop-edges way as World 1/2's own generated levels — verified
+        /// offline (full connectivity, no open 2x2 block, both warp tiles reachable) before being
+        /// baked in here.</summary>
+        private static readonly string[] Rows56 =
+        {
+            "151111111111", // y=8 (top)
+            "132222222211", // y=7
+            "141213121311", // y=6
+            "123236123211", // y=5
+            "121212131211", // y=4
+            "121222321311", // y=3
+            "141212111211", // y=2
+            "122212223711", // y=1
+            "151111111111", // y=0 (bottom)
+        };
+
+        private static void BuildLevelData56() => BuildLevel(LevelData56Path, Rows56, 55, "The Orchard - 06", MazeType.Orchard);
+
+        /// <summary>LevelData_57 (The Orchard - 07), algorithmically generated the same
+        /// recursive-backtracker-plus-loop-edges way as World 1/2's own generated levels — verified
+        /// offline (full connectivity, no open 2x2 block, both warp tiles reachable) before being
+        /// baked in here.</summary>
+        private static readonly string[] Rows57 =
+        {
+            "111511111111", // y=8 (top)
+            "172222321211", // y=7
+            "121312131311", // y=6
+            "133222421211", // y=5
+            "121211121211", // y=4
+            "122226143211", // y=3
+            "121212121211", // y=2
+            "122232232311", // y=1
+            "111511111111", // y=0 (bottom)
+        };
+
+        private static void BuildLevelData57() => BuildLevel(LevelData57Path, Rows57, 56, "The Orchard - 07", MazeType.Orchard);
+
+        /// <summary>LevelData_58 (The Orchard - 08), algorithmically generated the same
+        /// recursive-backtracker-plus-loop-edges way as World 1/2's own generated levels — verified
+        /// offline (full connectivity, no open 2x2 block, both warp tiles reachable) before being
+        /// baked in here.</summary>
+        private static readonly string[] Rows58 =
+        {
+            "111115111111", // y=8 (top)
+            "123222222711", // y=7
+            "121114131211", // y=6
+            "122216331311", // y=5
+            "121212121311", // y=4
+            "123222222311", // y=3
+            "131213111211", // y=2
+            "122222422211", // y=1
+            "111115111111", // y=0 (bottom)
+        };
+
+        private static void BuildLevelData58() => BuildLevel(LevelData58Path, Rows58, 57, "The Orchard - 08", MazeType.Orchard);
+
+        /// <summary>LevelData_59 (The Orchard - 09), algorithmically generated the same
+        /// recursive-backtracker-plus-loop-edges way as World 1/2's own generated levels — verified
+        /// offline (full connectivity, no open 2x2 block, both warp tiles reachable) before being
+        /// baked in here.</summary>
+        private static readonly string[] Rows59 =
+        {
+            "111111151111", // y=8 (top)
+            "133222222311", // y=7
+            "121213131211", // y=6
+            "124223222211", // y=5
+            "121412111211", // y=4
+            "131226321211", // y=3
+            "121112121211", // y=2
+            "173222232211", // y=1
+            "111111151111", // y=0 (bottom)
+        };
+
+        private static void BuildLevelData59() => BuildLevel(LevelData59Path, Rows59, 58, "The Orchard - 09", MazeType.Orchard);
+
+        /// <summary>LevelData_60 (The Orchard - 10), algorithmically generated the same
+        /// recursive-backtracker-plus-loop-edges way as World 1/2's own generated levels — verified
+        /// offline (full connectivity, no open 2x2 block, both warp tiles reachable) before being
+        /// baked in here.</summary>
+        private static readonly string[] Rows60 =
+        {
+            "111111111511", // y=8 (top)
+            "132322332211", // y=7
+            "121112121211", // y=6
+            "123226122211", // y=5
+            "141111121211", // y=4
+            "122322242311", // y=3
+            "121312131211", // y=2
+            "122232222711", // y=1
+            "111111111511", // y=0 (bottom)
+        };
+
+        private static void BuildLevelData60() => BuildLevel(LevelData60Path, Rows60, 59, "The Orchard - 10", MazeType.Orchard);
+
+        /// <summary>LevelData_61 (The Orchard - 11), algorithmically generated the same
+        /// recursive-backtracker-plus-loop-edges way as World 1/2's own generated levels — verified
+        /// offline (full connectivity, no open 2x2 block, both warp tiles reachable) before being
+        /// baked in here.</summary>
+        private static readonly string[] Rows61 =
+        {
+            "151111111111", // y=8 (top)
+            "171322223211", // y=7
+            "121212121211", // y=6
+            "122234221211", // y=5
+            "121112121311", // y=4
+            "121226222311", // y=3
+            "121312131211", // y=2
+            "122342233211", // y=1
+            "151111111111", // y=0 (bottom)
+        };
+
+        private static void BuildLevelData61() => BuildLevel(LevelData61Path, Rows61, 60, "The Orchard - 11", MazeType.Orchard);
+
+        /// <summary>LevelData_62 (The Orchard - 12), algorithmically generated the same
+        /// recursive-backtracker-plus-loop-edges way as World 1/2's own generated levels — verified
+        /// offline (full connectivity, no open 2x2 block, both warp tiles reachable) before being
+        /// baked in here.</summary>
+        private static readonly string[] Rows62 =
+        {
+            "111511111111", // y=8 (top)
+            "122222222711", // y=7
+            "121212121311", // y=6
+            "122236223211", // y=5
+            "131212111211", // y=4
+            "132422132311", // y=3
+            "121112131211", // y=2
+            "143312222211", // y=1
+            "111511111111", // y=0 (bottom)
+        };
+
+        private static void BuildLevelData62() => BuildLevel(LevelData62Path, Rows62, 61, "The Orchard - 12", MazeType.Orchard);
+
+        /// <summary>LevelData_63 (The Orchard - 13), algorithmically generated the same
+        /// recursive-backtracker-plus-loop-edges way as World 1/2's own generated levels — verified
+        /// offline (full connectivity, no open 2x2 block, both warp tiles reachable) before being
+        /// baked in here.</summary>
+        private static readonly string[] Rows63 =
+        {
+            "111115111111", // y=8 (top)
+            "122222222211", // y=7
+            "121112121211", // y=6
+            "122322243311", // y=5
+            "121212141211", // y=4
+            "121326232311", // y=3
+            "121112111211", // y=2
+            "172322233311", // y=1
+            "111115111111", // y=0 (bottom)
+        };
+
+        private static void BuildLevelData63() => BuildLevel(LevelData63Path, Rows63, 62, "The Orchard - 13", MazeType.Orchard);
+
+        /// <summary>LevelData_64 (The Orchard - 14), algorithmically generated the same
+        /// recursive-backtracker-plus-loop-edges way as World 1/2's own generated levels — verified
+        /// offline (full connectivity, no open 2x2 block, both warp tiles reachable) before being
+        /// baked in here.</summary>
+        private static readonly string[] Rows64 =
+        {
+            "111111151111", // y=8 (top)
+            "132222332211", // y=7
+            "121111131211", // y=6
+            "122226221311", // y=5
+            "121213131211", // y=4
+            "123222222311", // y=3
+            "121212121311", // y=2
+            "122412422711", // y=1
+            "111111151111", // y=0 (bottom)
+        };
+
+        private static void BuildLevelData64() => BuildLevel(LevelData64Path, Rows64, 63, "The Orchard - 14", MazeType.Orchard);
+
+        /// <summary>LevelData_65 (The Orchard - 15), algorithmically generated the same
+        /// recursive-backtracker-plus-loop-edges way as World 1/2's own generated levels — verified
+        /// offline (full connectivity, no open 2x2 block, both warp tiles reachable) before being
+        /// baked in here.</summary>
+        private static readonly string[] Rows65 =
+        {
+            "111111111511", // y=8 (top)
+            "172232222211", // y=7
+            "131214121211", // y=6
+            "142322221211", // y=5
+            "121312121311", // y=4
+            "122226131311", // y=3
+            "131211121211", // y=2
+            "122223223211", // y=1
+            "111111111511", // y=0 (bottom)
+        };
+
+        private static void BuildLevelData65() => BuildLevel(LevelData65Path, Rows65, 64, "The Orchard - 15", MazeType.Orchard);
+
+        /// <summary>LevelData_66 (The Orchard - 16), algorithmically generated the same
+        /// recursive-backtracker-plus-loop-edges way as World 1/2's own generated levels — verified
+        /// offline (full connectivity, no open 2x2 block, both warp tiles reachable) before being
+        /// baked in here.</summary>
+        private static readonly string[] Rows66 =
+        {
+            "151111111111", // y=8 (top)
+            "122212222711", // y=7
+            "131112111311", // y=6
+            "122326222211", // y=5
+            "111313121211", // y=4
+            "123322122411", // y=3
+            "121113121211", // y=2
+            "132322124211", // y=1
+            "151111111111", // y=0 (bottom)
+        };
+
+        private static void BuildLevelData66() => BuildLevel(LevelData66Path, Rows66, 65, "The Orchard - 16", MazeType.Orchard);
+
+        /// <summary>LevelData_67 (The Orchard - 17), algorithmically generated the same
+        /// recursive-backtracker-plus-loop-edges way as World 1/2's own generated levels — verified
+        /// offline (full connectivity, no open 2x2 block, both warp tiles reachable) before being
+        /// baked in here.</summary>
+        private static readonly string[] Rows67 =
+        {
+            "111511111111", // y=8 (top)
+            "122222324311", // y=7
+            "121311121211", // y=6
+            "121232423211", // y=5
+            "121312121211", // y=4
+            "121326121211", // y=3
+            "121213121111", // y=2
+            "172312322211", // y=1
+            "111511111111", // y=0 (bottom)
+        };
+
+        private static void BuildLevelData67() => BuildLevel(LevelData67Path, Rows67, 66, "The Orchard - 17", MazeType.Orchard);
+
+        /// <summary>LevelData_68 (The Orchard - 18), algorithmically generated the same
+        /// recursive-backtracker-plus-loop-edges way as World 1/2's own generated levels — verified
+        /// offline (full connectivity, no open 2x2 block, both warp tiles reachable) before being
+        /// baked in here.</summary>
+        private static readonly string[] Rows68 =
+        {
+            "111115111111", // y=8 (top)
+            "121232322311", // y=7
+            "121412121211", // y=6
+            "122236121411", // y=5
+            "121112121111", // y=4
+            "122332122211", // y=3
+            "131211121311", // y=2
+            "123232222711", // y=1
+            "111115111111", // y=0 (bottom)
+        };
+
+        private static void BuildLevelData68() => BuildLevel(LevelData68Path, Rows68, 67, "The Orchard - 18", MazeType.Orchard);
+
+        /// <summary>LevelData_69 (The Orchard - 19), algorithmically generated the same
+        /// recursive-backtracker-plus-loop-edges way as World 1/2's own generated levels — verified
+        /// offline (full connectivity, no open 2x2 block, both warp tiles reachable) before being
+        /// baked in here.</summary>
+        private static readonly string[] Rows69 =
+        {
+            "111111151111", // y=8 (top)
+            "172222223211", // y=7
+            "121213111111", // y=6
+            "122312332211", // y=5
+            "121113131211", // y=4
+            "142336221211", // y=3
+            "131112111211", // y=2
+            "122222422211", // y=1
+            "111111151111", // y=0 (bottom)
+        };
+
+        private static void BuildLevelData69() => BuildLevel(LevelData69Path, Rows69, 68, "The Orchard - 19", MazeType.Orchard);
+
+        /// <summary>LevelData_70 (The Orchard - 20), algorithmically generated the same
+        /// recursive-backtracker-plus-loop-edges way as World 1/2's own generated levels — verified
+        /// offline (full connectivity, no open 2x2 block, both warp tiles reachable) before being
+        /// baked in here.</summary>
+        private static readonly string[] Rows70 =
+        {
+            "111111111511", // y=8 (top)
+            "122232122711", // y=7
+            "121212121211", // y=6
+            "122226222211", // y=5
+            "121311121311", // y=4
+            "131312222211", // y=3
+            "121314111211", // y=2
+            "133412133211", // y=1
+            "111111111511", // y=0 (bottom)
+        };
+
+        private static void BuildLevelData70() => BuildLevel(LevelData70Path, Rows70, 69, "The Orchard - 20", MazeType.Orchard);
+
+        /// <summary>LevelData_71 (The Orchard - 21), algorithmically generated the same
+        /// recursive-backtracker-plus-loop-edges way as World 1/2's own generated levels — verified
+        /// offline (full connectivity, no open 2x2 block, both warp tiles reachable) before being
+        /// baked in here.</summary>
+        private static readonly string[] Rows71 =
+        {
+            "151111111111", // y=8 (top)
+            "122332332211", // y=7
+            "121212111211", // y=6
+            "133222232211", // y=5
+            "111211131211", // y=4
+            "121226122211", // y=3
+            "121312121211", // y=2
+            "172413221411", // y=1
+            "151111111111", // y=0 (bottom)
+        };
+
+        private static void BuildLevelData71() => BuildLevel(LevelData71Path, Rows71, 70, "The Orchard - 21", MazeType.Orchard);
+
+        /// <summary>LevelData_72 (The Orchard - 22), algorithmically generated the same
+        /// recursive-backtracker-plus-loop-edges way as World 1/2's own generated levels — verified
+        /// offline (full connectivity, no open 2x2 block, both warp tiles reachable) before being
+        /// baked in here.</summary>
+        private static readonly string[] Rows72 =
+        {
+            "111511111111", // y=8 (top)
+            "123222233311", // y=7
+            "111213111111", // y=6
+            "122216222211", // y=5
+            "121211111311", // y=4
+            "132222232311", // y=3
+            "121411131211", // y=2
+            "122422222711", // y=1
+            "111511111111", // y=0 (bottom)
+        };
+
+        private static void BuildLevelData72() => BuildLevel(LevelData72Path, Rows72, 71, "The Orchard - 22", MazeType.Orchard);
+
+        /// <summary>LevelData_73 (The Orchard - 23), algorithmically generated the same
+        /// recursive-backtracker-plus-loop-edges way as World 1/2's own generated levels — verified
+        /// offline (full connectivity, no open 2x2 block, both warp tiles reachable) before being
+        /// baked in here.</summary>
+        private static readonly string[] Rows73 =
+        {
+            "111115111111", // y=8 (top)
+            "172222222211", // y=7
+            "131212111311", // y=6
+            "121232322311", // y=5
+            "121312121411", // y=4
+            "134216121311", // y=3
+            "121112121211", // y=2
+            "122323122211", // y=1
+            "111115111111", // y=0 (bottom)
+        };
+
+        private static void BuildLevelData73() => BuildLevel(LevelData73Path, Rows73, 72, "The Orchard - 23", MazeType.Orchard);
+
+        /// <summary>LevelData_74 (The Orchard - 24), algorithmically generated the same
+        /// recursive-backtracker-plus-loop-edges way as World 1/2's own generated levels — verified
+        /// offline (full connectivity, no open 2x2 block, both warp tiles reachable) before being
+        /// baked in here.</summary>
+        private static readonly string[] Rows74 =
+        {
+            "111111151111", // y=8 (top)
+            "122222132711", // y=7
+            "121213121211", // y=6
+            "122316221211", // y=5
+            "121211121311", // y=4
+            "131234324211", // y=3
+            "121312121211", // y=2
+            "121223123211", // y=1
+            "111111151111", // y=0 (bottom)
+        };
+
+        private static void BuildLevelData74() => BuildLevel(LevelData74Path, Rows74, 73, "The Orchard - 24", MazeType.Orchard);
+
+        /// <summary>LevelData_75 (The Orchard - 25), algorithmically generated the same
+        /// recursive-backtracker-plus-loop-edges way as World 1/2's own generated levels — verified
+        /// offline (full connectivity, no open 2x2 block, both warp tiles reachable) before being
+        /// baked in here.</summary>
+        private static readonly string[] Rows75 =
+        {
+            "111111111511", // y=8 (top)
+            "122213222311", // y=7
+            "111313131211", // y=6
+            "123222122411", // y=5
+            "131112121211", // y=4
+            "141326221211", // y=3
+            "121212121311", // y=2
+            "172322221211", // y=1
+            "111111111511", // y=0 (bottom)
+        };
+
+        private static void BuildLevelData75() => BuildLevel(LevelData75Path, Rows75, 74, "The Orchard - 25", MazeType.Orchard);
 
         private static void WireScene(GameObject wallPrefab, GameObject groundPrefab, GameObject cropKernelPrefab,
             GameObject cropVegetablePrefab, GameObject powerPelletPrefab, GameObject warpTunnelPrefab, GameObject cluckPrefab,

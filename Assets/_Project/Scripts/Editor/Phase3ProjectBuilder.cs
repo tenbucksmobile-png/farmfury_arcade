@@ -335,25 +335,30 @@ namespace FarmFuryArcade.EditorTools
         private const string LevelsFolder = "Assets/_Project/ScriptableObjects/Resources/Levels";
 
         /// <summary>Robot type mix in escalating difficulty order — used to pick the first N types
-        /// for a level's robot count. Heavy/Drone (tankier/wall-ignoring) are held back for a
-        /// world's own later levels rather than appearing from level 1.</summary>
+        /// for a level's robot count. Drone (wall-ignoring) is held back for a world's own later
+        /// levels rather than appearing from level 1. Heavy was removed from this roster (its art
+        /// was deleted from the project — see the "Still missing" list; it would otherwise render
+        /// as an untextured placeholder square) rather than just left unused, so the top-tier "5
+        /// robots" levels now bring Drone into the standard curve for the first time instead of
+        /// silently topping out at 4 real distinct types.</summary>
         private static readonly RobotType[] DifficultyOrder =
         {
-            RobotType.Harvester, RobotType.Scout, RobotType.Patrol, RobotType.Drifter, RobotType.Heavy, RobotType.Drone
+            RobotType.Harvester, RobotType.Scout, RobotType.Patrol, RobotType.Drifter, RobotType.Drone
         };
 
         /// <summary>Every real level except LevelData_01 (hand-tuned by UpdateLevelData01Robots)
         /// used to ship with `robotSpawns = new RobotSpawnData[0]` — Phase2ProjectBuilder.BuildLevel
         /// always sets that as a placeholder ("No robots yet — Phase 3") and nothing ever filled it
-        /// in for levels 02-04/06-50, so no robots ever spawned there. Applies a difficulty curve
+        /// in for levels 02-04/06-75, so no robots ever spawned there. Applies a difficulty curve
         /// that resets per world (position-in-world = levelNumber % 25, matching
         /// UnlockProgression.LevelsPerWorld's own convention): 2 robots for a world's first 5
         /// levels, 3 for the next 7, 4 for the next 7, 5 for the last 6 — all spawned at the level's
         /// own robotFactoryPosition (derived from the maze, never hardcoded), staggered 4s apart
-        /// starting at 2s, matching LevelData_01's own 2s/6s Harvester/Scout timing.</summary>
+        /// starting at 2s, matching LevelData_01's own 2s/6s Harvester/Scout timing. Covers World 3
+        /// (Orchard, LevelData_51-75) too now that it has real LevelData.</summary>
         private static void AssignRobotSpawnsToRemainingLevels()
         {
-            for (int n = 1; n <= 50; n++)
+            for (int n = 1; n <= 75; n++)
             {
                 // LevelData_01 is hand-tuned separately by UpdateLevelData01Robots. LevelData_05
                 // used to be skipped here too (it held the reserved robot-test maze, not a real

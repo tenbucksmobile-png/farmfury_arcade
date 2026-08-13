@@ -1410,6 +1410,39 @@ namespace FarmFuryArcade.EditorTools
             unlockSO.ApplyModifiedPropertiesWithoutUndo();
             unlockRoot.SetActive(false);
 
+            // New World Unlock overlay — same "celebration layered on top of Level Complete"
+            // convention as NewCharacterUnlockOverlay above, but for a world's badge
+            // (LevelSelectController.worldSignSprites) instead of a character card, and tap-gated
+            // rather than timer-dismissed (see NewWorldUnlockScreen's doc comment: a fixed-timer
+            // auto-advance read as "nothing happened, it was very fast" in testing). The root panel
+            // itself doubles as the tap target — CreatePanel already stretches it full-screen with
+            // an Image, so adding a Button directly to it needs no separate invisible overlay
+            // GameObject.
+            var worldUnlockRoot = CreatePanel("NewWorldUnlockOverlay", root.transform, Color.black);
+            var worldUnlockTapButton = worldUnlockRoot.AddComponent<Button>();
+            worldUnlockTapButton.targetGraphic = worldUnlockRoot.GetComponent<Image>();
+
+            var worldBadge = CreateImage("WorldBadge", worldUnlockRoot.transform, new Color(1f, 0.84f, 0f), 850f, 850f);
+            var worldBadgeRect = (RectTransform)worldBadge.transform;
+            worldBadgeRect.anchorMin = worldBadgeRect.anchorMax = new Vector2(0.5f, 0.6f);
+            worldBadgeRect.anchoredPosition = Vector2.zero;
+            worldBadge.preserveAspect = true;
+            // Badge itself shouldn't swallow the tap before it reaches the root Button underneath.
+            worldBadge.raycastTarget = false;
+
+            var tapHintText = CreateText("TapHint", worldUnlockRoot.transform, "Tap to continue", 36f,
+                TextAlignmentOptions.Center, 60f, Color.white);
+            AnchorBottomCenter((RectTransform)tapHintText.transform, new Vector2(600f, 60f), new Vector2(0f, 150f));
+            tapHintText.raycastTarget = false;
+
+            var worldUnlockScreen = worldUnlockRoot.AddComponent<NewWorldUnlockScreen>();
+            var worldUnlockSO = new SerializedObject(worldUnlockScreen);
+            worldUnlockSO.FindProperty("worldBadgeImage").objectReferenceValue = worldBadge;
+            worldUnlockSO.FindProperty("tapButton").objectReferenceValue = worldUnlockTapButton;
+            worldUnlockSO.FindProperty("tapHintText").objectReferenceValue = tapHintText;
+            worldUnlockSO.ApplyModifiedPropertiesWithoutUndo();
+            worldUnlockRoot.SetActive(false);
+
             var controller = root.AddComponent<LevelCompleteController>();
             var so = new SerializedObject(controller);
             so.FindProperty("starDisplay").objectReferenceValue = starDisplayGO.GetComponent<StarDisplay>();
@@ -1418,6 +1451,7 @@ namespace FarmFuryArcade.EditorTools
             so.FindProperty("homeButton").objectReferenceValue = homeButton;
             so.FindProperty("settingsButton").objectReferenceValue = settingsButton;
             so.FindProperty("unlockScreen").objectReferenceValue = unlockScreen;
+            so.FindProperty("worldUnlockScreen").objectReferenceValue = worldUnlockScreen;
             so.ApplyModifiedPropertiesWithoutUndo();
 
             return (root, unlockScreen);

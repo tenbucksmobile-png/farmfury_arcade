@@ -14,6 +14,7 @@ namespace FarmFuryArcade.Core
         private const string CoinBalanceKey = "FFA_CoinBalance";
         private const string LevelStarsKeyPrefix = "FFA_LevelStars_";
         private const string CharacterUnlockedKeyPrefix = "FFA_CharacterUnlocked_";
+        private const string WorldUnlockSeenKeyPrefix = "FFA_WorldUnlockSeen_";
         private const string LevelBestScoreKeyPrefix = "FFA_LevelBestScore_";
         private const string LevelBestTimeKeyPrefix = "FFA_LevelBestTime_";
         private const string MusicOnKey = "FFA_MusicOn";
@@ -122,6 +123,23 @@ namespace FarmFuryArcade.Core
         public void UnlockCharacter(CharacterType type)
         {
             PlayerPrefs.SetInt(CharacterUnlockedKeyPrefix + type, 1);
+        }
+
+        /// <summary>Whether NewWorldUnlockScreen's celebration has already played for this world
+        /// index — deliberately independent of GetLevelStars' own gate-star value: a world can
+        /// become star-eligible without ever going through GameManager.EndLevel (e.g. via
+        /// SceneCleanupBuilder's "Set 3 Stars on all levels" debug tool, or replaying an
+        /// already-2-starred gate level), and in either case the celebration still hasn't actually
+        /// been shown to the player yet. Same "persisted one-shot flag" convention as
+        /// IsCharacterUnlocked/UnlockCharacter.</summary>
+        public bool HasSeenWorldUnlock(int world)
+        {
+            return PlayerPrefs.GetInt(WorldUnlockSeenKeyPrefix + world, 0) == 1;
+        }
+
+        public void SetWorldUnlockSeen(int world)
+        {
+            PlayerPrefs.SetInt(WorldUnlockSeenKeyPrefix + world, 1);
         }
 
         // ---- Leaderboard (local, Phase 5 — LeaderboardManager) --------------------------------
@@ -242,6 +260,12 @@ namespace FarmFuryArcade.Core
             foreach (CharacterType type in System.Enum.GetValues(typeof(CharacterType)))
             {
                 PlayerPrefs.DeleteKey(CharacterUnlockedKeyPrefix + type);
+            }
+
+            int maxWorldsForReset = Mathf.CeilToInt(MaxLevelsForReset / (float)UnlockProgression.LevelsPerWorld);
+            for (int world = 0; world < maxWorldsForReset; world++)
+            {
+                PlayerPrefs.DeleteKey(WorldUnlockSeenKeyPrefix + world);
             }
 
             for (int i = 0; i < MaxLevelsForReset; i++)

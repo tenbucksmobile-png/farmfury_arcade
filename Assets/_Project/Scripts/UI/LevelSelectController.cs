@@ -271,6 +271,16 @@ namespace FarmFuryArcade.UI
             }
         }
 
+        /// <summary>Public lookup for other screens that need a world's badge art without
+        /// duplicating worldSignSprites — currently just LevelCompleteController, to show the
+        /// correct badge in NewWorldUnlockScreen's celebration.</summary>
+        public Sprite GetWorldSignSprite(int world)
+        {
+            return worldSignSprites != null && world >= 0 && world < worldSignSprites.Length
+                ? worldSignSprites[world]
+                : null;
+        }
+
         /// <summary>Builds a single GridLayoutGroup section (4 columns, per the 2026-07-31 Canva
         /// mockup) under contentParent with
         /// just the given world's UnlockProgression.LevelsPerWorld (25) tiles — one world at a time

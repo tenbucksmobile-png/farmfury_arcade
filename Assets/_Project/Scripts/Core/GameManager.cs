@@ -46,6 +46,14 @@ namespace FarmFuryArcade.Core
         public int DeathCountThisMaze { get; private set; }
         public LevelResult LastLevelResult { get; private set; }
 
+        /// <summary>Set by EndLevel(true) the instant a world's gate level crosses from &lt;2 to
+        /// 2+ stars for the first time this call — the world index that just became available, or
+        /// null if this completion didn't unlock a new world. Recomputed (and reset to null) on
+        /// every EndLevel(true) call, same "reflects only the most recent result" convention as
+        /// LastLevelResult — read it once from LevelCompleteController's celebration sequence, same
+        /// frame it's set, before the next level's completion overwrites it.</summary>
+        public int? JustUnlockedWorldIndex { get; private set; }
+
         private int _cropsRemaining;
         private SceneController _sceneController;
         private GameState _stateBeforePause;
@@ -171,16 +179,27 @@ namespace FarmFuryArcade.Core
             CurrentState = success ? GameState.LevelComplete : GameState.LevelFailed;
             AudioManager.Instance?.StopMusic();
 
+            JustUnlockedWorldIndex = null;
+
             if (success && CurrentLevel != null && SaveManager.Instance != null)
             {
                 LastLevelResult = ComputeLevelResult(elapsed);
 
+                int levelNumber = CurrentLevel.levelNumber;
+
                 SaveManager.Instance.AddCoins(LastLevelResult.coinsEarned);
-                SaveManager.Instance.SetLevelStars(CurrentLevel.levelNumber, LastLevelResult.stars);
-                SaveManager.Instance.SetLevelBestScore(CurrentLevel.levelNumber, LastLevelResult.totalScore);
-                SaveManager.Instance.SetLevelBestTime(CurrentLevel.levelNumber, elapsed);
-                SaveManager.Instance.SetHighestLevelReached(CurrentLevel.levelNumber);
+                SaveManager.Instance.SetLevelStars(levelNumber, LastLevelResult.stars);
+                SaveManager.Instance.SetLevelBestScore(levelNumber, LastLevelResult.totalScore);
+                SaveManager.Instance.SetLevelBestTime(levelNumber, elapsed);
+                SaveManager.Instance.SetHighestLevelReached(levelNumber);
                 SaveManager.Instance.SaveProgress();
+
+                JustUnlockedWorldIndex = ComputeJustUnlockedWorld(levelNumber, LastLevelResult.stars);
+                if (JustUnlockedWorldIndex.HasValue)
+                {
+                    SaveManager.Instance.SetWorldUnlockSeen(JustUnlockedWorldIndex.Value);
+                    SaveManager.Instance.SaveProgress();
+                }
 
                 UnlockManager.Instance?.CheckUnlocksOnLevelComplete(SaveManager.Instance.HighestLevelReached);
                 LeaderboardManager.Instance?.RecordLevelResult(CurrentLevel.levelNumber, LastLevelResult.totalScore, elapsed, LastLevelResult.stars);
@@ -190,6 +209,48 @@ namespace FarmFuryArcade.Core
             {
                 LastLevelResult = new LevelResult { elapsedSeconds = elapsed };
             }
+        }
+
+        /// <summary>The level just completed unlocks a new world only if it's the last level of a
+        /// world (its own index is a world's gate level), its stars now meet the 2-star gate
+        /// threshold, and that world's unlock celebration hasn't already been shown
+        /// (SaveManager.HasSeenWorldUnlock) — matches UnlockProgression/LevelSelectController.
+        /// IsWorldAvailable's own gate for the star check, but deliberately does NOT compare against
+        /// this level's stars-before-this-call: an earlier version did, which meant the celebration
+        /// silently never fired for anyone who reached 2+ stars on a gate level any way other than
+        /// this exact EndLevel transition (e.g. SceneCleanupBuilder's "Set 3 Stars on all levels"
+        /// debug tool, or simply having already 2-starred the level in an earlier session/before
+        /// this feature existed) — the world was genuinely unlocked, but the player had still never
+        /// actually seen the celebration for it. The persisted HasSeenWorldUnlock flag is the
+        /// correct one-shot gate instead (same convention as IsCharacterUnlocked), and it's set
+        /// immediately once this returns non-null so replaying the gate level again never re-fires
+        /// it. Also requires the next world to actually have authored LevelData — World 3/4
+        /// currently have art but no levels, and celebrating an empty, unplayable world would be
+        /// confusing.</summary>
+        private static int? ComputeJustUnlockedWorld(int levelNumber, int starsAfter)
+        {
+            const int WorldGateStarRequirement = 2;
+
+            bool isWorldGateLevel = (levelNumber + 1) % UnlockProgression.LevelsPerWorld == 0;
+            if (!isWorldGateLevel || starsAfter < WorldGateStarRequirement)
+            {
+                return null;
+            }
+
+            int nextWorld = (levelNumber + 1) / UnlockProgression.LevelsPerWorld;
+            int nextWorldFirstLevel = nextWorld * UnlockProgression.LevelsPerWorld;
+            if (nextWorldFirstLevel >= UnlockProgression.TotalLevels ||
+                DataManager.Instance == null || DataManager.Instance.GetLevelData(nextWorldFirstLevel) == null)
+            {
+                return null;
+            }
+
+            if (SaveManager.Instance.HasSeenWorldUnlock(nextWorld))
+            {
+                return null;
+            }
+
+            return nextWorld;
         }
 
         /// <summary>Time and perfect-run bonuses are folded into ScoreManager.CurrentMazeScore

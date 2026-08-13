@@ -199,6 +199,7 @@ namespace FarmFuryArcade.EditorTools
         private const string DrifterLeft = "Assets/_Project/Sprites/Robots/DriftRobot_left.png";
         private const string DrifterRight = "Assets/_Project/Sprites/Robots/DriftRobot_right.png";
         private const string RobotEyes = "Assets/_Project/Sprites/Robots/RobotEyes.png";
+        private const string DroneFront = "Assets/_Project/Sprites/Robots/Drone.png";
 
         private const string LogoImage = "Assets/_Project/Sprites/UI/Logo.png";
         private const string AppIconImage = "Assets/_Project/Sprites/UI/AppIcon.png";
@@ -242,6 +243,7 @@ namespace FarmFuryArcade.EditorTools
         private const string BackgroundMusicClip = "Assets/_Project/Audio/Music/BackgroundMusic.mp3";
         private const string AnimalDeathSfx = "Assets/_Project/Audio/SFX/Animal_death.mp3";
         private const string CornPickupSfx = "Assets/_Project/Audio/SFX/CornPickup.mp3";
+        private const string CoinPickupSfx = "Assets/_Project/Audio/SFX/CoinPickup.mp3";
         private const string PowerReadySfx = "Assets/_Project/Audio/SFX/PowerReady.mp3";
         private const string RarePelletPickupSfx = "Assets/_Project/Audio/SFX/RarePellet_pickup.mp3";
         private const string RobotSpawnSfx = "Assets/_Project/Audio/SFX/RobotSpawn.mp3";
@@ -365,19 +367,21 @@ namespace FarmFuryArcade.EditorTools
             DuckyAbilityLeft, DuckyAbilityRight,
             HoraceFront, HoraceLeft1, HoraceLeft2, HoraceRight2, HoraceAbilityBuckLeft, HoraceAbilityBuckRight,
             ScoutFront, ScoutBack, ScoutLeft, ScoutRight, PatrolFront, PatrolBack, PatrolLeft, PatrolRight,
-            HeavyFront, HeavyBack, DrifterFront, DrifterLeft, DrifterRight, DrifterBack, RobotEyes,
+            HeavyFront, HeavyBack, DrifterFront, DrifterLeft, DrifterRight, DrifterBack, RobotEyes, DroneFront,
             LevelCompletePanel, LevelFailedPanel, PausedPanel,
             BtnPlay, BtnPause, BtnSettings, BtnQuit, BtnMusic, BtnNoSound, BtnHome, BtnSkip, BtnBack, BtnPlaque,
             RetryButtonArt, MenuButtonArt, ResumeButtonArt, SwapCharacterButtonArt, RestartButtonArt,
             SettingsButtonArt, QuitButtonArt,
             CluckCard, BessieCard, PercyCard, WoollyCard, DuckyCard, HoraceCard, GeraldCard, BillyCard,
             DPadUp, DPadDown, DPadLeft, DPadRight,
-            GeraldFront, GeraldBack, GeraldLeft,
+            GeraldFront, GeraldBack, GeraldLeft, GeraldLeft1, GeraldRight,
+            BillyFront, BillyBack, BillyLeft0, BillyLeft1, BillyRight0, BillyRight1,
             CluckRight, CluckRightWalk2, CluckLeftWalk,
             WallCornTiles, FloorTile, WarpTile, WheatfieldBackdrop, SettingsBackground, PauseBackground,
             VegTile, VeggiePatchWarp, VegetableGardenBackdrop, FilledStar, EmptyStar, CornCob, Cabbage,
             LevelTileLocked, LevelTileUnlocked, LevelTile1Star, LevelTile2Stars, LevelTile3Stars,
             BgLevelSelect, DividerWorldBanner, WaterTileSprite, UnlockedBannerSprite,
+            OrchardWallTile, OrchardFloorTileSprite, OrchardBackgroundSprite, RedApplePellet, CherryBonus,
             SelectLevelText, CornFieldText, VegetablePatchText, OrchardText, WheatfieldText, SettingsSignText,
             LogoImage, CluckEggIcon, CluckEggCracked, CluckEggBurst
         };
@@ -891,19 +895,22 @@ namespace FarmFuryArcade.EditorTools
             SetPrefabSprite(WaterTilePrefabPath, Load(WaterTileSprite));
         }
 
-        /// <summary>Wires World 3 (Orchard)'s wall/ground/backdrop/regular-pellet art and its bonus
-        /// cherry pickup (x10, scattered like CornField's coin), plus World 4 (Wheat)'s regular
-        /// pellet sprite and bonus grain-sack pickup (x1). Neither world has any LevelData authored
-        /// yet, so these MazeArtSet entries are added additively via TileMapRenderer.GetOrAddArtSet
-        /// rather than through Phase2ProjectBuilder's WireScene (which only rebuilds the CornField/
-        /// VegPatch entries it already knows about) — same "art before levels" situation VegPatch
-        /// briefly went through. Orchard's warp-tunnel/crop prefabs reuse CornField's (no dedicated
-        /// art for those yet, same sharing convention VegPatch used for groundPrefab before Orchard
-        /// got its own real ground art). Orchard's rare-tier pellet sprite is still pending a future
-        /// upload — the current MazeArtSet architecture only supports one pellet look per world
-        /// (see MazeArtSet.pelletSprite's doc comment), so a distinct rare visual would need a new
-        /// field once that art actually lands. Wheat has no wall/ground/backdrop art at all yet, so
-        /// its entry stays partial.</summary>
+        /// <summary>Wires World 3 (Orchard)'s wall/ground/backdrop/regular-pellet/rare-pellet art
+        /// and its bonus cherry pickup (x10, scattered like CornField's coin), plus World 4
+        /// (Wheat)'s regular pellet sprite and bonus grain-sack pickup (x1). These MazeArtSet
+        /// entries are added/updated additively via TileMapRenderer.GetOrAddArtSet rather than
+        /// through Phase2ProjectBuilder's WireScene (which only rebuilds the CornField/VegPatch
+        /// entries it already knows about) — Orchard now has real LevelData (Phase2ProjectBuilder's
+        /// BuildLevelData51-75), but its art still lands through this separate pass since that's
+        /// where every other field on its MazeArtSet already lives. Orchard's warp-tunnel/crop
+        /// prefabs still reuse CornField's (no dedicated art for those yet, same sharing convention
+        /// VegPatch used for groundPrefab before Orchard got its own real ground art). Orchard's
+        /// rare-tier pellet now has a distinct look too (RarePellets_apple.png — the same rainbow-
+        /// apple sprite VegPatch's regular pellet already uses elsewhere, reused here for a
+        /// different purpose since MazeArtSet entries are independent per world) via
+        /// MazeArtSet.rarePelletSprite, the single "won the maze's one rare slot" pellet
+        /// (ConfigurePelletTier) — every other pellet still shows pelletSprite. Wheat has no wall/
+        /// ground/backdrop art at all yet, so its entry stays partial.</summary>
         private static void WireOrchardAndWheat()
         {
             SetPrefabSprite(WallOrchardPrefabPath, Load(OrchardWallTile));
@@ -927,6 +934,7 @@ namespace FarmFuryArcade.EditorTools
             orchard.cropVegetablePrefab = AssetDatabase.LoadAssetAtPath<GameObject>(CropVegetablePrefabPath);
             orchard.backdropSprite = Load(OrchardBackgroundSprite);
             orchard.pelletSprite = Load(RedApplePellet);
+            orchard.rarePelletSprite = Load(RainbowPellet);
             orchard.bonusPickupPrefab = AssetDatabase.LoadAssetAtPath<GameObject>(PickupCherryPrefabPath);
             orchard.bonusPickupCount = 10;
 
@@ -1266,9 +1274,13 @@ namespace FarmFuryArcade.EditorTools
             WireRobotVisual(DrifterPrefabPath, drifterFront, Load(DrifterBack), Load(DrifterLeft), Load(DrifterRight));
             SetRobotPortrait("Drifter", drifterFront);
 
-            // Drone has no uploaded art yet — still gets the universal defeated-eyes sprite, but
-            // no portraitSprite.
-            WireRobotVisual(DronePrefabPath, null, null, null, null);
+            // Drone's art is a single symmetric hovering-quadcopter face with no directional
+            // cues to speak of — one sprite covers every facing (front/back/left/right all fall
+            // back to it via RobotVisual's own null-handling), unlike every other robot's
+            // per-direction art.
+            var droneFront = Load(DroneFront);
+            WireRobotVisual(DronePrefabPath, droneFront, null, null, null);
+            SetRobotPortrait("Drone", droneFront);
         }
 
         // ---- Ability effects ---------------------------------------------------------------
@@ -1577,8 +1589,8 @@ namespace FarmFuryArcade.EditorTools
         /// eatRobotMusicClip for the duration of a power pellet's effect and back afterward
         /// (PlayEatRobotMusic/ResumeBackgroundMusic). The SFX clips are played by their respective
         /// gameplay triggers via AudioManager.PlayAnimalDeathSfx/PlayCornPickupSfx/
-        /// PlayPowerReadySfx/PlayRarePelletPickupSfx/PlayRobotRespawnSfx (see PlayerHealth,
-        /// CropCollector, PowerPelletManager, RobotBase respectively). AudioClip import settings
+        /// PlayCoinPickupSfx/PlayPowerReadySfx/PlayRarePelletPickupSfx/PlayRobotRespawnSfx (see
+        /// PlayerHealth, CropCollector, PowerPelletManager, RobotBase respectively). AudioClip import settings
         /// are left at Unity's defaults (no ConfigureSpriteImporters-style pass needed here, unlike
         /// sprites) since the default compressed-in-memory settings are already reasonable for
         /// these short clips and the two looping music tracks.</summary>
@@ -1587,6 +1599,7 @@ namespace FarmFuryArcade.EditorTools
             var musicClip = AssetDatabase.LoadAssetAtPath<AudioClip>(BackgroundMusicClip);
             var animalDeath = AssetDatabase.LoadAssetAtPath<AudioClip>(AnimalDeathSfx);
             var cornPickup = AssetDatabase.LoadAssetAtPath<AudioClip>(CornPickupSfx);
+            var coinPickup = AssetDatabase.LoadAssetAtPath<AudioClip>(CoinPickupSfx);
             var powerReady = AssetDatabase.LoadAssetAtPath<AudioClip>(PowerReadySfx);
             var rarePelletPickup = AssetDatabase.LoadAssetAtPath<AudioClip>(RarePelletPickupSfx);
             var robotSpawn = AssetDatabase.LoadAssetAtPath<AudioClip>(RobotSpawnSfx);
@@ -1612,6 +1625,7 @@ namespace FarmFuryArcade.EditorTools
             if (musicClip != null) so.FindProperty("backgroundMusicClip").objectReferenceValue = musicClip;
             if (animalDeath != null) so.FindProperty("animalDeathClip").objectReferenceValue = animalDeath;
             if (cornPickup != null) so.FindProperty("cornPickupClip").objectReferenceValue = cornPickup;
+            if (coinPickup != null) so.FindProperty("coinPickupClip").objectReferenceValue = coinPickup;
             if (powerReady != null) so.FindProperty("powerReadyClip").objectReferenceValue = powerReady;
             if (rarePelletPickup != null) so.FindProperty("rarePelletPickupClip").objectReferenceValue = rarePelletPickup;
             if (robotSpawn != null) so.FindProperty("robotRespawnClip").objectReferenceValue = robotSpawn;

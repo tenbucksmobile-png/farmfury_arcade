@@ -16,9 +16,9 @@ namespace FarmFuryArcade.Core
     /// PlayMusic's crossfade always fades the previous track out as the new one fades in, whichever
     /// two call sites are involved.
     /// SFX clips under Assets/_Project/Audio/SFX/ are wired to specific gameplay triggers — see
-    /// PlayAnimalDeathSfx/PlayCornPickupSfx/PlayPowerReadySfx/PlayRarePelletPickupSfx/
-    /// PlayRobotRespawnSfx and their call sites (PlayerHealth, CropCollector, AbilityBase,
-    /// RobotBase respectively).
+    /// PlayAnimalDeathSfx/PlayCornPickupSfx/PlayCoinPickupSfx/PlayPowerReadySfx/
+    /// PlayRarePelletPickupSfx/PlayRobotRespawnSfx and their call sites (PlayerHealth,
+    /// CropCollector, AbilityBase, RobotBase respectively).
     /// </summary>
     public class AudioManager : Singleton<AudioManager>
     {
@@ -43,6 +43,7 @@ namespace FarmFuryArcade.Core
         [Header("SFX clips")]
         [SerializeField] private AudioClip animalDeathClip;
         [SerializeField] private AudioClip cornPickupClip;
+        [SerializeField] private AudioClip coinPickupClip;
         [SerializeField] private AudioClip powerReadyClip;
         [SerializeField] private AudioClip rarePelletPickupClip;
         [SerializeField] private AudioClip robotRespawnClip;
@@ -150,6 +151,7 @@ namespace FarmFuryArcade.Core
         /// field to reach into.</summary>
         public void PlayAnimalDeathSfx() => PlaySFX(animalDeathClip);
         public void PlayCornPickupSfx() => PlaySFX(cornPickupClip);
+        public void PlayCoinPickupSfx() => PlaySFX(coinPickupClip);
         public void PlayPowerReadySfx() => PlaySFX(powerReadyClip);
         public void PlayRarePelletPickupSfx() => PlaySFX(rarePelletPickupClip);
         public void PlayRobotRespawnSfx() => PlaySFX(robotRespawnClip);

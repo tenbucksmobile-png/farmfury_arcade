@@ -49,7 +49,7 @@ namespace FarmFuryArcade.Gameplay
                 // Deliberately does NOT call GameManager.NotifyCropCollected — see CoinPickup's
                 // doc comment for why it's excluded from LevelData.totalCropsRequired.
                 SaveManager.Instance?.AddCoins(coin.coinValue);
-                AudioManager.Instance?.PlayCornPickupSfx(); // no dedicated coin SFX uploaded yet
+                AudioManager.Instance?.PlayCoinPickupSfx();
                 Destroy(other.gameObject);
             }
         }
