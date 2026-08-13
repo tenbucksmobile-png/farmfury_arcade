@@ -100,7 +100,7 @@ namespace FarmFuryArcade.EditorTools
         public static void BuildAll()
         {
             GameObject wallPrefab = BuildWallPrefab("Wall_CornField", new Color(0.29f, 0.17f, 0.10f)); // GDD Wall Brown #4A2C1A
-            GameObject groundPrefab = BuildGroundPrefab();
+            GameObject groundPrefab = BuildGroundPrefab("Ground_CornField", new Color(0.18f, 0.12f, 0.08f)); // dark soil, visual only
             GameObject cropKernelPrefab = BuildCropPrefab("Crop_Corn", CropType.Corn, 10, new Color(0.96f, 0.78f, 0.26f), 0.35f);
             GameObject cropVegetablePrefab = BuildCropPrefab("Crop_Vegetable", CropType.Vegetable, 50, new Color(0.30f, 0.69f, 0.31f), 0.5f);
             GameObject pelletCollectEffectPrefab = BuildPelletCollectEffectPrefab();
@@ -128,6 +128,18 @@ namespace FarmFuryArcade.EditorTools
             // TileMapRenderer.MazeArtSet.bonusPickupPrefab's doc comment for why it's excluded from
             // LevelData.totalCropsRequired.
             GameObject coinPrefab = BuildCoinPrefab();
+
+            // World 3 (Orchard) wall/ground prefabs + bonus cherry pickup, and World 4 (Wheat)'s
+            // bonus grain-sack pickup — art for both landed before either world has any LevelData
+            // authored yet, same "art before levels" situation VegPatch was briefly in. Placeholder
+            // colors only until ArtWiringBuilder sets the real sprites; the MazeArtSet entries
+            // themselves are added additively by ArtWiringBuilder (TileMapRenderer.GetOrAddArtSet)
+            // via these prefabs' own asset paths, not threaded through this method's WireScene call,
+            // since neither world has warp/crop art yet for a full per-world entry.
+            BuildWallPrefab("Wall_Orchard", new Color(0.55f, 0.16f, 0.16f));
+            BuildGroundPrefab("Ground_Orchard", new Color(0.42f, 0.27f, 0.14f));
+            BuildBonusPickupPrefab("Pickup_Cherry", new Color(0.72f, 0.05f, 0.15f));
+            BuildBonusPickupPrefab("Pickup_GrainSack", new Color(0.68f, 0.52f, 0.25f));
 
             BuildCharacterData();
             BuildLevelData01();
@@ -201,14 +213,18 @@ namespace FarmFuryArcade.EditorTools
             return SaveAndDestroy(go, BlockPrefabFolder + "/" + name + ".prefab");
         }
 
-        private static GameObject BuildGroundPrefab()
+        /// <summary>Generalized from a hardcoded "Ground_CornField" so World 3's Ground_Orchard
+        /// could reuse it — see BuildAll's Orchard wiring below. CornField/VegPatch keep sharing
+        /// Ground_CornField (see TileMapRenderer.MazeArtSet's doc comment); Orchard gets its own
+        /// dedicated ground prefab since real Orchard-specific ground art exists.</summary>
+        private static GameObject BuildGroundPrefab(string name, Color placeholderColor)
         {
-            var go = new GameObject("Ground_CornField");
+            var go = new GameObject(name);
             var sr = go.AddComponent<SpriteRenderer>();
-            sr.sprite = PlaceholderSprite.Get(new Color(0.18f, 0.12f, 0.08f)); // dark soil, visual only
+            sr.sprite = PlaceholderSprite.Get(placeholderColor);
             sr.sortingOrder = -1;
             go.transform.localScale = Vector3.one * TileMapRenderer.CellSize;
-            return SaveAndDestroy(go, BlockPrefabFolder + "/Ground_CornField.prefab");
+            return SaveAndDestroy(go, BlockPrefabFolder + "/" + name + ".prefab");
         }
 
         private static GameObject BuildCropPrefab(string name, CropType cropType, int points, Color color, float scale)
@@ -241,6 +257,24 @@ namespace FarmFuryArcade.EditorTools
             col.radius = 0.5f;
             go.AddComponent<CoinPickup>();
             return SaveAndDestroy(go, BlockPrefabFolder + "/Pickup_Coin.prefab");
+        }
+
+        /// <summary>Generalized from the hardcoded "Pickup_Coin" (BuildCoinPrefab) so World 3/4's
+        /// bonus pickups (Pickup_Cherry, Pickup_GrainSack) can reuse it — same CoinPickup component
+        /// (awards SaveManager coins directly, not maze score, and stays out of
+        /// LevelData.totalCropsRequired) regardless of which world's bonus item it actually is.</summary>
+        private static GameObject BuildBonusPickupPrefab(string name, Color placeholderColor)
+        {
+            var go = new GameObject(name);
+            var sr = go.AddComponent<SpriteRenderer>();
+            sr.sprite = PlaceholderSprite.Get(placeholderColor);
+            sr.sortingOrder = 3;
+            go.transform.localScale = Vector3.one * 0.5f * TileMapRenderer.CellSize;
+            var col = go.AddComponent<CircleCollider2D>();
+            col.isTrigger = true;
+            col.radius = 0.5f;
+            go.AddComponent<CoinPickup>();
+            return SaveAndDestroy(go, BlockPrefabFolder + "/" + name + ".prefab");
         }
 
         private static GameObject BuildPowerPelletPrefab(GameObject collectEffectPrefab)

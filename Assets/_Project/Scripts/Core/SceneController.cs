@@ -36,7 +36,16 @@ namespace FarmFuryArcade.Core
             _tileMapRenderer.RenderMaze(level);
             ComboSystem.Instance?.ResetForNewMaze();
             PowerPelletManager.Instance?.ResetForNewMaze();
-            CharacterManager.Instance?.SpawnInitialCharacter(CharacterType.Cluck, level.playerStartPosition);
+
+            // CharacterManager.Instance persists for the app's lifetime, so ActiveCharacter still
+            // holds whatever the player last swapped to even after ClearActiveCharacter() destroyed
+            // the previous level's GameObject — spawn that one instead of always resetting to
+            // Cluck, so a swap carries over into the next level rather than reverting on every
+            // LoadLevel. Defaults to Cluck (the enum's first value) the very first time a level is
+            // ever loaded, since ActiveCharacter has no prior swap to remember yet.
+            var characterManager = CharacterManager.Instance;
+            CharacterType characterToSpawn = characterManager != null ? characterManager.ActiveCharacter : CharacterType.Cluck;
+            characterManager?.SpawnInitialCharacter(characterToSpawn, level.playerStartPosition);
             robotSpawner?.SpawnLevelRobots(level);
         }
 

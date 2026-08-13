@@ -122,6 +122,14 @@ namespace FarmFuryArcade.EditorTools
         private const string GeraldFront = "Assets/_Project/Sprites/Characters/Gerald_front.png";
         private const string GeraldBack = "Assets/_Project/Sprites/Characters/Gerald_back.png";
         private const string GeraldLeft = "Assets/_Project/Sprites/Characters/Gerald_left.png";
+        // Real 2-frame Left walk cycle (Gerald_left.png/Gerald_left1.png) plus a single Right frame
+        // (no "right1" yet — same one-frame-repeats-both-slots convention as Horace's Right).
+        // Gerald_ability.png is uploaded but stays unwired here — PuffUpAbility has no spawned
+        // effect object (it just scales Gerald's own sprite 3x, see WireNewCharacters' old comment),
+        // so wiring it in would mean adding a new effect prefab + a spawn call, a gameplay change
+        // rather than pure art wiring.
+        private const string GeraldLeft1 = "Assets/_Project/Sprites/Characters/Gerald_left1.png";
+        private const string GeraldRight = "Assets/_Project/Sprites/Characters/Gerald_right.png";
         private const string HoraceFront = "Assets/_Project/Sprites/Characters/Horace_front.png";
         // Horace_left.png (no suffix) is an earlier/superseded draft — Horace_left1/Left2.png are
         // the real 2-frame walk-cycle pair (same "extra art, no slot for it yet" convention as
@@ -134,6 +142,15 @@ namespace FarmFuryArcade.EditorTools
         // Ducky's splash.
         private const string HoraceAbilityBuckLeft = "Assets/_Project/Sprites/Characters/Horace_ability_buckleft.png";
         private const string HoraceAbilityBuckRight = "Assets/_Project/Sprites/Characters/Horace_ability_buckright.png";
+
+        // Billy's first real art — full 2-frame walk cycle on both Left and Right (same flick
+        // convention as Cluck/Bessie/Percy), plus front/back.
+        private const string BillyFront = "Assets/_Project/Sprites/Characters/Billy_Front.png";
+        private const string BillyBack = "Assets/_Project/Sprites/Characters/Billy_back.png";
+        private const string BillyLeft0 = "Assets/_Project/Sprites/Characters/Billy_left.png";
+        private const string BillyLeft1 = "Assets/_Project/Sprites/Characters/Billy_left1.png";
+        private const string BillyRight0 = "Assets/_Project/Sprites/Characters/Billy_right.png";
+        private const string BillyRight1 = "Assets/_Project/Sprites/Characters/Billy_right1.png";
 
         // ---- Sprite paths (this batch: Cluck 2nd-frame walk cycle + real Right art) ------------
         private const string CluckRight = "Assets/_Project/Sprites/Characters/Cluck_right.png";
@@ -254,6 +271,32 @@ namespace FarmFuryArcade.EditorTools
         private const string SettingsButtonArt = "Assets/_Project/Sprites/UI/Settings.png";
         private const string QuitButtonArt = "Assets/_Project/Sprites/UI/Quit.png";
 
+        // ---- World 3 (Orchard) + World 4 (Wheat) maze/pickup art --------------------------------
+        private const string OrchardWallTile = "Assets/_Project/Sprites/UI/Orchard_WallTile.png";
+        private const string OrchardBackgroundSprite = "Assets/_Project/Sprites/UI/OrchardBackground.png";
+        // Split off of a shared FloorTile.png drop-in that would otherwise have also changed
+        // CornField/VegPatch's ground (see WireOrchardAndWheat's doc comment) — copied to its own
+        // file before the original FloorTile.png was restored to CornField's original soil art.
+        private const string OrchardFloorTileSprite = "Assets/_Project/Sprites/UI/OrchardFloorTile.png";
+        // Orchard's regular (every-tile) power pellet look. A distinct rare-tier sprite is still
+        // pending a future upload — see WireOrchardAndWheat's doc comment for why there's no slot
+        // for one yet in the current MazeArtSet architecture.
+        private const string RedApplePellet = "Assets/_Project/Sprites/Environment/Red_Apple.png";
+        // Orchard's bonus pickup — scattered x10 per level, not a power pellet at all (matches the
+        // CornField coin's "extra pickups scattered on random walkable cells" role, not part of
+        // LevelData.totalCropsRequired).
+        private const string CherryBonus = "Assets/_Project/Sprites/Environment/Cherry.png";
+        // Wheat has no wall/ground/backdrop art yet — only these two were dropped in, inferred by
+        // name to mirror Orchard's own "Rare"-prefixed-vs-plain naming split: MiniLoaf as the
+        // regular per-tile pellet, RareGrainSack as the scarce bonus pickup (count 1, not x10 like
+        // Cherry, since "Rare" implies scarce rather than plentiful).
+        private const string MiniLoafPellet = "Assets/_Project/Sprites/Environment/MiniLoaf.png";
+        private const string RareGrainSackBonus = "Assets/_Project/Sprites/Environment/RareGrainSack.png";
+        private const string WallOrchardPrefabPath = BlockPrefabFolder + "/Wall_Orchard.prefab";
+        private const string GroundOrchardPrefabPath = BlockPrefabFolder + "/Ground_Orchard.prefab";
+        private const string PickupCherryPrefabPath = BlockPrefabFolder + "/Pickup_Cherry.prefab";
+        private const string PickupGrainSackPrefabPath = BlockPrefabFolder + "/Pickup_GrainSack.prefab";
+
         // ---- ChooseCharacterScreen card art (framed "animal card" portraits) -------------------
         private const string CluckCard = "Assets/_Project/Sprites/UI/Cluck_Chicken.png";
         private const string BessieCard = "Assets/_Project/Sprites/UI/Bessie_Cow.png";
@@ -283,6 +326,7 @@ namespace FarmFuryArcade.EditorTools
             WireHarvester();
             WireCropsAndPellets();
             WireMazeTiles();
+            WireOrchardAndWheat();
             WireGameplayBackdrop();
             WireBackgrounds();
             WireLevelCompleteStars();
@@ -672,6 +716,81 @@ namespace FarmFuryArcade.EditorTools
             WireCharacterPrefabSprite($"{CharacterPrefabFolder}/Percy.prefab", front);
         }
 
+        /// <summary>Gerald's real directional art — a 2-frame Left walk cycle (Gerald_left.png →
+        /// Gerald_left1.png) and a single-frame Right (Gerald_right.png, repeated for both Right0/
+        /// Right1 slots, same convention as Horace's Right). Replaces the old front/back/left-only
+        /// SetWalkFrames call, which mirrored Left for Right.</summary>
+        private static void WireGerald()
+        {
+            var front = Load(GeraldFront);
+            var back = Load(GeraldBack);
+            var left0 = Load(GeraldLeft);
+            var left1 = Load(GeraldLeft1);
+            var right = Load(GeraldRight);
+
+            string path = $"{CharacterDataFolder}/CharacterData_Gerald.asset";
+            var data = AssetDatabase.LoadAssetAtPath<CharacterData>(path);
+            if (data != null)
+            {
+                Sprite left0OrFront = left0 != null ? left0 : front;
+                Sprite left1OrFront = left1 != null ? left1 : left0OrFront;
+                data.walkAnimationFrames = new[]
+                {
+                    back, back,                               // Up0, Up1
+                    front, front,                              // Down0, Down1
+                    left0OrFront, left1OrFront,                 // Left0, Left1
+                    right != null ? right : left0OrFront, right != null ? right : left1OrFront // Right0, Right1
+                };
+                data.hasDedicatedRightArt = right != null;
+                data.portraitSprite = front;
+                EditorUtility.SetDirty(data);
+            }
+            else
+            {
+                Debug.LogWarning($"[ArtWiringBuilder] CharacterData_Gerald not found at {path}");
+            }
+
+            WireCharacterPrefabSprite($"{CharacterPrefabFolder}/Gerald.prefab", front);
+        }
+
+        /// <summary>Billy's first real art — full 2-frame walk cycles on both Left and Right
+        /// (Billy_left.png → Billy_left1.png, Billy_right.png → Billy_right1.png), same flick
+        /// convention as Cluck/Bessie/Percy. Previously a solid-colour placeholder in every
+        /// direction.</summary>
+        private static void WireBilly()
+        {
+            var front = Load(BillyFront);
+            var back = Load(BillyBack);
+            var left0 = Load(BillyLeft0);
+            var left1 = Load(BillyLeft1);
+            var right0 = Load(BillyRight0);
+            var right1 = Load(BillyRight1);
+
+            string path = $"{CharacterDataFolder}/CharacterData_Billy.asset";
+            var data = AssetDatabase.LoadAssetAtPath<CharacterData>(path);
+            if (data != null)
+            {
+                Sprite left0OrFront = left0 != null ? left0 : front;
+                Sprite left1OrFront = left1 != null ? left1 : left0OrFront;
+                data.walkAnimationFrames = new[]
+                {
+                    back, back,                                          // Up0, Up1
+                    front, front,                                        // Down0, Down1
+                    left0OrFront, left1OrFront,                          // Left0, Left1
+                    right0 != null ? right0 : left0OrFront, right1 != null ? right1 : (right0 != null ? right0 : left1OrFront) // Right0, Right1
+                };
+                data.hasDedicatedRightArt = right0 != null;
+                data.portraitSprite = front;
+                EditorUtility.SetDirty(data);
+            }
+            else
+            {
+                Debug.LogWarning($"[ArtWiringBuilder] CharacterData_Billy not found at {path}");
+            }
+
+            WireCharacterPrefabSprite($"{CharacterPrefabFolder}/Billy.prefab", front);
+        }
+
         private static void WireHarvester()
         {
             var front = Load(HarvesterFront);
@@ -770,6 +889,54 @@ namespace FarmFuryArcade.EditorTools
             SetPrefabSprite(WallVegPatchPrefabPath, Load(VegTile));
             SetPrefabSprite(WarpTunnelVegPatchPrefabPath, Load(VeggiePatchWarp));
             SetPrefabSprite(WaterTilePrefabPath, Load(WaterTileSprite));
+        }
+
+        /// <summary>Wires World 3 (Orchard)'s wall/ground/backdrop/regular-pellet art and its bonus
+        /// cherry pickup (x10, scattered like CornField's coin), plus World 4 (Wheat)'s regular
+        /// pellet sprite and bonus grain-sack pickup (x1). Neither world has any LevelData authored
+        /// yet, so these MazeArtSet entries are added additively via TileMapRenderer.GetOrAddArtSet
+        /// rather than through Phase2ProjectBuilder's WireScene (which only rebuilds the CornField/
+        /// VegPatch entries it already knows about) — same "art before levels" situation VegPatch
+        /// briefly went through. Orchard's warp-tunnel/crop prefabs reuse CornField's (no dedicated
+        /// art for those yet, same sharing convention VegPatch used for groundPrefab before Orchard
+        /// got its own real ground art). Orchard's rare-tier pellet sprite is still pending a future
+        /// upload — the current MazeArtSet architecture only supports one pellet look per world
+        /// (see MazeArtSet.pelletSprite's doc comment), so a distinct rare visual would need a new
+        /// field once that art actually lands. Wheat has no wall/ground/backdrop art at all yet, so
+        /// its entry stays partial.</summary>
+        private static void WireOrchardAndWheat()
+        {
+            SetPrefabSprite(WallOrchardPrefabPath, Load(OrchardWallTile));
+            SetPrefabSprite(GroundOrchardPrefabPath, Load(OrchardFloorTileSprite));
+            SetPrefabSprite(PickupCherryPrefabPath, Load(CherryBonus));
+            SetPrefabSprite(PickupGrainSackPrefabPath, Load(RareGrainSackBonus));
+
+            EditorSceneManager.OpenScene(ScenePath);
+            var tileMapRenderer = GameObject.Find("GameManagers")?.GetComponent<TileMapRenderer>();
+            if (tileMapRenderer == null)
+            {
+                Debug.LogWarning("[ArtWiringBuilder] Could not find TileMapRenderer on GameManagers to wire Orchard/Wheat art.");
+                return;
+            }
+
+            var orchard = tileMapRenderer.GetOrAddArtSet(MazeType.Orchard);
+            orchard.wallPrefab = AssetDatabase.LoadAssetAtPath<GameObject>(WallOrchardPrefabPath);
+            orchard.groundPrefab = AssetDatabase.LoadAssetAtPath<GameObject>(GroundOrchardPrefabPath);
+            orchard.warpTunnelPrefab = AssetDatabase.LoadAssetAtPath<GameObject>(WarpTunnelPrefabPath);
+            orchard.cropKernelPrefab = AssetDatabase.LoadAssetAtPath<GameObject>(CropCornPrefabPath);
+            orchard.cropVegetablePrefab = AssetDatabase.LoadAssetAtPath<GameObject>(CropVegetablePrefabPath);
+            orchard.backdropSprite = Load(OrchardBackgroundSprite);
+            orchard.pelletSprite = Load(RedApplePellet);
+            orchard.bonusPickupPrefab = AssetDatabase.LoadAssetAtPath<GameObject>(PickupCherryPrefabPath);
+            orchard.bonusPickupCount = 10;
+
+            var wheat = tileMapRenderer.GetOrAddArtSet(MazeType.Wheat);
+            wheat.pelletSprite = Load(MiniLoafPellet);
+            wheat.bonusPickupPrefab = AssetDatabase.LoadAssetAtPath<GameObject>(PickupGrainSackPrefabPath);
+            wheat.bonusPickupCount = 1;
+
+            EditorUtility.SetDirty(tileMapRenderer);
+            EditorSceneManager.SaveScene(EditorSceneManager.GetActiveScene());
         }
 
         /// <summary>Wires real filled/empty star art onto LevelCompleteScreen's StarDisplay —
@@ -1047,18 +1214,8 @@ namespace FarmFuryArcade.EditorTools
 
             WireDucky();
             WireHorace();
-
-            var geraldFront = Load(GeraldFront);
-            SetWalkFrames("Gerald", geraldFront, Load(GeraldBack), Load(GeraldLeft));
-            WireCharacterPrefabSprite($"{CharacterPrefabFolder}/Gerald.prefab", geraldFront);
-
-            // Gerald_effect.png is uploaded but unwired — PuffUpAbility has no spawned effect
-            // object (it just scales Gerald's own sprite 3x), unlike Bessie/Percy/Woolly's
-            // abilities which each spawn a dedicated effect prefab. Adding one is a gameplay
-            // change (a new prefab + a spawn call in PuffUpAbility), not just art wiring.
-
-            // Billy still has no uploaded art yet — left as a placeholder square. Horace now has
-            // real art, wired via WireHorace() above.
+            WireGerald();
+            WireBilly();
         }
 
         // ---- New robots (Scout, Patrol, Heavy, Drifter) + universal defeated eyes -------------

@@ -92,6 +92,12 @@ them by static reference — `GameManager` fetches `SceneController` via `GetCom
   `SetTemporaryWalkable`/`GetWallAt`/`DestroyWallAt` (see Abilities below).
 - **SceneController** — delegates maze rendering to `TileMapRenderer`, player spawning to
   `CharacterManager.SpawnInitialCharacter`, and robot spawning to `RobotSpawner`.
+  `LoadLevelContent` spawns whichever `CharacterManager.ActiveCharacter` the player last swapped
+  to, not a hardcoded Cluck — `CharacterManager` is a singleton that persists for the app's
+  lifetime, so `ActiveCharacter` already survives `ClearActiveCharacter()` destroying the previous
+  level's GameObject; `LoadLevelContent` previously ignored that and always respawned Cluck,
+  silently reverting any swap on every level load/retry. Still defaults to Cluck (the enum's first
+  value) the very first time a level is ever loaded in a session, since there's no prior swap yet.
 - **CharacterManager** (Phase 4) — owns all character spawning/swapping; see Characters & Abilities.
 - **ComboSystem** (Phase 4) — the 8 character-swap combos; see Characters & Abilities.
 - **UnlockManager** (Phase 4) — checks `CharacterData.unlockLevel` against mazes-completed on
@@ -286,8 +292,11 @@ instead of player input. It deliberately does **not** reuse `GridMovement`, sinc
 reads `InputController.CurrentHeldDirection`; giving robots that component too would make every
 robot obey player input.
 
-**State machine:** `Chase` ↔ `Scatter` alternate on a 20s/5s cycle (paused while Vulnerable/
-Defeated, resumed from where it left off). `PowerPelletManager.OnPowerStateChanged` flips every
+**State machine:** `Chase` ↔ `Scatter` alternate on a 20s/5s cycle (`RobotBase.
+ChaseDurationSeconds`/`ScatterDurationSeconds`, hardcoded constants on the shared base class, not
+per-robot `RobotData` fields or per-level config — every robot on every level reverses from
+hunting into dispersing-toward-its-scatter-corner on the exact same 20s/5s timing) (paused while
+Vulnerable/Defeated, resumed from where it left off). `PowerPelletManager.OnPowerStateChanged` flips every
 listening robot to/from `Vulnerable`; a hit while Vulnerable (`RegisterHit()`) decrements health,
 and health reaching zero triggers a brief `Defeated` pause → **disappears** (`RobotBase.Disappear()`
 disables its `SpriteRenderer` + `Collider2D`) rather than pathfinding back to the factory as visible
@@ -323,6 +332,17 @@ really just "walls don't factor into its direction choice."
 **Scatter corners:** `RobotSpawner.GetScatterCorner` assigns each `RobotType` one of the four maze
 corners (inset 1 tile from the border), classic-arcade style. `DrifterRobot`'s "retreat" target
 when close to the player reuses the same field (`scatterCornerPosition`).
+
+**Anti-loop targeting (`RobotAI.GetNextDirection`):** at each intersection, every walkable
+non-reversing direction is weighted by inverse-square distance from its destination cell to the
+current target, then picked via a weighted random roll (not greedy-always-closest) — this alone
+still let a robot get trapped oscillating between two intersections of similar distance-to-target,
+looping back and forth within one row/pocket instead of covering the board, since neither the
+distance heuristic nor the existing no-U-turn rule rules that out. `RobotBase` now keeps a short
+rolling history of its last 6 occupied cells (`_recentCells`, cleared on `Initialize`/
+`ResetToFactory`) and passes it into `GetNextDirection`, which cuts a candidate direction's weight
+to 15% (not to zero — a real dead end still needs to be enterable) if its destination cell is in
+that history. `DroneRobot` bypasses `RobotAI` entirely (see above) so this doesn't apply to it.
 
 **Art status:** `RobotVisual` swaps in a real `RobotEyes.png` sprite for the brief Defeated pause
 before a robot disappears (see "Art status" below and the state-machine note above — there's no
@@ -1363,7 +1383,19 @@ frame (`Horace_right2.png`, no "right1" yet — repeats for both Right0/Right1 s
 dedicated art so `hasDedicatedRightArt = true`), and a Rear Kick landing-impact "buck" effect
 (`Horace_ability_buckleft.png`/`Horace_ability_buckright.png` on a new `HoraceBuck.prefab`/
 `HoraceBuckEffect` — mirrored per knockback direction). No Up/back art yet — Up falls back to
-front. Billy remains the only character with zero uploaded art.
+front.
+
+**Gerald and Billy now have real art too, completing all 8 characters.** Gerald gets a real
+2-frame Left walk cycle (`Gerald_left.png` → `Gerald_left1.png`) and a single dedicated Right frame
+(`Gerald_right.png`, repeats for both Right0/Right1 slots, same "one real frame, no mirroring"
+convention as Horace's Right — `hasDedicatedRightArt = true`); no Up/back-facing art, Up falls back
+to front (`ArtWiringBuilder.WireGerald`). `Gerald_ability.png` is uploaded but stays unwired for
+the same reason `Gerald_effect.png` (now deleted, replaced by this file) did — `PuffUpAbility` has
+no spawned effect object to put a sprite on, only Gerald's own sprite scaling 3x; wiring it in
+would be a gameplay change, not art wiring. Billy gets full 2-frame walk cycles on **both** Left
+(`Billy_left.png` → `Billy_left1.png`) and Right (`Billy_right.png` → `Billy_right1.png`, no
+mirroring either side — `hasDedicatedRightArt = true`), plus front/back (`ArtWiringBuilder.
+WireBilly`).
 
 **Water tiles have real art** (`Water_tile.png`, wired onto the `WaterTile` prefab via
 `WireMazeTiles`) and, as of this pass, **real placements**: every level from `LevelData_16` onward
@@ -1375,9 +1407,31 @@ exception — its maze has no interior redundancy at all (every safe pair found 
 one of its own warp tunnel tiles, which was rejected) — it has no water tile and none was forced in,
 to avoid creating a soft-lock.
 
-**Still missing / not wired:** Billy character art, Drone robot art, a Vulnerable-state robot
-sprite, Gerald's Puff Up effect art (`Gerald_effect.png`, uploaded but unwired — see above), and the
-Loading Screen background (uploaded, unwired — see above). Cluck's Egg Drop effect art and the
+**World 3 (Orchard) and World 4 (Wheat) art has started landing ahead of either world having any
+LevelData authored** — same "art before levels" situation VegPatch briefly went through.
+`ArtWiringBuilder.WireOrchardAndWheat` adds their `TileMapRenderer.MazeArtSet` entries additively
+via a new `TileMapRenderer.GetOrAddArtSet(MazeType)` helper (fetches-or-creates the entry, exposing
+its public fields directly, since neither `Phase2ProjectBuilder.BuildAll`'s hardcoded
+`SetMazeArtSets` list nor a single-field setter like `SetBackdropSprite` was a good fit for wiring
+several fields on a brand-new world in one pass). Orchard has: `Wall_Orchard`/`Ground_Orchard`
+prefabs (`Orchard_WallTile.png`, and `OrchardFloorTile.png` — the latter deliberately split off a
+ground-art drop-in that originally landed on the **shared** `FloorTile.png` CornField/VegPatch
+still use, which would have silently changed both worlds' ground too; the original `FloorTile.png`
+was restored from git and the new art saved under its own filename/prefab instead), a backdrop
+(`OrchardBackground.png`), a regular every-tile pellet (`Red_Apple.png`), and a bonus pickup
+scattered ×10 (`Cherry.png`, reuses `CoinPickup`/`BuildBonusPickupPrefab` — awards `SaveManager`
+coins directly, not maze score, same as CornField's coin). Orchard's warp-tunnel/crop prefabs reuse
+CornField's (no dedicated art for those yet, same sharing convention VegPatch used for
+`groundPrefab` before Orchard got its own). Orchard's **rare**-tier pellet sprite is still pending a
+future upload — the current `MazeArtSet` architecture only supports one pellet look per world (see
+`MazeArtSet.pelletSprite`'s doc comment), so a distinct rare visual will need a new field once that
+art actually lands. Wheat has no wall/ground/backdrop art at all yet — only a regular pellet
+(`MiniLoaf.png`) and a bonus pickup ×1 (`RareGrainSack.png`, "Rare" naming inferred to mean scarce
+rather than plentiful, mirroring Orchard's own Cherry-vs-rare-apple naming split) were dropped in,
+so its `MazeArtSet` entry stays partial until the rest lands.
+
+**Still missing / not wired:** Drone robot art, a Vulnerable-state robot sprite, and the Loading
+Screen background (uploaded, unwired — see above). Cluck's Egg Drop effect art and the
 branding Logo are both wired (see above) — do not re-list them here. `Map.png` and `Card.png` are
 **not** gaps to close — `WorldMapScreen` (which would have used `Map.png`) was removed outright (see
 "Removed: World Map screen"), and the New Character Unlock card / `RosterCard` were deliberately

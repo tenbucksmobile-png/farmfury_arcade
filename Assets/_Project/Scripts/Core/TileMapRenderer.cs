@@ -364,6 +364,22 @@ namespace FarmFuryArcade.Core
             match.pelletSprite = sprite;
         }
 
+        /// <summary>Fetches (or creates) a world's MazeArtSet entry directly, for callers that need
+        /// to set several fields at once — e.g. ArtWiringBuilder wiring an entire new world's wall/
+        /// ground/bonus-pickup art in one pass — rather than round-tripping through a single-field
+        /// setter like SetBackdropSprite/SetPelletSprite for each one. MazeArtSet's fields are
+        /// public, so the caller just assigns directly onto the returned reference.</summary>
+        public MazeArtSet GetOrAddArtSet(MazeType mazeType)
+        {
+            var match = mazeArtSets.Find(set => set.mazeType == mazeType);
+            if (match == null)
+            {
+                match = new MazeArtSet { mazeType = mazeType };
+                mazeArtSets.Add(match);
+            }
+            return match;
+        }
+
         /// <summary>Rolls a weighted tier (Sunflower common, GoldenWheat uncommon, Rainbow rare)
         /// purely for PowerPelletManager.GetDuration's 8s/15s/30s variety and
         /// SpawnCollectEffectIfRare/PlayRarePelletPickupSfx's "something extra-special" cue —

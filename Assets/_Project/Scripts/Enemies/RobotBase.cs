@@ -1,4 +1,5 @@
 using System.Collections;
+using System.Collections.Generic;
 using UnityEngine;
 using FarmFuryArcade.Core;
 using FarmFuryArcade.Data;
@@ -30,6 +31,13 @@ namespace FarmFuryArcade.Enemies
         private const float DefeatedPauseSeconds = 0.5f;
         private const float FleeDistanceTiles = 10f;
 
+        /// <summary>How many of this robot's most-recently-occupied cells RobotAI.GetNextDirection
+        /// discourages re-entering — see that method's doc comment for why (breaks short
+        /// greedy-heuristic loops between two similarly-distant intersections, distinct from the
+        /// existing no-U-turn rule). Short enough that a robot happily re-enters ground it left a
+        /// few turns ago rather than ever getting hard-blocked in a small pocket.</summary>
+        private const int RecentCellHistory = 6;
+
         [SerializeField] protected RobotData robotData;
 
         protected TileMapRenderer tileMap;
@@ -43,6 +51,8 @@ namespace FarmFuryArcade.Enemies
         private bool _exitingFactory = true;
         private bool _initialized;
         private float _stunTimer;
+        private readonly Queue<Vector2Int> _recentCells = new Queue<Vector2Int>();
+        private Vector2Int? _lastRecentCell;
 
         public RobotState CurrentState { get; protected set; } = RobotState.Chase;
         public Vector2Int CurrentGridPosition { get; protected set; }
@@ -96,6 +106,8 @@ namespace FarmFuryArcade.Enemies
             _exitingFactory = true;
             IsStunned = false;
             IsKnockedBack = false;
+            _recentCells.Clear();
+            _lastRecentCell = null;
             _initialized = true;
         }
 
@@ -118,6 +130,8 @@ namespace FarmFuryArcade.Enemies
             _exitingFactory = true;
             IsStunned = false;
             IsKnockedBack = false;
+            _recentCells.Clear();
+            _lastRecentCell = null;
 
             var sr = GetComponent<SpriteRenderer>();
             if (sr != null)
@@ -350,6 +364,19 @@ namespace FarmFuryArcade.Enemies
         /// kept as a bool so this method's signature doesn't need to change if that ever comes back).</summary>
         private bool EvaluateArrivalAndDirection(Vector2Int cell)
         {
+            // Guards against re-pushing the same cell on every stationary re-evaluation (this method
+            // runs once per real cell arrival, but also once per loop iteration while CurrentDirection
+            // stays None — see the doc comment above) — _lastRecentCell tracks the most recently
+            // pushed cell directly, since Queue<T> only exposes Peek() on its FRONT (oldest) element.
+            if (_lastRecentCell != cell)
+            {
+                _recentCells.Enqueue(cell);
+                _lastRecentCell = cell;
+                while (_recentCells.Count > RecentCellHistory)
+                {
+                    _recentCells.Dequeue();
+                }
+            }
 
             Direction desired = ComputeDesiredDirection(cell);
             if (desired != Direction.None && IsWalkableForThisRobot(cell + DirectionUtils.ToVector(desired)))
@@ -374,7 +401,7 @@ namespace FarmFuryArcade.Enemies
                 _exitingFactory = false;
             }
 
-            return RobotAI.GetNextDirection(cell, ResolveTarget(), CurrentDirection, tileMap);
+            return RobotAI.GetNextDirection(cell, ResolveTarget(), CurrentDirection, tileMap, _recentCells);
         }
 
         protected virtual bool IsWalkableForThisRobot(Vector2Int cell) => tileMap.IsWalkable(cell);
