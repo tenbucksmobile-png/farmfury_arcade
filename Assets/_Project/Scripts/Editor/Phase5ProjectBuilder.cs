@@ -747,6 +747,23 @@ namespace FarmFuryArcade.EditorTools
             AnchorBottomRight((RectTransform)pauseButton.transform, new Vector2(clusterButtonSize, clusterButtonSize),
                 new Vector2(clusterInsetX, clusterInsetY + clusterButtonSize + clusterSpacing));
 
+            // Monetisation: "skip cooldown for 3 coins" button — sits just left of the cooldown
+            // ring, vertically centred against it. Hidden by default; GameplayHUD.
+            // HandleAbilityCooldownChanged shows/hides and enables/disables it every tick while an
+            // ability is on cooldown (see that method's own comment for why it re-checks
+            // affordability every tick rather than once). No dedicated icon art exists yet, so the
+            // button keeps its auto-generated "-3" text label instead of the usual icon-only style.
+            const float skipButtonSize = 64f;
+            const float skipButtonGap = 16f;
+            float ringRightOffsetX = clusterInsetX + (ringSize - clusterButtonSize) / 2f;
+            float ringBottomOffsetY = clusterInsetY - (ringSize - clusterButtonSize) / 2f;
+            float ringCenterY = ringBottomOffsetY + ringSize / 2f;
+            var skipCooldownButton = CreateButton("SkipCooldownButton", root.transform, "-3",
+                new Color(0.85f, 0.55f, 0.1f), 24f, skipButtonSize, out _);
+            AnchorBottomRight((RectTransform)skipCooldownButton.transform, new Vector2(skipButtonSize, skipButtonSize),
+                new Vector2(ringRightOffsetX - ringSize - skipButtonGap, ringCenterY - skipButtonSize / 2f));
+            skipCooldownButton.gameObject.SetActive(false);
+
             // Directional pad (left side, diamond/D-pad layout) — up.png/down.png/left.png/
             // right.png (wired by ArtWiringBuilder) already look like complete rounded buttons on
             // their own, so each is just a plain Image+Button, no separate background needed.
@@ -793,6 +810,24 @@ namespace FarmFuryArcade.EditorTools
             dpadSO.FindProperty("rightButton").objectReferenceValue = rightButton;
             dpadSO.ApplyModifiedPropertiesWithoutUndo();
 
+            // Monetisation: "revive for 5 coins?" overlay, shown by GameplayHUD in response to
+            // GameManager.OnReviveOffered (the 4th death this maze). Simple centred dim panel +
+            // message + two buttons — same minimal-chrome-until-real-art-lands convention as
+            // BuildStoreComingSoonPanel, not a Canva-mockup screen like Pause/Settings.
+            var reviveRoot = CreatePanel("RevivePromptOverlay", root.transform, new Color(0f, 0f, 0f, 0.85f));
+            var reviveGroup = CreateVerticalGroup("Content", reviveRoot.transform, 14f, 30);
+            var reviveCostText = CreateText("CostText", reviveGroup.transform, "Revive for 5 coins?", 32f, TextAlignmentOptions.Center, 60f);
+            var reviveButton = CreateButton("ReviveButton", reviveGroup.transform, "Revive", new Color(0.2f, 0.65f, 0.3f), out _);
+            var declineButton = CreateButton("DeclineButton", reviveGroup.transform, "No Thanks", new Color(0.35f, 0.35f, 0.38f), out _);
+            reviveRoot.SetActive(false);
+
+            var revivePrompt = reviveRoot.AddComponent<RevivePromptController>();
+            var reviveSO = new SerializedObject(revivePrompt);
+            reviveSO.FindProperty("reviveButton").objectReferenceValue = reviveButton;
+            reviveSO.FindProperty("declineButton").objectReferenceValue = declineButton;
+            reviveSO.FindProperty("costText").objectReferenceValue = reviveCostText;
+            reviveSO.ApplyModifiedPropertiesWithoutUndo();
+
             var hud = root.AddComponent<GameplayHUD>();
             var so = new SerializedObject(hud);
             so.FindProperty("scoreText").objectReferenceValue = scoreText;
@@ -805,6 +840,8 @@ namespace FarmFuryArcade.EditorTools
             so.FindProperty("powerPelletTimerFill").objectReferenceValue = powerFillImage;
             so.FindProperty("chainCounterRoot").objectReferenceValue = chainRoot;
             so.FindProperty("chainCounterText").objectReferenceValue = chainText;
+            so.FindProperty("revivePrompt").objectReferenceValue = revivePrompt;
+            so.FindProperty("skipCooldownButton").objectReferenceValue = skipCooldownButton;
             so.ApplyModifiedPropertiesWithoutUndo();
 
             return (root, banner);

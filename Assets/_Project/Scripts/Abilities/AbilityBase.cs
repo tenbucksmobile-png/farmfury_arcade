@@ -78,6 +78,22 @@ namespace FarmFuryArcade.Abilities
             }
         }
 
+        /// <summary>Monetisation: zeroes an in-progress cooldown immediately — GameplayHUD's
+        /// "skip cooldown" button calls this only after successfully spending the coin cost, so
+        /// this method itself has no economy knowledge, same "manager/UI spends, ability just
+        /// reacts" separation TryActivate already keeps from Execute. No-ops if the ability is
+        /// already ready — reuses UpdateCooldown's own zero-crossing logic (fires
+        /// OnCooldownChanged and PlayPowerReadySfx) so a paid skip looks and sounds identical to
+        /// the cooldown finishing naturally.</summary>
+        public void SkipCooldown()
+        {
+            if (CooldownRemaining <= 0f)
+            {
+                return;
+            }
+            UpdateCooldown(CooldownRemaining);
+        }
+
         public bool TryActivate()
         {
             if (!IsReady)

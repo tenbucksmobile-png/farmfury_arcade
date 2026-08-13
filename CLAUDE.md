@@ -74,14 +74,18 @@ them by static reference — `GameManager` fetches `SceneController` via `GetCom
   score to `ScoreManager` (its own `AddScore`/`GetCurrentScore` just forward to it). `EndLevel(true)`
   also triggers `UnlockManager.CheckUnlocksOnLevelComplete`. **A maze isn't endless**: `GameManager.
   MaxRespawns` (3) caps how many times the player can die in one maze — `NotifyPlayerDeath()`
-  increments `DeathCountThisMaze` and, once it exceeds the cap (the 4th death), calls
-  `EndLevel(false)` itself and returns `false` so `PlayerHealth.DeathSequence` knows to skip the
-  respawn and leave the character faded out rather than reviving it. `GameManager.
+  increments `DeathCountThisMaze` and, once it exceeds the cap (the 4th death), **no longer ends
+  the run immediately** (see "Monetisation" below) — it raises `OnReviveOffered` and returns
+  `false`, and `PlayerHealth.DeathSequence` waits on `ReviveDecisionPending` before deciding
+  whether to respawn (if the player paid to revive) or skip the respawn and leave the character
+  faded out (if they declined/couldn't afford it — `EndLevel(false)` fires from `DeclineRevive`
+  in that case, same end state as before this feature existed). `GameManager.
   LevelTimeLimitSeconds` (120) is checked every `Update()` — once `GetElapsedSeconds()` reaches it
-  while `Playing`, `EndLevel(false)` fires the same way. Either path sets `GameState.LevelFailed`,
-  which `GameplayHUD`'s state-watcher reacts to by showing `LevelFailedScreen` ("Try Again" — see
-  its own section under Screens below). `GameplayHUD`'s timer text now **counts down** from
-  `LevelTimeLimitSeconds` (`RefreshTimerText`) instead of counting up elapsed time.
+  while `Playing`, `EndLevel(false)` fires directly (no revive offer for a timeout, only for the
+  respawn cap). Either path sets `GameState.LevelFailed`, which `GameplayHUD`'s state-watcher
+  reacts to by showing `LevelFailedScreen` ("Try Again" — see its own section under Screens
+  below). `GameplayHUD`'s timer text now **counts down** from `LevelTimeLimitSeconds`
+  (`RefreshTimerText`) instead of counting up elapsed time.
 - **DataManager** — loads all ScriptableObject data at startup via `Resources.LoadAll`.
 - **SaveManager** — PlayerPrefs-backed persistence (highest level, coins, star ratings, character
   unlocks). Cluck and Bessie auto-unlock on first run (starter characters per the GDD).
@@ -447,6 +451,54 @@ top of its `Execute()`.
 scene flow" below for its full description. The original Phase 4 `CharacterSwapUI` (`OnGUI`,
 "functional even if not polished" per spec) was retired once this replaced it. Toggled by Tab
 (via the same `InputController.OnSwapMenuToggleInput` event) or Pause's Swap Character button.
+
+### Monetisation (`Scripts/Core/GameManager.cs`, `Scripts/UI/RevivePromptController.cs`)
+
+The GDD's Section 11 describes 7 revenue streams (ads, IAP, cosmetic store, season pass,
+cross-promotion); only the coin-economy portion of that is implemented so far — no ad SDK, IAP
+package, or cosmetic system exists yet (`Packages/manifest.json` has neither `com.unity.ads` nor
+`com.unity.purchasing`). The GDD's per-level coin formula (1/level, 5/new-best, 25/daily) was
+deliberately **not** adopted — the actual formula (`BaseCoinsPerLevel` 10 + `CoinsPerStar` 5 ×
+stars, in `GameManager.ComputeLevelResult`) predates this review and was kept as-is by choice, not
+an oversight. "10 coins per boss defeated" has nothing to attach to — no boss-level feature exists
+— and was deliberately left out rather than stubbed.
+
+Two coin-spend features exist:
+
+- **Revival on death (5 coins, `GameManager.ReviveCoinsCost`)** — the 4th death this maze (the one
+  that used to call `EndLevel(false)` immediately, see the GameManager bullet above) now raises
+  `GameManager.OnReviveOffered` instead and sets `ReviveDecisionPending = true`, freezing
+  `Time.timeScale` (same freeze `PauseGame` uses, so robots don't roam while the faded-out
+  character waits). `GameplayHUD` (subscribed in its existing `OnEnable`/`OnDisable`, alongside its
+  other event subscriptions) shows `RevivePromptController`'s "Revive for 5 coins?" overlay
+  (`Scripts/UI/RevivePromptController.cs`, built under `GameplayScreen` in `Phase5ProjectBuilder.
+  BuildGameplayHUD` — a plain dim-panel-plus-two-buttons overlay, not a Canva-mockup screen, since
+  no dedicated art exists for it). The Revive button is disabled up front if
+  `SaveManager.CoinBalance < ReviveCoinsCost`, rather than letting the player tap it and find out.
+  Accepting (`GameManager.AcceptRevive`) spends the coins and resets `DeathCountThisMaze` back to
+  exactly `MaxRespawns` (not below it) — one paid extra life, not a free refill of all 3 — then
+  unfreezes time and lets `PlayerHealth.DeathSequence`'s `WaitUntil(() => !ReviveDecisionPending)`
+  fall through to a normal respawn. Declining (`GameManager.DeclineRevive`) unfreezes time and
+  calls `EndLevel(false)` itself, same end state as before this feature existed. If nothing is
+  subscribed to `OnReviveOffered` (e.g. a test harness with no `GameplayHUD`),
+  `RequestRevivePrompt` auto-declines rather than leaving `ReviveDecisionPending` stuck `true`
+  forever with nothing able to resolve it — a real deadlock risk otherwise, since
+  `PlayerHealth`'s coroutine would `WaitUntil` on a flag nothing ever flips back.
+- **Skip ability cooldown (3 coins, `GameplayHUD.SkipCooldownCoinsCost`)** — a small "-3" button
+  (no dedicated icon art yet, keeps its auto-generated text label) sits just left of the ability
+  cooldown ring, built alongside it in `BuildGameplayHUD`. Hidden/disabled whenever the active
+  ability isn't on cooldown; while it is, `GameplayHUD.HandleAbilityCooldownChanged` (already
+  firing every frame during a cooldown, via `AbilityBase.UpdateCooldown`) re-checks
+  `SaveManager.CoinBalance >= SkipCooldownCoinsCost` on every tick, not just once when the
+  cooldown started — a coin pickup mid-cooldown makes the button tappable immediately rather than
+  needing the cooldown to restart first. Tapping it spends the coins then calls the new
+  `AbilityBase.SkipCooldown()`, which zeroes `CooldownRemaining` by feeding it back through
+  `UpdateCooldown` — this reuses that method's existing zero-crossing logic (`OnCooldownChanged`
+  fire, `PlayPowerReadySfx`) so a paid skip looks and sounds identical to the cooldown finishing
+  naturally, rather than needing its own duplicate "ability just became ready" logic.
+
+Both spends go through the existing `SaveManager.SpendCoins`/`AddCoins` — no new economy plumbing,
+just two new call sites.
 
 ### Screens & scene flow (`Scripts/UI`, Phase 5)
 

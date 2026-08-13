@@ -1,3 +1,4 @@
+using System;
 using UnityEngine;
 using FarmFuryArcade.Data;
 using FarmFuryArcade.Utilities;
@@ -40,6 +41,10 @@ namespace FarmFuryArcade.Core
         public const int MaxRespawns = 3;
         public const float LevelTimeLimitSeconds = 120f;
 
+        /// <summary>Monetisation: coin cost of RequestRevivePrompt's "one more life" offer — see
+        /// AcceptRevive.</summary>
+        public const int ReviveCoinsCost = 5;
+
         public GameState CurrentState { get; private set; } = GameState.MainMenu;
         public LevelData CurrentLevel { get; private set; }
         public CharacterData CurrentCharacter { get; private set; }
@@ -54,6 +59,22 @@ namespace FarmFuryArcade.Core
         /// frame it's set, before the next level's completion overwrites it.</summary>
         public int? JustUnlockedWorldIndex { get; private set; }
 
+        /// <summary>True from the moment a death would exceed MaxRespawns (RequestRevivePrompt)
+        /// until AcceptRevive/DeclineRevive resolves it. PlayerHealth.DeathSequence polls this via
+        /// WaitUntil instead of ending the run immediately, giving the player a chance to spend
+        /// ReviveCoinsCost for one more life. Time.timeScale is frozen for the duration (same
+        /// freeze PauseGame uses) so robots don't keep roaming/chasing while the prompt is up.</summary>
+        public bool ReviveDecisionPending { get; private set; }
+
+        /// <summary>Fired by RequestRevivePrompt so a UI owner (GameplayHUD) can show the actual
+        /// prompt — GameManager itself has no UI knowledge, same "manager raises event, screen
+        /// reacts" convention used throughout this project (see LevelCompleteController/
+        /// LevelFailedScreen reacting to CurrentState changes). If nothing is subscribed when a
+        /// revive is offered, RequestRevivePrompt auto-declines rather than leaving
+        /// ReviveDecisionPending stuck true forever with nothing able to resolve it.</summary>
+        public event Action OnReviveOffered;
+
+        private bool _wasRevived;
         private int _cropsRemaining;
         private SceneController _sceneController;
         private GameState _stateBeforePause;
@@ -105,18 +126,91 @@ namespace FarmFuryArcade.Core
 
         /// <summary>Called by PlayerHealth every time the death sequence starts — tracked for the
         /// LevelComplete "perfect bonus" (no deaths this run) and for the respawn cap. Returns
-        /// whether the player still has a respawn left; once MaxRespawns is exceeded this ends the
-        /// run itself (EndLevel(false)) so PlayerHealth knows to skip the respawn and leave the
-        /// character faded out instead.</summary>
+        /// whether the player still has a respawn left; once MaxRespawns is exceeded this no longer
+        /// ends the run immediately — it raises a revive-for-coins offer instead (RequestRevivePrompt)
+        /// and still returns false, so PlayerHealth knows this wasn't a normal respawn and needs to
+        /// wait (ReviveDecisionPending) for the outcome before deciding whether to respawn or stay
+        /// faded out.</summary>
         public bool NotifyPlayerDeath()
         {
             DeathCountThisMaze++;
             if (DeathCountThisMaze > MaxRespawns)
             {
-                EndLevel(false);
+                RequestRevivePrompt();
                 return false;
             }
             return true;
+        }
+
+        /// <summary>The 4th (or later) death this maze — offers the player a chance to spend
+        /// ReviveCoinsCost for one more life instead of ending the run outright. Freezes time for
+        /// the duration of the decision (mirrors PauseGame's freeze) so nothing moves underneath the
+        /// faded-out character while the prompt is up.</summary>
+        private void RequestRevivePrompt()
+        {
+            ReviveDecisionPending = true;
+            _wasRevived = false;
+
+            if (OnReviveOffered == null)
+            {
+                // No UI is listening (e.g. a test harness with no GameplayHUD) — auto-decline
+                // rather than leaving ReviveDecisionPending stuck true with nothing able to
+                // resolve it, which would hang PlayerHealth's WaitUntil forever.
+                DeclineRevive();
+                return;
+            }
+
+            Time.timeScale = 0f;
+            OnReviveOffered.Invoke();
+        }
+
+        /// <summary>Called by the revive prompt's "No Thanks" button (or RequestRevivePrompt's own
+        /// no-listener safety net). Ends the run exactly as an unrevived 4th death always did.</summary>
+        public void DeclineRevive()
+        {
+            if (!ReviveDecisionPending)
+            {
+                return;
+            }
+
+            ReviveDecisionPending = false;
+            Time.timeScale = 1f;
+            EndLevel(false);
+        }
+
+        /// <summary>Called by the revive prompt's "Revive" button. Spends ReviveCoinsCost coins and,
+        /// if that succeeds, grants exactly one more life — resetting DeathCountThisMaze back to
+        /// MaxRespawns (not below it) so the very next death offers the prompt again rather than
+        /// silently handing out a free extra respawn cushion beyond the one just paid for. Returns
+        /// whether the revive actually happened, so the caller (RevivePromptController) can leave
+        /// the prompt open on an insufficient-funds tap rather than dismissing it — though the
+        /// button should already be disabled in that case (see RevivePromptController.Show).</summary>
+        public bool AcceptRevive()
+        {
+            if (!ReviveDecisionPending)
+            {
+                return false;
+            }
+            if (SaveManager.Instance == null || !SaveManager.Instance.SpendCoins(ReviveCoinsCost))
+            {
+                return false;
+            }
+
+            DeathCountThisMaze = MaxRespawns;
+            _wasRevived = true;
+            ReviveDecisionPending = false;
+            Time.timeScale = 1f;
+            return true;
+        }
+
+        /// <summary>Consumed exactly once by PlayerHealth.DeathSequence right after its WaitUntil on
+        /// ReviveDecisionPending unblocks — tells it whether to fall through to the normal respawn
+        /// path or stay faded out (DeclineRevive already ended the run in that case).</summary>
+        public bool ConsumeRevived()
+        {
+            bool result = _wasRevived;
+            _wasRevived = false;
+            return result;
         }
 
         /// <summary>Called by CropCollector for every crop or power pellet collected. Both count

@@ -10,7 +10,10 @@ namespace FarmFuryArcade.Gameplay
     /// uses. A robot in Chase or Scatter is hostile (both are "solid" states in the classic
     /// arcade convention — only Vulnerable is safe to touch); a Vulnerable robot is defeated on
     /// contact. Defeated/Returning robots are already harmless "eyes" and are ignored. No lives
-    /// system per the GDD — death just resets position, never score.
+    /// system per the GDD — death just resets position, never score. The one exception is the
+    /// death that exceeds GameManager.MaxRespawns: that no longer ends the run unconditionally,
+    /// it offers a coin-spend revive first (see DeathSequence's GameManager.ReviveDecisionPending
+    /// wait and GameManager.RequestRevivePrompt/AcceptRevive/DeclineRevive).
     /// </summary>
     [RequireComponent(typeof(GridMovement))]
     public class PlayerHealth : MonoBehaviour
@@ -79,10 +82,21 @@ namespace FarmFuryArcade.Gameplay
 
             if (!hasRespawnLeft)
             {
-                // Respawn cap exhausted — GameManager.NotifyPlayerDeath already ended the run
-                // (EndLevel(false)), and GameplayHUD's state-watcher will swap to the Level Failed
-                // screen. Stay faded out rather than respawning back into a maze that's over.
-                yield break;
+                // Respawn cap exhausted — GameManager.NotifyPlayerDeath raised a revive-for-coins
+                // offer (RequestRevivePrompt) instead of ending the run outright. Wait for that
+                // decision (or its own no-listener safety net, which auto-declines) before deciding
+                // whether to fall through to a normal respawn or stay faded out.
+                yield return new WaitUntil(() => GameManager.Instance == null || !GameManager.Instance.ReviveDecisionPending);
+
+                if (GameManager.Instance == null || !GameManager.Instance.ConsumeRevived())
+                {
+                    // Declined, couldn't afford it, or no GameManager at all — the run has already
+                    // ended (DeclineRevive calls EndLevel(false)); GameplayHUD's state-watcher will
+                    // swap to the Level Failed screen. Stay faded out rather than respawning back
+                    // into a maze that's over.
+                    yield break;
+                }
+                // Revived — fall through to the normal respawn logic below.
             }
 
             float remaining = inputLockSeconds - fadeOutSeconds;

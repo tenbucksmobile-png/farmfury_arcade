@@ -40,6 +40,13 @@ namespace FarmFuryArcade.UI
         [SerializeField] private PauseMenuController pauseMenu;
         [SerializeField] private GameObject levelCompleteScreen;
         [SerializeField] private GameObject levelFailedScreen;
+        [SerializeField] private RevivePromptController revivePrompt;
+        [SerializeField] private Button skipCooldownButton;
+
+        /// <summary>Monetisation: coin cost of the "skip cooldown" button next to the ability
+        /// portrait — only enabled/shown while the active ability actually is on cooldown (see
+        /// HandleAbilityCooldownChanged/RefreshActiveAbility).</summary>
+        private const int SkipCooldownCoinsCost = 3;
 
         private static readonly int[] ChainPoints = { 200, 400, 800, 1600 };
 
@@ -69,6 +76,10 @@ namespace FarmFuryArcade.UI
             // equivalent) — wired here, not in the editor-script builder, since a listener added
             // directly from editor-script code doesn't survive a scene save/reload.
             abilityButton.onClick.AddListener(InputController.RaiseAbilityActivateInput);
+            if (skipCooldownButton != null)
+            {
+                skipCooldownButton.onClick.AddListener(HandleSkipCooldownClicked);
+            }
         }
 
         private void OnEnable()
@@ -81,6 +92,10 @@ namespace FarmFuryArcade.UI
             if (CharacterManager.Instance != null)
             {
                 CharacterManager.Instance.OnCharacterChanged += HandleCharacterChanged;
+            }
+            if (GameManager.Instance != null)
+            {
+                GameManager.Instance.OnReviveOffered += HandleReviveOffered;
             }
 
             _lastObservedState = GameState.Playing;
@@ -98,6 +113,10 @@ namespace FarmFuryArcade.UI
             {
                 CharacterManager.Instance.OnCharacterChanged -= HandleCharacterChanged;
             }
+            if (GameManager.Instance != null)
+            {
+                GameManager.Instance.OnReviveOffered -= HandleReviveOffered;
+            }
             if (_activeAbility != null)
             {
                 _activeAbility.OnCooldownChanged -= HandleAbilityCooldownChanged;
@@ -107,6 +126,22 @@ namespace FarmFuryArcade.UI
 
         private void HandleScoreChanged(int newScore) => _targetScore = newScore;
         private void HandleCharacterChanged(CharacterType previous, CharacterType next) => RefreshPortrait();
+        private void HandleReviveOffered() => revivePrompt?.Show();
+
+        /// <summary>Monetisation: spends SkipCooldownCoinsCost coins to zero the active ability's
+        /// cooldown early. No-ops (silently — the button is only shown/interactable while genuinely
+        /// on cooldown and affordable, see HandleAbilityCooldownChanged) if either check fails.</summary>
+        private void HandleSkipCooldownClicked()
+        {
+            if (_activeAbility == null || _activeAbility.IsReady)
+            {
+                return;
+            }
+            if (SaveManager.Instance != null && SaveManager.Instance.SpendCoins(SkipCooldownCoinsCost))
+            {
+                _activeAbility.SkipCooldown();
+            }
+        }
 
         private void Update()
         {
@@ -234,6 +269,10 @@ namespace FarmFuryArcade.UI
                 {
                     abilityCooldownRing.fillAmount = 1f;
                 }
+                if (skipCooldownButton != null)
+                {
+                    skipCooldownButton.gameObject.SetActive(false);
+                }
             }
         }
 
@@ -263,6 +302,18 @@ namespace FarmFuryArcade.UI
             if (abilityCooldownRing != null)
             {
                 abilityCooldownRing.fillAmount = total > 0f ? Mathf.Clamp01(1f - remaining / total) : 1f;
+            }
+
+            // Monetisation: only worth showing while genuinely on cooldown and only tappable while
+            // affordable — checked every tick (this handler already fires every frame during a
+            // cooldown, see AbilityBase.UpdateCooldown) rather than once when the cooldown starts,
+            // so a coin pickup mid-cooldown makes the button interactable immediately instead of
+            // needing the cooldown to restart first.
+            if (skipCooldownButton != null)
+            {
+                skipCooldownButton.gameObject.SetActive(remaining > 0f);
+                skipCooldownButton.interactable = SaveManager.Instance != null &&
+                    SaveManager.Instance.CoinBalance >= SkipCooldownCoinsCost;
             }
         }
 
