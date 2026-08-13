@@ -349,16 +349,17 @@ namespace FarmFuryArcade.EditorTools
         /// <summary>Every real level except LevelData_01 (hand-tuned by UpdateLevelData01Robots)
         /// used to ship with `robotSpawns = new RobotSpawnData[0]` — Phase2ProjectBuilder.BuildLevel
         /// always sets that as a placeholder ("No robots yet — Phase 3") and nothing ever filled it
-        /// in for levels 02-04/06-75, so no robots ever spawned there. Applies a difficulty curve
+        /// in for levels 02-04/06-100, so no robots ever spawned there. Applies a difficulty curve
         /// that resets per world (position-in-world = levelNumber % 25, matching
         /// UnlockProgression.LevelsPerWorld's own convention): 2 robots for a world's first 5
         /// levels, 3 for the next 7, 4 for the next 7, 5 for the last 6 — all spawned at the level's
         /// own robotFactoryPosition (derived from the maze, never hardcoded), staggered 4s apart
         /// starting at 2s, matching LevelData_01's own 2s/6s Harvester/Scout timing. Covers World 3
-        /// (Orchard, LevelData_51-75) too now that it has real LevelData.</summary>
+        /// (Orchard, LevelData_51-75) and World 4 (Wheat, LevelData_76-100) too now that both have
+        /// real LevelData.</summary>
         private static void AssignRobotSpawnsToRemainingLevels()
         {
-            for (int n = 1; n <= 75; n++)
+            for (int n = 1; n <= 100; n++)
             {
                 // LevelData_01 is hand-tuned separately by UpdateLevelData01Robots. LevelData_05
                 // used to be skipped here too (it held the reserved robot-test maze, not a real

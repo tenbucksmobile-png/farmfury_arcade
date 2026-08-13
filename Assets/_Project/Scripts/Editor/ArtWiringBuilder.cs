@@ -76,10 +76,11 @@ namespace FarmFuryArcade.EditorTools
         private const string Carrot = "Assets/_Project/Sprites/Environment/carrot.png";
         private const string CoinIcon = "Assets/_Project/Sprites/Environment/Collectable Coin.png";
         private const string SunflowerPellet = "Assets/_Project/Sprites/Environment/RarePellets_sunflower.png";
-        // GoldenWheatPellet ("maize") is no longer wired to anything — the 3-tier pellet visual
+        // GoldenWheatPellet ("maize") sat unwired for a while after the 3-tier pellet visual
         // (Sunflower/GoldenWheat/Rainbow) was replaced by one themed sprite per world (see
-        // TileMapRenderer.MazeArtSet.pelletSprite's doc comment); left declared since the file is
-        // still uploaded, same "unused, not a bug" convention as Btn_music.png etc.
+        // TileMapRenderer.MazeArtSet.pelletSprite's doc comment) — now reused as Wheat's
+        // MazeArtSet.rarePelletSprite (WireOrchardAndWheat), the same "repurposed for a different
+        // world's rare-tier slot" trick Orchard's rarePelletSprite already does with RainbowPellet.
         private const string GoldenWheatPellet = "Assets/_Project/Sprites/Environment/RarePellets_maize.png";
         private const string RainbowPellet = "Assets/_Project/Sprites/Environment/RarePellets_apple.png";
         // ---- World theme crops (CornField's vegetable-tier + all of VegPatch's crops) ----------
@@ -288,15 +289,19 @@ namespace FarmFuryArcade.EditorTools
         // CornField coin's "extra pickups scattered on random walkable cells" role, not part of
         // LevelData.totalCropsRequired).
         private const string CherryBonus = "Assets/_Project/Sprites/Environment/Cherry.png";
-        // Wheat has no wall/ground/backdrop art yet — only these two were dropped in, inferred by
-        // name to mirror Orchard's own "Rare"-prefixed-vs-plain naming split: MiniLoaf as the
-        // regular per-tile pellet, RareGrainSack as the scarce bonus pickup (count 1, not x10 like
-        // Cherry, since "Rare" implies scarce rather than plentiful).
+        // Wheat's regular (every-tile) pellet and bonus pickup — MiniLoaf as the regular per-tile
+        // pellet, RareGrainSack as the bonus pickup (now x10 like Cherry, not x1 — "Rare" turned
+        // out to just be flavour naming, not an actual scarcity request).
         private const string MiniLoafPellet = "Assets/_Project/Sprites/Environment/MiniLoaf.png";
         private const string RareGrainSackBonus = "Assets/_Project/Sprites/Environment/RareGrainSack.png";
+        // Wheat's wall/ground tile art (landed this session — previously Wheat had neither).
+        private const string WheatWallTile = "Assets/_Project/Sprites/UI/WheatWallTile.png";
+        private const string WheatFloorTileSprite = "Assets/_Project/Sprites/UI/WheatFloorTile.png";
         private const string WallOrchardPrefabPath = BlockPrefabFolder + "/Wall_Orchard.prefab";
         private const string GroundOrchardPrefabPath = BlockPrefabFolder + "/Ground_Orchard.prefab";
         private const string PickupCherryPrefabPath = BlockPrefabFolder + "/Pickup_Cherry.prefab";
+        private const string WallWheatPrefabPath = BlockPrefabFolder + "/Wall_Wheat.prefab";
+        private const string GroundWheatPrefabPath = BlockPrefabFolder + "/Ground_Wheat.prefab";
         private const string PickupGrainSackPrefabPath = BlockPrefabFolder + "/Pickup_GrainSack.prefab";
 
         // ---- ChooseCharacterScreen card art (framed "animal card" portraits) -------------------
@@ -382,6 +387,7 @@ namespace FarmFuryArcade.EditorTools
             LevelTileLocked, LevelTileUnlocked, LevelTile1Star, LevelTile2Stars, LevelTile3Stars,
             BgLevelSelect, DividerWorldBanner, WaterTileSprite, UnlockedBannerSprite,
             OrchardWallTile, OrchardFloorTileSprite, OrchardBackgroundSprite, RedApplePellet, CherryBonus,
+            WheatWallTile, WheatFloorTileSprite, MiniLoafPellet, RareGrainSackBonus,
             SelectLevelText, CornFieldText, VegetablePatchText, OrchardText, WheatfieldText, SettingsSignText,
             LogoImage, CluckEggIcon, CluckEggCracked, CluckEggBurst
         };
@@ -895,27 +901,28 @@ namespace FarmFuryArcade.EditorTools
             SetPrefabSprite(WaterTilePrefabPath, Load(WaterTileSprite));
         }
 
-        /// <summary>Wires World 3 (Orchard)'s wall/ground/backdrop/regular-pellet/rare-pellet art
-        /// and its bonus cherry pickup (x10, scattered like CornField's coin), plus World 4
-        /// (Wheat)'s regular pellet sprite and bonus grain-sack pickup (x1). These MazeArtSet
-        /// entries are added/updated additively via TileMapRenderer.GetOrAddArtSet rather than
-        /// through Phase2ProjectBuilder's WireScene (which only rebuilds the CornField/VegPatch
-        /// entries it already knows about) — Orchard now has real LevelData (Phase2ProjectBuilder's
-        /// BuildLevelData51-75), but its art still lands through this separate pass since that's
-        /// where every other field on its MazeArtSet already lives. Orchard's warp-tunnel/crop
-        /// prefabs still reuse CornField's (no dedicated art for those yet, same sharing convention
-        /// VegPatch used for groundPrefab before Orchard got its own real ground art). Orchard's
-        /// rare-tier pellet now has a distinct look too (RarePellets_apple.png — the same rainbow-
-        /// apple sprite VegPatch's regular pellet already uses elsewhere, reused here for a
-        /// different purpose since MazeArtSet entries are independent per world) via
-        /// MazeArtSet.rarePelletSprite, the single "won the maze's one rare slot" pellet
-        /// (ConfigurePelletTier) — every other pellet still shows pelletSprite. Wheat has no wall/
-        /// ground/backdrop art at all yet, so its entry stays partial.</summary>
+        /// <summary>Wires World 3 (Orchard)'s and World 4 (Wheat)'s wall/ground/backdrop/regular-
+        /// pellet/rare-pellet art and bonus pickups (both x10 now, scattered like CornField's coin).
+        /// These MazeArtSet entries are added/updated additively via TileMapRenderer.
+        /// GetOrAddArtSet rather than through Phase2ProjectBuilder's WireScene (which only rebuilds
+        /// the CornField/VegPatch entries it already knows about) — both worlds now have real
+        /// LevelData (Phase2ProjectBuilder's BuildLevelData51-75 for Orchard, BuildLevelData76-100
+        /// for Wheat), but their art still lands through this separate pass since that's where
+        /// every other field on their MazeArtSet already lives. Both worlds' warp-tunnel/crop
+        /// prefabs still reuse CornField's (no dedicated art for those yet). Each world's rare-tier
+        /// pellet (MazeArtSet.rarePelletSprite — the single pellet that wins the maze's one-rare-
+        /// slot cap, ConfigurePelletTier) reuses a sprite originally uploaded for a different
+        /// purpose elsewhere: Orchard's is RarePellets_apple.png (VegPatch's own regular pellet),
+        /// Wheat's is RarePellets_maize.png (previously unwired dead weight left over from the old
+        /// 3-tier pellet visual system) — MazeArtSet entries are independent per world, so reusing a
+        /// sprite across two unrelated roles is harmless.</summary>
         private static void WireOrchardAndWheat()
         {
             SetPrefabSprite(WallOrchardPrefabPath, Load(OrchardWallTile));
             SetPrefabSprite(GroundOrchardPrefabPath, Load(OrchardFloorTileSprite));
             SetPrefabSprite(PickupCherryPrefabPath, Load(CherryBonus));
+            SetPrefabSprite(WallWheatPrefabPath, Load(WheatWallTile));
+            SetPrefabSprite(GroundWheatPrefabPath, Load(WheatFloorTileSprite));
             SetPrefabSprite(PickupGrainSackPrefabPath, Load(RareGrainSackBonus));
 
             EditorSceneManager.OpenScene(ScenePath);
@@ -939,9 +946,16 @@ namespace FarmFuryArcade.EditorTools
             orchard.bonusPickupCount = 10;
 
             var wheat = tileMapRenderer.GetOrAddArtSet(MazeType.Wheat);
+            wheat.wallPrefab = AssetDatabase.LoadAssetAtPath<GameObject>(WallWheatPrefabPath);
+            wheat.groundPrefab = AssetDatabase.LoadAssetAtPath<GameObject>(GroundWheatPrefabPath);
+            wheat.warpTunnelPrefab = AssetDatabase.LoadAssetAtPath<GameObject>(WarpTunnelPrefabPath);
+            wheat.cropKernelPrefab = AssetDatabase.LoadAssetAtPath<GameObject>(CropCornPrefabPath);
+            wheat.cropVegetablePrefab = AssetDatabase.LoadAssetAtPath<GameObject>(CropVegetablePrefabPath);
+            wheat.backdropSprite = Load(WheatfieldBackdrop);
             wheat.pelletSprite = Load(MiniLoafPellet);
+            wheat.rarePelletSprite = Load(GoldenWheatPellet);
             wheat.bonusPickupPrefab = AssetDatabase.LoadAssetAtPath<GameObject>(PickupGrainSackPrefabPath);
-            wheat.bonusPickupCount = 1;
+            wheat.bonusPickupCount = 10;
 
             EditorUtility.SetDirty(tileMapRenderer);
             EditorSceneManager.SaveScene(EditorSceneManager.GetActiveScene());

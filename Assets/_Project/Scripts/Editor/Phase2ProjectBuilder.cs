@@ -121,6 +121,34 @@ namespace FarmFuryArcade.EditorTools
         private const string LevelData73Path = "Assets/_Project/ScriptableObjects/Resources/Levels/LevelData_73.asset";
         private const string LevelData74Path = "Assets/_Project/ScriptableObjects/Resources/Levels/LevelData_74.asset";
         private const string LevelData75Path = "Assets/_Project/ScriptableObjects/Resources/Levels/LevelData_75.asset";
+        // World 4 (Wheat) — continues levelNumber sequentially after World 3's 75 (50-74), so
+        // World 4 occupies levelNumber 75-99 / LevelData_76 through LevelData_100 — the last world,
+        // matching UnlockProgression.TotalLevels' 100-level cap exactly.
+        private const string LevelData76Path = "Assets/_Project/ScriptableObjects/Resources/Levels/LevelData_76.asset";
+        private const string LevelData77Path = "Assets/_Project/ScriptableObjects/Resources/Levels/LevelData_77.asset";
+        private const string LevelData78Path = "Assets/_Project/ScriptableObjects/Resources/Levels/LevelData_78.asset";
+        private const string LevelData79Path = "Assets/_Project/ScriptableObjects/Resources/Levels/LevelData_79.asset";
+        private const string LevelData80Path = "Assets/_Project/ScriptableObjects/Resources/Levels/LevelData_80.asset";
+        private const string LevelData81Path = "Assets/_Project/ScriptableObjects/Resources/Levels/LevelData_81.asset";
+        private const string LevelData82Path = "Assets/_Project/ScriptableObjects/Resources/Levels/LevelData_82.asset";
+        private const string LevelData83Path = "Assets/_Project/ScriptableObjects/Resources/Levels/LevelData_83.asset";
+        private const string LevelData84Path = "Assets/_Project/ScriptableObjects/Resources/Levels/LevelData_84.asset";
+        private const string LevelData85Path = "Assets/_Project/ScriptableObjects/Resources/Levels/LevelData_85.asset";
+        private const string LevelData86Path = "Assets/_Project/ScriptableObjects/Resources/Levels/LevelData_86.asset";
+        private const string LevelData87Path = "Assets/_Project/ScriptableObjects/Resources/Levels/LevelData_87.asset";
+        private const string LevelData88Path = "Assets/_Project/ScriptableObjects/Resources/Levels/LevelData_88.asset";
+        private const string LevelData89Path = "Assets/_Project/ScriptableObjects/Resources/Levels/LevelData_89.asset";
+        private const string LevelData90Path = "Assets/_Project/ScriptableObjects/Resources/Levels/LevelData_90.asset";
+        private const string LevelData91Path = "Assets/_Project/ScriptableObjects/Resources/Levels/LevelData_91.asset";
+        private const string LevelData92Path = "Assets/_Project/ScriptableObjects/Resources/Levels/LevelData_92.asset";
+        private const string LevelData93Path = "Assets/_Project/ScriptableObjects/Resources/Levels/LevelData_93.asset";
+        private const string LevelData94Path = "Assets/_Project/ScriptableObjects/Resources/Levels/LevelData_94.asset";
+        private const string LevelData95Path = "Assets/_Project/ScriptableObjects/Resources/Levels/LevelData_95.asset";
+        private const string LevelData96Path = "Assets/_Project/ScriptableObjects/Resources/Levels/LevelData_96.asset";
+        private const string LevelData97Path = "Assets/_Project/ScriptableObjects/Resources/Levels/LevelData_97.asset";
+        private const string LevelData98Path = "Assets/_Project/ScriptableObjects/Resources/Levels/LevelData_98.asset";
+        private const string LevelData99Path = "Assets/_Project/ScriptableObjects/Resources/Levels/LevelData_99.asset";
+        private const string LevelData100Path = "Assets/_Project/ScriptableObjects/Resources/Levels/LevelData_100.asset";
         private const string CharacterDataPath = "Assets/_Project/ScriptableObjects/Resources/Characters/CharacterData_Cluck.asset";
         private const string CharacterPrefabFolder = "Assets/_Project/Prefabs/Characters";
         private const string BlockPrefabFolder = "Assets/_Project/Prefabs/Blocks";
@@ -159,15 +187,19 @@ namespace FarmFuryArcade.EditorTools
             GameObject coinPrefab = BuildCoinPrefab();
 
             // World 3 (Orchard) wall/ground prefabs + bonus cherry pickup, and World 4 (Wheat)'s
-            // bonus grain-sack pickup — art for both landed before either world has any LevelData
-            // authored yet, same "art before levels" situation VegPatch was briefly in. Placeholder
-            // colors only until ArtWiringBuilder sets the real sprites; the MazeArtSet entries
-            // themselves are added additively by ArtWiringBuilder (TileMapRenderer.GetOrAddArtSet)
-            // via these prefabs' own asset paths, not threaded through this method's WireScene call,
-            // since neither world has warp/crop art yet for a full per-world entry.
+            // own wall/ground prefabs + bonus grain-sack pickup — Wheat's wall/ground art landed
+            // this session (WheatWallTile.png/WheatFloorTile.png), same "own dedicated tile
+            // prefabs" treatment Orchard already got rather than sharing Ground_CornField.
+            // Placeholder colors only until ArtWiringBuilder sets the real sprites; the MazeArtSet
+            // entries themselves are added additively by ArtWiringBuilder (TileMapRenderer.
+            // GetOrAddArtSet) via these prefabs' own asset paths, not threaded through this
+            // method's WireScene call, since neither world has dedicated warp/crop art of its own
+            // yet (both reuse CornField's).
             BuildWallPrefab("Wall_Orchard", new Color(0.55f, 0.16f, 0.16f));
             BuildGroundPrefab("Ground_Orchard", new Color(0.42f, 0.27f, 0.14f));
             BuildBonusPickupPrefab("Pickup_Cherry", new Color(0.72f, 0.05f, 0.15f));
+            BuildWallPrefab("Wall_Wheat", new Color(0.62f, 0.48f, 0.18f));
+            BuildGroundPrefab("Ground_Wheat", new Color(0.35f, 0.24f, 0.12f));
             BuildBonusPickupPrefab("Pickup_GrainSack", new Color(0.68f, 0.52f, 0.25f));
 
             BuildCharacterData();
@@ -246,13 +278,38 @@ namespace FarmFuryArcade.EditorTools
             BuildLevelData73();
             BuildLevelData74();
             BuildLevelData75();
+            BuildLevelData76();
+            BuildLevelData77();
+            BuildLevelData78();
+            BuildLevelData79();
+            BuildLevelData80();
+            BuildLevelData81();
+            BuildLevelData82();
+            BuildLevelData83();
+            BuildLevelData84();
+            BuildLevelData85();
+            BuildLevelData86();
+            BuildLevelData87();
+            BuildLevelData88();
+            BuildLevelData89();
+            BuildLevelData90();
+            BuildLevelData91();
+            BuildLevelData92();
+            BuildLevelData93();
+            BuildLevelData94();
+            BuildLevelData95();
+            BuildLevelData96();
+            BuildLevelData97();
+            BuildLevelData98();
+            BuildLevelData99();
+            BuildLevelData100();
 
             WireScene(wallPrefab, groundPrefab, cropKernelPrefab, cropVegetablePrefab, powerPelletPrefab, warpTunnelPrefab, cluckPrefab,
                 wallPrefabVegPatch, warpTunnelPrefabVegPatch, cropKernelPrefabVegPatch, cropVegetablePrefabVegPatch, coinPrefab);
 
             AssetDatabase.SaveAssets();
             AssetDatabase.Refresh();
-            Debug.Log("[Phase2ProjectBuilder] Phase 2 prefabs, LevelData_01 through LevelData_75 (World 1 + World 2 + World 3's full 25-level sets), CharacterData_Cluck, and Game.unity wiring complete.");
+            Debug.Log("[Phase2ProjectBuilder] Phase 2 prefabs, LevelData_01 through LevelData_100 (all 4 worlds' full 25-level sets), CharacterData_Cluck, and Game.unity wiring complete.");
         }
 
         /// <summary>Generalized from a hardcoded "Wall_CornField" so World 2's Wall_VegPatch could
@@ -1851,6 +1908,488 @@ namespace FarmFuryArcade.EditorTools
         };
 
         private static void BuildLevelData75() => BuildLevel(LevelData75Path, Rows75, 74, "The Orchard - 25", MazeType.Orchard);
+
+        // World 4 (Wheat) — continues levelNumber sequentially after World 3's 75 (50-74), so
+        // World 4 occupies levelNumber 75-99 / LevelData_76 through LevelData_100, matching
+        // UnlockProgression.LevelsPerWorld's 25-per-world convention and TotalLevels' 100-level cap
+        // exactly (this is the last world). Generated the same way as World 3's own levels (see
+        // BuildLevelData51's doc comment above) via a separate offline generator
+        // (WheatMazeGeneratorTemp, not kept in the repo, same convention) — different RNG seed and
+        // corner/factory offsets so its 25 mazes don't mirror Orchard's shapes.
+        /// <summary>LevelData_76 (The Wheat Field - 01), algorithmically generated the same
+        /// recursive-backtracker-plus-loop-edges way as World 1/2/3's own generated levels — verified
+        /// offline (full connectivity, no open 2x2 block, both warp tiles reachable) before being
+        /// baked in here.</summary>
+        private static readonly string[] Rows76 =
+        {
+            "111115111111", // y=8 (top)
+            "122222222211", // y=7
+            "121212141411", // y=6
+            "132236222211", // y=5
+            "121113121311", // y=4
+            "132212221211", // y=3
+            "121311131211", // y=2
+            "132322223711", // y=1
+            "111115111111", // y=0 (bottom)
+        };
+
+        private static void BuildLevelData76() => BuildLevel(LevelData76Path, Rows76, 75, "The Wheat Field - 01", MazeType.Wheat);
+
+        /// <summary>LevelData_77 (The Wheat Field - 02), algorithmically generated the same
+        /// recursive-backtracker-plus-loop-edges way as World 1/2/3's own generated levels — verified
+        /// offline (full connectivity, no open 2x2 block, both warp tiles reachable) before being
+        /// baked in here.</summary>
+        private static readonly string[] Rows77 =
+        {
+            "111111151111", // y=8 (top)
+            "172213223211", // y=7
+            "121111121211", // y=6
+            "122223222311", // y=5
+            "111211121211", // y=4
+            "122336233211", // y=3
+            "131211111211", // y=2
+            "124243222211", // y=1
+            "111111151111", // y=0 (bottom)
+        };
+
+        private static void BuildLevelData77() => BuildLevel(LevelData77Path, Rows77, 76, "The Wheat Field - 02", MazeType.Wheat);
+
+        /// <summary>LevelData_78 (The Wheat Field - 03), algorithmically generated the same
+        /// recursive-backtracker-plus-loop-edges way as World 1/2/3's own generated levels — verified
+        /// offline (full connectivity, no open 2x2 block, both warp tiles reachable) before being
+        /// baked in here.</summary>
+        private static readonly string[] Rows78 =
+        {
+            "111111111511", // y=8 (top)
+            "122222223711", // y=7
+            "121213111211", // y=6
+            "123216231311", // y=5
+            "121212131211", // y=4
+            "122332121311", // y=3
+            "121112111411", // y=2
+            "132222222411", // y=1
+            "111111111511", // y=0 (bottom)
+        };
+
+        private static void BuildLevelData78() => BuildLevel(LevelData78Path, Rows78, 77, "The Wheat Field - 03", MazeType.Wheat);
+
+        /// <summary>LevelData_79 (The Wheat Field - 04), algorithmically generated the same
+        /// recursive-backtracker-plus-loop-edges way as World 1/2/3's own generated levels — verified
+        /// offline (full connectivity, no open 2x2 block, both warp tiles reachable) before being
+        /// baked in here.</summary>
+        private static readonly string[] Rows79 =
+        {
+            "151111111111", // y=8 (top)
+            "132233222211", // y=7
+            "121212121211", // y=6
+            "121223121211", // y=5
+            "121211121211", // y=4
+            "121226234211", // y=3
+            "121314111211", // y=2
+            "172312233311", // y=1
+            "151111111111", // y=0 (bottom)
+        };
+
+        private static void BuildLevelData79() => BuildLevel(LevelData79Path, Rows79, 78, "The Wheat Field - 04", MazeType.Wheat);
+
+        /// <summary>LevelData_80 (The Wheat Field - 05), algorithmically generated the same
+        /// recursive-backtracker-plus-loop-edges way as World 1/2/3's own generated levels — verified
+        /// offline (full connectivity, no open 2x2 block, both warp tiles reachable) before being
+        /// baked in here.</summary>
+        private static readonly string[] Rows80 =
+        {
+            "111511111111", // y=8 (top)
+            "123222132211", // y=7
+            "111313111411", // y=6
+            "122216222311", // y=5
+            "121311121211", // y=4
+            "121222322211", // y=3
+            "121212111211", // y=2
+            "123432223711", // y=1
+            "111511111111", // y=0 (bottom)
+        };
+
+        private static void BuildLevelData80() => BuildLevel(LevelData80Path, Rows80, 79, "The Wheat Field - 05", MazeType.Wheat);
+
+        /// <summary>LevelData_81 (The Wheat Field - 06), algorithmically generated the same
+        /// recursive-backtracker-plus-loop-edges way as World 1/2/3's own generated levels — verified
+        /// offline (full connectivity, no open 2x2 block, both warp tiles reachable) before being
+        /// baked in here.</summary>
+        private static readonly string[] Rows81 =
+        {
+            "111115111111", // y=8 (top)
+            "171222223211", // y=7
+            "131212121211", // y=6
+            "122212231411", // y=5
+            "111213121411", // y=4
+            "123226131311", // y=3
+            "121312121211", // y=2
+            "122212322311", // y=1
+            "111115111111", // y=0 (bottom)
+        };
+
+        private static void BuildLevelData81() => BuildLevel(LevelData81Path, Rows81, 80, "The Wheat Field - 06", MazeType.Wheat);
+
+        /// <summary>LevelData_82 (The Wheat Field - 07), algorithmically generated the same
+        /// recursive-backtracker-plus-loop-edges way as World 1/2/3's own generated levels — verified
+        /// offline (full connectivity, no open 2x2 block, both warp tiles reachable) before being
+        /// baked in here.</summary>
+        private static readonly string[] Rows82 =
+        {
+            "111111151111", // y=8 (top)
+            "122222223711", // y=7
+            "121112121211", // y=6
+            "132226132211", // y=5
+            "121313111211", // y=4
+            "122312221311", // y=3
+            "121211121111", // y=2
+            "122423334211", // y=1
+            "111111151111", // y=0 (bottom)
+        };
+
+        private static void BuildLevelData82() => BuildLevel(LevelData82Path, Rows82, 81, "The Wheat Field - 07", MazeType.Wheat);
+
+        /// <summary>LevelData_83 (The Wheat Field - 08), algorithmically generated the same
+        /// recursive-backtracker-plus-loop-edges way as World 1/2/3's own generated levels — verified
+        /// offline (full connectivity, no open 2x2 block, both warp tiles reachable) before being
+        /// baked in here.</summary>
+        private static readonly string[] Rows83 =
+        {
+            "111111111511", // y=8 (top)
+            "122223233311", // y=7
+            "121113111111", // y=6
+            "142232223211", // y=5
+            "131111121211", // y=4
+            "122226221211", // y=3
+            "121214121311", // y=2
+            "173222122211", // y=1
+            "111111111511", // y=0 (bottom)
+        };
+
+        private static void BuildLevelData83() => BuildLevel(LevelData83Path, Rows83, 82, "The Wheat Field - 08", MazeType.Wheat);
+
+        /// <summary>LevelData_84 (The Wheat Field - 09), algorithmically generated the same
+        /// recursive-backtracker-plus-loop-edges way as World 1/2/3's own generated levels — verified
+        /// offline (full connectivity, no open 2x2 block, both warp tiles reachable) before being
+        /// baked in here.</summary>
+        private static readonly string[] Rows84 =
+        {
+            "151111111111", // y=8 (top)
+            "133242222311", // y=7
+            "111211121211", // y=6
+            "122226221211", // y=5
+            "121113121311", // y=4
+            "122323122311", // y=3
+            "121114111211", // y=2
+            "122322223711", // y=1
+            "151111111111", // y=0 (bottom)
+        };
+
+        private static void BuildLevelData84() => BuildLevel(LevelData84Path, Rows84, 83, "The Wheat Field - 09", MazeType.Wheat);
+
+        /// <summary>LevelData_85 (The Wheat Field - 10), algorithmically generated the same
+        /// recursive-backtracker-plus-loop-edges way as World 1/2/3's own generated levels — verified
+        /// offline (full connectivity, no open 2x2 block, both warp tiles reachable) before being
+        /// baked in here.</summary>
+        private static readonly string[] Rows85 =
+        {
+            "111511111111", // y=8 (top)
+            "173222232311", // y=7
+            "121212131311", // y=6
+            "121212231211", // y=5
+            "121212121311", // y=4
+            "121216324211", // y=3
+            "121211111211", // y=2
+            "123322422211", // y=1
+            "111511111111", // y=0 (bottom)
+        };
+
+        private static void BuildLevelData85() => BuildLevel(LevelData85Path, Rows85, 84, "The Wheat Field - 10", MazeType.Wheat);
+
+        /// <summary>LevelData_86 (The Wheat Field - 11), algorithmically generated the same
+        /// recursive-backtracker-plus-loop-edges way as World 1/2/3's own generated levels — verified
+        /// offline (full connectivity, no open 2x2 block, both warp tiles reachable) before being
+        /// baked in here.</summary>
+        private static readonly string[] Rows86 =
+        {
+            "111115111111", // y=8 (top)
+            "122222222711", // y=7
+            "121213121211", // y=6
+            "132316321211", // y=5
+            "121111111311", // y=4
+            "122322422211", // y=3
+            "121113121211", // y=2
+            "124233122311", // y=1
+            "111115111111", // y=0 (bottom)
+        };
+
+        private static void BuildLevelData86() => BuildLevel(LevelData86Path, Rows86, 85, "The Wheat Field - 11", MazeType.Wheat);
+
+        /// <summary>LevelData_87 (The Wheat Field - 12), algorithmically generated the same
+        /// recursive-backtracker-plus-loop-edges way as World 1/2/3's own generated levels — verified
+        /// offline (full connectivity, no open 2x2 block, both warp tiles reachable) before being
+        /// baked in here.</summary>
+        private static readonly string[] Rows87 =
+        {
+            "111111151111", // y=8 (top)
+            "122222122311", // y=7
+            "131211121211", // y=6
+            "121223322311", // y=5
+            "121212131211", // y=4
+            "142216222211", // y=3
+            "121112111211", // y=2
+            "173433232211", // y=1
+            "111111151111", // y=0 (bottom)
+        };
+
+        private static void BuildLevelData87() => BuildLevel(LevelData87Path, Rows87, 86, "The Wheat Field - 12", MazeType.Wheat);
+
+        /// <summary>LevelData_88 (The Wheat Field - 13), algorithmically generated the same
+        /// recursive-backtracker-plus-loop-edges way as World 1/2/3's own generated levels — verified
+        /// offline (full connectivity, no open 2x2 block, both warp tiles reachable) before being
+        /// baked in here.</summary>
+        private static readonly string[] Rows88 =
+        {
+            "111111111511", // y=8 (top)
+            "122222233211", // y=7
+            "141111121311", // y=6
+            "122226322211", // y=5
+            "131213121111", // y=4
+            "122232132211", // y=3
+            "141211121211", // y=2
+            "122322231711", // y=1
+            "111111111511", // y=0 (bottom)
+        };
+
+        private static void BuildLevelData88() => BuildLevel(LevelData88Path, Rows88, 87, "The Wheat Field - 13", MazeType.Wheat);
+
+        /// <summary>LevelData_89 (The Wheat Field - 14), algorithmically generated the same
+        /// recursive-backtracker-plus-loop-edges way as World 1/2/3's own generated levels — verified
+        /// offline (full connectivity, no open 2x2 block, both warp tiles reachable) before being
+        /// baked in here.</summary>
+        private static readonly string[] Rows89 =
+        {
+            "151111111111", // y=8 (top)
+            "172232123211", // y=7
+            "131312121211", // y=6
+            "131212222211", // y=5
+            "131312111211", // y=4
+            "122316222211", // y=3
+            "121214121311", // y=2
+            "122232241211", // y=1
+            "151111111111", // y=0 (bottom)
+        };
+
+        private static void BuildLevelData89() => BuildLevel(LevelData89Path, Rows89, 88, "The Wheat Field - 14", MazeType.Wheat);
+
+        /// <summary>LevelData_90 (The Wheat Field - 15), algorithmically generated the same
+        /// recursive-backtracker-plus-loop-edges way as World 1/2/3's own generated levels — verified
+        /// offline (full connectivity, no open 2x2 block, both warp tiles reachable) before being
+        /// baked in here.</summary>
+        private static readonly string[] Rows90 =
+        {
+            "111511111111", // y=8 (top)
+            "122222232711", // y=7
+            "121211131211", // y=6
+            "121236231211", // y=5
+            "121313111211", // y=4
+            "123422122211", // y=3
+            "121213121311", // y=2
+            "141232222211", // y=1
+            "111511111111", // y=0 (bottom)
+        };
+
+        private static void BuildLevelData90() => BuildLevel(LevelData90Path, Rows90, 89, "The Wheat Field - 15", MazeType.Wheat);
+
+        /// <summary>LevelData_91 (The Wheat Field - 16), algorithmically generated the same
+        /// recursive-backtracker-plus-loop-edges way as World 1/2/3's own generated levels — verified
+        /// offline (full connectivity, no open 2x2 block, both warp tiles reachable) before being
+        /// baked in here.</summary>
+        private static readonly string[] Rows91 =
+        {
+            "111115111111", // y=8 (top)
+            "122232332211", // y=7
+            "121113121211", // y=6
+            "133212123311", // y=5
+            "131413121211", // y=4
+            "121226422211", // y=3
+            "121211121211", // y=2
+            "172222122211", // y=1
+            "111115111111", // y=0 (bottom)
+        };
+
+        private static void BuildLevelData91() => BuildLevel(LevelData91Path, Rows91, 90, "The Wheat Field - 16", MazeType.Wheat);
+
+        /// <summary>LevelData_92 (The Wheat Field - 17), algorithmically generated the same
+        /// recursive-backtracker-plus-loop-edges way as World 1/2/3's own generated levels — verified
+        /// offline (full connectivity, no open 2x2 block, both warp tiles reachable) before being
+        /// baked in here.</summary>
+        private static readonly string[] Rows92 =
+        {
+            "111111151111", // y=8 (top)
+            "122222423311", // y=7
+            "111412121211", // y=6
+            "122226232211", // y=5
+            "131211111211", // y=4
+            "121322232211", // y=3
+            "111312121111", // y=2
+            "132222323711", // y=1
+            "111111151111", // y=0 (bottom)
+        };
+
+        private static void BuildLevelData92() => BuildLevel(LevelData92Path, Rows92, 91, "The Wheat Field - 17", MazeType.Wheat);
+
+        /// <summary>LevelData_93 (The Wheat Field - 18), algorithmically generated the same
+        /// recursive-backtracker-plus-loop-edges way as World 1/2/3's own generated levels — verified
+        /// offline (full connectivity, no open 2x2 block, both warp tiles reachable) before being
+        /// baked in here.</summary>
+        private static readonly string[] Rows93 =
+        {
+            "111111111511", // y=8 (top)
+            "171232222211", // y=7
+            "121411111311", // y=6
+            "121223232311", // y=5
+            "131212121311", // y=4
+            "141236221211", // y=3
+            "121212121211", // y=2
+            "122223222311", // y=1
+            "111111111511", // y=0 (bottom)
+        };
+
+        private static void BuildLevelData93() => BuildLevel(LevelData93Path, Rows93, 92, "The Wheat Field - 18", MazeType.Wheat);
+
+        /// <summary>LevelData_94 (The Wheat Field - 19), algorithmically generated the same
+        /// recursive-backtracker-plus-loop-edges way as World 1/2/3's own generated levels — verified
+        /// offline (full connectivity, no open 2x2 block, both warp tiles reachable) before being
+        /// baked in here.</summary>
+        private static readonly string[] Rows94 =
+        {
+            "151111111111", // y=8 (top)
+            "123332222711", // y=7
+            "121212121211", // y=6
+            "122216132311", // y=5
+            "121112111211", // y=4
+            "121232122311", // y=3
+            "121214121211", // y=2
+            "132242322311", // y=1
+            "151111111111", // y=0 (bottom)
+        };
+
+        private static void BuildLevelData94() => BuildLevel(LevelData94Path, Rows94, 93, "The Wheat Field - 19", MazeType.Wheat);
+
+        /// <summary>LevelData_95 (The Wheat Field - 20), algorithmically generated the same
+        /// recursive-backtracker-plus-loop-edges way as World 1/2/3's own generated levels — verified
+        /// offline (full connectivity, no open 2x2 block, both warp tiles reachable) before being
+        /// baked in here.</summary>
+        private static readonly string[] Rows95 =
+        {
+            "111511111111", // y=8 (top)
+            "122232332311", // y=7
+            "121312121211", // y=6
+            "122232121211", // y=5
+            "121111121411", // y=4
+            "122246122311", // y=3
+            "121213111211", // y=2
+            "172223223211", // y=1
+            "111511111111", // y=0 (bottom)
+        };
+
+        private static void BuildLevelData95() => BuildLevel(LevelData95Path, Rows95, 94, "The Wheat Field - 20", MazeType.Wheat);
+
+        /// <summary>LevelData_96 (The Wheat Field - 21), algorithmically generated the same
+        /// recursive-backtracker-plus-loop-edges way as World 1/2/3's own generated levels — verified
+        /// offline (full connectivity, no open 2x2 block, both warp tiles reachable) before being
+        /// baked in here.</summary>
+        private static readonly string[] Rows96 =
+        {
+            "111115111111", // y=8 (top)
+            "123232233211", // y=7
+            "111213141211", // y=6
+            "122216222211", // y=5
+            "121112121311", // y=4
+            "132322122211", // y=3
+            "111112141211", // y=2
+            "122233222711", // y=1
+            "111115111111", // y=0 (bottom)
+        };
+
+        private static void BuildLevelData96() => BuildLevel(LevelData96Path, Rows96, 95, "The Wheat Field - 21", MazeType.Wheat);
+
+        /// <summary>LevelData_97 (The Wheat Field - 22), algorithmically generated the same
+        /// recursive-backtracker-plus-loop-edges way as World 1/2/3's own generated levels — verified
+        /// offline (full connectivity, no open 2x2 block, both warp tiles reachable) before being
+        /// baked in here.</summary>
+        private static readonly string[] Rows97 =
+        {
+            "111111151111", // y=8 (top)
+            "172222323211", // y=7
+            "121212111211", // y=6
+            "122314324211", // y=5
+            "111212131211", // y=4
+            "131226122211", // y=3
+            "121213121311", // y=2
+            "132222322211", // y=1
+            "111111151111", // y=0 (bottom)
+        };
+
+        private static void BuildLevelData97() => BuildLevel(LevelData97Path, Rows97, 96, "The Wheat Field - 22", MazeType.Wheat);
+
+        /// <summary>LevelData_98 (The Wheat Field - 23), algorithmically generated the same
+        /// recursive-backtracker-plus-loop-edges way as World 1/2/3's own generated levels — verified
+        /// offline (full connectivity, no open 2x2 block, both warp tiles reachable) before being
+        /// baked in here.</summary>
+        private static readonly string[] Rows98 =
+        {
+            "111111111511", // y=8 (top)
+            "134222232711", // y=7
+            "121411121211", // y=6
+            "132236321311", // y=5
+            "121212131211", // y=4
+            "123222231211", // y=3
+            "121112121211", // y=2
+            "121322222211", // y=1
+            "111111111511", // y=0 (bottom)
+        };
+
+        private static void BuildLevelData98() => BuildLevel(LevelData98Path, Rows98, 97, "The Wheat Field - 23", MazeType.Wheat);
+
+        /// <summary>LevelData_99 (The Wheat Field - 24), algorithmically generated the same
+        /// recursive-backtracker-plus-loop-edges way as World 1/2/3's own generated levels — verified
+        /// offline (full connectivity, no open 2x2 block, both warp tiles reachable) before being
+        /// baked in here.</summary>
+        private static readonly string[] Rows99 =
+        {
+            "151111111111", // y=8 (top)
+            "123322223211", // y=7
+            "121111121211", // y=6
+            "123222123211", // y=5
+            "111212121211", // y=4
+            "122216333211", // y=3
+            "121414131211", // y=2
+            "173222222211", // y=1
+            "151111111111", // y=0 (bottom)
+        };
+
+        private static void BuildLevelData99() => BuildLevel(LevelData99Path, Rows99, 98, "The Wheat Field - 24", MazeType.Wheat);
+
+        /// <summary>LevelData_100 (The Wheat Field - 25), algorithmically generated the same
+        /// recursive-backtracker-plus-loop-edges way as World 1/2/3's own generated levels — verified
+        /// offline (full connectivity, no open 2x2 block, both warp tiles reachable) before being
+        /// baked in here.</summary>
+        private static readonly string[] Rows100 =
+        {
+            "111511111111", // y=8 (top)
+            "133332422211", // y=7
+            "131112111311", // y=6
+            "121226242211", // y=5
+            "121212131111", // y=4
+            "122222322211", // y=3
+            "121212111211", // y=2
+            "132223222711", // y=1
+            "111511111111", // y=0 (bottom)
+        };
+
+        private static void BuildLevelData100() => BuildLevel(LevelData100Path, Rows100, 99, "The Wheat Field - 25", MazeType.Wheat);
 
         private static void WireScene(GameObject wallPrefab, GameObject groundPrefab, GameObject cropKernelPrefab,
             GameObject cropVegetablePrefab, GameObject powerPelletPrefab, GameObject warpTunnelPrefab, GameObject cluckPrefab,

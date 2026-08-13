@@ -1096,7 +1096,9 @@ values from the GDD's color palette where one exists (e.g. walls = Wall Brown `#
   architecture only supports one vegetable sprite per maze right now).
 - **Gameplay backdrop** — `World1_Cornfield.png` (swapped from `Wheatfield_background.png` per a
   gameplay review — `LevelData_01` is `MazeType.CornField`, so this ties the backdrop to the world
-  it's actually set in; `Wheatfield_background.png` is unused again as a result) is a
+  it's actually set in; `Wheatfield_background.png` sat unused for a while as a result, until World
+  4 (Wheat) got its own real levels and reused it as *its* `MazeArtSet.backdropSprite` instead —
+  see the Orchard/Wheat bullet further down) is a
   `GameplayBackdrop` SpriteRenderer behind the maze (see "Camera" above) — fills the space around
   the 12×9 board, uniformly scaled (never stretched/zoomed) to cover whichever is bigger: the
   maze's own world footprint, or the camera's view width. Recenters/rescales itself off
@@ -1150,8 +1152,10 @@ values from the GDD's color palette where one exists (e.g. walls = Wall Brown `#
   you picked this level from" convention. `LevelCompleteScreen`/`PauseOverlay`/`ChooseCharacterScreen`
   all use `World1_Cornfield.png` as their root background now (per the 2026-07-31 mockups — see their own
   bullets above), with `LevelComplete.png`/`Paused.png` as an aspect-locked `PanelArt` child on top
-  for the first two; `Wheatfield_background.png` is unused again as a result (it briefly stood in
-  for these before real dedicated panel art existed). `matchup.png` is also unused — left on disk,
+  for the first two; `Wheatfield_background.png` sat unused after this (it briefly stood in for
+  these before real dedicated panel art existed) until World 4 (Wheat) reused it as its own
+  gameplay backdrop once it got real levels — see the note two bullets up. `matchup.png` is also
+  unused — left on disk,
   not deleted — after the Matchup screen's removal (see "Removed: Matchup screen"). Because
   `landing.png`'s logo sits centred in the upper half, `MainMenuScreen/Content` (the button stack)
   was re-anchored to the bottom of the screen (`anchorMin/Max = (0.5, 0)`, `pivot = (0.5, 0)`,
@@ -1442,39 +1446,38 @@ exception — its maze has no interior redundancy at all (every safe pair found 
 one of its own warp tunnel tiles, which was rejected) — it has no water tile and none was forced in,
 to avoid creating a soft-lock.
 
-**World 3 (Orchard) is now fully wired and has all 25 real levels** (see "Development status" —
-`LevelData_51`-`75`, `levelNumber` 50-74); World 4 (Wheat) still has only art, no LevelData yet,
-same "art before levels" situation VegPatch briefly went through and Orchard itself was in until
-this session. `ArtWiringBuilder.WireOrchardAndWheat` adds their `TileMapRenderer.MazeArtSet`
-entries additively via `TileMapRenderer.GetOrAddArtSet(MazeType)` (fetches-or-creates the entry,
-exposing its public fields directly, since neither `Phase2ProjectBuilder.BuildAll`'s hardcoded
-`SetMazeArtSets` list nor a single-field setter like `SetBackdropSprite` was a good fit for wiring
-several fields on a brand-new world in one pass — note `SetMazeArtSets` **replaces** the whole
-list, so `WireOrchardAndWheat` must always run *after* `Phase2ProjectBuilder.BuildAll` in the
-standard rebuild chain, or its additive entries get wiped by the next `WireScene` call). Orchard
-has: `Wall_Orchard`/`Ground_Orchard` prefabs (`Orchard_WallTile.png`, and `OrchardFloorTile.png` —
-the latter deliberately split off a ground-art drop-in that originally landed on the **shared**
+**World 3 (Orchard) and World 4 (Wheat) are both now fully wired and have all 25 real levels each**
+(see "Development status" — `LevelData_51`-`75`/`levelNumber` 50-74 for Orchard,
+`LevelData_76`-`100`/`levelNumber` 75-99 for Wheat, the last world). `ArtWiringBuilder.
+WireOrchardAndWheat` adds both `TileMapRenderer.MazeArtSet` entries additively via
+`TileMapRenderer.GetOrAddArtSet(MazeType)` (fetches-or-creates the entry, exposing its public
+fields directly, since neither `Phase2ProjectBuilder.BuildAll`'s hardcoded `SetMazeArtSets` list
+nor a single-field setter like `SetBackdropSprite` was a good fit for wiring several fields on a
+brand-new world in one pass — note `SetMazeArtSets` **replaces** the whole list, so
+`WireOrchardAndWheat` must always run *after* `Phase2ProjectBuilder.BuildAll` in the standard
+rebuild chain, or its additive entries get wiped by the next `WireScene` call). Orchard has:
+`Wall_Orchard`/`Ground_Orchard` prefabs (`Orchard_WallTile.png`, and `OrchardFloorTile.png` — the
+latter deliberately split off a ground-art drop-in that originally landed on the **shared**
 `FloorTile.png` CornField/VegPatch still use, which would have silently changed both worlds'
 ground too; the original `FloorTile.png` was restored from git and the new art saved under its own
 filename/prefab instead), a backdrop (`OrchardBackground.png`), a regular every-tile pellet
-(`Red_Apple.png`), a bonus pickup scattered ×10 (`Cherry.png`, reuses `CoinPickup`/
+(`Red_Apple.png`), and a bonus pickup scattered ×10 (`Cherry.png`, reuses `CoinPickup`/
 `BuildBonusPickupPrefab` — awards `SaveManager` coins directly, not maze score, same as CornField's
-coin), and now a distinct **rare**-tier pellet look too (`RarePellets_apple.png` — the same
-rainbow-apple sprite VegPatch's regular pellet already uses elsewhere, reused here for a different
-purpose since `MazeArtSet` entries are independent per world) via the new `MazeArtSet.
-rarePelletSprite` field: the single pellet that wins a maze's one-rare-slot cap
-(`ConfigurePelletTier`'s `_rarePelletsSpawned` guard) shows this sprite instead of `pelletSprite`,
-falling back to `pelletSprite` for any world (CornField/VegPatch/Wheat) that hasn't set one — so
-this only ever narrows the older "every pellet, rare or not, looks the same" behaviour for worlds
-that opt in, never changes it for ones that don't. Orchard's warp-tunnel/crop prefabs still reuse
-CornField's (no dedicated art for those yet, same sharing convention VegPatch used for
-`groundPrefab` before Orchard got its own). Wheat has no wall/ground/backdrop art at all yet — only
-a regular pellet (`MiniLoaf.png`) and a bonus pickup ×1 (`RareGrainSack.png`, "Rare" naming
-inferred to mean scarce rather than plentiful, mirroring Orchard's own Cherry-vs-rare-apple naming
-split) were dropped in, so its `MazeArtSet` entry stays partial until the rest lands (including its
-own `MiniLoaf.png`/`RareGrainSack.png`/`RareGrainSackBonus` still missing from `ArtWiringBuilder.
-SpritesToConfigure`, same PPU-misconfiguration bug Orchard's own art had until this session — flag
-before building Wheat's levels).
+coin). Wheat has its own equally complete set now too: `Wall_Wheat`/`Ground_Wheat` prefabs
+(`WheatWallTile.png`/`WheatFloorTile.png` — previously Wheat had no dedicated wall/ground art at
+all), a backdrop (`Wheatfield_background.png` — a previously-dead const left over from an earlier
+World 1 backdrop swap, reused here for its actual intended world), a regular every-tile pellet
+(`MiniLoaf.png`), and a bonus pickup scattered ×10 (`RareGrainSack.png` — its count was originally
+×1, "Rare" naming inferred to mean scarce; the ×1 turned out to just be an interim placeholder, not
+an intentional scarcity choice, once the actual spec called for ×10 like Cherry). Both worlds' rare
+-tier pellet now has a distinct look too, each repurposing a sprite originally uploaded for a
+different role: Orchard's is `RarePellets_apple.png` (VegPatch's own regular pellet elsewhere),
+Wheat's is `RarePellets_maize.png` (previously unwired dead weight left over from the old 3-tier
+pellet visual system) — via `MazeArtSet.rarePelletSprite`, the single pellet that wins a maze's
+one-rare-slot cap (`ConfigurePelletTier`'s `_rarePelletsSpawned` guard); every other pellet still
+shows `pelletSprite`, and any world without a `rarePelletSprite` set (CornField/VegPatch) keeps the
+older "every pellet, rare or not, looks the same" behaviour unchanged. Both worlds' warp-tunnel/
+crop prefabs still reuse CornField's (no dedicated art for those yet).
 
 **Drone now has real art** (`Drone.png` — a single symmetric hovering-quadcopter sprite with no
 directional cues, so `RobotVisual` shows it for every facing via its own null-fallback rather than
@@ -1630,23 +1633,27 @@ and reopen the project normally to confirm nothing was corrupted.
   singletons — done.
 - **Phase 2** (movement & maze): tile-id-driven maze rendering, grid movement with intersection/
   reversal rules, crop/vegetable/power-pellet pickup, warp tunnels, scoring, level completion —
-  done. **75 real levels now exist** across the first three worlds: `LevelData_01`-`25` (World 1,
-  Corn Field, `levelNumber` 0-24), `LevelData_26`-`50` (World 2, Veg Patch, `levelNumber` 25-49),
-  and `LevelData_51`-`75` (World 3, Orchard, `levelNumber` 50-74). World 3's 25 levels are entirely
-  algorithmically generated (no hand-authored ones, unlike World 1's `01`-`04`/`06`-`08`) by a
-  one-shot offline generator (not kept in the repo — same "generator not committed, only its baked
-  output is" convention every algorithmically-generated level here follows) using a cleaner,
-  explicitly-provable version of the same pillar/room scheme: interior room cells sit at ODD x in
-  `{1,3,5,7,9}` and ODD y in `{1,3,5,7}` (5x4 = 20 rooms per maze), pillars at BOTH-even interior
-  coordinates are never carved (same no-open-2x2-block guarantee as World 1/2's generator, just
-  with the "never carved" set spelled out explicitly rather than inferred), and a recursive-
-  backtracker spanning tree plus 5-8 extra loop edges connects them. Warp pairs are TOP/BOTTOM
-  (same room column, y=0 and y=8) rather than LEFT/RIGHT, since the height (9) divides evenly into
-  the room/pillar scheme with zero wasted margin while the width (12) doesn't quite (column `x=10`
-  stays a permanent one-tile wall margin before the right border) — column pairing sidesteps that
-  asymmetry entirely. All 25 were verified offline (full connectivity via flood fill from the
-  player start, zero open-2x2 blocks, both warp tiles adjacent to an open cell) before being baked
-  in. Phase 3's separate 20x20 multi-robot test maze lives at `LevelData_RobotTest.asset`
+  done. **All 100 real levels now exist**, filling out `UnlockProgression.TotalLevels` completely
+  across all 4 worlds: `LevelData_01`-`25` (World 1, Corn Field, `levelNumber` 0-24), `LevelData_26`-
+  `50` (World 2, Veg Patch, `levelNumber` 25-49), `LevelData_51`-`75` (World 3, Orchard, `levelNumber`
+  50-74), and `LevelData_76`-`100` (World 4, Wheat Field, `levelNumber` 75-99 — the last world).
+  World 3 and World 4's 25-level sets are each entirely algorithmically generated (no hand-authored
+  ones, unlike World 1's `01`-`04`/`06`-`08`), each by its own one-shot offline generator
+  (`OrchardMazeGeneratorTemp`/`WheatMazeGeneratorTemp` — not kept in the repo, same "generator not
+  committed, only its baked output is" convention every algorithmically-generated level here
+  follows; Wheat's used a different RNG seed and corner/factory offsets than Orchard's so its 25
+  shapes don't mirror Orchard's) using a cleaner, explicitly-provable version of the same
+  pillar/room scheme: interior room cells sit at ODD x in `{1,3,5,7,9}` and ODD y in `{1,3,5,7}`
+  (5x4 = 20 rooms per maze), pillars at BOTH-even interior coordinates are never carved (same
+  no-open-2x2-block guarantee as World 1/2's generator, just with the "never carved" set spelled
+  out explicitly rather than inferred), and a recursive-backtracker spanning tree plus 5-8 extra
+  loop edges connects them. Warp pairs are TOP/BOTTOM (same room column, y=0 and y=8) rather than
+  LEFT/RIGHT, since the height (9) divides evenly into the room/pillar scheme with zero wasted
+  margin while the width (12) doesn't quite (column `x=10` stays a permanent one-tile wall margin
+  before the right border) — column pairing sidesteps that asymmetry entirely. All 50 (25 per
+  world) were verified offline (full connectivity via flood fill from the player start, zero
+  open-2x2 blocks, both warp tiles adjacent to an open cell) before being baked in. Phase 3's
+  separate 20x20 multi-robot test maze lives at `LevelData_RobotTest.asset`
   (`levelNumber -1`, invisible to Level Select) — it used to sit at `LevelData_05.asset`/
   `levelNumber 4`, which meant `DataManager` (keyed purely by `levelNumber`) surfaced it as the
   real "Level 5" tile: tapping it loaded a mostly-open 20x20 test field instead of a designed 12x9
@@ -1675,7 +1682,7 @@ and reopen the project normally to confirm nothing was corrupted.
   session `Phase2ProjectBuilder.BuildLevel` always stamped `robotSpawns = []` ("No robots yet —
   Phase 3") and nothing ever filled it in for the other levels, so no robots ever spawned outside
   of those two. `Phase3ProjectBuilder.AssignRobotSpawnsToRemainingLevels` now loops every
-  `LevelData_01`-`75` (skipping `01`, hand-tuned separately) and applies a difficulty curve that
+  `LevelData_01`-`100` (skipping `01`, hand-tuned separately) and applies a difficulty curve that
   resets per world (`levelNumber % 25`): 2 robots for a world's first 5 levels, 3 for the next 7, 4
   for the next 7, 5 for the last 6 — all spawned at that level's own `robotFactoryPosition`,
   staggered 4s apart starting at 2s. Purely a first-pass default (like the algorithmically
