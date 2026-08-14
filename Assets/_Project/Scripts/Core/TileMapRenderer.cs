@@ -60,7 +60,10 @@ namespace FarmFuryArcade.Core
             public Sprite rarePelletSprite;
 
             /// <summary>Extra pickup scattered on top of already-rendered tiles (not tied to any
-            /// grid tile id) — currently just CornField's coin. Deliberately NOT counted in
+            /// grid tile id) — the per-world THEMED bonus (Orchard's cherry, Wheat's grain sack;
+            /// CornField and VegPatch have none of their own). Independent of universalCoinPrefab,
+            /// which spawns a coin on every world's mazes regardless of this field — the two are
+            /// scattered separately and can coexist on the same maze. Deliberately NOT counted in
             /// LevelData.totalCropsRequired (that's computed once at LevelData build time from the
             /// grid's own kernel/vegetable/pellet counts, with no knowledge of this runtime-only
             /// addition), so collecting it is optional and never blocks level completion. Null/0 for
@@ -84,6 +87,17 @@ namespace FarmFuryArcade.Core
         [SerializeField] private List<MazeArtSet> mazeArtSets = new List<MazeArtSet>();
         [SerializeField] private GameObject powerPelletPrefab;
         [SerializeField] private GameObject waterTilePrefab;
+
+        /// <summary>Spawned on EVERY maze regardless of world/MazeArtSet — guarantees a
+        /// collectible coin exists on every level, not just CornField's (the only world that had
+        /// one, via its own MazeArtSet.bonusPickupPrefab; VegPatch had no bonus pickup configured
+        /// at all, and Orchard/Wheat's bonus slot is already spoken for by Cherry/GrainSack).
+        /// Deliberately independent of MazeArtSet.bonusPickupPrefab so each world's own themed
+        /// bonus keeps working unchanged alongside this — CornField's old bonusPickupPrefab entry
+        /// (also Pickup_Coin) was removed from Phase2ProjectBuilder.WireScene's MazeArtSet list once
+        /// this was added, so CornField levels get exactly one coin, not two.</summary>
+        [SerializeField] private GameObject universalCoinPrefab;
+        [SerializeField] private int coinsPerMaze = 1;
 
         private SpriteRenderer _gameplayBackdrop;
 
@@ -188,7 +202,8 @@ namespace FarmFuryArcade.Core
             PairWarpTunnels(warpTunnels);
             PairWaterTiles(waterTilesByRow);
             ApplyBackdrop(data, artSet);
-            SpawnBonusPickups(artSet, data);
+            SpawnScatteredPickups(artSet.bonusPickupPrefab, artSet.bonusPickupCount, data);
+            SpawnScatteredPickups(universalCoinPrefab, coinsPerMaze, data);
         }
 
         /// <summary>Builds the set of crop-eligible cells (tile id 2 or 3) that should render the
@@ -224,13 +239,15 @@ namespace FarmFuryArcade.Core
             return result;
         }
 
-        /// <summary>Scatters MazeArtSet.bonusPickupCount copies of bonusPickupPrefab onto random
-        /// walkable cells (any non-wall tile id, on top of whatever else is already there) — see
-        /// MazeArtSet.bonusPickupPrefab's doc comment for why this is separate from
-        /// totalCropsRequired. A no-op for a world with no bonus pickup configured.</summary>
-        private void SpawnBonusPickups(MazeArtSet artSet, LevelData data)
+        /// <summary>Scatters `count` copies of `prefab` onto random walkable cells (any non-wall
+        /// tile id, on top of whatever else is already there) — see MazeArtSet.bonusPickupPrefab's
+        /// doc comment for why this is separate from totalCropsRequired. Shared by both the
+        /// per-world themed bonus (MazeArtSet.bonusPickupPrefab — cherry, grain sack, ...) and the
+        /// world-independent universalCoinPrefab, so a maze can carry both scattered independently.
+        /// A no-op if prefab is null or count <= 0.</summary>
+        private void SpawnScatteredPickups(GameObject prefab, int count, LevelData data)
         {
-            if (artSet.bonusPickupPrefab == null || artSet.bonusPickupCount <= 0)
+            if (prefab == null || count <= 0)
             {
                 return;
             }
@@ -248,10 +265,10 @@ namespace FarmFuryArcade.Core
             }
 
             Shuffle(candidates);
-            int count = Mathf.Min(artSet.bonusPickupCount, candidates.Count);
-            for (int i = 0; i < count; i++)
+            int spawnCount = Mathf.Min(count, candidates.Count);
+            for (int i = 0; i < spawnCount; i++)
             {
-                _spawned.Add(Instantiate(artSet.bonusPickupPrefab, GridToWorld(candidates[i]), Quaternion.identity, mazeParent));
+                _spawned.Add(Instantiate(prefab, GridToWorld(candidates[i]), Quaternion.identity, mazeParent));
             }
         }
 

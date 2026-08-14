@@ -48,7 +48,7 @@ namespace FarmFuryArcade.EditorTools
             GameObject cluckPrefab = AddCharacterBaseAndAbilityToCluck(eggPrefab);
 
             GameObject bessiePrefab = BuildCharacterPrefab("Bessie", new Color(0.55f, 0.38f, 0.20f),
-                typeof(GroundSlamAbility), 20f, ability =>
+                typeof(GroundSlamAbility), 10f, ability =>
                 {
                     var so = new SerializedObject(ability);
                     so.FindProperty("shockwavePrefab").objectReferenceValue = shockwavePrefab;
@@ -56,7 +56,7 @@ namespace FarmFuryArcade.EditorTools
                 });
 
             GameObject percyPrefab = BuildCharacterPrefab("Percy", new Color(0.95f, 0.55f, 0.65f),
-                typeof(BounceRollAbility), 30f, ability =>
+                typeof(BounceRollAbility), 10f, ability =>
                 {
                     var so = new SerializedObject(ability);
                     so.FindProperty("trailPrefab").objectReferenceValue = bounceTrailPrefab;
@@ -64,7 +64,7 @@ namespace FarmFuryArcade.EditorTools
                 });
 
             GameObject woollyPrefab = BuildCharacterPrefab("Woolly", new Color(0.92f, 0.90f, 0.80f),
-                typeof(TripleCloneAbility), 25f, ability =>
+                typeof(TripleCloneAbility), 10f, ability =>
                 {
                     var so = new SerializedObject(ability);
                     so.FindProperty("clonePrefab").objectReferenceValue = woolClonePrefab;
@@ -73,7 +73,7 @@ namespace FarmFuryArcade.EditorTools
                 });
 
             GameObject duckyPrefab = BuildCharacterPrefab("Ducky", new Color(0.25f, 0.65f, 0.75f),
-                typeof(SkipShotAbility), 2f, ability =>
+                typeof(SkipShotAbility), 10f, ability =>
                 {
                     var so = new SerializedObject(ability);
                     so.FindProperty("woolClonePrefab").objectReferenceValue = woolClonePrefab;
@@ -82,7 +82,7 @@ namespace FarmFuryArcade.EditorTools
                 });
 
             GameObject horacePrefab = BuildCharacterPrefab("Horace", new Color(0.45f, 0.30f, 0.15f),
-                typeof(RearKickAbility), 18f, ability =>
+                typeof(RearKickAbility), 10f, ability =>
                 {
                     var so = new SerializedObject(ability);
                     so.FindProperty("buckEffectPrefab").objectReferenceValue = horaceBuckPrefab;
@@ -90,10 +90,10 @@ namespace FarmFuryArcade.EditorTools
                 });
 
             GameObject geraldPrefab = BuildCharacterPrefab("Gerald", new Color(0.65f, 0.60f, 0.50f),
-                typeof(PuffUpAbility), 45f, null);
+                typeof(PuffUpAbility), 10f, null);
 
             GameObject billyPrefab = BuildCharacterPrefab("Billy", new Color(0.35f, 0.35f, 0.38f),
-                typeof(HeadbuttThroughAbility), 40f, null);
+                typeof(HeadbuttThroughAbility), 10f, null);
 
             // UpdateLevelData01Water() is no longer called — the water gate at row 11 (cells
             // (3,11)/(10,11)) rendered as a plain blue placeholder square (no real water art was
@@ -185,7 +185,7 @@ namespace FarmFuryArcade.EditorTools
             }
 
             var abilitySO = new SerializedObject(ability);
-            abilitySO.FindProperty("totalCooldown").floatValue = 15f;
+            abilitySO.FindProperty("totalCooldown").floatValue = 10f;
             abilitySO.FindProperty("eggPrefab").objectReferenceValue = eggPrefab;
             abilitySO.ApplyModifiedPropertiesWithoutUndo();
 
@@ -377,30 +377,37 @@ namespace FarmFuryArcade.EditorTools
 
         // ---- CharacterData ------------------------------------------------------------------
 
-        // Doubled from the previous pass (1.9->3.8 etc.) per feedback that characters and robots
-        // moved at effectively the same speed — robots stayed at 2.0 (Phase3ProjectBuilder), so
-        // characters now clearly outrun a Chase/Scatter robot, and easily outrun a Vulnerable one
-        // (RobotBase.VulnerableSpeedMultiplier halves it further, e.g. 1.0 for a base-2.0 robot).
-        // Percy/Ducky/Horace's doubled values would exceed CharacterData.movementSpeed's own
-        // [Range(1,5)] inspector hint (5.6/5.0/5.0), so Percy is capped at 5.0 — Ducky/Horace land on
-        // exactly 5.0 and don't need capping.
+        // Unified to a single shared speed (4.0, the mid-point of the old 3.6-5.0 spread) per
+        // feedback that characters should all move identically — the old per-character spread
+        // (Cluck 3.8, Bessie 3.6, Percy/Ducky/Horace 5.0, Woolly 4.6, Gerald/Billy 4.0) made some
+        // characters feel sluggish/quick relative to others for no gameplay reason (Percy/Ducky/
+        // Horace weren't intentionally "fast" characters, that was just where an earlier
+        // speed-doubling pass happened to land after capping against the [Range(1,5)] inspector
+        // hint). Robots stayed at 2.0 base (Phase3ProjectBuilder) so characters still clearly
+        // outrun a Chase/Scatter robot. A Vulnerable robot's flee speed is no longer a fraction of
+        // its OWN base speed either — RobotBase.CurrentSpeed now keys it off the active
+        // character's speed directly (VulnerableSpeedFraction, 0.85 — "slightly slower than the
+        // character" so catching a fleeing robot is a real but short chase), which only stays
+        // consistent across every robot type because every character now shares this one speed.
+        private const float UnifiedCharacterSpeed = 4.0f;
+
         private static void BuildCharacterData()
         {
-            BuildCharacterDataAsset(CharacterType.Cluck, "Cluck", 3.8f, AbilityType.EggDrop, 15f,
+            BuildCharacterDataAsset(CharacterType.Cluck, "Cluck", UnifiedCharacterSpeed, AbilityType.EggDrop, 10f,
                 "Drops 3 eggs in her current lane that instantly defeat any robot walking over them.", 0, false);
-            BuildCharacterDataAsset(CharacterType.Bessie, "Bessie", 3.6f, AbilityType.GroundSlam, 20f,
+            BuildCharacterDataAsset(CharacterType.Bessie, "Bessie", UnifiedCharacterSpeed, AbilityType.GroundSlam, 10f,
                 "Instant shockwave instantly defeats every robot within 2 tiles.", 0, false);
-            BuildCharacterDataAsset(CharacterType.Percy, "Percy", 5.0f, AbilityType.BounceRoll, 30f,
+            BuildCharacterDataAsset(CharacterType.Percy, "Percy", UnifiedCharacterSpeed, AbilityType.BounceRoll, 10f,
                 "The next wall Percy hits becomes walkable for 2 seconds.", 5, false);
-            BuildCharacterDataAsset(CharacterType.Woolly, "Woolly", 4.6f, AbilityType.TripleClone, 25f,
+            BuildCharacterDataAsset(CharacterType.Woolly, "Woolly", UnifiedCharacterSpeed, AbilityType.TripleClone, 10f,
                 "Spawns 2 AI-controlled clones that wander, collect crops, and fade after 10s.", 10, false);
-            BuildCharacterDataAsset(CharacterType.Ducky, "Ducky", 5.0f, AbilityType.SkipShot, 2f,
+            BuildCharacterDataAsset(CharacterType.Ducky, "Ducky", UnifiedCharacterSpeed, AbilityType.SkipShot, 10f,
                 "Teleports across an adjacent water tile pair — once per pair per maze.", 15, true);
-            BuildCharacterDataAsset(CharacterType.Horace, "Horace", 5.0f, AbilityType.RearKick, 18f,
+            BuildCharacterDataAsset(CharacterType.Horace, "Horace", UnifiedCharacterSpeed, AbilityType.RearKick, 10f,
                 "Kicks the nearest robot within 3 tiles back 4 tiles and defeats it on landing.", 20, false);
-            BuildCharacterDataAsset(CharacterType.Gerald, "Gerald", 4.0f, AbilityType.PuffUp, 45f,
+            BuildCharacterDataAsset(CharacterType.Gerald, "Gerald", UnifiedCharacterSpeed, AbilityType.PuffUp, 10f,
                 "Inflates to 3x size for 5s — any robot touched is instantly defeated. Half speed, no warp tunnels while puffed.", 30, false);
-            BuildCharacterDataAsset(CharacterType.Billy, "Billy", 4.0f, AbilityType.HeadbuttThrough, 40f,
+            BuildCharacterDataAsset(CharacterType.Billy, "Billy", UnifiedCharacterSpeed, AbilityType.HeadbuttThrough, 10f,
                 "Permanently destroys the next 3 walls he headbutts.", 40, false);
         }
 

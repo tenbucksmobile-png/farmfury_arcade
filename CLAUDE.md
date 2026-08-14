@@ -139,11 +139,22 @@ rebuilt. `groundPrefab` is shared across both current worlds (`Ground_CornField`
 for a vegetable patch too — no dedicated VegPatch ground art exists).
 
 Two other per-world behaviors live on `MazeArtSet`:
-- **`bonusPickupPrefab`/`bonusPickupCount`** — extra pickups scattered on random walkable cells on
-  top of whatever else is already there, not tied to any grid tile id. CornField spawns 1
-  `Pickup_Coin` per level this way (`CoinPickup` component, collected via `CropCollector` but
-  deliberately does **not** call `GameManager.NotifyCropCollected` — it's bonus, invisible to
-  `LevelData.totalCropsRequired`, and never blocks level completion).
+- **`bonusPickupPrefab`/`bonusPickupCount`** — the per-world THEMED bonus, extra pickups scattered
+  on random walkable cells on top of whatever else is already there, not tied to any grid tile id
+  (Orchard's cherry, Wheat's grain sack, both x10; CornField and VegPatch have none of their own).
+  Collected via `CropCollector` but deliberately does **not** call `GameManager.
+  NotifyCropCollected` — it's bonus, invisible to `LevelData.totalCropsRequired`, and never blocks
+  level completion. **Separate from the coin** below — `TileMapRenderer.SpawnScatteredPickups` is
+  a shared helper `RenderMaze` calls twice per maze (once for this field, once for the coin), so a
+  maze can carry both independently.
+- **`TileMapRenderer.universalCoinPrefab`/`coinsPerMaze`** — NOT part of `MazeArtSet`, a single
+  scene-level field spawned on every maze regardless of world, guaranteeing a `Pickup_Coin` exists
+  on every level. Used to be CornField's own `MazeArtSet.bonusPickupPrefab` entry instead (the only
+  world with one — VegPatch had no bonus pickup configured at all, Orchard/Wheat's bonus slot was
+  already spoken for), which meant only CornField's 25 levels ever spawned a coin; caught and fixed
+  per feedback that every level should have one. CornField's own `bonusPickupPrefab` entry was
+  removed from `Phase2ProjectBuilder.WireScene`'s `MazeArtSet` list once this was added (it was also
+  `Pickup_Coin`), so CornField levels still get exactly one coin, not two.
 - **`useRandomVegetableQuota`/`vegetableQuota`** — VegPatch-only: ignores the grid's own tile-id-2-
   vs-3 split and instead randomly picks `vegetableQuota` (10) of the maze's crop-eligible cells to
   render as the vegetable (cabbage) prefab, the rest as the kernel (carrot) prefab. Guarantees an
@@ -153,7 +164,8 @@ Two other per-world behaviors live on `MazeArtSet`:
 Every power pellet in a maze now shows **one single sprite per world** (`MazeArtSet.pelletSprite`
 — sunflower-glow for CornField, apple for VegPatch) rather than the old 3-way Sunflower/GoldenWheat/
 Rainbow visual split. `RollPelletTier`'s random tier (and the "only 1 non-Sunflower per maze" cap)
-still drives `PowerPelletManager.GetDuration` (8s/15s/30s) and
+still drives `PowerPelletManager.GetDuration` (5s/9.5s/17s — see its own doc comment further down
+for the full tuning history) and
 `SpawnCollectEffectIfRare`/`PlayRarePelletPickupSfx` exactly as before — only the sprite stopped
 varying by tier, so the duration/effect variety is invisible up front but still felt.
 
@@ -340,15 +352,41 @@ corners (inset 1 tile from the border), classic-arcade style. `DrifterRobot`'s "
 when close to the player reuses the same field (`scatterCornerPosition`).
 
 **Anti-loop targeting (`RobotAI.GetNextDirection`):** at each intersection, every walkable
-non-reversing direction is weighted by inverse-square distance from its destination cell to the
-current target, then picked via a weighted random roll (not greedy-always-closest) — this alone
-still let a robot get trapped oscillating between two intersections of similar distance-to-target,
-looping back and forth within one row/pocket instead of covering the board, since neither the
-distance heuristic nor the existing no-U-turn rule rules that out. `RobotBase` now keeps a short
-rolling history of its last 6 occupied cells (`_recentCells`, cleared on `Initialize`/
-`ResetToFactory`) and passes it into `GetNextDirection`, which cuts a candidate direction's weight
-to 15% (not to zero — a real dead end still needs to be enterable) if its destination cell is in
-that history. `DroneRobot` bypasses `RobotAI` entirely (see above) so this doesn't apply to it.
+non-reversing direction is weighted by its neighbour cell's REAL shortest-path (BFS) distance to
+the current target, then picked via a weighted random roll (not greedy-always-closest). This used
+to weight by straight-line (Euclidean) distance instead — that reads fine in open areas, but in a
+maze with long corridors, continuing straight always scored as "closer" by straight-line distance
+even at intersections where turning onto a perpendicular corridor was the actual shorter (or only)
+route to the target. A robot would then keep re-choosing "continue straight," bounce off that
+corridor's ends (the no-U-turn rule only forces a reversal at an actual dead end), and permanently
+oscillate within one row/column — reported as robots "getting stuck in a row and looping, never
+moving away from it," reproducible on any level with a long peripheral corridor (i.e. most of
+them, especially after the wall-thinning pass below added several). `RobotAI.ComputeDistances`
+now runs a real BFS from the target every call (maze is only ~100 cells, called once per robot per
+intersection arrival — negligible cost) and `GetNextDirection` weights candidates by that instead;
+falls back to straight-line distance only for a target cell BFS can't reach (shouldn't happen in
+practice — targets are always real walkable cells — but a per-robot Chase target like Scout's "N
+tiles ahead of facing" projection can land on a wall). `RobotBase` also still keeps a short rolling
+history of its last 6 occupied cells (`_recentCells`, cleared on `Initialize`/`ResetToFactory`) and
+passes it into `GetNextDirection`, which cuts a candidate direction's weight to 15% (not to zero —
+a real dead end still needs to be enterable) if its destination cell is in that history — a second
+line of defence against short back-and-forth cycles between two branches BFS distance alone doesn't
+rule out (e.g. two genuinely equidistant branches). `DroneRobot` bypasses `RobotAI` entirely (see
+above) so none of this applies to it — straight-line distance is already correct for a robot that
+ignores interior walls.
+
+**Fleeing (Vulnerable state):** `RobotBase.GetFleeTarget` used to project a target 10 tiles away
+from the player in the opposite direction — a straight-line point that could land outside the maze
+entirely and fed the same straight-line bias `GetNextDirection` had, so a fleeing robot could get
+stuck in a row exactly like a chasing one. It now calls `RobotAI.FindFarthestCell(playerPos, maze)`
+— a BFS from the player's position that returns the single walkable cell with the greatest real
+shortest-path distance — so the flee target is always a real, reachable point, genuinely the
+farthest corner of the maze from the player. `RobotBase.HandlePowerStateChanged` still reverses the
+robot's `CurrentDirection` on the spot the instant a power pellet activates (the classic
+"frightened" U-turn cue) and restores whichever state (Chase/Scatter) it was in before once the
+countdown ends, so the visible beat is: catch → visibly reverse and flee toward the real farthest
+point the moment a pellet is eaten → resume hunting once the pellet's duration (`PowerPelletManager
+.GetDuration` — 5s for Sunflower, the common tier) runs out.
 
 **Art status:** `RobotVisual` swaps in a real `RobotEyes.png` sprite for the brief Defeated pause
 before a robot disappears (see "Art status" below and the state-machine note above — there's no
@@ -363,7 +401,10 @@ a result.
 
 **Chain scoring & power state:** `PowerPelletManager` (Core) owns the single global "frightened"
 countdown (`IsPowerActive`, `TimeRemaining`, `ActivatePower(duration)`, `OnPowerStateChanged`)
-and duration-per-tier lookup (`GetDuration`: Sunflower 8s / Golden Wheat 15s / Rainbow 30s).
+and duration-per-tier lookup (`GetDuration`: Sunflower 5s / Golden Wheat 9.5s / Rainbow 17s — see
+its doc comment for the tuning history: halved from an original 8/15/30 GDD spec per feedback that
+the vulnerable window was too long, the two rare tiers got +2s back on top of that so they still
+felt meaningfully more valuable, then Sunflower's own base further went 4s → 5s in a later pass).
 `ChaseScoreManager` (Core) tracks `ChainCount` across one power activation (200/400/800/1600,
 +5000 for all 4) and resets when `PowerPelletManager`'s countdown ends.
 
@@ -389,14 +430,22 @@ ability:
 
 | Character | Ability | Effect | Cooldown |
 |---|---|---|---|
-| Cluck | EggDrop | 1 egg at her current position; any robot walking over it is instantly defeated | 15s |
-| Bessie | GroundSlam | Instantly defeats every robot within 2 tiles at cast, shockwave + camera shake, then the zone lingers 3s defeating any robot that wanders in afterward | 20s |
-| Percy | BounceRoll | Next wall he hits becomes walkable 2s (glows while phaseable) | 30s |
-| Woolly | TripleClone | Spawns 2 AI clones (`WoollyClone`) that wander/collect crops for 10s | 25s |
-| Ducky | SkipShot | Teleports across an adjacent unused water tile pair — once per pair per maze | 2s (debounce only — the real gate is per-pair, see `WaterTile.Used`) |
-| Horace | RearKick | Nearest robot within 3 tiles (Manhattan) knocked back 4 tiles, instantly defeated on landing | 18s |
-| Gerald | PuffUp | 3x scale, 5s, instantly defeats any robot touched, half speed, can't use warp tunnels | 45s |
-| Billy | HeadbuttThrough | Permanently destroys the next 3 walls he hits | 40s |
+| Cluck | EggDrop | 1 egg at her current position; any robot walking over it is instantly defeated | 10s |
+| Bessie | GroundSlam | Instantly defeats every robot within 2 tiles at cast, shockwave + camera shake, then the zone lingers 3s defeating any robot that wanders in afterward | 10s |
+| Percy | BounceRoll | Next wall he hits becomes walkable 2s (glows while phaseable) | 10s |
+| Woolly | TripleClone | Spawns 2 AI clones (`WoollyClone`) that wander/collect crops for 10s | 10s |
+| Ducky | SkipShot | Teleports across an adjacent unused water tile pair — once per pair per maze | 10s (this is the real gate now too — see the note below on why it went from a 2s debounce to matching everyone else) |
+| Horace | RearKick | Nearest robot within 3 tiles (Manhattan) knocked back 4 tiles, instantly defeated on landing | 10s |
+| Gerald | PuffUp | 3x scale, 5s, instantly defeats any robot touched, half speed, can't use warp tunnels | 10s |
+| Billy | HeadbuttThrough | Permanently destroys the next 3 walls he hits | 10s |
+
+**All 8 cooldowns were unified to 10s** in a later gameplay pass (previously a spread from 2s
+Ducky to 45s Gerald) — `Phase4ProjectBuilder.BuildCharacterData`'s per-character cooldown literals
+and the matching ability-component `totalCooldown` values it sets in `BuildCharacterPrefab`/
+`AddCharacterBaseAndAbilityToCluck` were all changed to `10f` together (both must stay in sync, per
+the existing convention). Ducky's Skip Shot cooldown going from 2s to 10s does mean the button
+re-arms much slower now, even though her real limiter was always the once-per-water-pair rule
+(`WaterTile.Used`), not the cooldown — confirmed as an intentional tradeoff, not an oversight.
 
 **Every ability-created robot hazard now defeats on contact, not just stuns** (`ForceDefeat`,
 bypassing the Vulnerable requirement — same convention `PuffUpAbility` already used) — a later
@@ -1489,14 +1538,29 @@ mirroring either side — `hasDedicatedRightArt = true`), plus front/back (`ArtW
 WireBilly`).
 
 **Water tiles have real art** (`Water_tile.png`, wired onto the `WaterTile` prefab via
-`WireMazeTiles`) and, as of this pass, **real placements**: every level from `LevelData_16` onward
-(the point `LevelData_05`'s levelNumber-15 unlock threshold means Ducky is actually available —
-see the character-unlock table) got a Ducky-only water tile pair added to its maze, verified
-offline (same connectivity-check approach as the Level 5 maze generation) so the pair only ever
-adds a shortcut, never blocks a non-Ducky character's access to anything. `LevelData_24` is the one
-exception — its maze has no interior redundancy at all (every safe pair found involved converting
-one of its own warp tunnel tiles, which was rejected) — it has no water tile and none was forced in,
-to avoid creating a soft-lock.
+`WireMazeTiles`) and **real placements**: every level from `LevelData_16` onward (the point
+`LevelData_05`'s levelNumber-15 unlock threshold means Ducky is actually available — see the
+character-unlock table) got a Ducky-only water tile pair added to its maze, except `LevelData_23`
+(no interior redundancy at all to safely add one to — the one genuine placement gap; an earlier
+pass of this doc mistakenly named `LevelData_24` as the gap instead, which turned out to be wrong
+once actually checked — `LevelData_24` does have a pair). `TileMapRenderer.PairWaterTiles` requires
+both tiles of a pair to share a row (paired by row, same convention warp tunnels use before falling
+back to column), which is why "move the water pair" is a same-row column move, not a free
+repositioning anywhere in the maze.
+
+**Water pairs were repositioned to opposite sides of their row** in a later pass, per feedback that
+they should read as a genuine shortcut across the maze rather than a 1-tile hop — most of the 34
+pairs originally sat in adjacent columns (e.g. columns 3 and 4) because they'd each been converted
+from a short run of wall cells next to each other, the easiest safe spot to find by hand. Moving
+them required an offline script (same category of tool as the maze-generation verification below,
+not committed — only its baked output is, per that convention): for each level, the existing pair
+is reverted to wall, then every row is scanned for two wall cells (excluding the border columns)
+each adjacent to a real floor cell, and the pair with the greatest column separation wins (ties
+prefer the original row). Converting only between wall(1)/water(8) — both already impassable to
+non-Ducky characters — means non-Ducky connectivity is provably unaffected by this regardless of
+which row/columns get picked; only Ducky's own reachability to the new pair was re-verified (BFS
+flood fill treating water as walkable). A few pairs (levels 28/37/40/44) were already correctly
+spread (e.g. columns 1 and 9) and didn't move.
 
 **World 3 (Orchard) and World 4 (Wheat) are both now fully wired and have all 25 real levels each**
 (see "Development status" — `LevelData_51`-`75`/`levelNumber` 50-74 for Orchard,
@@ -1528,8 +1592,20 @@ Wheat's is `RarePellets_maize.png` (previously unwired dead weight left over fro
 pellet visual system) — via `MazeArtSet.rarePelletSprite`, the single pellet that wins a maze's
 one-rare-slot cap (`ConfigurePelletTier`'s `_rarePelletsSpawned` guard); every other pellet still
 shows `pelletSprite`, and any world without a `rarePelletSprite` set (CornField/VegPatch) keeps the
-older "every pellet, rare or not, looks the same" behaviour unchanged. Both worlds' warp-tunnel/
-crop prefabs still reuse CornField's (no dedicated art for those yet).
+older "every pellet, rare or not, looks the same" behaviour unchanged. Both worlds' warp-tunnel
+prefabs still reuse CornField's (no dedicated art for those yet).
+
+**Orchard's and Wheat's regular crop tiles (id 2/3) used to reuse CornField's `Crop_Corn`/
+`Crop_Vegetable` prefabs too** — meaning every ordinary collectible in an Orchard or Wheat maze
+rendered `CornKernel.png`/`CornCob.png`, visibly wrong for either world. Caught and fixed on a
+review pass, Orchard first then the same issue found on Wheat by the same check: both worlds now
+have their own two crop prefabs (`Crop_Kernel_Orchard`/`Crop_Vegetable_Orchard` wired to
+`Red_Apple.png`; `Crop_Kernel_Wheat`/`Crop_Vegetable_Wheat` wired to `MiniLoaf.png`, Wheat's own
+"regular pellet" sprite reused the same way Orchard's `Red_Apple.png` already was for its id-4
+role), same point values (10/50) as every other world's kernel/vegetable tier — only the art
+changed. `Crop_Corn`/`Crop_Vegetable` are CornField/VegPatch-only again now. VegPatch was checked
+too and was already correct (its own `Crop_Kernel_VegPatch`/`Crop_Vegetable_VegPatch` prefabs,
+carrot/cabbage art, predate this issue).
 
 **Drone now has real art** (`Drone.png` — a single symmetric hovering-quadcopter sprite with no
 directional cues, so `RobotVisual` shows it for every facing via its own null-fallback rather than
@@ -1551,6 +1627,22 @@ oversized in literally every direction, all the time. Both fixed by adding the m
 always), check this array first** before suspecting the sprite itself or `localScale` — this is now
 the second and third time this exact omission has caused it (see Orchard's wall/floor/backdrop/
 pellet/bonus consts above, found the same way).
+
+**Billy still has a real, unresolved sizing inconsistency between facings — a stopgap is in place,
+not a fix.** Unlike every other character's art (uniformly 500x500 square in every direction), his
+`Billy_Front.png`/`Billy_back.png` are tight portrait crops (213x401 / 234x408) while
+`Billy_left/right(1).png` are a much more loosely-padded 500x500 square. Since `CharacterAnimator`
+just swaps `_spriteRenderer.sprite` with no per-frame scale compensation, and PPU is normally set to
+each texture's own width, this rendered him ~1.88 world units tall facing up/down but only ~1.0
+tall facing left/right — a visible size pop on turning, caught via a direct pixel-dimension check
+across all 8 characters' art (only Billy has a directional aspect-ratio mismatch; every other
+character's directions are all 500x500). **Stopgap:** `ConfigureSpriteImporters` now overrides PPU
+for just `Billy_left/right(1).png` to `500 * 213 / 401 ≈ 265.6` (matching Front's height ratio)
+instead of the texture's own width, so his apparent height is now consistent across every facing —
+at the cost of also rendering him wider than 1 grid cell while walking sideways, since a single PPU
+scalar can't fix height independent of width on a square source. The real fix is a tighter crop of
+the Left/Right art (matching Front/Back's framing) whenever that art lands; replace the override
+with the standard `width > 0 ? width : 100` rule at that point, not before.
 
 **Still missing / not wired:** a Vulnerable-state robot sprite and the Loading Screen background
 (uploaded, unwired — see above). Cluck's Egg Drop effect art and the branding Logo are both wired
@@ -1622,16 +1714,24 @@ When more art lands, wire it into the existing prefabs (`Prefabs/Characters/`, `
 Desktop: arrow keys or WASD. Mobile/Editor: swipe (or mouse-drag in Play mode) — 50px minimum
 distance, dominant axis wins for diagonals. Tunable parameters if movement doesn't feel right:
 
-- `GridMovement.speed` (comes from `CharacterData.movementSpeed` — 3.8 Cluck, 3.6 Bessie, 5.0 Percy,
-  4.6 Woolly, 5.0 Ducky, 5.0 Horace, 4.0 Gerald, 4.0 Billy. History: originals (Percy/Ducky/Horace at
-  6/5.5/5.5) were cut to ~0.76x, then ~0.6x again (down to 1.9/1.8/2.8/2.3/2.5/2.5/2.0/2.0) when
-  movement still read as too fast — then **doubled back up** from that low point per later feedback
-  that characters and robots (`RobotData.movementSpeed`, all `2.0` — see Phase 3 below) moved at
-  effectively the same speed. Percy/Ducky/Horace's doubled values would have exceeded
-  `movementSpeed`'s own `[Range(1,5)]` inspector hint (5.6/5.0/5.0); Percy is capped at 5.0, the
-  other two land on exactly 5.0. Robots were deliberately left at `2.0` — characters now clearly
-  outrun a Chase/Scatter robot, and easily outrun a Vulnerable one
-  (`RobotBase.VulnerableSpeedMultiplier` halves it further, e.g. 1.0 for a base-2.0 robot))
+- `GridMovement.speed` (comes from `CharacterData.movementSpeed` — **unified to `4.0` for all 8
+  characters** as of a later gameplay pass, per feedback that they should all move identically.
+  History: originals (Percy/Ducky/Horace at 6/5.5/5.5) were cut to ~0.76x, then ~0.6x again (down to
+  1.9/1.8/2.8/2.3/2.5/2.5/2.0/2.0) when movement still read as too fast, then doubled back up
+  per feedback that characters and robots moved at effectively the same speed (landing on a spread
+  from 3.6 Bessie to 5.0 Percy/Ducky/Horace) — that spread itself later read as arbitrary (some
+  characters weren't meant to be faster than others, that was just where the doubling pass happened
+  to land after capping against `movementSpeed`'s `[Range(1,5)]` inspector hint), so
+  `Phase4ProjectBuilder.UnifiedCharacterSpeed` now applies one shared value to every
+  `BuildCharacterDataAsset` call instead of 8 separate literals. Robots' own `RobotData.movementSpeed`
+  stayed at `2.0` (see Phase 3 below) — characters now clearly outrun a Chase/Scatter robot.
+  A Vulnerable (killable) robot flees at `RobotBase.VulnerableSpeedMultiplier` (`0.85`) of its OWN
+  normal speed (1.7 for a base-2.0 robot) — "slightly slower than its normal pace," per a later
+  gameplay pass, rather than the old `0.5` (half speed). This is deliberately a fraction of the
+  robot's own speed, not the character's: an earlier attempt keyed it off the (now-unified) active
+  character's speed instead (4.0 × 0.85 = 3.4), which backfired — since robots chase at a much
+  lower base speed than any character, that made a fleeing robot move FASTER than it does while
+  hunting, the opposite of "so the character can catch them.")
 - `GridMovement.AlignmentEpsilon` (0.02) — grid-center snap tolerance
 - `InputController.minSwipeDistancePixels` (50)
 - `CharacterAnimator.frameInterval` (0.15s baseline, scaled by speed)
@@ -1711,6 +1811,27 @@ and reopen the project normally to confirm nothing was corrupted.
   real "Level 5" tile: tapping it loaded a mostly-open 20x20 test field instead of a designed 12x9
   maze, reading as "blank and without walls" next to every other level. `LevelData_05` is now a
   real, algorithmically-generated 12x9 "Corn Field - 05" level like `LevelData_09` onward.
+  **The `x=10` dead-margin column above turned out to be a real, visible problem, not just a
+  documented quirk:** since it's a permanent wall column sitting directly beside the border wall
+  (`x=11`, also permanent), together they formed a genuinely 2-tile-thick wall running almost the
+  full height of the maze — found on 93 of the 100 levels via a full offline audit (same
+  not-committed-generator-script convention), reported as "wall tiles sitting double-sided next to
+  each other." Fixed with a general, provably-safe algorithm rather than a hand patch per level: for
+  every 2x2 all-wall block found, flip exactly one of its cells to plain floor, but only a
+  non-border cell, and only if doing so doesn't create a NEW 2x2 all-open-floor block (checked
+  immediately, not assumed) — then re-verify with a full connectivity flood-fill afterward that
+  nothing became unreachable. This resolved 580 of 593 total violations on the first (simplest)
+  candidate-ordering pass; the remainder needed a second candidate-cell ordering strategy (preferring
+  the row shared with an adjacent violation, so a cell-flip resolves two overlapping blocks in one
+  move instead of fighting a later flip for the same cell) to reach 99/100. **`LevelData_07`
+  (hand-authored) is the one level left with its double-wall intact** — a genuinely interior double
+  wall (not the border-margin pattern), in a maze packed tightly enough that every candidate
+  single-cell flip creates a different open-floor violation elsewhere; left alone rather than risk a
+  bad edit to hand-authored content. 295 individual wall cells were carved across the other 99
+  levels — purely wall-to-floor conversions widening a room by one tile along the border, no new
+  rooms, no crop/pellet count changes (`BuildLevel` recomputes `totalCropsRequired` from the grid
+  automatically either way).
+
   World 1's `01`-`04`/`06`-`08` are hand-authored via `Tools/maze-designer.html` (a standalone
   click-to-paint web page, repo root — now has a World 1/World 2 toggle that reskins the wall/warp
   swatch colors to match each world's real art and tags the exported grid with

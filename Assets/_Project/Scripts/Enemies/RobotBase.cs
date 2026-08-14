@@ -29,7 +29,6 @@ namespace FarmFuryArcade.Enemies
         private const float ChaseDurationSeconds = 20f;
         private const float ScatterDurationSeconds = 5f;
         private const float DefeatedPauseSeconds = 0.5f;
-        private const float FleeDistanceTiles = 10f;
 
         /// <summary>How many of this robot's most-recently-occupied cells RobotAI.GetNextDirection
         /// discourages re-entering — see that method's doc comment for why (breaks short
@@ -83,7 +82,17 @@ namespace FarmFuryArcade.Enemies
                 : null;
 
         protected virtual float SpeedMultiplier => 1f;
-        protected virtual float VulnerableSpeedMultiplier => 0.5f;
+
+        /// <summary>Fraction of THIS ROBOT'S OWN normal (Chase/Scatter) RobotData.movementSpeed a
+        /// Vulnerable robot flees at. 0.85 is a mild reduction ("slightly slower") rather than the
+        /// old 0.5 (half speed) — a previous pass tried keying this off the ACTIVE CHARACTER's speed
+        /// instead (character 4.0 * 0.85 = 3.4), which backfired: since robots chase at a much lower
+        /// base speed (2.0) than any character, that made a fleeing robot move faster than it does
+        /// while hunting, the opposite of the intent. Keying it off the robot's own speed keeps
+        /// "slightly slower" meaning what it says — still comfortably outrun by any character (all
+        /// unified to 4.0, see Phase4ProjectBuilder), but no longer faster than the robot's own
+        /// normal pace.</summary>
+        protected virtual float VulnerableSpeedMultiplier => 0.85f;
         protected virtual float ReturningSpeedMultiplier => 2f;
         protected virtual int InitialHealthPoints => robotData != null ? Mathf.Max(1, robotData.healthPoints) : 1;
 
@@ -435,20 +444,18 @@ namespace FarmFuryArcade.Enemies
             };
         }
 
+        /// <summary>The maze's actual farthest-from-the-player reachable cell (a real BFS result,
+        /// not a straight-line projection — see RobotAI.FindFarthestCell's doc comment for why the
+        /// old projection approach fed the same straight-line bias that caused robots to get stuck
+        /// oscillating in one row/column instead of genuinely fleeing).</summary>
         protected virtual Vector2Int GetFleeTarget()
         {
-            if (playerMovement == null)
+            if (playerMovement == null || tileMap == null)
             {
                 return CurrentGridPosition;
             }
 
-            Vector2Int away = CurrentGridPosition - playerMovement.CurrentGridPosition;
-            if (away == Vector2Int.zero)
-            {
-                away = new Vector2Int(1, 0);
-            }
-
-            return CurrentGridPosition + away * Mathf.RoundToInt(FleeDistanceTiles);
+            return RobotAI.FindFarthestCell(playerMovement.CurrentGridPosition, tileMap);
         }
 
         protected virtual void HandlePowerStateChanged(bool active)

@@ -58,14 +58,16 @@ namespace FarmFuryArcade.Core
         /// spec (8/15/30 -> 4/7.5/15) per feedback that the window a robot stays catchable/vulnerable
         /// was too long. The two rare tiers (GoldenWheat/Rainbow — same "rare" gate CropCollector's
         /// PlayRarePelletPickupSfx uses) then got +2s back on top of that, per a later gameplay
-        /// pass, so a rare pellet still reads as meaningfully more valuable than a Sunflower one.</summary>
+        /// pass, so a rare pellet still reads as meaningfully more valuable than a Sunflower one.
+        /// Sunflower's own base window was extended 4s -> 5s in a later pass, still well short of
+        /// the two rare tiers.</summary>
         public static float GetDuration(PowerPelletType type)
         {
             return type switch
             {
                 PowerPelletType.GoldenWheat => 7.5f + 2f,
                 PowerPelletType.Rainbow => 15f + 2f,
-                _ => 4f // Sunflower
+                _ => 5f // Sunflower
             };
         }
 

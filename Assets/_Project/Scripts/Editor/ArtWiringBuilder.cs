@@ -300,9 +300,13 @@ namespace FarmFuryArcade.EditorTools
         private const string WallOrchardPrefabPath = BlockPrefabFolder + "/Wall_Orchard.prefab";
         private const string GroundOrchardPrefabPath = BlockPrefabFolder + "/Ground_Orchard.prefab";
         private const string PickupCherryPrefabPath = BlockPrefabFolder + "/Pickup_Cherry.prefab";
+        private const string CropKernelOrchardPrefabPath = BlockPrefabFolder + "/Crop_Kernel_Orchard.prefab";
+        private const string CropVegetableOrchardPrefabPath = BlockPrefabFolder + "/Crop_Vegetable_Orchard.prefab";
         private const string WallWheatPrefabPath = BlockPrefabFolder + "/Wall_Wheat.prefab";
         private const string GroundWheatPrefabPath = BlockPrefabFolder + "/Ground_Wheat.prefab";
         private const string PickupGrainSackPrefabPath = BlockPrefabFolder + "/Pickup_GrainSack.prefab";
+        private const string CropKernelWheatPrefabPath = BlockPrefabFolder + "/Crop_Kernel_Wheat.prefab";
+        private const string CropVegetableWheatPrefabPath = BlockPrefabFolder + "/Crop_Vegetable_Wheat.prefab";
 
         // ---- ChooseCharacterScreen card art (framed "animal card" portraits) -------------------
         private const string CluckCard = "Assets/_Project/Sprites/UI/Cluck_Chicken.png";
@@ -421,6 +425,23 @@ namespace FarmFuryArcade.EditorTools
                 // convention that every existing prefab's localScale was already tuned around.
                 importer.GetSourceTextureWidthAndHeight(out int width, out int height);
                 importer.spritePixelsPerUnit = width > 0 ? width : 100;
+
+                // Stopgap for a real sizing bug: Billy_Front.png/Billy_back.png are tight portrait
+                // crops (213x401 / 234x408) but Billy_left/right(1).png are a much more loosely
+                // padded 500x500 square — under the standard "PPU = this texture's own width" rule
+                // above, that made him render only ~1.0 world unit tall facing left/right versus
+                // ~1.88 tall facing up/down (CharacterAnimator swaps sprites with no per-frame scale
+                // compensation), a visible size pop every time he turns sideways. Overriding PPU
+                // here to match Front's height ratio (401/213) instead of this texture's own width
+                // keeps his apparent height consistent across every facing — at the cost of also
+                // rendering him wider than 1 grid cell while walking sideways, since a single PPU
+                // scalar can't correct height without scaling width too on a square source. Replace
+                // with a tighter crop of the Left/Right art (matching Front/Back's framing) instead
+                // of this override whenever that art lands.
+                if (path == BillyLeft0 || path == BillyLeft1 || path == BillyRight0 || path == BillyRight1)
+                {
+                    importer.spritePixelsPerUnit = 500f * 213f / 401f;
+                }
 
                 // Btn_plaque.png is a wide rounded-pill button graphic reused as a per-row
                 // background on the Settings screen (see Phase5ProjectBuilder.WrapInPlaqueRow),
@@ -902,28 +923,39 @@ namespace FarmFuryArcade.EditorTools
         }
 
         /// <summary>Wires World 3 (Orchard)'s and World 4 (Wheat)'s wall/ground/backdrop/regular-
-        /// pellet/rare-pellet art and bonus pickups (both x10 now, scattered like CornField's coin).
-        /// These MazeArtSet entries are added/updated additively via TileMapRenderer.
+        /// pellet/rare-pellet/crop art and bonus pickups (both x10 now, scattered like CornField's
+        /// coin). These MazeArtSet entries are added/updated additively via TileMapRenderer.
         /// GetOrAddArtSet rather than through Phase2ProjectBuilder's WireScene (which only rebuilds
         /// the CornField/VegPatch entries it already knows about) — both worlds now have real
         /// LevelData (Phase2ProjectBuilder's BuildLevelData51-75 for Orchard, BuildLevelData76-100
         /// for Wheat), but their art still lands through this separate pass since that's where
-        /// every other field on their MazeArtSet already lives. Both worlds' warp-tunnel/crop
-        /// prefabs still reuse CornField's (no dedicated art for those yet). Each world's rare-tier
-        /// pellet (MazeArtSet.rarePelletSprite — the single pellet that wins the maze's one-rare-
-        /// slot cap, ConfigurePelletTier) reuses a sprite originally uploaded for a different
-        /// purpose elsewhere: Orchard's is RarePellets_apple.png (VegPatch's own regular pellet),
-        /// Wheat's is RarePellets_maize.png (previously unwired dead weight left over from the old
-        /// 3-tier pellet visual system) — MazeArtSet entries are independent per world, so reusing a
-        /// sprite across two unrelated roles is harmless.</summary>
+        /// every other field on their MazeArtSet already lives. Both worlds' warp-tunnel prefabs
+        /// still reuse CornField's (no dedicated art for those yet). Both worlds now have their own
+        /// crop prefabs, though: Orchard's (Crop_Kernel_Orchard/Crop_Vegetable_Orchard) are wired to
+        /// Red_Apple.png, Wheat's (Crop_Kernel_Wheat/Crop_Vegetable_Wheat) to MiniLoaf.png (Wheat's
+        /// own "regular pellet" sprite, reused here the same way Orchard's Red_Apple.png was) —
+        /// both used to share CornField's Crop_Corn/Crop_Vegetable, which meant every id-2/id-3
+        /// crop tile in an Orchard or Wheat maze rendered CornKernel.png/CornCob.png; caught and
+        /// fixed per feedback, Orchard first, Wheat as the same issue found on a follow-up check.
+        /// Each world's rare-tier pellet (MazeArtSet.rarePelletSprite — the single pellet that wins
+        /// the maze's one-rare-slot cap, ConfigurePelletTier) reuses a sprite originally uploaded
+        /// for a different purpose elsewhere: Orchard's is RarePellets_apple.png (loaded via the
+        /// RainbowPellet constant, a legacy name from the old 3-tier pellet system — the file itself
+        /// is apple-themed), Wheat's is RarePellets_maize.png (previously unwired dead weight left
+        /// over from that same old system) — MazeArtSet entries are independent per world, so
+        /// reusing a sprite across two unrelated roles is harmless.</summary>
         private static void WireOrchardAndWheat()
         {
             SetPrefabSprite(WallOrchardPrefabPath, Load(OrchardWallTile));
             SetPrefabSprite(GroundOrchardPrefabPath, Load(OrchardFloorTileSprite));
             SetPrefabSprite(PickupCherryPrefabPath, Load(CherryBonus));
+            SetPrefabSprite(CropKernelOrchardPrefabPath, Load(RedApplePellet));
+            SetPrefabSprite(CropVegetableOrchardPrefabPath, Load(RedApplePellet));
             SetPrefabSprite(WallWheatPrefabPath, Load(WheatWallTile));
             SetPrefabSprite(GroundWheatPrefabPath, Load(WheatFloorTileSprite));
             SetPrefabSprite(PickupGrainSackPrefabPath, Load(RareGrainSackBonus));
+            SetPrefabSprite(CropKernelWheatPrefabPath, Load(MiniLoafPellet));
+            SetPrefabSprite(CropVegetableWheatPrefabPath, Load(MiniLoafPellet));
 
             EditorSceneManager.OpenScene(ScenePath);
             var tileMapRenderer = GameObject.Find("GameManagers")?.GetComponent<TileMapRenderer>();
@@ -937,8 +969,8 @@ namespace FarmFuryArcade.EditorTools
             orchard.wallPrefab = AssetDatabase.LoadAssetAtPath<GameObject>(WallOrchardPrefabPath);
             orchard.groundPrefab = AssetDatabase.LoadAssetAtPath<GameObject>(GroundOrchardPrefabPath);
             orchard.warpTunnelPrefab = AssetDatabase.LoadAssetAtPath<GameObject>(WarpTunnelPrefabPath);
-            orchard.cropKernelPrefab = AssetDatabase.LoadAssetAtPath<GameObject>(CropCornPrefabPath);
-            orchard.cropVegetablePrefab = AssetDatabase.LoadAssetAtPath<GameObject>(CropVegetablePrefabPath);
+            orchard.cropKernelPrefab = AssetDatabase.LoadAssetAtPath<GameObject>(CropKernelOrchardPrefabPath);
+            orchard.cropVegetablePrefab = AssetDatabase.LoadAssetAtPath<GameObject>(CropVegetableOrchardPrefabPath);
             orchard.backdropSprite = Load(OrchardBackgroundSprite);
             orchard.pelletSprite = Load(RedApplePellet);
             orchard.rarePelletSprite = Load(RainbowPellet);
@@ -949,8 +981,8 @@ namespace FarmFuryArcade.EditorTools
             wheat.wallPrefab = AssetDatabase.LoadAssetAtPath<GameObject>(WallWheatPrefabPath);
             wheat.groundPrefab = AssetDatabase.LoadAssetAtPath<GameObject>(GroundWheatPrefabPath);
             wheat.warpTunnelPrefab = AssetDatabase.LoadAssetAtPath<GameObject>(WarpTunnelPrefabPath);
-            wheat.cropKernelPrefab = AssetDatabase.LoadAssetAtPath<GameObject>(CropCornPrefabPath);
-            wheat.cropVegetablePrefab = AssetDatabase.LoadAssetAtPath<GameObject>(CropVegetablePrefabPath);
+            wheat.cropKernelPrefab = AssetDatabase.LoadAssetAtPath<GameObject>(CropKernelWheatPrefabPath);
+            wheat.cropVegetablePrefab = AssetDatabase.LoadAssetAtPath<GameObject>(CropVegetableWheatPrefabPath);
             wheat.backdropSprite = Load(WheatfieldBackdrop);
             wheat.pelletSprite = Load(MiniLoafPellet);
             wheat.rarePelletSprite = Load(GoldenWheatPellet);
