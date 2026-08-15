@@ -245,12 +245,27 @@ namespace FarmFuryArcade.Core
 
         // ---- Reset ------------------------------------------------------------------------------
 
-        /// <summary>SettingsPanel's "Reset Progress" button, after confirmation. PlayerPrefs has
-        /// no key-enumeration/prefix-delete API, so every known key is deleted explicitly
-        /// (per-level keys swept across MaxLevelsForReset — deleting a key that was never set is a
-        /// harmless no-op). Does NOT reset settings (music/sfx/language/etc.) — those aren't
-        /// "progress".</summary>
+        /// <summary>SettingsPanel's "Reset Progress" button, after confirmation. Deletes every
+        /// known PlayerPrefs key (via ResetAllProgressKeys, static so it's also reachable from
+        /// Editor tooling with no live SaveManager instance — see SceneCleanupBuilder's
+        /// "Reset All Progress (Testing)" menu item), then re-loads so starter-character unlocks
+        /// (Cluck/Bessie) are re-applied immediately rather than waiting for the next app launch.</summary>
         public void ResetAllProgress()
+        {
+            ResetAllProgressKeys();
+            LoadProgress(); // re-applies starter-character unlocks (Cluck/Bessie)
+        }
+
+        /// <summary>The actual PlayerPrefs deletion, split out of ResetAllProgress so it can run
+        /// with no live SaveManager instance (Singleton&lt;T&gt; only ever assigns Instance from a
+        /// real scene Awake() — see Singleton's own doc comment — so an Editor-only tool can't call
+        /// the instance method directly without first entering Play mode). PlayerPrefs has no
+        /// key-enumeration/prefix-delete API, so every known key is deleted explicitly (per-level
+        /// keys swept across MaxLevelsForReset — deleting a key that was never set is a harmless
+        /// no-op). Does NOT reset settings (music/sfx/language/etc.) — those aren't "progress".
+        /// Callers that only need the on-disk state cleared (e.g. an Edit-mode Editor tool with no
+        /// SaveManager instance to update) can call this directly instead of ResetAllProgress.</summary>
+        public static void ResetAllProgressKeys()
         {
             PlayerPrefs.DeleteKey(HighestLevelKey);
             PlayerPrefs.DeleteKey(CoinBalanceKey);
@@ -276,7 +291,6 @@ namespace FarmFuryArcade.Core
             }
 
             PlayerPrefs.Save();
-            LoadProgress(); // re-applies starter-character unlocks (Cluck/Bessie)
         }
     }
 }

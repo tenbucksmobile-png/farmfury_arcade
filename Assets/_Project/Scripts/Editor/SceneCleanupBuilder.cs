@@ -143,6 +143,20 @@ namespace FarmFuryArcade.EditorTools
                       "Press Play and open Level Select — World 2's badge is now selectable.");
         }
 
+        /// <summary>Opposite of UnlockAllLevelsForTesting — wipes every level/world/character-unlock
+        /// PlayerPrefs key via SaveManager.ResetAllProgressKeys (the static, no-instance-required
+        /// half of SaveManager.ResetAllProgress — see its own doc comment) so play can restart from
+        /// Level 1 with only the starter characters (Cluck/Bessie, re-applied automatically the next
+        /// time SaveManager.Awake runs — see SaveManager.LoadProgress). Does not touch settings
+        /// (music/sfx/language/etc.) — those aren't "progress".</summary>
+        [MenuItem("Farm Fury Arcade/Debug/Reset All Progress (Testing)")]
+        public static void ResetAllProgressForTesting()
+        {
+            SaveManager.ResetAllProgressKeys();
+            Debug.Log("[SceneCleanupBuilder] Cleared all level/world/character-unlock progress. " +
+                      "Press Play — only Cluck and Bessie will be unlocked, and Level Select will start at Level 1.");
+        }
+
         private static int _sfxDiagFrame;
 
         /// <summary>Minimal, self-contained Play Mode check for "SFX doesn't play" reports — opens
