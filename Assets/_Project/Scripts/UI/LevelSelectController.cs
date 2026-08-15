@@ -79,6 +79,15 @@ namespace FarmFuryArcade.UI
         /// LevelComplete's Home), which land on world select as usual.</summary>
         private int? _pendingWorldToOpen;
 
+        /// <summary>True only while consuming a pending OpenLevelSelectForLevel target — makes
+        /// RevealWorld land the grid scrolled to the very top (that world's Level 1) instead of its
+        /// usual "centre the newly-unlocked level" behaviour. Per feedback, auto-centring the level
+        /// that just became unlocked read as the screen unexpectedly scrolling further down every
+        /// time a level was finished; landing at the top instead means returning from Level Complete
+        /// always shows the same, predictable view. A normal world-badge tap (no pending target)
+        /// keeps the old centring behaviour, since that's not what was reported as a problem.</summary>
+        private bool _scrollToTopOnNextReveal;
+
         private void Awake()
         {
             backButton.onClick.AddListener(OnBackButtonClicked);
@@ -111,6 +120,7 @@ namespace FarmFuryArcade.UI
             int localIndex = _shownWorlds.IndexOf(world);
             if (localIndex >= 0 && localIndex < _shieldObjects.Count)
             {
+                _scrollToTopOnNextReveal = true;
                 SelectWorld(world, _shieldObjects[localIndex]);
             }
         }
@@ -258,7 +268,16 @@ namespace FarmFuryArcade.UI
 
             PopulateLevelGrid(world);
             scrollRect.gameObject.SetActive(true);
-            ScrollToCurrentLevel(world);
+
+            if (_scrollToTopOnNextReveal)
+            {
+                _scrollToTopOnNextReveal = false;
+                ScrollToTop();
+            }
+            else
+            {
+                ScrollToCurrentLevel(world);
+            }
 
             _shieldRevealRoutine = null;
         }
@@ -385,6 +404,23 @@ namespace FarmFuryArcade.UI
                 StopCoroutine(_scrollRoutine);
             }
             _scrollRoutine = StartCoroutine(ScrollTween(targetNormalized));
+        }
+
+        /// <summary>Snaps (no tween — this is the "always land here" default, not a follow-the-
+        /// player move worth animating) the grid's scroll position to the very top, i.e. that
+        /// world's own Level 1 row. Used instead of ScrollToCurrentLevel when returning from Level
+        /// Complete — see _scrollToTopOnNextReveal's doc comment.</summary>
+        private void ScrollToTop()
+        {
+            if (_scrollRoutine != null)
+            {
+                StopCoroutine(_scrollRoutine);
+                _scrollRoutine = null;
+            }
+            if (scrollRect != null)
+            {
+                scrollRect.verticalNormalizedPosition = 1f;
+            }
         }
 
         /// <summary>contentParent is anchored top-centre (pivot y=1), so a child's local Y position
