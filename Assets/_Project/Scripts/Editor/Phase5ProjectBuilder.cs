@@ -1373,23 +1373,27 @@ namespace FarmFuryArcade.EditorTools
             panelArtFitter.aspectMode = AspectRatioFitter.AspectMode.FitInParent;
             panelArtFitter.aspectRatio = 1f;
 
-            // Star row + score sit in the art's own blank middle area (between the 3 decorative
-            // always-filled stars up top and the horseshoe/star-rating frame near the bottom — the
-            // baked-in "LEVEL COMPLETE!" banner and those decorative stars are art, not these).
-            // Band moved up from 0.06-0.30 (which sat low enough to overlap the horseshoe frame
-            // art, not the actual blank space) to 0.36-0.62, roughly centred in that blank zone.
-            // Font enlarged again (52 -> 66) and spacing increased (16 -> 20) per repeated feedback
-            // that it still read as too small/low.
+            // Score + star row sit in the art's own blank middle area, below the 3 decorative
+            // always-filled stars baked into the card art just under the "LEVEL COMPLETE!" banner
+            // (that banner and those decorative stars are art, not these). Score now comes FIRST
+            // (closest to the baked stars) with the real StarDisplay row moved below it — the two
+            // used to be reversed (Stars on top, right under the baked-in stars), which visually
+            // clashed since a second row of stars sat almost directly beneath the art's own first
+            // row. Band also nudged down (0.36-0.62 -> 0.28-0.56) for clearance from the baked
+            // stars. Font enlarged again (52 -> 66) and spacing increased (16 -> 20) per repeated
+            // feedback that it still read as too small/low.
             var shelfGO = CreateVerticalGroup("ShelfContent", panelArtGO.transform, 20f, 0);
-            SetAnchorRect((RectTransform)shelfGO.transform, 0.27f, 0.36f, 0.73f, 0.62f);
-            var starDisplayGO = CreateStarDisplay("Stars", shelfGO.transform, 28);
+            SetAnchorRect((RectTransform)shelfGO.transform, 0.27f, 0.28f, 0.73f, 0.56f);
             var scoreText = CreateText("ScoreText", shelfGO.transform, "0", 66f, TextAlignmentOptions.Center, 80f, new Color(0.3f, 0.2f, 0.1f));
+            var starDisplayGO = CreateStarDisplay("Stars", shelfGO.transform, 28);
 
             // Play/Home/Settings used to be one bottom-right row; split per feedback — Play now
             // sits alone bottom-left (matching the same bottom-left safe-area inset every other
-            // screen's back button uses), Home/Settings stay paired bottom-right. Inset deepened
-            // (100,70 -> 150,110) — it was still crossing the yellow safe-area guide's corner at
-            // the original inset.
+            // screen's back button uses), Home/Settings stay paired bottom-right. Both rows share
+            // the same 110px bottom inset so their button centres land on the same horizontal line
+            // (matching the horseshoe art baked into both bottom corners of the card) — they'd
+            // drifted out of alignment when Play's own inset was deepened (70 -> 110) for
+            // safe-area clearance without carrying the same change over to ActionButtons.
             var playButton = CreateButton("PlayButton", root.transform, string.Empty, new Color(0.85f, 0.55f, 0.1f), 28f, 130f, out _);
             Object.DestroyImmediate(playButton.transform.Find("PlayButton_Label").gameObject);
             AnchorBottomLeft((RectTransform)playButton.transform, new Vector2(130f, 130f), new Vector2(150f, 110f));
@@ -1401,8 +1405,9 @@ namespace FarmFuryArcade.EditorTools
             // -220) per a follow-up review — the row (Play, when it was still part of this group)
             // still crossed the yellow guide's right edge at -100. Negative X moves inward for a
             // right-pivoted anchor (see CreateRoundBackButton's doc comment). Width shrunk to match
-            // now that it's only 2 buttons instead of 3.
-            AnchorBottomRight((RectTransform)actionRow.transform, new Vector2(320f, 130f), new Vector2(-220f, 70f));
+            // now that it's only 2 buttons instead of 3. Y inset raised (70 -> 110) to match
+            // PlayButton's own bottom inset — see the comment above.
+            AnchorBottomRight((RectTransform)actionRow.transform, new Vector2(320f, 130f), new Vector2(-220f, 110f));
 
             var homeButton = CreateButton("HomeButton", actionRow.transform, string.Empty, new Color(0.85f, 0.55f, 0.1f), 28f, 130f, out _);
             Object.DestroyImmediate(homeButton.transform.Find("HomeButton_Label").gameObject);
