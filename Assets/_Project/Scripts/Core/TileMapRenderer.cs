@@ -59,9 +59,10 @@ namespace FarmFuryArcade.Core
             /// don't.</summary>
             public Sprite rarePelletSprite;
 
-            /// <summary>Extra pickup scattered on top of already-rendered tiles (not tied to any
-            /// grid tile id) — the per-world THEMED bonus (Orchard's cherry, Wheat's grain sack;
-            /// CornField and VegPatch have none of their own). Independent of universalCoinPrefab,
+            /// <summary>Extra pickup scattered on random walkable ground cells (not tied to any
+            /// grid tile id, but excludes crop/pellet cells — see SpawnScatteredPickups) — the
+            /// per-world THEMED bonus (Orchard's cherry, Wheat's grain sack; CornField and VegPatch
+            /// have none of their own). Independent of universalCoinPrefab,
             /// which spawns a coin on every world's mazes regardless of this field — the two are
             /// scattered separately and can coexist on the same maze. Deliberately NOT counted in
             /// LevelData.totalCropsRequired (that's computed once at LevelData build time from the
@@ -239,12 +240,17 @@ namespace FarmFuryArcade.Core
             return result;
         }
 
-        /// <summary>Scatters `count` copies of `prefab` onto random walkable cells (any non-wall
-        /// tile id, on top of whatever else is already there) — see MazeArtSet.bonusPickupPrefab's
-        /// doc comment for why this is separate from totalCropsRequired. Shared by both the
-        /// per-world themed bonus (MazeArtSet.bonusPickupPrefab — cherry, grain sack, ...) and the
-        /// world-independent universalCoinPrefab, so a maze can carry both scattered independently.
-        /// A no-op if prefab is null or count <= 0.</summary>
+        /// <summary>Scatters `count` copies of `prefab` onto random walkable, crop/pellet-free
+        /// cells — see MazeArtSet.bonusPickupPrefab's doc comment for why this is separate from
+        /// totalCropsRequired. Shared by both the per-world themed bonus (MazeArtSet.
+        /// bonusPickupPrefab — cherry, grain sack, ...) and the world-independent
+        /// universalCoinPrefab, so a maze can carry both scattered independently. Excludes crop
+        /// kernel/vegetable/power-pellet cells (tile ids 2-4) — those already render their own
+        /// pickup sprite, and stacking a second one on top (the original "on top of whatever else
+        /// is already there" behaviour) reads as one pickup swallowing the other rather than two
+        /// distinct items, especially now that Orchard's crop-apple sprite is large enough to
+        /// visually dominate a smaller bonus cherry landing on the same cell. A no-op if prefab is
+        /// null or count <= 0.</summary>
         private void SpawnScatteredPickups(GameObject prefab, int count, LevelData data)
         {
             if (prefab == null || count <= 0)
@@ -257,7 +263,9 @@ namespace FarmFuryArcade.Core
             {
                 for (int y = 0; y < data.mazeHeight; y++)
                 {
-                    if (data.MazeLayout[x, y] != TileWall)
+                    int tileId = data.MazeLayout[x, y];
+                    if (tileId != TileWall && tileId != TileCropKernel && tileId != TileCropVegetable
+                        && tileId != TilePowerPellet)
                     {
                         candidates.Add(new Vector2Int(x, y));
                     }
