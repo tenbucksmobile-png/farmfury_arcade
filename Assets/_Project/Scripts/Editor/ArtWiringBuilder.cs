@@ -277,6 +277,11 @@ namespace FarmFuryArcade.EditorTools
         // ---- World 3 (Orchard) + World 4 (Wheat) maze/pickup art --------------------------------
         private const string OrchardWallTile = "Assets/_Project/Sprites/UI/Orchard_WallTile.png";
         private const string OrchardBackgroundSprite = "Assets/_Project/Sprites/UI/OrchardBackground.png";
+        // Orchard's own warp-tunnel art (a tree-trunk hollow) — replaces the CornField WarpTile.png
+        // reuse both Orchard and Wheat had before this.
+        private const string OrchardWarpTile = "Assets/_Project/Sprites/UI/OrchardWarpTile.png";
+        // Wheat's own dedicated warp-tunnel art (a wheat-sheaf swirl portal).
+        private const string WheatWarpTile = "Assets/_Project/Sprites/UI/WheatWarpTile.png";
         // Split off of a shared FloorTile.png drop-in that would otherwise have also changed
         // CornField/VegPatch's ground (see WireOrchardAndWheat's doc comment) — copied to its own
         // file before the original FloorTile.png was restored to CornField's original soil art.
@@ -299,6 +304,8 @@ namespace FarmFuryArcade.EditorTools
         private const string WheatFloorTileSprite = "Assets/_Project/Sprites/UI/WheatFloorTile.png";
         private const string WallOrchardPrefabPath = BlockPrefabFolder + "/Wall_Orchard.prefab";
         private const string GroundOrchardPrefabPath = BlockPrefabFolder + "/Ground_Orchard.prefab";
+        private const string WarpTunnelOrchardPrefabPath = BlockPrefabFolder + "/WarpTunnel_Orchard.prefab";
+        private const string WarpTunnelWheatPrefabPath = BlockPrefabFolder + "/WarpTunnel_Wheat.prefab";
         private const string PickupCherryPrefabPath = BlockPrefabFolder + "/Pickup_Cherry.prefab";
         private const string CropKernelOrchardPrefabPath = BlockPrefabFolder + "/Crop_Kernel_Orchard.prefab";
         private const string CropVegetableOrchardPrefabPath = BlockPrefabFolder + "/Crop_Vegetable_Orchard.prefab";
@@ -390,7 +397,7 @@ namespace FarmFuryArcade.EditorTools
             VegTile, VeggiePatchWarp, VegetableGardenBackdrop, FilledStar, EmptyStar, CornCob, Cabbage,
             LevelTileLocked, LevelTileUnlocked, LevelTile1Star, LevelTile2Stars, LevelTile3Stars,
             BgLevelSelect, DividerWorldBanner, WaterTileSprite, UnlockedBannerSprite,
-            OrchardWallTile, OrchardFloorTileSprite, OrchardBackgroundSprite, RedApplePellet, CherryBonus,
+            OrchardWallTile, OrchardFloorTileSprite, OrchardBackgroundSprite, OrchardWarpTile, WheatWarpTile, RedApplePellet, CherryBonus,
             WheatWallTile, WheatFloorTileSprite, MiniLoafPellet, RareGrainSackBonus,
             SelectLevelText, CornFieldText, VegetablePatchText, OrchardText, WheatfieldText, SettingsSignText,
             LogoImage, CluckEggIcon, CluckEggCracked, CluckEggBurst
@@ -937,6 +944,10 @@ namespace FarmFuryArcade.EditorTools
         /// both used to share CornField's Crop_Corn/Crop_Vegetable, which meant every id-2/id-3
         /// crop tile in an Orchard or Wheat maze rendered CornKernel.png/CornCob.png; caught and
         /// fixed per feedback, Orchard first, Wheat as the same issue found on a follow-up check.
+        /// Both worlds' warp tunnels now have their own dedicated art too (OrchardWarpTile.png, a
+        /// tree-trunk hollow; WheatWarpTile.png, a wheat-sheaf swirl portal) via new
+        /// WarpTunnel_Orchard/WarpTunnel_Wheat prefabs (Phase2ProjectBuilder.BuildAll) — neither
+        /// reuses CornField's WarpTunnel prefab/WarpTile.png anymore.
         /// Each world's rare-tier pellet (MazeArtSet.rarePelletSprite — the single pellet that wins
         /// the maze's one-rare-slot cap, ConfigurePelletTier) reuses a sprite originally uploaded
         /// for a different purpose elsewhere: Orchard's is RarePellets_apple.png (loaded via the
@@ -948,11 +959,13 @@ namespace FarmFuryArcade.EditorTools
         {
             SetPrefabSprite(WallOrchardPrefabPath, Load(OrchardWallTile));
             SetPrefabSprite(GroundOrchardPrefabPath, Load(OrchardFloorTileSprite));
+            SetPrefabSprite(WarpTunnelOrchardPrefabPath, Load(OrchardWarpTile));
             SetPrefabSprite(PickupCherryPrefabPath, Load(CherryBonus));
             SetPrefabSprite(CropKernelOrchardPrefabPath, Load(RedApplePellet));
             SetPrefabSprite(CropVegetableOrchardPrefabPath, Load(RedApplePellet));
             SetPrefabSprite(WallWheatPrefabPath, Load(WheatWallTile));
             SetPrefabSprite(GroundWheatPrefabPath, Load(WheatFloorTileSprite));
+            SetPrefabSprite(WarpTunnelWheatPrefabPath, Load(WheatWarpTile));
             SetPrefabSprite(PickupGrainSackPrefabPath, Load(RareGrainSackBonus));
             SetPrefabSprite(CropKernelWheatPrefabPath, Load(MiniLoafPellet));
             SetPrefabSprite(CropVegetableWheatPrefabPath, Load(MiniLoafPellet));
@@ -968,7 +981,7 @@ namespace FarmFuryArcade.EditorTools
             var orchard = tileMapRenderer.GetOrAddArtSet(MazeType.Orchard);
             orchard.wallPrefab = AssetDatabase.LoadAssetAtPath<GameObject>(WallOrchardPrefabPath);
             orchard.groundPrefab = AssetDatabase.LoadAssetAtPath<GameObject>(GroundOrchardPrefabPath);
-            orchard.warpTunnelPrefab = AssetDatabase.LoadAssetAtPath<GameObject>(WarpTunnelPrefabPath);
+            orchard.warpTunnelPrefab = AssetDatabase.LoadAssetAtPath<GameObject>(WarpTunnelOrchardPrefabPath);
             orchard.cropKernelPrefab = AssetDatabase.LoadAssetAtPath<GameObject>(CropKernelOrchardPrefabPath);
             orchard.cropVegetablePrefab = AssetDatabase.LoadAssetAtPath<GameObject>(CropVegetableOrchardPrefabPath);
             orchard.backdropSprite = Load(OrchardBackgroundSprite);
@@ -980,7 +993,7 @@ namespace FarmFuryArcade.EditorTools
             var wheat = tileMapRenderer.GetOrAddArtSet(MazeType.Wheat);
             wheat.wallPrefab = AssetDatabase.LoadAssetAtPath<GameObject>(WallWheatPrefabPath);
             wheat.groundPrefab = AssetDatabase.LoadAssetAtPath<GameObject>(GroundWheatPrefabPath);
-            wheat.warpTunnelPrefab = AssetDatabase.LoadAssetAtPath<GameObject>(WarpTunnelPrefabPath);
+            wheat.warpTunnelPrefab = AssetDatabase.LoadAssetAtPath<GameObject>(WarpTunnelWheatPrefabPath);
             wheat.cropKernelPrefab = AssetDatabase.LoadAssetAtPath<GameObject>(CropKernelWheatPrefabPath);
             wheat.cropVegetablePrefab = AssetDatabase.LoadAssetAtPath<GameObject>(CropVegetableWheatPrefabPath);
             wheat.backdropSprite = Load(WheatfieldBackdrop);
