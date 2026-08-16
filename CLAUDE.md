@@ -85,7 +85,11 @@ them by static reference — `GameManager` fetches `SceneController` via `GetCom
   respawn cap). Either path sets `GameState.LevelFailed`, which `GameplayHUD`'s state-watcher
   reacts to by showing `LevelFailedScreen` ("Try Again" — see its own section under Screens
   below). `GameplayHUD`'s timer text now **counts down** from `LevelTimeLimitSeconds`
-  (`RefreshTimerText`) instead of counting up elapsed time.
+  (`RefreshTimerText`) instead of counting up elapsed time. In the last `TimerWarningThresholdSeconds`
+  (15s) it also pulses red (`Color.Lerp` between the normal colour and `TimerWarningColor` on a
+  sine wave, same "pulse" convention `GameplayHUD`'s ability-ready flash already used) — added per
+  feedback that the timeout ending a run felt "random" with no warning; the countdown text alone
+  was easy to miss while focused on the maze.
 - **DataManager** — loads all ScriptableObject data at startup via `Resources.LoadAll`.
 - **SaveManager** — PlayerPrefs-backed persistence (highest level, coins, star ratings, character
   unlocks). Cluck and Bessie auto-unlock on first run (starter characters per the GDD).
@@ -146,7 +150,13 @@ Two other per-world behaviors live on `MazeArtSet`:
   NotifyCropCollected` — it's bonus, invisible to `LevelData.totalCropsRequired`, and never blocks
   level completion. **Separate from the coin** below — `TileMapRenderer.SpawnScatteredPickups` is
   a shared helper `RenderMaze` calls twice per maze (once for this field, once for the coin), so a
-  maze can carry both independently.
+  maze can carry both independently. `SpawnScatteredPickups` excludes crop/vegetable/power-pellet
+  cells (tile ids 2-4) AND warp tunnel cells (tile id 5) from its candidate list — a bonus pickup
+  landing on the same cell as a crop/pellet tile used to visually double up (worse once Orchard's
+  crop-apple sprite was enlarged to match the power pellet's scale — see the crop/pellet scale note
+  under "Per-world art" below — since the larger apple would swallow a smaller bonus cherry sharing
+  its cell), and one on a warp tile read as oddly placed and risked being collected before the
+  player could even see it.
 - **`TileMapRenderer.universalCoinPrefab`/`coinsPerMaze`** — NOT part of `MazeArtSet`, a single
   scene-level field spawned on every maze regardless of world, guaranteeing a `Pickup_Coin` exists
   on every level. Used to be CornField's own `MazeArtSet.bonusPickupPrefab` entry instead (the only
@@ -352,28 +362,37 @@ corners (inset 1 tile from the border), classic-arcade style. `DrifterRobot`'s "
 when close to the player reuses the same field (`scatterCornerPosition`).
 
 **Anti-loop targeting (`RobotAI.GetNextDirection`):** at each intersection, every walkable
-non-reversing direction is weighted by its neighbour cell's REAL shortest-path (BFS) distance to
-the current target, then picked via a weighted random roll (not greedy-always-closest). This used
-to weight by straight-line (Euclidean) distance instead — that reads fine in open areas, but in a
-maze with long corridors, continuing straight always scored as "closer" by straight-line distance
-even at intersections where turning onto a perpendicular corridor was the actual shorter (or only)
-route to the target. A robot would then keep re-choosing "continue straight," bounce off that
-corridor's ends (the no-U-turn rule only forces a reversal at an actual dead end), and permanently
-oscillate within one row/column — reported as robots "getting stuck in a row and looping, never
-moving away from it," reproducible on any level with a long peripheral corridor (i.e. most of
-them, especially after the wall-thinning pass below added several). `RobotAI.ComputeDistances`
-now runs a real BFS from the target every call (maze is only ~100 cells, called once per robot per
-intersection arrival — negligible cost) and `GetNextDirection` weights candidates by that instead;
-falls back to straight-line distance only for a target cell BFS can't reach (shouldn't happen in
-practice — targets are always real walkable cells — but a per-robot Chase target like Scout's "N
-tiles ahead of facing" projection can land on a wall). `RobotBase` also still keeps a short rolling
-history of its last 6 occupied cells (`_recentCells`, cleared on `Initialize`/`ResetToFactory`) and
-passes it into `GetNextDirection`, which cuts a candidate direction's weight to 15% (not to zero —
-a real dead end still needs to be enterable) if its destination cell is in that history — a second
-line of defence against short back-and-forth cycles between two branches BFS distance alone doesn't
-rule out (e.g. two genuinely equidistant branches). `DroneRobot` bypasses `RobotAI` entirely (see
-above) so none of this applies to it — straight-line distance is already correct for a robot that
-ignores interior walls.
+non-reversing direction's neighbour cell is scored by its REAL shortest-path (BFS) distance to the
+current target, and the robot **always commits to whichever candidate has the true-shortest
+distance** — deterministic-greedy, not a weighted random roll. `RobotAI.ComputeDistances` runs a
+real BFS from the target every call (maze is only ~100 cells, called once per robot per
+intersection arrival — negligible cost); falls back to straight-line distance only for a target
+cell BFS can't reach (shouldn't happen in practice — targets are always real walkable cells — but a
+per-robot Chase target like Scout's "N tiles ahead of facing" projection can land on a wall).
+`RobotBase`'s short rolling history of its last 6 occupied cells (`_recentCells`, cleared on
+`Initialize`/`ResetToFactory`) only ever breaks **ties** — among the candidates that share the
+best (lowest) BFS distance, a non-recent one is preferred over a recently-visited one; any random
+pick left after that is only among genuinely equally-good options, never a worse one. `DroneRobot`
+bypasses `RobotAI` entirely (see above) so none of this applies to it — straight-line distance is
+already correct for a robot that ignores interior walls.
+
+This used to weight by straight-line (Euclidean) distance to the target — that reads fine in open
+areas, but in a maze with long corridors, continuing straight always scored as "closer" by
+straight-line distance even at intersections where turning onto a perpendicular corridor was the
+actual shorter (or only) route, causing robots to bounce off a corridor's ends and permanently
+oscillate within one row/column. Swapping to real BFS distance (as above) fixed the *math*, but the
+first version of that fix still picked a direction via a weighted-random roll (each candidate's
+distance mapped to a weight via `1/(1+dist^2)`, one picked by rolling against the total) rather than
+committing to the actual best one — which meant RNG could still choose a strictly WORSE candidate
+on any given call (a best option 1 tile away vs. a worse one 3 tiles away still had roughly a
+1-in-6 chance of the worse pick every single visit). In a busy area with many intersections (a
+level's top row, several robots crossing it constantly), that reads exactly like "stuck looping in
+the top row" even though the underlying distance math was already correct — reported again after
+the BFS fix had already shipped. A `RecentCellWeightPenalty` constant was tried at both 0.15 and
+0.05 to narrow those odds, but a weight penalty can only ever discount a candidate's chance of being
+picked, never remove it. Replacing the weighted roll with a hard "take the best, break ties with
+recency, randomize only among ties" rule (the current behaviour, described above) removes that risk
+entirely.
 
 **Fleeing (Vulnerable state):** `RobotBase.GetFleeTarget` used to project a target 10 tiles away
 from the player in the opposite direction — a straight-line point that could land outside the maze
@@ -405,6 +424,13 @@ and duration-per-tier lookup (`GetDuration`: Sunflower 5s / Golden Wheat 9.5s / 
 its doc comment for the tuning history: halved from an original 8/15/30 GDD spec per feedback that
 the vulnerable window was too long, the two rare tiers got +2s back on top of that so they still
 felt meaningfully more valuable, then Sunflower's own base further went 4s → 5s in a later pass).
+**`ActivatePower` only ever EXTENDS an already-running countdown, never shortens it** —
+`TimeRemaining = IsPowerActive ? Mathf.Max(TimeRemaining, duration) : duration`. It used to
+unconditionally overwrite `TimeRemaining` with the new pellet's own duration regardless of what was
+already active; since a maze typically has several plain Sunflower pellets (5s) alongside its one
+capped rare pellet (GoldenWheat 9.5s / Rainbow 17s), eating a Sunflower partway through an
+already-running rare-tier window reset the timer down to a flat 5s, cutting the rare pellet's real
+duration short well before it should have expired.
 `ChaseScoreManager` (Core) tracks `ChainCount` across one power activation (200/400/800/1600,
 +5000 for all 4) and resets when `PowerPelletManager`'s countdown ends.
 
@@ -432,11 +458,11 @@ ability:
 |---|---|---|---|
 | Cluck | EggDrop | 1 egg at her current position; any robot walking over it is instantly defeated | 10s |
 | Bessie | GroundSlam | Instantly defeats every robot within 2 tiles at cast, shockwave + camera shake, then the zone lingers 3s defeating any robot that wanders in afterward | 10s |
-| Percy | BounceRoll | Next wall he hits becomes walkable 2s (glows while phaseable) | 10s |
+| Percy | BounceRoll | Rolls 3 tiles forward (9 if buffed) in his current facing direction, instantly defeating any robot touched; stops early at a wall | 10s |
 | Woolly | TripleClone | Spawns 2 AI clones (`WoollyClone`) that wander/collect crops for 10s | 10s |
 | Ducky | SkipShot | Teleports across an adjacent unused water tile pair — once per pair per maze | 10s (this is the real gate now too — see the note below on why it went from a 2s debounce to matching everyone else) |
 | Horace | RearKick | Nearest robot within 3 tiles (Manhattan) knocked back 4 tiles, instantly defeated on landing | 10s |
-| Gerald | PuffUp | 3x scale, 5s, instantly defeats any robot touched, half speed, can't use warp tunnels | 10s |
+| Gerald | PuffUp | Pulsates between normal size and 2x scale for 3s, instantly defeats any robot touched throughout the pulse, half speed, can't use warp tunnels | 10s |
 | Billy | HeadbuttThrough | Permanently destroys the next 3 walls he hits | 10s |
 
 **All 8 cooldowns were unified to 10s** in a later gameplay pass (previously a spread from 2s
@@ -450,10 +476,46 @@ re-arms much slower now, even though her real limiter was always the once-per-wa
 **Every ability-created robot hazard now defeats on contact, not just stuns** (`ForceDefeat`,
 bypassing the Vulnerable requirement — same convention `PuffUpAbility` already used) — a later
 gameplay rule change: a deployed ability effect a robot runs through should kill it outright.
-Applies to `EggHazard`, `GroundSlamAbility`, and `RobotBase.KnockBack` (used by `RearKickAbility`,
-which dropped its now-unused stun-duration parameter accordingly). The only two characters this
-doesn't touch are Percy (`BounceRoll`) and Ducky (`SkipShot`), neither of which has a robot-facing
-hazard to begin with.
+Applies to `EggHazard`, `GroundSlamAbility`, `RobotBase.KnockBack` (used by `RearKickAbility`,
+which dropped its now-unused stun-duration parameter accordingly), and (once `BounceRollAbility`
+was reworked into a forward roll — see below) `BounceRollAbility` itself via its own
+`OnTriggerEnter2D`. Ducky's `SkipShot` is now the only character ability with no robot-facing
+hazard at all.
+
+**`BounceRollAbility` (Percy) reworked from wall-phasing to a forward roll-and-kill.** The original
+version armed a "next wall hit becomes temporarily walkable" window (see the old "Wall mutation"
+description this replaced, further down); per feedback it was replaced entirely with a rolling dash:
+on activation, Percy rolls `RollTilesBase` (3, or `RollTilesBuffed` = 9 if Earthquake Roll/Kick and
+Roll buffed the *next* activation — see the combo table below, which now buffs roll distance
+instead of wall-phase count) tiles in his current facing direction, moving one tile at a time
+(`RollSecondsPerTile` = 0.12s each) and stopping early if a wall blocks the way. Any `RobotBase` his
+trigger touches during the roll is `ForceDefeat()`'d regardless of state. `Movement.enabled` (his
+`GridMovement`) is set `false` for the roll's duration and re-enabled the instant it ends, so normal
+hold-to-move control resumes automatically under whatever direction the player is currently
+holding — `GridMovement.OnEnable` already re-syncs to live input on its own, so no separate
+"continue walking" logic was needed. Facing direction is read from a new `GridMovement.
+LastFacingDirection` property, not `CurrentDirection` — `CurrentDirection` resets to `Direction.None`
+the instant no direction is held, which would make the roll always default to Down when activated
+while Percy is stationary; `LastFacingDirection` persists the last real direction so the roll fires
+correctly in any of the 4 directions regardless of whether he's currently moving.
+
+Percy's own `SpriteRenderer` swaps to `trailPrefab`'s sprite (`Percy_effect.png`, a curled-up
+rolling-ball pose) for the roll's duration instead of instantiating that prefab as a separate
+trailing child — the earlier version left Percy's normal walk-cycle sprite visible with a faint
+trail object barely noticeable behind him, which didn't read as "he became a rolling ball." His
+`CharacterAnimator` component is disabled for the roll (it drives the same `SpriteRenderer` every
+frame from `GridMovement`'s direction, and would otherwise overwrite the swapped sprite on the very
+next frame) and re-enabled alongside `Movement` when the roll ends. `trailPrefab`'s field name/
+serialized reference was kept as-is even though it's no longer instantiated — only its
+`SpriteRenderer.sprite` is read now — since renaming would drop the existing wired reference on
+Percy's prefab (Unity matches serialized fields by name).
+
+**Gerald's `PuffUpAbility` now pulsates rather than holding a flat inflated size.** Was an instant,
+fixed 3x scale held for 5s; per feedback that read as "too big." Now scales via a sine wave between
+normal size and `ScaleMultiplier` (2x) over `PuffDurationSeconds` (3s), completing
+`PulseCyclesOverDuration` (3) full swell-then-shrink cycles — a visible "breathing" rhythm rather
+than a static inflated state. The robot-defeat-on-touch behaviour applies throughout the whole
+pulse, not gated to the scale peak.
 
 **Robot mechanics abilities lean on** (`RobotBase`, additive Phase 4): `Stun(duration)`/
 `IsStunned` (freezes state-cycle + movement, ignored by Defeated/Returning "eyes" — still used by
@@ -466,10 +528,15 @@ convention as Vulnerable/Defeated (knocked-back robots are mid-slide only briefl
 into `ForceDefeat`, so that tint is on-screen only for the slide itself now).
 
 **Wall mutation** lives on `TileMapRenderer`, not `LevelData` — `SetTemporaryWalkable(cell, bool)`
-overrides a single cell's walkability without touching the maze asset (Percy calls it, then
-reverts after 2s); `DestroyWallAt(cell)` also removes the spawned wall GameObject and never
-reverts (Billy, and Gerald's Iron Stampede buff). `GetWallAt(cell)` returns the wall GameObject
-for tinting.
+overrides a single cell's walkability without touching the maze asset. Its only genuinely temporary
+caller used to be Percy's old wall-phase ability (arm a cell walkable, revert after 2s); now that
+`BounceRollAbility` has been reworked into a forward roll that never phases through walls (see
+above), `SetTemporaryWalkable` is only used as the permanent backing for `DestroyWallAt(cell)`
+(Billy, and Gerald's Iron Stampede buff — removes the spawned wall GameObject and never reverts).
+Kept general (still takes a `walkable` bool, not `DestroyWallAt`-specific) in case a future ability
+wants a genuinely temporary override again. `GetWallAt(cell)` returns the wall GameObject for
+tinting — currently unused (its only caller was the old wall-phase glow), kept as public API rather
+than removed.
 
 **`playerMovement` in `RobotBase`/subclasses is a live property, not a cached field** — it reads
 `CharacterManager.Instance.ActiveCharacterObject` every access. A cached `FindFirstObjectByType`
@@ -483,12 +550,12 @@ subclass already used, so no subclass code needed to change.
 | Combo | Trigger | Effect (consumed on the named ability's *next* activation) |
 |---|---|---|
 | Feather Storm | Cluck → Woolly | Woolly's clones drop eggs as they walk |
-| Earthquake Roll | Bessie → Percy | Percy phases 3 walls instead of 1 |
+| Earthquake Roll | Bessie → Percy | Percy's next Bounce Roll travels 9 tiles instead of 3 |
 | Skip Shatter | Ducky → Woolly | Ducky's next SkipShot spawns 2 wool clones at the destination |
 | Double Slam | Bessie → Bessie (2nd+ activation via swap) | Ground Slam radius doubles to 4 tiles |
 | Crossfire | Billy → Horace | Rear Kick knockback doubles to 8 tiles |
 | Iron Stampede | Bessie → Gerald | Puff Up also destroys walls Gerald is adjacent to |
-| Kick and Roll | Horace → Percy | Same buff as Earthquake Roll (identical effect per GDD) |
+| Kick and Roll | Horace → Percy | Same buff as Earthquake Roll (9-tile roll, identical effect per GDD) |
 | Full Fury | 5+ distinct characters used this maze | Immediate: every robot stunned 5s (not a "next use" buff) |
 
 Buffs are stored as one-shot `Pending*` flags **on `ComboSystem` itself**, not on the ability
@@ -501,16 +568,18 @@ scene flow" below for its full description. The original Phase 4 `CharacterSwapU
 "functional even if not polished" per spec) was retired once this replaced it. Toggled by Tab
 (via the same `InputController.OnSwapMenuToggleInput` event) or Pause's Swap Character button.
 
-### Monetisation (`Scripts/Core/GameManager.cs`, `Scripts/UI/RevivePromptController.cs`)
+### Monetisation (`Scripts/Core/GameManager.cs`, `AdManager.cs`, `Scripts/UI/RevivePromptController.cs`)
 
 The GDD's Section 11 describes 7 revenue streams (ads, IAP, cosmetic store, season pass,
-cross-promotion); only the coin-economy portion of that is implemented so far — no ad SDK, IAP
-package, or cosmetic system exists yet (`Packages/manifest.json` has neither `com.unity.ads` nor
-`com.unity.purchasing`). The GDD's per-level coin formula (1/level, 5/new-best, 25/daily) was
-deliberately **not** adopted — the actual formula (`BaseCoinsPerLevel` 10 + `CoinsPerStar` 5 ×
-stars, in `GameManager.ComputeLevelResult`) predates this review and was kept as-is by choice, not
-an oversight. "10 coins per boss defeated" has nothing to attach to — no boss-level feature exists
-— and was deliberately left out rather than stubbed.
+cross-promotion). Coin economy and ad-SDK infrastructure now exist; IAP infrastructure
+(`com.unity.purchasing`) is installed but not wired to any product yet; cosmetic store and season
+pass don't exist. A full build-order plan for the remaining phases was reviewed and is followed —
+see "Ad mediation (LevelPlay + AdMob)" below for what's actually built vs. still pending. The GDD's
+per-level coin formula (1/level, 5/new-best, 25/daily) was deliberately **not** adopted — the
+actual formula (`BaseCoinsPerLevel` 10 + `CoinsPerStar` 5 × stars, in `GameManager.
+ComputeLevelResult`) predates this review and was kept as-is by choice, not an oversight. "10 coins
+per boss defeated" has nothing to attach to — no boss-level feature exists — and was deliberately
+left out rather than stubbed.
 
 Two coin-spend features exist:
 
@@ -519,12 +588,26 @@ Two coin-spend features exist:
   `GameManager.OnReviveOffered` instead and sets `ReviveDecisionPending = true`, freezing
   `Time.timeScale` (same freeze `PauseGame` uses, so robots don't roam while the faded-out
   character waits). `GameplayHUD` (subscribed in its existing `OnEnable`/`OnDisable`, alongside its
-  other event subscriptions) shows `RevivePromptController`'s "Revive for 5 coins?" overlay
-  (`Scripts/UI/RevivePromptController.cs`, built under `GameplayScreen` in `Phase5ProjectBuilder.
-  BuildGameplayHUD` — a plain dim-panel-plus-two-buttons overlay, not a Canva-mockup screen, since
-  no dedicated art exists for it). The Revive button is disabled up front if
-  `SaveManager.CoinBalance < ReviveCoinsCost`, rather than letting the player tap it and find out.
-  Accepting (`GameManager.AcceptRevive`) spends the coins and resets `DeathCountThisMaze` back to
+  other event subscriptions) shows `RevivePromptController`'s overlay (`Scripts/UI/
+  RevivePromptController.cs`, built under `GameplayScreen` in `Phase5ProjectBuilder.
+  BuildGameplayHUD`). Real art now wired: `PanelArt` uses a hanging wood-sign background
+  ("Revive Prompt panel background.png") that bakes "Revive for X coins?" directly into its own
+  bottom slot — the earlier version had a separate runtime coin-icon/cost-text row (`CostRow`,
+  `costText`) rendering that same message on top of a plain placeholder background, which is now
+  redundant and was removed (`costText` is left unwired; `RevivePromptController.Show` already
+  null-checks it). Revive/Decline buttons use `Yes.png`/`No.png` (their own baked-in "Yes"/"No"
+  labels — the buttons' auto-generated TMP labels are destroyed at build time, same "icon art
+  replaces auto-label" convention every other icon-only button in this project uses). The panel's
+  box size was originally tuned for an earlier ~2048x1940 near-square version of the background art;
+  when it was replaced with a 666x375 wide banner, the box wasn't updated to match — and
+  `ArtWiringBuilder.SetImageSprite` always sets `Image.Type.Sliced`, which **ignores
+  `preserveAspect` entirely**, so the banner was being force-stretched into the wrong (too-tall)
+  proportions until the box's own `sizeDelta` was corrected to match the art's real aspect ratio
+  (and enlarged, 900x852 → 1300x731, per feedback it read as too small) — getting the box aspect
+  right makes the forced Sliced stretch uniform, which is visually equivalent to `preserveAspect`
+  actually working. The Revive button is disabled up front if `SaveManager.CoinBalance <
+  ReviveCoinsCost`, rather than letting the player tap it and find out. Accepting
+  (`GameManager.AcceptRevive`) spends the coins and resets `DeathCountThisMaze` back to
   exactly `MaxRespawns` (not below it) — one paid extra life, not a free refill of all 3 — then
   unfreezes time and lets `PlayerHealth.DeathSequence`'s `WaitUntil(() => !ReviveDecisionPending)`
   fall through to a normal respawn. Declining (`GameManager.DeclineRevive`) unfreezes time and
@@ -533,9 +616,11 @@ Two coin-spend features exist:
   `RequestRevivePrompt` auto-declines rather than leaving `ReviveDecisionPending` stuck `true`
   forever with nothing able to resolve it — a real deadlock risk otherwise, since
   `PlayerHealth`'s coroutine would `WaitUntil` on a flag nothing ever flips back.
-- **Skip ability cooldown (3 coins, `GameplayHUD.SkipCooldownCoinsCost`)** — a small "-3" button
-  (no dedicated icon art yet, keeps its auto-generated text label) sits just left of the ability
-  cooldown ring, built alongside it in `BuildGameplayHUD`. Hidden/disabled whenever the active
+- **Skip ability cooldown (3 coins, `GameplayHUD.SkipCooldownCoinsCost`)** — a small button sits
+  just left of the ability cooldown ring, built alongside it in `BuildGameplayHUD`. Now shows
+  `Btn_skipcooldown.png` (a coin + fast-forward icon) instead of just an auto-generated "-3" text
+  label — the numeric label is kept on top of the icon rather than replaced by it, so the cost still
+  reads clearly. Hidden/disabled whenever the active
   ability isn't on cooldown; while it is, `GameplayHUD.HandleAbilityCooldownChanged` (already
   firing every frame during a cooldown, via `AbilityBase.UpdateCooldown`) re-checks
   `SaveManager.CoinBalance >= SkipCooldownCoinsCost` on every tick, not just once when the
@@ -548,6 +633,71 @@ Two coin-spend features exist:
 
 Both spends go through the existing `SaveManager.SpendCoins`/`AddCoins` — no new economy plumbing,
 just two new call sites.
+
+**Coin balance display** — `GameplayHUD` now shows a running coin-balance chip (`CoinBalanceChip`,
+below `ScoreText`; `Coin_Balance_Chip.png` bakes its own coin icon into the left half, a
+`CoinBalanceText` TMP label sits over the right half) that polls `SaveManager.CoinBalance` every
+frame (`RefreshCoinBalanceText`, same convention as `RefreshTimerText`/`AnimateScoreTowardTarget` —
+`SaveManager` has no change event to hook). This is a genuinely new element, not a reskin:
+`SaveManager.CoinBalance` previously had **no on-screen display anywhere** — the only places a coin
+count ever appeared were the Revive prompt's baked-in cost text and the skip-cooldown button's "-3"
+label, neither of which shows the player's actual running total.
+
+### Ad mediation (LevelPlay + AdMob) (`Scripts/Core/AdManager.cs`)
+
+Unity's **Ads Mediation (LevelPlay)** package (`com.unity.services.levelplay`) is installed,
+mediating **AdMob** as its network — chosen over AdMob-direct specifically because a previous app
+of the developer's had thin ad fill on iOS from a single network, and fill from any one network
+gets worse under child-directed treatment (below), which excludes most personalized/programmatic
+demand. Mediation gives multiple networks a chance to fill each request, directly addressing that
+failure mode. Unity IAP (`com.unity.purchasing`) is also installed as infrastructure alongside this
+but isn't wired to anything yet.
+
+**Every ad request is treated as child-directed (COPPA)** — the GDD's "8-45" target audience pulls
+in under-13 users, and this was the deliberate, simpler-to-implement-correctly choice over runtime
+per-user age-gating. Set in two places: the Unity Gaming Services project-level "Will this app be
+targeted to children" toggle (`Project Settings > Services`, must be Yes, not the default No), and
+`AdManager.Start()` calling `LevelPlay.SetMetaData("is_child_directed", "true")` /
+`SetMetaData("is_deviceid_optout", "true")` **before** `LevelPlay.Init()` — both are required,
+LevelPlay's SDK-level metadata doesn't inherit from the dashboard-level toggle automatically.
+
+**`AdManager`** (parallel to `AudioManager` — one singleton on `GameManagers`, owns all SDK
+interaction so gameplay code never touches `Unity.Services.LevelPlay` directly) wraps:
+- **Rewarded ads** (`LevelPlayRewardedAd`) — load/show/auto-reload (reloads immediately in
+  `OnAdClosed`, so `IsRewardedAdReady` stays accurate for UI to poll before offering a "Watch Ad"
+  option). `ShowRewardedAd(placementName, onResult)`'s callback only reports success if
+  `OnAdRewarded` actually fired, not just that the ad was shown and closed — a player can close a
+  rewarded ad before it finishes, which should never grant the reward.
+- **Interstitial ads** (`LevelPlayInterstitialAd`) — same load/show/auto-reload shape.
+  `NotifyLevelLoaded()`, called from `GameManager.LoadLevel` on every level transition, drives a
+  rolling counter (`SaveManager.LevelsSinceLastInterstitial`) that shows an interstitial every
+  `interstitialLevelInterval` (6, configurable) levels and resets the counter either way (a
+  skipped/unready ad doesn't mean the next check fires immediately). Structurally guaranteed to
+  never fire mid-`GameState.Playing`, since `LoadLevel` only ever runs at a level transition.
+
+**`SaveManager` gained `AdsRemoved`** (bool, persisted — for a future Remove Ads IAP;
+`NotifyLevelLoaded` already early-outs on it, so wiring that purchase later needs no call-site
+changes) **and `LevelsSinceLastInterstitial`** (the rolling counter above, exposed via a getter +
+`SetLevelsSinceLastInterstitial` setter rather than a plain settable property, since the
+increment-vs-reset-to-0 decision belongs to `AdManager`, not `SaveManager`).
+
+**Both platforms are fully configured** with real LevelPlay app keys and Rewarded/Interstitial
+placement IDs, obtained via Unity's newer **"Placements"** dashboard flow (`cloud.unity.com`
+Monetization section) — this replaced the older ironSource-style "Ad units + Instances" dashboard
+flow around 2026-08-11, mid-project; if you're reading older notes/screenshots that mention
+"Instances" or a `platform.supersonic.com` URL, they predate that migration. Config values are set
+via `SceneCleanupBuilder.WireAdManagerConfig` (`Farm Fury Arcade > Wire AdManager Config`) rather
+than hand-edited in the Inspector, since they arrived piecemeal (Android confirmed, then iOS
+separately) — the tool only overwrites a field when a non-empty value is passed in, so re-running
+it after only one platform's values are known never clobbers the other platform's already-set
+fields back to empty.
+
+**Still not built**: the 4 rewarded ad placements from the plan (continue after death, double coins
+earned, extra ability charge, skip-cooldown via ad) — each needs a small new UI/art decision first,
+unlike the interstitial (which needed no new UI at all). No `Debug`-vs-`Release` build-config split
+exists yet for ad unit IDs either — `AdManager.enableTestSuite` (LevelPlay's in-app test-ad UI,
+`SetMetaData("is_test_suite", "enable")`) is a single Inspector bool toggled by hand, not swapped
+automatically per build type; must be turned off before cutting a real release build.
 
 ### Screens & scene flow (`Scripts/UI`, Phase 5)
 
@@ -744,17 +894,35 @@ called immediately so replaying the gate level afterward never re-fires it.
 `LevelCompleteController`'s celebration sequence reads this after the star/score/character-unlock
 beats: if set, it shows **`NewWorldUnlockScreen`** — the world's badge sprite
 (`LevelSelectController.GetWorldSignSprite`) bursts in with an overshoot pop, pulses
-(enlarges/shrinks) a couple of times, then — unlike `NewCharacterUnlockScreen`, which just
-auto-dismisses back to this screen on a fixed timer — waits for the player to **tap the screen**
-before calling its `onComplete` callback, which `LevelCompleteController` uses to automatically
-show Level Select in its world-select state (the newly unlocked badge already renders coloured/
-tappable there, since save data was updated before this overlay even showed). The tap gate replaced
-an original fixed-hold-then-auto-advance design after playtesting read the whole beat as "nothing
-happened, it was very fast" — by the time a player's eye caught the badge, the screen had already
-moved on. If both a character and a world unlock on the same completion, `LevelCompleteController`
-waits for the character card's own dismissal (via an optional `onDismissed` callback
-`NewCharacterUnlockScreen.Show` now accepts) before starting the world-unlock beat, so the two
-overlays never visually collide.
+(enlarges/shrinks) a couple of times, then waits for the player to **tap the screen** before
+calling its `onComplete` callback, which `LevelCompleteController` uses to automatically show Level
+Select in its world-select state (the newly unlocked badge already renders coloured/tappable there,
+since save data was updated before this overlay even showed). The tap gate replaced an original
+fixed-hold-then-auto-advance design after playtesting read the whole beat as "nothing happened, it
+was very fast" — by the time a player's eye caught the badge, the screen had already moved on.
+`NewCharacterUnlockScreen` now uses the same tap-to-dismiss convention (see its own bullet under
+"Art status" — it originally auto-dismissed on a fixed timer, unlike this screen, but was later
+changed to match). If both a character and a world unlock on the same completion,
+`LevelCompleteController` waits for the character card's own dismissal (via an optional
+`onDismissed` callback `NewCharacterUnlockScreen.Show` now accepts) before starting the world-unlock
+beat, so the two overlays never visually collide.
+
+**The badge's own size was silently broken the whole time, same root cause as
+`NewCharacterUnlockScreen`'s card** (see that bullet): built via `CreateImage`, whose width/height
+arguments only set a `LayoutElement` a plain (non-`LayoutGroup`) parent panel never reads, so
+`worldBadgeRect.sizeDelta` stayed at Unity's default 100x100 regardless of the 850x850 requested —
+the burst-in/pulse animation itself was working correctly the whole time, it was just animating up
+to a 100x100 target, which is why the badge always rendered tiny no matter how the animation looked
+in code review. Fixed by setting `sizeDelta` explicitly. Two more additions per a later benchmark
+mockup: a shared **"World Unlocked" wood-sign banner** (`WorldUnlockedBanner`, `WorldUnlocked.png`
+— reused across all 4 worlds, unlike the per-world badge below it) above the badge, and the flat
+solid-black background replaced with the just-unlocked world's own gameplay backdrop sprite shown
+at `BackgroundAlpha` (55%) behind everything (`Background`, first child so it draws behind the
+banner/badge/hint) — looked up per-world via `TileMapRenderer.GetOrAddArtSet((MazeType)world).
+backdropSprite`, so it works for all 4 worlds generically with no per-world special-casing.
+`NewWorldUnlockScreen.Show` gained a `worldBackdropSprite` parameter accordingly;
+`LevelCompleteController` fetches it via `FindFirstObjectByType<TileMapRenderer>()` before calling
+`Show`.
 
 **`ChooseCharacterScreen`** (real uGUI, `Scripts/UI/ChooseCharacterScreen.cs` +
 `CharacterSelectCard.cs`) replaced the Phase 4 `CharacterSwapUI` `OnGUI` panel. Not a
@@ -811,7 +979,14 @@ Reached from Main Menu's Play button. Two states on one screen (`LevelSelectScre
   is anchored 40px down with a 320px height, so its real bottom edge sits at `360px` from the
   screen top, 160px past where the old 200px reserve let scroll content start; the grid's first
   row was rendering crowded right against/under the banner as a result. 420px clears it with
-  ~60px of breathing room. Auto-scrolled to centre the highest-unlocked level on open.
+  ~60px of breathing room. Auto-scrolled to centre the highest-unlocked level on open — **except**
+  when arriving via `OpenLevelSelectForLevel` (Level Complete's Play button, see below), which
+  instead snaps to the very top of the world's grid (`ScrollToTop`, no tween) rather than centring
+  the newly-unlocked level. Centring the just-unlocked level on every return from Level Complete
+  meant the scroll position moved further down every time a level was finished, which read as an
+  unexpected/unpredictable downward jump; a normal world-badge tap still centres on the current
+  level as before (`_scrollToTopOnNextReveal`, a one-shot flag consumed by `RevealWorld`, is what
+  distinguishes the two call paths).
 
   **The grid used to be effectively unscrollable past its first ~1 row** ("shoots back", can't
   reach lower-numbered — i.e. more recently unlocked — levels): the grid's own container GameObject
@@ -1067,12 +1242,21 @@ phase made for art (solid-colour placeholders instead of real sprites).
   above); re-run `Phase5ProjectBuilder.BuildAll` if Main Menu ever needs rebuilding from scratch.
   Also no longer wires `matchup.png`/its buttons (see "Removed: Matchup screen").
 - **`SceneCleanupBuilder`** (`Farm Fury Arcade > Disable Debug Test Overlays` /
-  `Farm Fury Arcade > Fit Gameplay Camera To Maze`) — small targeted scene-hygiene fixes that are
-  neither "wire art" nor "rebuild a phase's content." `DisableDebugTestOverlays` deactivates (and
-  de-duplicates) the 5 `Phase*Test` GameObjects; `FitGameplayCameraToMaze` (renamed from
-  `ZoomInGameplayCamera` — it now does the opposite) sets the Main Camera's `orthographicSize` to
-  `8` so the whole board fits on screen and ensures a `CameraFollow` component exists. Both safe
-  to re-run.
+  `Farm Fury Arcade > Fit Gameplay Camera To Maze` / `Farm Fury Arcade > Debug > Reset All
+  Progress (Testing)` / `Farm Fury Arcade > Wire AdManager Config`) — small targeted scene-hygiene
+  fixes that are neither "wire art" nor "rebuild a phase's content." `DisableDebugTestOverlays`
+  deactivates (and de-duplicates) the 5 `Phase*Test` GameObjects; `FitGameplayCameraToMaze` (renamed
+  from `ZoomInGameplayCamera` — it now does the opposite) sets the Main Camera's `orthographicSize`
+  to `8` so the whole board fits on screen and ensures a `CameraFollow` component exists.
+  `ResetAllProgressForTesting` wipes every level/world/character-unlock PlayerPrefs key via
+  `SaveManager.ResetAllProgressKeys()` — a static method split out of the existing (instance)
+  `ResetAllProgress` specifically so it can run from Edit mode with no live `SaveManager` instance
+  (`Singleton<T>` only ever assigns `Instance` from a real scene `Awake()`, so the instance method
+  needs Play mode first — this static half only touches `PlayerPrefs`, nothing instance-state-
+  dependent). `WireAdManagerConfig` sets `AdManager`'s LevelPlay app-key/placement-ID fields on the
+  scene's `AdManager` component (see "Ad mediation" above) — only overwrites a field when a
+  non-empty value is passed in, so it's safe to re-run as new platform values arrive piecemeal
+  without clobbering ones already set. All four entry points are safe to re-run.
 
 `Phase1Test.cs`/`Phase2Test.cs`/`Phase3Test.cs`/`Phase4Test.cs`/`Phase5Test.cs` (`Scripts/Core`) are verification
 harnesses, not gameplay — each auto-runs a battery of checks on `Start()` and logs `PASS`/`FAIL`/
@@ -1222,8 +1406,16 @@ values from the GDD's color palette where one exists (e.g. walls = Wall Brown `#
   placeholder-coloured squares that fly outward and fade, since no dedicated sparkle/particle art
   exists yet. Swap it for a real ParticleSystem/sprite-sheet burst once that art lands;
   `PelletCollectBurst.Configure(PowerPelletType)` is the only method a replacement needs to keep.
-- **Ability effects** — `Shockwave` (Bessie's Ground Slam) uses `BessieSlam.png`, `BounceTrail`
-  (Percy's Bounce Roll) uses `Percy_effect.png`, `WoollyClone` (Woolly's Triple Clone) uses
+- **Ability effects** — `Shockwave` (Bessie's Ground Slam) uses `BessieSlam.png`. It used to play at
+  a fixed placeholder duration/scale unrelated to the ability's real 2-tile radius/3s lingering
+  killzone (see the "Every ability-created robot hazard" note further up); `ShockwaveEffect` now
+  exposes `Configure(diameterWorldUnits, durationSeconds)`, called from `GroundSlamAbility.Execute`
+  with the ability's actual radius (accounting for Double Slam's 4-tile buff) converted to world
+  units and its real lingering duration, so the VFX genuinely represents what's happening
+  underneath instead of a fixed placeholder unrelated to it. `BounceTrail`'s sprite
+  (`Percy_effect.png`) is no longer instantiated as a separate trailing object for Percy's Bounce
+  Roll — see the `BounceRollAbility` rework above; only its `SpriteRenderer.sprite` is read now, as
+  the pose Percy's own sprite swaps to for the roll. `WoollyClone` (Woolly's Triple Clone) uses
   `Wooly_effect.png`. Cluck's Egg Drop (`Egg` prefab) went through several placeholder rounds before
   real art existed: a near-white/tan tint that blended into `CornTiles.png`'s warm ground art, a
   pure-white follow-up with still-too-little contrast, then a saturated hot-pink placeholder
@@ -1235,7 +1427,8 @@ values from the GDD's color palette where one exists (e.g. walls = Wall Brown `#
   by any number of robots without disappearing. Now it's one-shot: `OnTriggerEnter2D` disables its
   own collider immediately, plays `crackedSprite` (`CluckPower_2.png`) for 0.5s then `burstSprite`
   (`CluckPower_3.png`) for another 0.5s, then destroys itself (1s total) — `lifetimeSeconds` is now
-  only a fallback auto-destroy for an egg nothing ever walks over. Stun duration on contact was
+  only a fallback auto-destroy for an egg nothing ever walks over, cut from 15s to 5s per feedback
+  that an unhit egg was lingering far longer than it needed to. Stun duration on contact was
   cut from 3s to 1s, then raised to 5s per a later gameplay pass. `EggDropAbility` itself was
   simplified from a 3-egg trail behind Cluck (0/2/4 tiles) to a single egg at her current position
   the moment the ability activates.
@@ -1335,17 +1528,25 @@ values from the GDD's color palette where one exists (e.g. walls = Wall Brown `#
   `Logo.png` top-left (same as Pause/Choose Character; inset widened 40→100 to clear the yellow
   safe-area guide, matching the fix already applied elsewhere), `LevelComplete.png` is an
   aspect-locked `PanelArt` child (same square-art-on-landscape-overlay fix Pause already had). The
-  star row + score text (`ShelfContent`, a vertical group) live in the card art's actual blank
+  score text + star row (`ShelfContent`, a vertical group) live in the card art's actual blank
   middle area — not the low band near the horseshoe/star-rating frame decoration, which is where
   an earlier pass placed them by mistake (band was 0.06–0.30 up the card, overlapping that
-  decoration; moved to 0.36–0.62, centred in the genuinely blank zone). Score font enlarged twice
+  decoration; moved to 0.28–0.56, centred in the genuinely blank zone). Score font enlarged twice
   (34→52→66pt) after repeated feedback that it read as too small/low — see the "Score breakdown
   categories" note above for what got dropped from display (not from the underlying computation).
+  **Score renders ABOVE the real `StarDisplay` row, not below it** — the vertical group order was
+  originally Stars-then-Score, which put the real (interactive-fill) star row directly beneath the
+  3 decorative stars already baked into `LevelComplete.png` just under its "LEVEL COMPLETE!"
+  banner, reading as two overlapping/clashing star rows. Swapping the order so score sits closest
+  to the baked stars, with the real stars below it, reads as two clearly separate elements instead.
   A single `Btn_skip.png` button (Level Select) briefly replaced the old Replay/Next Level/Home
   row, then was itself replaced by a 3-button Play/Home/Settings row, which was later **split**:
   Play now stands alone bottom-left (`AnchorBottomLeft`, matching the safe-area inset every other
   screen's back button uses), Home/Settings stay paired in a bottom-right `ActionButtons` group —
-  see `LevelCompleteController`'s doc comment for what each does:
+  both rows share the same 110px bottom inset (they'd drifted to 110 vs 70 when Play's own inset
+  was deepened for safe-area clearance without the change being carried over to `ActionButtons`,
+  leaving the two rows visibly misaligned) — see `LevelCompleteController`'s doc comment for what
+  each does:
   - **Play** — calls `LevelSelectController.OpenLevelSelectForLevel(nextLevelIndex)` then shows
     Level Select, jumping straight to the tile grid for the world containing the level that was
     just unlocked (the same reveal animation a normal world-badge tap uses), rather than landing on
@@ -1369,16 +1570,28 @@ values from the GDD's color palette where one exists (e.g. walls = Wall Brown `#
   CreateStarDisplay` builds each star Image directly now instead of going through `CreateImage`,
   for the same double-tint reason.
 - **New Character Unlock overlay was fully rebuilt** to a Canva mockup — full-screen
-  `World1_Cornfield.png` backdrop, `Logo.png` top-left, an `unlocked.png` wood-sign banner
-  top-centre, and the character's own `selectCardArt` (the same per-character framed card
-  `ChooseCharacterScreen` uses, e.g. `Percy_Pig.png`) large and centred. That art already has the
-  character's name baked in (confirmed by opening the file directly — the frame, portrait circle,
-  *and* a "Percy" nameplate are all one image), so this screen needs no separate name/title/stats
-  text at all — the old version's `bannerText`/`titleText`/`statsText`/`goldenParticlesPlaceholder`
-  fields and their GameObjects are gone entirely, not just hidden. No Continue button either — the
-  mockup has none; `NewCharacterUnlockScreen` auto-dismisses itself after `autoDismissSeconds`
-  (2.5s) instead. The card still fades+scales in on reveal (`cardRevealStartScale` 0.4→1, same
-  "pop into view" convention `CharacterSelectCard`'s selection animation uses) — an even earlier
+  `World1_Cornfield.png` backdrop, `Logo.png` top-left, a `NewCharacter.png` wood-sign banner
+  top-centre (a shared "New Character" banner reused for every animal, replacing an earlier generic
+  `unlocked.png` placeholder), and the character's own `selectCardArt` (the same per-character
+  framed card `ChooseCharacterScreen` uses, e.g. `Percy_Pig.png`) large and centred. That art
+  already has the character's name baked in (confirmed by opening the file directly — the frame,
+  portrait circle, *and* a "Percy" nameplate are all one image), so this screen needs no separate
+  name/title/stats text at all — the old version's `bannerText`/`titleText`/`statsText`/
+  `goldenParticlesPlaceholder` fields and their GameObjects are gone entirely, not just hidden.
+  **Dismisses on tap now, not a fixed auto-dismiss timer** — `autoDismissSeconds` was replaced by a
+  `tapButton` (a full-screen invisible `Button` on the overlay root, same convention
+  `NewWorldUnlockScreen`'s own tap-gate already used) per feedback that a timed fade-out didn't give
+  the player enough time to actually look at the reveal. **The card's own size was silently broken
+  from the moment this screen shipped**: it's built via `CreateImage`, whose width/height arguments
+  only set a `LayoutElement.preferredWidth/Height` — meaningless on `unlockRoot`, a plain
+  `CreatePanel` with no `LayoutGroup` to read that hint, so the card's real `RectTransform.
+  sizeDelta` silently stayed at Unity's default 100x100 no matter what size was requested (an
+  earlier "550→850, it read as too small" resize pass changed nothing on screen for exactly this
+  reason). Now explicitly set to 340x360, stretched-to-fill (not `preserveAspect`) to match
+  `ChooseCharacterScreen`'s own `CardArt` exactly — this reused the same underlying bug/fix pattern
+  found on `NewWorldUnlockScreen`'s badge, see that screen's own bullet further down. The card still
+  fades+scales in on reveal (`cardRevealStartScale` 0.4→1, same "pop into view" convention
+  `CharacterSelectCard`'s selection animation uses) — an even earlier
   version of this reveal used a Y-axis RectTransform rotation ("card flip"), which read as broken
   rather than 3D: this Canvas renders in `RenderMode.ScreenSpaceOverlay` (no perspective camera at
   all), so a rotated RectTransform is drawn via a flat orthographic squash with zero depth cue —
@@ -1426,7 +1639,12 @@ values from the GDD's color palette where one exists (e.g. walls = Wall Brown `#
     `CreateRoundBackButton` uses), D-pad now bottom-left (`AnchorBottomLeft`, positive
     `dpadInsetX`). The D-pad's own up/down/left/right sub-offsets from its centre point didn't need
     to change sign — those are plain screen-space deltas independent of which edge the centre point
-    itself is anchored to.
+    itself is anchored to. **Its overall footprint was later shrunk again** (`dpadSpacing` 100→70,
+    `dpadButtonSize` 110→90) per feedback that it still overlapped playable maze tiles on some
+    device aspects — the maze's own rendered area fills nearly the entire device safe-area guide on
+    some aspects (see "Camera" earlier), so shrinking the D-pad's own footprint is the only lever
+    available to reduce overlap without changing camera zoom/backdrop sizing; some overlap on
+    certain aspects may remain a known limitation rather than something fully solvable this way.
   - **Choose Character** — found and fixed the actual bug behind a large yellow block covering the
     active/centred card: `ActiveHighlight` was a *child* of the same GameObject holding the card's
     own `Image` — in uGUI a child always renders in front of its own parent's Image regardless of
@@ -1592,8 +1810,10 @@ Wheat's is `RarePellets_maize.png` (previously unwired dead weight left over fro
 pellet visual system) — via `MazeArtSet.rarePelletSprite`, the single pellet that wins a maze's
 one-rare-slot cap (`ConfigurePelletTier`'s `_rarePelletsSpawned` guard); every other pellet still
 shows `pelletSprite`, and any world without a `rarePelletSprite` set (CornField/VegPatch) keeps the
-older "every pellet, rare or not, looks the same" behaviour unchanged. Both worlds' warp-tunnel
-prefabs still reuse CornField's (no dedicated art for those yet).
+older "every pellet, rare or not, looks the same" behaviour unchanged. Both worlds now have their
+own dedicated warp-tunnel art (`WarpTunnel_Orchard`/`WarpTunnel_Wheat` prefabs, wired to
+`OrchardWarpTile.png`/`WheatWarpTile.png`) instead of reusing CornField's generic `WarpTunnel`/
+`WarpTile.png`.
 
 **Orchard's and Wheat's regular crop tiles (id 2/3) used to reuse CornField's `Crop_Corn`/
 `Crop_Vegetable` prefabs too** — meaning every ordinary collectible in an Orchard or Wheat maze
@@ -1606,6 +1826,16 @@ role), same point values (10/50) as every other world's kernel/vegetable tier �
 changed. `Crop_Corn`/`Crop_Vegetable` are CornField/VegPatch-only again now. VegPatch was checked
 too and was already correct (its own `Crop_Kernel_VegPatch`/`Crop_Vegetable_VegPatch` prefabs,
 carrot/cabbage art, predate this issue).
+
+**Both worlds' crop-kernel/vegetable prefabs render at scale 0.7, matching the power pellet — not
+the usual 0.35/0.5 kernel/vegetable convention every other world uses.** `Red_Apple.png`/
+`MiniLoaf.png` are each wired to THREE different tile roles at once (Orchard's kernel, vegetable,
+AND power pellet all show `Red_Apple.png`; same for Wheat's `MiniLoaf.png`), so every apple/loaf in
+a maze needs to render the same visual size regardless of which tile id painted it. The 0.35/0.5
+kernel-vs-vegetable size split exists elsewhere specifically to visually distinguish two DIFFERENT
+sprites (corn vs. carrot, say); it doesn't apply when both tiers share one sprite with the pellet —
+at the old 0.35/0.5 scale, some apples/loaves in a maze visibly looked smaller than others purely
+because of which tile id happened to paint that cell, not any real difference in the art.
 
 **Drone now has real art** (`Drone.png` — a single symmetric hovering-quadcopter sprite with no
 directional cues, so `RobotVisual` shows it for every facing via its own null-fallback rather than
@@ -1678,6 +1908,12 @@ Menu is present, so this fallback can never override Main Menu's own landing tra
 music; it only matters in a context with no `MainMenuController` (e.g. a test harness).
 `SaveManager.MusicVolume`'s default was lowered from `1f` to `0.5f` so it plays soft/background-
 level out of the box rather than at full volume; still fully overridable via the Settings slider.
+
+**`GameManager.EndLevel`/`QuitToLevelSelect` call `AudioManager.PlayLandingMusic()` on the way out
+of gameplay, not `StopMusic()`** — leaving a level (win, fail, or a deliberate Pause-menu quit) now
+resumes the landing/menu track instead of cutting to silence. This matches the earlier fix to
+`MainMenuController.OnDisable` (below) with the same intent: music should only ever be swapped
+between tracks, never stopped outright, while any screen that has one is showing.
 
 `AudioManager.musicSourceA`/`musicSourceB`/`sfxPool` are `AudioSource` children created by
 `Phase5ProjectBuilder.WireAudioSources` (called from `AddManagers`, part of `BuildAll`) — **not**
