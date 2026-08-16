@@ -839,25 +839,39 @@ namespace FarmFuryArcade.EditorTools
 
             // Monetisation: "revive for 5 coins?" overlay, shown by GameplayHUD in response to
             // GameManager.OnReviveOffered (the 4th death this maze). Dim backdrop + a hanging-sign
-            // PanelArt (same aspect-locked-child-over-dim convention as every other overlay's
-            // square/near-square card art, e.g. LevelComplete's PanelArt) + message/buttons content
-            // on top. Content's -40 Y nudge is a first-pass approximation of the sign art's visible
-            // parchment/slot area (the rope-hanger detail at the very top eats into the panel's own
-            // geometric centre) — revisit once a real screenshot is available to fine-tune.
+            // PanelArt (same aspect-locked-child-over-dim convention as every other overlay's card
+            // art, e.g. LevelComplete's PanelArt) + message/buttons content on top.
+            //
+            // sizeDelta matches the CURRENT art's actual 666x375 (~1.776:1, a wide banner) pixel
+            // aspect — the art was replaced with a differently-shaped asset after this was first
+            // tuned for an earlier ~2048x1940 near-square version, and the box size was never
+            // updated to match. That mismatch mattered more than it should have: SetImageSprite (in
+            // ArtWiringBuilder, which is what actually assigns this Image's sprite) always sets
+            // Image.Type.Sliced, and Sliced IGNORES preserveAspect entirely — so the wide banner art
+            // was being force-stretched into the old near-square box's proportions, visibly squashed
+            // and reading as "too small," with Yes/No overflowing past its now-narrower rendered
+            // edges. Getting the box's own aspect right makes the forced stretch uniform (so it's
+            // exactly as if preserveAspect worked correctly) regardless of that Sliced quirk. Also
+            // enlarged overall (was 900 wide) per feedback that the backdrop read as too small.
             var reviveRoot = CreatePanel("RevivePromptOverlay", root.transform, new Color(0f, 0f, 0f, 0.85f));
 
             var revivePanelArtGO = new GameObject("PanelArt", typeof(RectTransform), typeof(Image));
             revivePanelArtGO.transform.SetParent(reviveRoot.transform, false);
             var revivePanelArtRect = (RectTransform)revivePanelArtGO.transform;
             revivePanelArtRect.anchorMin = revivePanelArtRect.anchorMax = new Vector2(0.5f, 0.5f);
-            revivePanelArtRect.sizeDelta = new Vector2(900f, 852f); // matches the art's own ~2048x1940 aspect
+            revivePanelArtRect.sizeDelta = new Vector2(1300f, 731f); // 666x375 aspect, enlarged
             revivePanelArtRect.anchoredPosition = Vector2.zero;
             var revivePanelArtImage = revivePanelArtGO.GetComponent<Image>();
             revivePanelArtImage.sprite = PlaceholderSprite.Get(Color.clear);
             revivePanelArtImage.preserveAspect = true;
 
+            // Kept notably narrower than the backdrop's own 1300 width — per feedback the buttons
+            // themselves should read smaller relative to the now-larger backdrop, not stretch to
+            // fill it.
             var reviveGroup = CreateVerticalGroup("Content", revivePanelArtGO.transform, 14f, 30);
-            ((RectTransform)reviveGroup.transform).anchoredPosition = new Vector2(0f, -40f);
+            var reviveGroupRect = (RectTransform)reviveGroup.transform;
+            reviveGroupRect.sizeDelta = new Vector2(750f, reviveGroupRect.sizeDelta.y);
+            reviveGroupRect.anchoredPosition = new Vector2(0f, -20f);
 
             // No separate coin-icon/cost-text row anymore — the replacement panel art (see
             // RevivePromptPanel's own doc comment) bakes "Revive for 5 coins?" directly into its
@@ -872,7 +886,7 @@ namespace FarmFuryArcade.EditorTools
             // applied — the same CreateImage-args-are-inert pattern found elsewhere in this file.
             // Height set explicitly here instead; width still comes from the layout group
             // (childControlWidth=true), so only .y needs overriding.
-            const float reviveButtonHeight = 130f;
+            const float reviveButtonHeight = 90f; // was 130 — reduced per feedback, buttons read too large
             var reviveButtonRect = (RectTransform)reviveButton.transform;
             reviveButtonRect.sizeDelta = new Vector2(reviveButtonRect.sizeDelta.x, reviveButtonHeight);
             var declineButtonRect = (RectTransform)declineButton.transform;
