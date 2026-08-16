@@ -1511,6 +1511,12 @@ namespace FarmFuryArcade.EditorTools
             var unlockCard = CreateImage("CharacterCard", unlockRoot.transform, new Color(1f, 0.84f, 0f), 340f, 360f);
             var unlockCardRect = (RectTransform)unlockCard.transform;
             unlockCardRect.anchorMin = unlockCardRect.anchorMax = new Vector2(0.5f, 0.5f);
+            // CreateImage's width/height args only set a LayoutElement's preferredWidth/Height,
+            // which a plain (non-LayoutGroup) parent like unlockRoot never reads — sizeDelta must be
+            // set explicitly or the rect silently stays at Unity's default 100x100 regardless of
+            // what was passed in. This was the real reason an earlier "match Choose Character's
+            // card size" pass didn't actually change anything on screen.
+            unlockCardRect.sizeDelta = new Vector2(340f, 360f);
             unlockCardRect.anchoredPosition = new Vector2(0f, -60f);
             unlockCard.preserveAspect = false;
             // Shouldn't swallow the tap before it reaches unlockTapButton on the root underneath —
@@ -1536,9 +1542,41 @@ namespace FarmFuryArcade.EditorTools
             var worldUnlockTapButton = worldUnlockRoot.AddComponent<Button>();
             worldUnlockTapButton.targetGraphic = worldUnlockRoot.GetComponent<Image>();
 
+            // Just-unlocked world's own gameplay backdrop, faded — first child so everything else
+            // (banner/badge/hint) draws on top of it. Sprite/alpha set at runtime by
+            // NewWorldUnlockScreen.Show (per world, via TileMapRenderer.MazeArtSet.backdropSprite),
+            // not wired here — starts fully transparent so the root's own solid black shows through
+            // until Show() runs.
+            var worldUnlockBackgroundGO = new GameObject("Background", typeof(RectTransform), typeof(Image));
+            worldUnlockBackgroundGO.transform.SetParent(worldUnlockRoot.transform, false);
+            StretchFull((RectTransform)worldUnlockBackgroundGO.transform);
+            var worldUnlockBackgroundImage = worldUnlockBackgroundGO.GetComponent<Image>();
+            worldUnlockBackgroundImage.sprite = PlaceholderSprite.Get(Color.white);
+            worldUnlockBackgroundImage.color = new Color(0f, 0f, 0f, 0f);
+            worldUnlockBackgroundImage.raycastTarget = false;
+
+            // "World Unlocked" wood-sign banner, top-centre — same element/position convention as
+            // NewCharacterUnlockOverlay's UnlockedBanner just above, but its own dedicated art
+            // (WorldUnlocked.png) since "reused for all worlds" was the explicit ask, not a
+            // per-world sprite swap like worldBadge below.
+            var worldUnlockBannerGO = new GameObject("WorldUnlockedBanner", typeof(RectTransform), typeof(Image));
+            worldUnlockBannerGO.transform.SetParent(worldUnlockRoot.transform, false);
+            var worldUnlockBannerImage = worldUnlockBannerGO.GetComponent<Image>();
+            worldUnlockBannerImage.sprite = PlaceholderSprite.Get(Color.clear);
+            worldUnlockBannerImage.preserveAspect = true;
+            worldUnlockBannerImage.raycastTarget = false;
+            AnchorTopCenter((RectTransform)worldUnlockBannerGO.transform, new Vector2(900f, 260f), new Vector2(0f, -60f));
+
             var worldBadge = CreateImage("WorldBadge", worldUnlockRoot.transform, new Color(1f, 0.84f, 0f), 850f, 850f);
             var worldBadgeRect = (RectTransform)worldBadge.transform;
             worldBadgeRect.anchorMin = worldBadgeRect.anchorMax = new Vector2(0.5f, 0.6f);
+            // CreateImage's width/height args only set a LayoutElement's preferredWidth/Height,
+            // which worldUnlockRoot (a plain CreatePanel, no LayoutGroup) never reads — sizeDelta
+            // must be set explicitly or the rect silently stays at Unity's default 100x100
+            // regardless of what was passed in. This is why the badge rendered tiny even after its
+            // burst-in/pulse animation "finished" — the animation itself was correct, it was just
+            // animating up to a 100x100 target instead of the intended 850x850.
+            worldBadgeRect.sizeDelta = new Vector2(850f, 850f);
             worldBadgeRect.anchoredPosition = Vector2.zero;
             worldBadge.preserveAspect = true;
             // Badge itself shouldn't swallow the tap before it reaches the root Button underneath.
@@ -1552,6 +1590,7 @@ namespace FarmFuryArcade.EditorTools
             var worldUnlockScreen = worldUnlockRoot.AddComponent<NewWorldUnlockScreen>();
             var worldUnlockSO = new SerializedObject(worldUnlockScreen);
             worldUnlockSO.FindProperty("worldBadgeImage").objectReferenceValue = worldBadge;
+            worldUnlockSO.FindProperty("backgroundImage").objectReferenceValue = worldUnlockBackgroundImage;
             worldUnlockSO.FindProperty("tapButton").objectReferenceValue = worldUnlockTapButton;
             worldUnlockSO.FindProperty("tapHintText").objectReferenceValue = tapHintText;
             worldUnlockSO.ApplyModifiedPropertiesWithoutUndo();

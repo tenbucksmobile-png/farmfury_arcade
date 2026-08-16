@@ -3,6 +3,7 @@ using UnityEngine;
 using UnityEngine.UI;
 using TMPro;
 using FarmFuryArcade.Core;
+using FarmFuryArcade.Data;
 
 namespace FarmFuryArcade.UI
 {
@@ -99,7 +100,15 @@ namespace FarmFuryArcade.UI
             {
                 yield return new WaitForSecondsRealtime(PreUnlockDelaySeconds);
                 Sprite badge = levelSelectController.GetWorldSignSprite(justUnlockedWorld.Value);
-                worldUnlockScreen.Show(badge, () => SceneTransitionManager.Instance.ShowOnly(levelSelectScreen));
+                // The just-unlocked world's own gameplay backdrop, shown faded behind the badge —
+                // see NewWorldUnlockScreen's doc comment. MazeType's enum order matches world index
+                // directly (CornField=0, VegPatch=1, Orchard=2, Wheat=3), same convention every
+                // other world<->MazeType lookup in this project relies on.
+                var tileMapRenderer = FindFirstObjectByType<TileMapRenderer>();
+                Sprite backdrop = tileMapRenderer != null
+                    ? tileMapRenderer.GetOrAddArtSet((MazeType)justUnlockedWorld.Value).backdropSprite
+                    : null;
+                worldUnlockScreen.Show(badge, backdrop, () => SceneTransitionManager.Instance.ShowOnly(levelSelectScreen));
             }
         }
 

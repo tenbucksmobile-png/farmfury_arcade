@@ -24,12 +24,23 @@ namespace FarmFuryArcade.UI
     /// player input before invoking onComplete — the caller (LevelCompleteController) uses that to
     /// navigate to Level Select's world-select state, where the badge now renders unlocked/coloured
     /// since save data was already updated before this overlay was shown.
+    ///
+    /// Background was a flat solid black behind the badge/banner — per a benchmark mockup, it now
+    /// shows the just-unlocked world's own gameplay backdrop sprite (TileMapRenderer.MazeArtSet.
+    /// backdropSprite, looked up by LevelCompleteController via GetOrAddArtSet) at BackgroundAlpha
+    /// so the scenery reads as a faded/washed-out version of the world rather than pure black.
     /// </summary>
     public class NewWorldUnlockScreen : MonoBehaviour
     {
         [SerializeField] private Image worldBadgeImage;
+        [SerializeField] private Image backgroundImage;
         [SerializeField] private Button tapButton;
         [SerializeField] private TextMeshProUGUI tapHintText;
+
+        /// <summary>Alpha the unlocked world's own gameplay backdrop is shown at behind the badge —
+        /// per a benchmark mockup, the celebration should show the world's own scenery faded/washed
+        /// out rather than a flat solid-black backdrop (which is what this screen used before).</summary>
+        private const float BackgroundAlpha = 0.55f;
 
         [Tooltip("Seconds the initial overshoot pop-in takes.")]
         [SerializeField] private float burstInSeconds = 0.4f;
@@ -57,11 +68,28 @@ namespace FarmFuryArcade.UI
             }
         }
 
-        public void Show(Sprite badgeSprite, Action onComplete)
+        public void Show(Sprite badgeSprite, Sprite worldBackdropSprite, Action onComplete)
         {
             if (worldBadgeImage != null && badgeSprite != null)
             {
                 worldBadgeImage.sprite = badgeSprite;
+            }
+
+            if (backgroundImage != null)
+            {
+                if (worldBackdropSprite != null)
+                {
+                    backgroundImage.sprite = worldBackdropSprite;
+                    var c = backgroundImage.color;
+                    backgroundImage.color = new Color(c.r, c.g, c.b, BackgroundAlpha);
+                }
+                else
+                {
+                    // No backdrop registered for this world (e.g. art not wired yet) — stay
+                    // invisible so the root panel's own solid black shows through, same as this
+                    // screen's behaviour before backgroundImage existed.
+                    backgroundImage.color = new Color(0f, 0f, 0f, 0f);
+                }
             }
 
             _tapped = false;

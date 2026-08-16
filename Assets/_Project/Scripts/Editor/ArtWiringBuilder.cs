@@ -215,6 +215,10 @@ namespace FarmFuryArcade.EditorTools
         private const string PauseBackground = "Assets/_Project/Sprites/UI/World1_Cornfield.png";
         // New Character Unlock overlay's wood-sign banner, per its own 2026-08 Canva mockup.
         private const string UnlockedBannerSprite = "Assets/_Project/Sprites/UI/unlocked.png";
+        // New World Unlock overlay's own "World Unlocked" wood-sign banner — shared across every
+        // world (not a per-world sprite swap like worldBadge), same generic-header intent as
+        // UnlockedBannerSprite just above but a distinct asset/screen.
+        private const string WorldUnlockedBannerSprite = "Assets/_Project/Sprites/UI/WorldUnlocked.png";
 
         // ---- Level Select (filenames as actually uploaded — note LevelTile_unlocked-notplayed.png
         // and LevelTile_1Star.png differ slightly from the originally-specced
@@ -409,7 +413,7 @@ namespace FarmFuryArcade.EditorTools
             WallCornTiles, FloorTile, WarpTile, WheatfieldBackdrop, SettingsBackground, PauseBackground,
             VegTile, VeggiePatchWarp, VegetableGardenBackdrop, FilledStar, EmptyStar, CornCob, Cabbage,
             LevelTileLocked, LevelTileUnlocked, LevelTile1Star, LevelTile2Stars, LevelTile3Stars,
-            BgLevelSelect, DividerWorldBanner, WaterTileSprite, UnlockedBannerSprite,
+            BgLevelSelect, DividerWorldBanner, WaterTileSprite, UnlockedBannerSprite, WorldUnlockedBannerSprite,
             OrchardWallTile, OrchardFloorTileSprite, OrchardBackgroundSprite, OrchardWarpTile, WheatWarpTile, RedApplePellet, CherryBonus,
             WheatWallTile, WheatFloorTileSprite, MiniLoafPellet, RareGrainSackBonus,
             SelectLevelText, CornFieldText, VegetablePatchText, OrchardText, WheatfieldText, SettingsSignText,
@@ -1423,6 +1427,7 @@ namespace FarmFuryArcade.EditorTools
             SetScreenBackground(canvasTransform, "LevelCompleteScreen/NewCharacterUnlockOverlay", Load(PauseBackground));
             SetImageSprite(canvasTransform, "LevelCompleteScreen/NewCharacterUnlockOverlay/LogoImage", Load(LogoImage));
             SetImageSprite(canvasTransform, "LevelCompleteScreen/NewCharacterUnlockOverlay/UnlockedBanner", Load(UnlockedBannerSprite));
+            SetImageSprite(canvasTransform, "LevelCompleteScreen/NewWorldUnlockOverlay/WorldUnlockedBanner", Load(WorldUnlockedBannerSprite));
             // Rebuilt to a 2026-08-01 mockup — Bg_LevelSelect.png (night farm) root background, with
             // LevelFailed.png moved onto an aspect-locked PanelArt child (see BuildLevelFailed's own
             // doc comment for why the old full-screen stretch distorted the square card art).
