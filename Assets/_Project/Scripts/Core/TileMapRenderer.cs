@@ -621,9 +621,13 @@ namespace FarmFuryArcade.Core
             return grid.x >= 0 && grid.x < _currentLevel.mazeWidth && grid.y >= 0 && grid.y < _currentLevel.mazeHeight;
         }
 
-        /// <summary>Overrides a single cell's walkability without touching LevelData — used for
-        /// BounceRollAbility's temporary wall-phase (call again with walkable=false to revert) and
-        /// as the permanent backing for DestroyWallAt (never reverted).</summary>
+        /// <summary>Overrides a single cell's walkability without touching LevelData — used as the
+        /// permanent backing for DestroyWallAt (never reverted). BounceRollAbility used to call this
+        /// directly for a temporary wall-phase (call again with walkable=false to revert); that
+        /// ability was reworked into a forward roll that no longer phases through walls at all, so
+        /// this is DestroyWallAt-only now. Kept general (still takes a walkable bool, not
+        /// DestroyWallAt-specific) in case a future ability wants a genuinely temporary override
+        /// again.</summary>
         public void SetTemporaryWalkable(Vector2Int cell, bool walkable)
         {
             if (walkable)
@@ -636,8 +640,7 @@ namespace FarmFuryArcade.Core
             }
         }
 
-        /// <summary>The spawned wall GameObject at a cell, if any — used to tint a wall while
-        /// BounceRollAbility's phase window is active.</summary>
+        /// <summary>The spawned wall GameObject at a cell, if any.</summary>
         public GameObject GetWallAt(Vector2Int cell)
         {
             return _wallsByCell.TryGetValue(cell, out var go) ? go : null;

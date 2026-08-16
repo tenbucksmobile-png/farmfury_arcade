@@ -35,7 +35,10 @@ namespace FarmFuryArcade.Core
         public IReadOnlyList<string> CombosTriggeredThisMaze => _combosTriggeredThisMaze;
 
         // One-shot buffs consumed by the named ability's Execute() the next time it activates.
-        public bool PendingTripleWallPhase { get; private set; }  // Earthquake Roll, Kick and Roll -> BounceRollAbility
+        // Earthquake Roll, Kick and Roll -> BounceRollAbility. Name/field predate BounceRollAbility's
+        // rework from wall-phasing to a forward roll-and-kill — now buffs roll DISTANCE (3 tiles ->
+        // 9) for the next activation instead of wall count, same "one buffed use" one-shot contract.
+        public bool PendingTripleWallPhase { get; private set; }
         public bool PendingEggDropClones { get; private set; }    // Feather Storm -> TripleCloneAbility
         public bool PendingDoubleWoolClones { get; private set; } // Skip Shatter -> SkipShotAbility
         public bool PendingDoubleSlamRadius { get; private set; } // Double Slam -> GroundSlamAbility
