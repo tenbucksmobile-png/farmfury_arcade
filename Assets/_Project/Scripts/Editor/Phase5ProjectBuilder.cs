@@ -792,14 +792,19 @@ namespace FarmFuryArcade.EditorTools
             // Positioned around a shared centre point rather than each anchored independently, so
             // the diamond shape (Up above centre, Down below, Left/Right to the sides) is easy to
             // read and re-tune as one unit.
-            // Tightened (spacing 130->100, size 120->110) and pulled further in from the edge
-            // (inset 200->260) — the diamond previously crossed the device safe-area guide. Swapped
-            // from bottom-right to bottom-left (and the Pause/portrait cluster from bottom-left to
-            // bottom-right, above) per feedback — the sub-button offsets (dpadSpacing terms below)
-            // are plain screen-space deltas and don't need to change sign, only dpadCenter's own X
-            // (now positive, measured inward from the left edge via AnchorBottomLeft).
-            const float dpadButtonSize = 110f;
-            const float dpadSpacing = 100f;
+            // Tightened repeatedly (spacing 130->100->70, size 120->110->90) and pulled further in
+            // from the edge (inset 200->260) — the diamond previously crossed the device safe-area
+            // guide. Swapped from bottom-right to bottom-left (and the Pause/portrait cluster from
+            // bottom-left to bottom-right, above) per feedback — the sub-button offsets (dpadSpacing
+            // terms below) are plain screen-space deltas and don't need to change sign, only
+            // dpadCenter's own X (now positive, measured inward from the left edge via
+            // AnchorBottomLeft). Latest pass (100->70 / 110->90) is a further shrink per feedback
+            // that the diamond's overall footprint still overlapped playable maze tiles — the maze's
+            // own rendered area fills nearly the entire device safe-area guide on some aspects, so a
+            // genuinely large D-pad can't avoid overlapping SOME tiles there; shrinking the diamond's
+            // footprint is the only lever available without changing camera zoom/backdrop sizing.
+            const float dpadButtonSize = 90f;
+            const float dpadSpacing = 70f;
             const float dpadInsetX = 260f;
             const float dpadInsetY = 240f;
             Vector2 dpadCenter = new Vector2(dpadInsetX, dpadInsetY);

@@ -18,52 +18,34 @@ namespace FarmFuryArcade.Enemies
             Direction.Up, Direction.Down, Direction.Left, Direction.Right
         };
 
-        /// <summary>Weight multiplier applied to a candidate direction whose destination cell
-        /// appears in the robot's own recentCells history — not a hard ban (a short dead-end loop
-        /// might have no other option, and GetValidDirections' own reversal fallback already
-        /// guarantees at least one option always exists), just heavily discouraged so the weighted
-        /// roll below prefers genuinely new ground. Tightened from 0.15 — the distance weighting
-        /// below is an inverse-square (1/(1+dist^2)), so a very close recent cell could still
-        /// out-weight a much farther genuinely-better one even after the 0.15 penalty (e.g. a
-        /// recent cell 1 tile away scored 0.5*0.15=0.075, beating a fresh cell 4 tiles away at
-        /// 0.0588) — still reported as robots looping in tight sections even after the BFS-distance
-        /// fix. 0.05 keeps the same recent cell's score (0.5*0.05=0.025) below that fresh cell's,
-        /// so real progress genuinely wins in this case while still not being a hard ban.</summary>
-        private const float RecentCellWeightPenalty = 0.05f;
-
-        /// <summary>Weighted-random directional choice: among the walkable, non-reversing
-        /// directions from currentPos, each is weighted by its neighbour cell's REAL shortest-path
-        /// distance to targetPos (inverse-square of a BFS distance, not straight-line — see
-        /// ComputeDistances), then one is picked via a weighted roll.
+        /// <summary>Deterministic-greedy directional choice: among the walkable, non-reversing
+        /// directions from currentPos, always picks whichever candidate's neighbour cell has the
+        /// REAL shortest-path distance to targetPos (a BFS distance, not straight-line — see
+        /// ComputeDistances). recentCells only breaks ties among candidates that are EQUALLY close
+        /// (preferring a non-recent one over a recently-visited one); genuine ties with no
+        /// non-recent option, or ties where recency doesn't distinguish them, are broken by a random
+        /// pick among the tied set — never among a worse one.
         ///
-        /// This used to weight by straight-line (Euclidean) distance to targetPos instead of the
-        /// true path distance. That reads fine in open areas, but a maze has long straight
-        /// corridors — whenever the target sat further down the SAME row/column a robot was already
-        /// travelling along, continuing straight always scored as "closer" by straight-line distance
-        /// even at intersections where turning onto a perpendicular corridor was the actual shorter
-        /// route to the target (or the only route at all, if the straight corridor was itself a dead
-        /// end further along). The robot would then keep re-choosing "continue straight" every time,
-        /// bounce off the corridor's ends (the no-U-turn rule only forces a reversal at an actual
-        /// dead end), and permanently oscillate within that one row/column — reported as robots
-        /// "getting stuck in a row and looping, never moving away from it." Confirmed level-agnostic:
-        /// any maze that recently gained a long peripheral corridor (or already had one) can trigger
-        /// it, so this needed a genuine pathing fix in the shared method every robot type but Drone
-        /// funnels through, not a per-level workaround.
+        /// This used to be a weighted-random roll (each candidate's distance mapped to a weight via
+        /// 1/(1+dist^2), one picked by rolling against the total) rather than a hard pick — which
+        /// looked like it should self-correct over time, but a weighted roll still lets RNG choose a
+        /// strictly WORSE candidate on any given call. At a two-way intersection with a clear best
+        /// option 1 tile away vs. a worse one 3 tiles away, the "worse" pick still had roughly a
+        /// 1-in-10 chance every single visit (weight 0.1 vs 0.5, i.e. ~17%) — over a maze with many
+        /// intersections in a busy area (e.g. a level's top row, packed with pellets and several
+        /// robots crossing it constantly), that adds up to frequent wrong turns, which read exactly
+        /// like "stuck looping in the top row" even though the underlying distance math was already
+        /// correct. A recentCells weight penalty (tried at both 0.15 and 0.05) narrowed the odds but
+        /// could never fully close them, since it only ever discounted a weight rather than removing
+        /// the chance of picking it. Committing to the actual best candidate removes that risk
+        /// entirely — the only remaining randomness is among genuinely equally-good options, where
+        /// any pick is correct by definition.
         ///
-        /// Using each candidate's real BFS distance to targetPos instead removes that structural
-        /// bias entirely: a perpendicular branch that's genuinely closer via the maze's actual
-        /// connectivity now scores as closer, so a robot correctly turns off a long corridor exactly
-        /// when doing so shortens its real route — including while fleeing (Vulnerable state), where
-        /// targetPos is now always a real, reachable, far-away cell (see RobotBase.GetFleeTarget /
-        /// FindFarthestCell) rather than a straight-line projection that could sit outside the maze
-        /// entirely and only ever bias the same Euclidean heuristic.
-        ///
-        /// recentCells (RobotBase's own short rolling history of the last few cells it occupied) is
-        /// still applied as an extra weight penalty on top of the distance weighting, as a second
-        /// line of defence against short back-and-forth cycles between two similarly-distant
-        /// intersections that real BFS distance alone doesn't fully rule out (e.g. two branches
-        /// genuinely equidistant from targetPos). Optional/nullable so call sites without a history
-        /// (or DroneRobot, which bypasses this class entirely) don't need to change.</summary>
+        /// Distance weighting itself is unchanged from the original BFS-distance fix: an earlier
+        /// straight-line (Euclidean) heuristic biased robots toward "continue straight" even when a
+        /// perpendicular branch was the true shorter route, which is what first caused corridor
+        /// oscillation before BFS distance replaced it. That fix stays — this change only replaces
+        /// how a candidate's distance gets turned into an actual choice.</summary>
         public static Direction GetNextDirection(Vector2Int currentPos, Vector2Int targetPos, Direction currentDir, TileMapRenderer maze, IReadOnlyCollection<Vector2Int> recentCells = null)
         {
             Direction[] valid = GetValidDirections(currentPos, currentDir, maze);
@@ -78,32 +60,37 @@ namespace FarmFuryArcade.Enemies
 
             Dictionary<Vector2Int, int> distances = ComputeDistances(targetPos, maze);
 
-            var weights = new float[valid.Length];
-            float totalWeight = 0f;
+            var candidateDistances = new int[valid.Length];
+            int bestDistance = int.MaxValue;
             for (int i = 0; i < valid.Length; i++)
             {
                 Vector2Int next = currentPos + DirectionUtils.ToVector(valid[i]);
                 int dist = distances.TryGetValue(next, out int pathDist) ? pathDist : StraightLineDistanceSqr(next, targetPos);
-                weights[i] = 1f / (1 + dist * dist);
-                if (recentCells != null && recentCells.Contains(next))
+                candidateDistances[i] = dist;
+                if (dist < bestDistance)
                 {
-                    weights[i] *= RecentCellWeightPenalty;
+                    bestDistance = dist;
                 }
-                totalWeight += weights[i];
             }
 
-            float roll = Random.value * totalWeight;
-            float cumulative = 0f;
+            var best = new List<Direction>(valid.Length);
+            var bestNonRecent = new List<Direction>(valid.Length);
             for (int i = 0; i < valid.Length; i++)
             {
-                cumulative += weights[i];
-                if (roll <= cumulative)
+                if (candidateDistances[i] != bestDistance)
                 {
-                    return valid[i];
+                    continue;
+                }
+                best.Add(valid[i]);
+                Vector2Int next = currentPos + DirectionUtils.ToVector(valid[i]);
+                if (recentCells == null || !recentCells.Contains(next))
+                {
+                    bestNonRecent.Add(valid[i]);
                 }
             }
 
-            return valid[valid.Length - 1];
+            var winners = bestNonRecent.Count > 0 ? bestNonRecent : best;
+            return winners[Random.Range(0, winners.Count)];
         }
 
         /// <summary>Breadth-first search over walkable cells (same wall-respecting rule
