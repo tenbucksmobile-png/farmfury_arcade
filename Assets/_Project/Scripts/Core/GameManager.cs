@@ -110,6 +110,10 @@ namespace FarmFuryArcade.Core
             _levelStartTime = Time.time;
             CurrentState = GameState.Playing;
             AudioManager.Instance?.ResumeBackgroundMusic();
+            // Between-levels interstitial trigger — deliberately called here (never mid-Playing,
+            // since LoadLevel only ever runs at a level transition) rather than from wherever the
+            // player tapped a level tile, so every LoadLevel call site gets this for free.
+            AdManager.Instance?.NotifyLevelLoaded();
 
             _sceneController.LoadLevelContent(level);
         }

@@ -26,6 +26,8 @@ namespace FarmFuryArcade.Core
         private const string LeftHandedKey = "FFA_LeftHanded";
         private const string DailyChallengeCompletedDateKey = "FFA_DailyChallengeCompletedDate";
         private const string TotalCombosTriggeredKey = "FFA_TotalCombosTriggered";
+        private const string AdsRemovedKey = "FFA_AdsRemoved";
+        private const string LevelsSinceLastInterstitialKey = "FFA_LevelsSinceLastInterstitial";
 
         /// <summary>Bound used only by ResetAllProgress's per-level key sweep — matches the GDD's
         /// 100-level World 1-6 scope even though only a handful of LevelData assets exist so far;
@@ -228,6 +230,28 @@ namespace FarmFuryArcade.Core
         {
             get => PlayerPrefs.GetInt(LeftHandedKey, 0) == 1;
             set => PlayerPrefs.SetInt(LeftHandedKey, value ? 1 : 0);
+        }
+
+        // ---- Monetisation (AdManager, future IAPManager) ---------------------------------------
+
+        /// <summary>Set once by the "Remove Ads" IAP product (not implemented yet — see CLAUDE.md's
+        /// monetisation plan, Phase 3). AdManager.NotifyLevelLoaded already checks this so the
+        /// interstitial call site needs no changes once that purchase flow lands.</summary>
+        public bool AdsRemoved
+        {
+            get => PlayerPrefs.GetInt(AdsRemovedKey, 0) == 1;
+            set => PlayerPrefs.SetInt(AdsRemovedKey, value ? 1 : 0);
+        }
+
+        /// <summary>Rolling counter AdManager.NotifyLevelLoaded increments/resets to decide when
+        /// the next forced interstitial fires (every interstitialLevelInterval levels, per the
+        /// GDD's 5-8 range) — a property/setter pair rather than a plain public property since the
+        /// "increment vs. reset to 0" logic lives in AdManager, this is just the persisted value.</summary>
+        public int LevelsSinceLastInterstitial => PlayerPrefs.GetInt(LevelsSinceLastInterstitialKey, 0);
+
+        public void SetLevelsSinceLastInterstitial(int count)
+        {
+            PlayerPrefs.SetInt(LevelsSinceLastInterstitialKey, count);
         }
 
         // ---- Daily Challenge --------------------------------------------------------------------

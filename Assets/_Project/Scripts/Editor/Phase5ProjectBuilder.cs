@@ -264,6 +264,12 @@ namespace FarmFuryArcade.EditorTools
             WireAudioSources(managersGO, audioManager);
             if (managersGO.GetComponent<DailyChallengeManager>() == null) managersGO.AddComponent<DailyChallengeManager>();
             if (managersGO.GetComponent<LeaderboardManager>() == null) managersGO.AddComponent<LeaderboardManager>();
+            // AdManager's app-key/ad-unit-ID fields are left empty here — no real IDs exist yet
+            // (see CLAUDE.md's monetisation plan). Fill them in via the Inspector once the LevelPlay
+            // dashboard has real values; AdManager itself no-ops gracefully with a warning until
+            // then, same "missing config just no-ops" convention AudioManager's missing-clip
+            // handling already uses.
+            if (managersGO.GetComponent<AdManager>() == null) managersGO.AddComponent<AdManager>();
         }
 
         /// <summary>AudioManager's musicSourceA/musicSourceB/sfxPool were never actually assigned
