@@ -27,7 +27,9 @@ namespace FarmFuryArcade.EditorTools
         /// Android confirmed 2026-08-16 from the Unity Monetization dashboard's new Placements flow
         /// (which replaced the old ironSource-style "Ad units + Instances" flow on 2026-08-11):
         /// Game ID (== LevelPlay's app key) 800356804, Rewarded placement "Rewarded_Android",
-        /// Interstitial placement "Interstitial_Android". iOS values not yet available.</summary>
+        /// Interstitial placement "Interstitial_Android". iOS confirmed the same session: Game ID
+        /// 800356807, Rewarded placement "Rewarded_iOS", Interstitial placement
+        /// "Interstitial_iOS".</summary>
         [MenuItem("Farm Fury Arcade/Wire AdManager Config")]
         public static void WireAdManagerConfig()
         {
@@ -43,8 +45,9 @@ namespace FarmFuryArcade.EditorTools
             SetIfNotEmpty(so, "androidAppKey", "800356804");
             SetIfNotEmpty(so, "androidRewardedAdUnitId", "Rewarded_Android");
             SetIfNotEmpty(so, "androidInterstitialAdUnitId", "Interstitial_Android");
-            // iOS fields (iosAppKey / iosRewardedAdUnitId / iosInterstitialAdUnitId) left untouched
-            // until those values are available.
+            SetIfNotEmpty(so, "iosAppKey", "800356807");
+            SetIfNotEmpty(so, "iosRewardedAdUnitId", "Rewarded_iOS");
+            SetIfNotEmpty(so, "iosInterstitialAdUnitId", "Interstitial_iOS");
             so.ApplyModifiedPropertiesWithoutUndo();
 
             EditorUtility.SetDirty(adManager);
