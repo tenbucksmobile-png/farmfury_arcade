@@ -280,10 +280,21 @@ namespace FarmFuryArcade.EditorTools
         // Filename has spaces (the uploaded file, not a renamed convention like every other UI
         // asset here) — kept as-is rather than renamed on disk, since AssetDatabase.LoadAssetAtPath
         // works fine with spaces in a path.
+        // Replacement panel art (same filename, content swapped by the user) now bakes "Revive for
+        // 5 coins?" directly into its bottom slot — see BuildLevelComplete's RevivePromptOverlay
+        // comment for why the runtime coin-icon/cost-text row was removed as a result.
         private const string RevivePromptPanel = "Assets/_Project/Sprites/UI/Revive Prompt panel background.png";
-        private const string BtnRevive = "Assets/_Project/Sprites/UI/Btn_revive.png";
-        private const string BtnDecline = "Assets/_Project/Sprites/UI/Btn_decline.png";
+        // Yes.png/No.png replaced the original Btn_revive.png/Btn_decline.png wood-plank buttons —
+        // both already bake in their own "Yes"/"No" label, so BuildLevelComplete destroys
+        // ReviveButton/DeclineButton's auto-generated text labels now. Old Btn_revive.png/
+        // Btn_decline.png are left on disk unreferenced, same "old art stays, just unused"
+        // convention as every other art swap in this project.
+        private const string BtnRevive = "Assets/_Project/Sprites/UI/Yes.png";
+        private const string BtnDecline = "Assets/_Project/Sprites/UI/No.png";
         private const string BtnSkipCooldown = "Assets/_Project/Sprites/UI/Btn_skipcooldown.png";
+        // Currently unused — was wired onto the Revive prompt's cost-text row, removed alongside it
+        // (see RevivePromptPanel's comment above). Left configured/imported in case a future screen
+        // wants a standalone coin glyph.
         private const string CoinUI = "Assets/_Project/Sprites/UI/Coin_UI.png";
         private const string CoinBalanceChip = "Assets/_Project/Sprites/UI/Coin_Balance_Chip.png";
         private const string RetryButtonArt = "Assets/_Project/Sprites/UI/Retry.png";
@@ -1557,12 +1568,10 @@ namespace FarmFuryArcade.EditorTools
             EditorSceneManager.SaveScene(EditorSceneManager.GetActiveScene());
         }
 
-        /// <summary>Wires the Revive prompt's panel art + Revive/Decline buttons + coin icon, the
-        /// skip-cooldown button's icon, and the Gameplay HUD's coin balance chip — the monetisation
-        /// surface reviewed with the user, who then supplied art matching the Kling AI prompts
-        /// given for each piece. All six were previously either bare placeholder colors (Revive
-        /// prompt) or a text-only button (skip cooldown) or didn't exist at all (coin balance,
-        /// added alongside this wiring pass — see GameplayHUD.RefreshCoinBalanceText).</summary>
+        /// <summary>Wires the Revive prompt's panel art + Yes/No buttons, the skip-cooldown
+        /// button's icon, and the Gameplay HUD's coin balance chip — the monetisation surface
+        /// reviewed with the user. Revive prompt art was replaced once already (see RevivePromptPanel/
+        /// BtnRevive/BtnDecline's own comments for what changed and why).</summary>
         private static void WireMonetisationArt()
         {
             EditorSceneManager.OpenScene(ScenePath);
@@ -1574,7 +1583,6 @@ namespace FarmFuryArcade.EditorTools
             }
 
             SetImageSprite(canvasTransform, "GameplayScreen/RevivePromptOverlay/PanelArt", Load(RevivePromptPanel));
-            SetImageSprite(canvasTransform, "GameplayScreen/RevivePromptOverlay/PanelArt/Content/CostRow/CoinIcon", Load(CoinUI));
             SetImageSprite(canvasTransform, "GameplayScreen/RevivePromptOverlay/PanelArt/Content/ReviveButton", Load(BtnRevive));
             SetImageSprite(canvasTransform, "GameplayScreen/RevivePromptOverlay/PanelArt/Content/DeclineButton", Load(BtnDecline));
 

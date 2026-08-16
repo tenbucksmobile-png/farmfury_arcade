@@ -854,37 +854,30 @@ namespace FarmFuryArcade.EditorTools
             var reviveGroup = CreateVerticalGroup("Content", revivePanelArtGO.transform, 14f, 30);
             ((RectTransform)reviveGroup.transform).anchoredPosition = new Vector2(0f, -40f);
 
-            // Coin icon + cost text row — manual anchoring (not CreateHorizontalGroup, whose
-            // childForceExpandWidth would stretch the icon along with the text) so the icon stays a
-            // fixed 48x48 at the row's left edge and the text fills the rest.
-            var costRowGO = new GameObject("CostRow", typeof(RectTransform), typeof(LayoutElement));
-            costRowGO.transform.SetParent(reviveGroup.transform, false);
-            costRowGO.GetComponent<LayoutElement>().preferredHeight = 60f;
-
-            var reviveCoinIcon = CreateImage("CoinIcon", costRowGO.transform, new Color(1f, 0.85f, 0.2f), 48f, 48f);
-            var reviveCoinIconRect = (RectTransform)reviveCoinIcon.transform;
-            reviveCoinIconRect.anchorMin = reviveCoinIconRect.anchorMax = new Vector2(0f, 0.5f);
-            reviveCoinIconRect.pivot = new Vector2(0f, 0.5f);
-            reviveCoinIconRect.sizeDelta = new Vector2(48f, 48f);
-            reviveCoinIconRect.anchoredPosition = Vector2.zero;
-            reviveCoinIcon.preserveAspect = true;
-
-            var reviveCostText = CreateText("CostText", costRowGO.transform, "Revive for 5 coins?", 32f, TextAlignmentOptions.Left, 60f);
-            var reviveCostTextRect = (RectTransform)reviveCostText.transform;
-            reviveCostTextRect.anchorMin = Vector2.zero;
-            reviveCostTextRect.anchorMax = Vector2.one;
-            reviveCostTextRect.offsetMin = new Vector2(60f, 0f);
-            reviveCostTextRect.offsetMax = Vector2.zero;
-
-            var reviveButton = CreateButton("ReviveButton", reviveGroup.transform, "Revive", new Color(0.2f, 0.65f, 0.3f), out _);
-            var declineButton = CreateButton("DeclineButton", reviveGroup.transform, "No Thanks", new Color(0.35f, 0.35f, 0.38f), out _);
+            // No separate coin-icon/cost-text row anymore — the replacement panel art (see
+            // RevivePromptPanel's own doc comment) bakes "Revive for 5 coins?" directly into its
+            // bottom slot, so a duplicate runtime text row would just repeat it. costText is left
+            // unwired below; RevivePromptController.Show() already null-checks it.
+            var reviveButton = CreateButton("ReviveButton", reviveGroup.transform, string.Empty, new Color(0.2f, 0.65f, 0.3f), out _);
+            Object.DestroyImmediate(reviveButton.transform.Find("ReviveButton_Label").gameObject);
+            var declineButton = CreateButton("DeclineButton", reviveGroup.transform, string.Empty, new Color(0.35f, 0.35f, 0.38f), out _);
+            Object.DestroyImmediate(declineButton.transform.Find("DeclineButton_Label").gameObject);
+            // reviveGroup's VerticalLayoutGroup has childControlHeight=false (see CreateVerticalGroup),
+            // so a button's LayoutElement.preferredHeight (set inside CreateButton) is never actually
+            // applied — the same CreateImage-args-are-inert pattern found elsewhere in this file.
+            // Height set explicitly here instead; width still comes from the layout group
+            // (childControlWidth=true), so only .y needs overriding.
+            const float reviveButtonHeight = 130f;
+            var reviveButtonRect = (RectTransform)reviveButton.transform;
+            reviveButtonRect.sizeDelta = new Vector2(reviveButtonRect.sizeDelta.x, reviveButtonHeight);
+            var declineButtonRect = (RectTransform)declineButton.transform;
+            declineButtonRect.sizeDelta = new Vector2(declineButtonRect.sizeDelta.x, reviveButtonHeight);
             reviveRoot.SetActive(false);
 
             var revivePrompt = reviveRoot.AddComponent<RevivePromptController>();
             var reviveSO = new SerializedObject(revivePrompt);
             reviveSO.FindProperty("reviveButton").objectReferenceValue = reviveButton;
             reviveSO.FindProperty("declineButton").objectReferenceValue = declineButton;
-            reviveSO.FindProperty("costText").objectReferenceValue = reviveCostText;
             reviveSO.ApplyModifiedPropertiesWithoutUndo();
 
             var hud = root.AddComponent<GameplayHUD>();
