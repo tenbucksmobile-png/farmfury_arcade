@@ -213,8 +213,13 @@ namespace FarmFuryArcade.EditorTools
         // scene as Bg_LevelSelect.png's composition but a different piece of art (previously unused
         // — see CLAUDE.md's Art status section prior to this).
         private const string PauseBackground = "Assets/_Project/Sprites/UI/World1_Cornfield.png";
-        // New Character Unlock overlay's wood-sign banner, per its own 2026-08 Canva mockup.
-        private const string UnlockedBannerSprite = "Assets/_Project/Sprites/UI/unlocked.png";
+        // New Character Unlock overlay's wood-sign banner. Was unlocked.png (a generic "Unlocked"
+        // mockup placeholder); replaced with NewCharacter.png, a dedicated "New Character" sign
+        // used for every animal character's unlock celebration regardless of which one unlocked
+        // (same "one shared header art, per-character content is the card below it" convention
+        // WorldUnlockedBannerSprite uses for worlds). unlocked.png is left on disk unreferenced,
+        // same "old art stays, just unused" convention as every other art swap in this project.
+        private const string UnlockedBannerSprite = "Assets/_Project/Sprites/UI/NewCharacter.png";
         // New World Unlock overlay's own "World Unlocked" wood-sign banner — shared across every
         // world (not a per-world sprite swap like worldBadge), same generic-header intent as
         // UnlockedBannerSprite just above but a distinct asset/screen.
