@@ -10,16 +10,20 @@ namespace FarmFuryArcade.UI
     /// Overlay shown by LevelCompleteController right after a character unlock. Rebuilt to match a
     /// Canva mockup: full-screen night-farm backdrop, Logo top-left, a wood-sign "Unlocked" banner
     /// top-centre, and the character's own framed card art (CharacterData.selectCardArt — the same
-    /// per-character asset ChooseCharacterScreen uses) large and centred. That card art already has
-    /// the character's name baked in (confirmed against the uploaded files, e.g. Percy_Pig.png), so
-    /// this screen needs no separate name/title/stats text at all — it's purely the card reveal.
-    /// Auto-dismisses after autoDismissSeconds rather than needing a Continue tap (per the mockup
-    /// having no visible button). Progress is already saved by UnlockManager at the moment of
-    /// unlock; this screen is purely presentational.
+    /// per-character asset ChooseCharacterScreen uses, and now sized to match — see
+    /// Phase5ProjectBuilder's unlockCard) large and centred. That card art already has the
+    /// character's name baked in (confirmed against the uploaded files, e.g. Percy_Pig.png), so this
+    /// screen needs no separate name/title/stats text at all — it's purely the card reveal.
+    /// Dismisses on tap (tapButton, a full-screen invisible Button on the root panel — same
+    /// convention NewWorldUnlockScreen uses) rather than auto-dismissing on a fixed timer — per
+    /// feedback that a timed fade-out didn't give the player enough control/time to actually look at
+    /// the reveal. Progress is already saved by UnlockManager at the moment of unlock; this screen
+    /// is purely presentational.
     /// </summary>
     public class NewCharacterUnlockScreen : MonoBehaviour
     {
         [SerializeField] private Image characterCardImage;
+        [SerializeField] private Button tapButton;
 
         [Tooltip("Seconds the card's fade-in + scale-up reveal takes.")]
         [SerializeField] private float cardRevealDuration = 0.6f;
@@ -27,11 +31,17 @@ namespace FarmFuryArcade.UI
         [Tooltip("Starting scale (as a fraction of full size) the card reveals from.")]
         [SerializeField] private float cardRevealStartScale = 0.4f;
 
-        [Tooltip("Seconds the fully-revealed card stays on screen before auto-dismissing.")]
-        [SerializeField] private float autoDismissSeconds = 2.5f;
-
         private Coroutine _showRoutine;
         private System.Action _onDismissed;
+        private bool _tapped;
+
+        private void Awake()
+        {
+            if (tapButton != null)
+            {
+                tapButton.onClick.AddListener(() => _tapped = true);
+            }
+        }
 
         /// <summary>onDismissed (optional) fires once, right after the card's own auto-dismiss —
         /// lets a caller chain a follow-up celebration (e.g. a new-world-unlock burst) without it
@@ -55,13 +65,19 @@ namespace FarmFuryArcade.UI
                 }
             }
 
+            _tapped = false;
+            if (tapButton != null)
+            {
+                tapButton.interactable = false;
+            }
+
             gameObject.SetActive(true);
 
             if (_showRoutine != null)
             {
                 StopCoroutine(_showRoutine);
             }
-            _showRoutine = StartCoroutine(RevealThenAutoDismiss());
+            _showRoutine = StartCoroutine(RevealThenWaitForTap());
         }
 
         private void Hide()
@@ -84,7 +100,7 @@ namespace FarmFuryArcade.UI
         /// orthographic squash with zero depth cue, so for most of the rotation sweep the card was
         /// a razor-thin, unreadable sliver overlapping neighbouring UI. Scale has no equivalent
         /// degenerate mid-state.</summary>
-        private IEnumerator RevealThenAutoDismiss()
+        private IEnumerator RevealThenWaitForTap()
         {
             if (characterCardImage != null)
             {
@@ -109,7 +125,14 @@ namespace FarmFuryArcade.UI
                 characterCardImage.color = baseColor;
             }
 
-            yield return new WaitForSecondsRealtime(autoDismissSeconds);
+            // Only start accepting taps once the reveal has finished — same "don't let an
+            // impatient/leftover tap instantly skip the reveal" guard NewWorldUnlockScreen uses.
+            if (tapButton != null)
+            {
+                tapButton.interactable = true;
+            }
+
+            yield return new WaitUntil(() => _tapped);
 
             _showRoutine = null;
             Hide();

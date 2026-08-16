@@ -17,7 +17,7 @@ namespace FarmFuryArcade.Abilities
     {
         private const float BurstFrameSeconds = 0.5f;
 
-        [SerializeField] private float lifetimeSeconds = 15f;
+        [SerializeField] private float lifetimeSeconds = 5f;
         [SerializeField] private Sprite crackedSprite;
         [SerializeField] private Sprite burstSprite;
 

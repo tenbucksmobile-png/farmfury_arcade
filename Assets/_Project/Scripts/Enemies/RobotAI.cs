@@ -20,9 +20,16 @@ namespace FarmFuryArcade.Enemies
 
         /// <summary>Weight multiplier applied to a candidate direction whose destination cell
         /// appears in the robot's own recentCells history — not a hard ban (a short dead-end loop
-        /// might have no other option), just heavily discouraged so the weighted roll below prefers
-        /// genuinely new ground.</summary>
-        private const float RecentCellWeightPenalty = 0.15f;
+        /// might have no other option, and GetValidDirections' own reversal fallback already
+        /// guarantees at least one option always exists), just heavily discouraged so the weighted
+        /// roll below prefers genuinely new ground. Tightened from 0.15 — the distance weighting
+        /// below is an inverse-square (1/(1+dist^2)), so a very close recent cell could still
+        /// out-weight a much farther genuinely-better one even after the 0.15 penalty (e.g. a
+        /// recent cell 1 tile away scored 0.5*0.15=0.075, beating a fresh cell 4 tiles away at
+        /// 0.0588) — still reported as robots looping in tight sections even after the BFS-distance
+        /// fix. 0.05 keeps the same recent cell's score (0.5*0.05=0.025) below that fresh cell's,
+        /// so real progress genuinely wins in this case while still not being a hard ban.</summary>
+        private const float RecentCellWeightPenalty = 0.05f;
 
         /// <summary>Weighted-random directional choice: among the walkable, non-reversing
         /// directions from currentPos, each is weighted by its neighbour cell's REAL shortest-path

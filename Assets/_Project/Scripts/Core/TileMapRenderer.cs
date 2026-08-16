@@ -240,7 +240,7 @@ namespace FarmFuryArcade.Core
             return result;
         }
 
-        /// <summary>Scatters `count` copies of `prefab` onto random walkable, crop/pellet-free
+        /// <summary>Scatters `count` copies of `prefab` onto random walkable, crop/pellet/warp-free
         /// cells — see MazeArtSet.bonusPickupPrefab's doc comment for why this is separate from
         /// totalCropsRequired. Shared by both the per-world themed bonus (MazeArtSet.
         /// bonusPickupPrefab — cherry, grain sack, ...) and the world-independent
@@ -249,8 +249,11 @@ namespace FarmFuryArcade.Core
         /// pickup sprite, and stacking a second one on top (the original "on top of whatever else
         /// is already there" behaviour) reads as one pickup swallowing the other rather than two
         /// distinct items, especially now that Orchard's crop-apple sprite is large enough to
-        /// visually dominate a smaller bonus cherry landing on the same cell. A no-op if prefab is
-        /// null or count <= 0.</summary>
+        /// visually dominate a smaller bonus cherry landing on the same cell. Also excludes warp
+        /// tunnel cells (tile id 5) — a pickup sitting on the same cell as a warp tile reads as
+        /// oddly placed (visually competing with the tunnel art) and risks being collected the
+        /// instant a warp animation completes, before the player can even see it. A no-op if
+        /// prefab is null or count <= 0.</summary>
         private void SpawnScatteredPickups(GameObject prefab, int count, LevelData data)
         {
             if (prefab == null || count <= 0)
@@ -265,7 +268,7 @@ namespace FarmFuryArcade.Core
                 {
                     int tileId = data.MazeLayout[x, y];
                     if (tileId != TileWall && tileId != TileCropKernel && tileId != TileCropVegetable
-                        && tileId != TilePowerPellet)
+                        && tileId != TilePowerPellet && tileId != TileWarpEdge)
                     {
                         candidates.Add(new Vector2Int(x, y));
                     }

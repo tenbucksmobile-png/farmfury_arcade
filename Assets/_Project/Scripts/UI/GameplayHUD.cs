@@ -62,6 +62,15 @@ namespace FarmFuryArcade.UI
         private static readonly Color AbilityFlashColor = new Color(1f, 0.95f, 0.3f, 1f);
         private const float FlashCyclesPerSecond = 2f;
 
+        /// <summary>Seconds remaining at which the timer starts pulsing red — per feedback that
+        /// the level time limit (GameManager.LevelTimeLimitSeconds) ending a run felt "random"
+        /// with nothing warning it was about to happen; the countdown text itself was the only
+        /// signal, easy to miss while focused on the maze.</summary>
+        private const float TimerWarningThresholdSeconds = 15f;
+        private static readonly Color TimerWarningColor = new Color(0.9f, 0.15f, 0.15f, 1f);
+        private Color _timerNormalColor = Color.white;
+        private bool _timerNormalColorCaptured;
+
         private Coroutine _readyFlashRoutine;
         private int _displayedScore;
         private int _targetScore;
@@ -201,10 +210,28 @@ namespace FarmFuryArcade.UI
 
         private void RefreshTimerText()
         {
-            if (timerText != null)
+            if (timerText == null)
             {
-                float remaining = Mathf.Max(0f, GameManager.LevelTimeLimitSeconds - GameManager.Instance.GetElapsedSeconds());
-                timerText.text = FormatTime(remaining);
+                return;
+            }
+
+            if (!_timerNormalColorCaptured)
+            {
+                _timerNormalColor = timerText.color;
+                _timerNormalColorCaptured = true;
+            }
+
+            float remaining = Mathf.Max(0f, GameManager.LevelTimeLimitSeconds - GameManager.Instance.GetElapsedSeconds());
+            timerText.text = FormatTime(remaining);
+
+            if (remaining <= TimerWarningThresholdSeconds)
+            {
+                float pulse = (Mathf.Sin(Time.unscaledTime * FlashCyclesPerSecond * Mathf.PI * 2f) + 1f) * 0.5f;
+                timerText.color = Color.Lerp(_timerNormalColor, TimerWarningColor, pulse);
+            }
+            else
+            {
+                timerText.color = _timerNormalColor;
             }
         }
 

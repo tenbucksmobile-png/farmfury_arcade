@@ -264,14 +264,20 @@ namespace FarmFuryArcade.Core
         {
             CurrentState = GameState.LevelSelect;
             Time.timeScale = 1f;
-            AudioManager.Instance?.StopMusic();
+            // Landing/menu track resumes instead of cutting to silence — matches EndLevel's own
+            // fix below (see its comment) so leaving gameplay by any path always leaves music
+            // playing, never stopped outright.
+            AudioManager.Instance?.PlayLandingMusic();
         }
 
         public void EndLevel(bool success)
         {
             float elapsed = Time.time - _levelStartTime;
             CurrentState = success ? GameState.LevelComplete : GameState.LevelFailed;
-            AudioManager.Instance?.StopMusic();
+            // Reverts to the landing/menu track rather than stopping music outright — per
+            // feedback that Main Menu's music should "play all the way through," only ever
+            // swapped out (never silenced) while a level is actually running.
+            AudioManager.Instance?.PlayLandingMusic();
 
             JustUnlockedWorldIndex = null;
 

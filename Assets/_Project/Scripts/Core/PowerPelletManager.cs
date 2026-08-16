@@ -34,9 +34,17 @@ namespace FarmFuryArcade.Core
             WasActivatedThisMaze = false;
         }
 
+        /// <summary>Eating a pellet while the power state is already active only ever EXTENDS the
+        /// countdown (Mathf.Max against whatever's left), never shortens it. Previously this
+        /// unconditionally overwrote TimeRemaining with the new pellet's own duration — harmless
+        /// when a stronger pellet followed a weaker one, but a maze typically has several plain
+        /// Sunflower pellets (5s) alongside its one capped rare pellet (GoldenWheat 9.5s / Rainbow
+        /// 17s, see GetDuration); eating a Sunflower partway through an already-running rare-tier
+        /// window reset the timer down to a flat 5s, cutting the rare pellet's real duration short
+        /// well before it should have expired.</summary>
         public void ActivatePower(float duration)
         {
-            TimeRemaining = duration;
+            TimeRemaining = IsPowerActive ? Mathf.Max(TimeRemaining, duration) : duration;
             ActivatedDuration = duration;
             WasActivatedThisMaze = true;
 

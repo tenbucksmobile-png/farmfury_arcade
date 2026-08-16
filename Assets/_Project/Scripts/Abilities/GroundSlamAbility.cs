@@ -34,7 +34,12 @@ namespace FarmFuryArcade.Abilities
 
             if (shockwavePrefab != null)
             {
-                Instantiate(shockwavePrefab, transform.position, Quaternion.identity);
+                var shockwaveGO = Instantiate(shockwavePrefab, transform.position, Quaternion.identity);
+                // Diameter in world units = 2 * radius(tiles) * CellSize — see ShockwaveEffect.Configure's
+                // doc comment for why this makes the VFX's footprint match the real kill radius instead
+                // of a fixed placeholder size unrelated to it.
+                float diameterWorldUnits = 2f * radius * TileMapRenderer.CellSize;
+                shockwaveGO.GetComponent<ShockwaveEffect>()?.Configure(diameterWorldUnits, KillzoneDurationSeconds);
             }
 
             CameraShake.Instance?.Shake(shakeDuration, shakeMagnitude);

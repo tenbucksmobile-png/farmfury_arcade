@@ -1420,15 +1420,18 @@ namespace FarmFuryArcade.EditorTools
             // "Unlocked" banner top-centre, and the character's own selectCardArt large and
             // centred (that art already has the character's name baked in — see
             // NewCharacterUnlockScreen's doc comment — so no separate name/title/stats text is
-            // needed at all). No Continue button — the mockup has none; the screen auto-dismisses
-            // itself (NewCharacterUnlockScreen.autoDismissSeconds).
+            // needed at all). Tapping anywhere dismisses it (tapButton, wired below) instead of a
+            // fixed auto-dismiss timer.
             var unlockRoot = CreatePanel("NewCharacterUnlockOverlay", root.transform, Color.black);
+            var unlockTapButton = unlockRoot.AddComponent<Button>();
+            unlockTapButton.targetGraphic = unlockRoot.GetComponent<Image>();
 
             var unlockLogoGO = new GameObject("LogoImage", typeof(RectTransform), typeof(Image));
             unlockLogoGO.transform.SetParent(unlockRoot.transform, false);
             var unlockLogoImage = unlockLogoGO.GetComponent<Image>();
             unlockLogoImage.sprite = PlaceholderSprite.Get(Color.clear);
             unlockLogoImage.preserveAspect = true;
+            unlockLogoImage.raycastTarget = false;
             AnchorTopLeft((RectTransform)unlockLogoGO.transform, new Vector2(300f, 170f), new Vector2(100f, -50f));
 
             var unlockBannerGO = new GameObject("UnlockedBanner", typeof(RectTransform), typeof(Image));
@@ -1436,19 +1439,28 @@ namespace FarmFuryArcade.EditorTools
             var unlockBannerImage = unlockBannerGO.GetComponent<Image>();
             unlockBannerImage.sprite = PlaceholderSprite.Get(Color.clear);
             unlockBannerImage.preserveAspect = true;
+            unlockBannerImage.raycastTarget = false;
             AnchorTopCenter((RectTransform)unlockBannerGO.transform, new Vector2(700f, 220f), new Vector2(0f, -60f));
 
-            // Enlarged (550 -> 850) per feedback that it read as very small — the mockup's card
-            // fills most of the vertical space between the banner and the bottom of the screen.
-            var unlockCard = CreateImage("CharacterCard", unlockRoot.transform, new Color(1f, 0.84f, 0f), 850f, 850f);
+            // Sized (and un-preserveAspect'd) to match ChooseCharacterScreen's own CardArt exactly
+            // (BuildCharacterSelectCardPrefab: 340x360, stretched-to-fill rather than preserveAspect)
+            // per feedback that this card should be "the same size as the swap character scene" —
+            // was 850x850 with preserveAspect, which (depending on each character's selectCardArt
+            // native aspect ratio) could read noticeably smaller than the Choose Character card it's
+            // showing the exact same art as.
+            var unlockCard = CreateImage("CharacterCard", unlockRoot.transform, new Color(1f, 0.84f, 0f), 340f, 360f);
             var unlockCardRect = (RectTransform)unlockCard.transform;
             unlockCardRect.anchorMin = unlockCardRect.anchorMax = new Vector2(0.5f, 0.5f);
             unlockCardRect.anchoredPosition = new Vector2(0f, -60f);
-            unlockCard.preserveAspect = true;
+            unlockCard.preserveAspect = false;
+            // Shouldn't swallow the tap before it reaches unlockTapButton on the root underneath —
+            // same convention NewWorldUnlockScreen's worldBadge uses.
+            unlockCard.raycastTarget = false;
 
             var unlockScreen = unlockRoot.AddComponent<NewCharacterUnlockScreen>();
             var unlockSO = new SerializedObject(unlockScreen);
             unlockSO.FindProperty("characterCardImage").objectReferenceValue = unlockCard;
+            unlockSO.FindProperty("tapButton").objectReferenceValue = unlockTapButton;
             unlockSO.ApplyModifiedPropertiesWithoutUndo();
             unlockRoot.SetActive(false);
 
