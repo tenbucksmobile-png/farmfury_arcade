@@ -642,6 +642,28 @@ namespace FarmFuryArcade.EditorTools
             var timerText = CreateText("TimerText", root.transform, "00:00", 60f, TextAlignmentOptions.TopRight, 90f);
             AnchorTopRight((RectTransform)timerText.transform, new Vector2(240f, 90f), new Vector2(-170f, -170f));
 
+            // Monetisation: coin balance chip, just below ScoreText — previously SaveManager.
+            // CoinBalance had no on-screen display anywhere at all (only surfaced indirectly via the
+            // Revive prompt's cost text / skip-cooldown button's cost label), which is bad UX once
+            // the player is actually being asked to spend coins on both of those. Coin_Balance_Chip.png
+            // has its own left (icon) / right (number) halves baked in, so the icon needs no separate
+            // child Image — just the number text positioned over the right half.
+            const float coinChipWidth = 220f;
+            const float coinChipHeight = 70f;
+            var coinChipImage = CreateImage("CoinBalanceChip", root.transform, new Color(0.85f, 0.65f, 0.2f), coinChipWidth, coinChipHeight);
+            var coinChipRect = (RectTransform)coinChipImage.transform;
+            AnchorTopLeft(coinChipRect, new Vector2(coinChipWidth, coinChipHeight), new Vector2(170f, -276f));
+            coinChipImage.preserveAspect = false;
+
+            var coinBalanceText = CreateText("CoinBalanceText", coinChipImage.transform, "0", 32f, TextAlignmentOptions.Center, coinChipHeight);
+            var coinBalanceTextRect = (RectTransform)coinBalanceText.transform;
+            // Right half of the chip only — the left half is the coin icon baked into the art.
+            coinBalanceTextRect.anchorMin = new Vector2(0.5f, 0f);
+            coinBalanceTextRect.anchorMax = new Vector2(1f, 1f);
+            coinBalanceTextRect.offsetMin = Vector2.zero;
+            coinBalanceTextRect.offsetMax = Vector2.zero;
+            coinBalanceText.color = new Color(0.3f, 0.2f, 0.1f);
+
             // Power pellet timer bar + chain counter (upper area, under the level text)
             var powerBarGO = CreatePanel("PowerPelletTimerBar", root.transform, new Color(0.2f, 0.2f, 0.22f));
             var powerBarRect = (RectTransform)powerBarGO.transform;
@@ -811,12 +833,49 @@ namespace FarmFuryArcade.EditorTools
             dpadSO.ApplyModifiedPropertiesWithoutUndo();
 
             // Monetisation: "revive for 5 coins?" overlay, shown by GameplayHUD in response to
-            // GameManager.OnReviveOffered (the 4th death this maze). Simple centred dim panel +
-            // message + two buttons — same minimal-chrome-until-real-art-lands convention as
-            // BuildStoreComingSoonPanel, not a Canva-mockup screen like Pause/Settings.
+            // GameManager.OnReviveOffered (the 4th death this maze). Dim backdrop + a hanging-sign
+            // PanelArt (same aspect-locked-child-over-dim convention as every other overlay's
+            // square/near-square card art, e.g. LevelComplete's PanelArt) + message/buttons content
+            // on top. Content's -40 Y nudge is a first-pass approximation of the sign art's visible
+            // parchment/slot area (the rope-hanger detail at the very top eats into the panel's own
+            // geometric centre) — revisit once a real screenshot is available to fine-tune.
             var reviveRoot = CreatePanel("RevivePromptOverlay", root.transform, new Color(0f, 0f, 0f, 0.85f));
-            var reviveGroup = CreateVerticalGroup("Content", reviveRoot.transform, 14f, 30);
-            var reviveCostText = CreateText("CostText", reviveGroup.transform, "Revive for 5 coins?", 32f, TextAlignmentOptions.Center, 60f);
+
+            var revivePanelArtGO = new GameObject("PanelArt", typeof(RectTransform), typeof(Image));
+            revivePanelArtGO.transform.SetParent(reviveRoot.transform, false);
+            var revivePanelArtRect = (RectTransform)revivePanelArtGO.transform;
+            revivePanelArtRect.anchorMin = revivePanelArtRect.anchorMax = new Vector2(0.5f, 0.5f);
+            revivePanelArtRect.sizeDelta = new Vector2(900f, 852f); // matches the art's own ~2048x1940 aspect
+            revivePanelArtRect.anchoredPosition = Vector2.zero;
+            var revivePanelArtImage = revivePanelArtGO.GetComponent<Image>();
+            revivePanelArtImage.sprite = PlaceholderSprite.Get(Color.clear);
+            revivePanelArtImage.preserveAspect = true;
+
+            var reviveGroup = CreateVerticalGroup("Content", revivePanelArtGO.transform, 14f, 30);
+            ((RectTransform)reviveGroup.transform).anchoredPosition = new Vector2(0f, -40f);
+
+            // Coin icon + cost text row — manual anchoring (not CreateHorizontalGroup, whose
+            // childForceExpandWidth would stretch the icon along with the text) so the icon stays a
+            // fixed 48x48 at the row's left edge and the text fills the rest.
+            var costRowGO = new GameObject("CostRow", typeof(RectTransform), typeof(LayoutElement));
+            costRowGO.transform.SetParent(reviveGroup.transform, false);
+            costRowGO.GetComponent<LayoutElement>().preferredHeight = 60f;
+
+            var reviveCoinIcon = CreateImage("CoinIcon", costRowGO.transform, new Color(1f, 0.85f, 0.2f), 48f, 48f);
+            var reviveCoinIconRect = (RectTransform)reviveCoinIcon.transform;
+            reviveCoinIconRect.anchorMin = reviveCoinIconRect.anchorMax = new Vector2(0f, 0.5f);
+            reviveCoinIconRect.pivot = new Vector2(0f, 0.5f);
+            reviveCoinIconRect.sizeDelta = new Vector2(48f, 48f);
+            reviveCoinIconRect.anchoredPosition = Vector2.zero;
+            reviveCoinIcon.preserveAspect = true;
+
+            var reviveCostText = CreateText("CostText", costRowGO.transform, "Revive for 5 coins?", 32f, TextAlignmentOptions.Left, 60f);
+            var reviveCostTextRect = (RectTransform)reviveCostText.transform;
+            reviveCostTextRect.anchorMin = Vector2.zero;
+            reviveCostTextRect.anchorMax = Vector2.one;
+            reviveCostTextRect.offsetMin = new Vector2(60f, 0f);
+            reviveCostTextRect.offsetMax = Vector2.zero;
+
             var reviveButton = CreateButton("ReviveButton", reviveGroup.transform, "Revive", new Color(0.2f, 0.65f, 0.3f), out _);
             var declineButton = CreateButton("DeclineButton", reviveGroup.transform, "No Thanks", new Color(0.35f, 0.35f, 0.38f), out _);
             reviveRoot.SetActive(false);
@@ -832,6 +891,7 @@ namespace FarmFuryArcade.EditorTools
             var so = new SerializedObject(hud);
             so.FindProperty("scoreText").objectReferenceValue = scoreText;
             so.FindProperty("timerText").objectReferenceValue = timerText;
+            so.FindProperty("coinBalanceText").objectReferenceValue = coinBalanceText;
             so.FindProperty("characterPortrait").objectReferenceValue = portrait;
             so.FindProperty("abilityButton").objectReferenceValue = portraitButton;
             so.FindProperty("abilityCooldownRing").objectReferenceValue = ringImage;

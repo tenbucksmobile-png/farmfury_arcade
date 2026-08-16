@@ -266,6 +266,17 @@ namespace FarmFuryArcade.EditorTools
         private const string BtnSkip = "Assets/_Project/Sprites/UI/Btn_skip.png";
         private const string BtnBack = "Assets/_Project/Sprites/UI/Btn_back.png";
         private const string BtnPlaque = "Assets/_Project/Sprites/UI/Btn_plaque.png";
+
+        // ---- Monetisation art (Revive prompt, skip-cooldown button, coin balance chip) ----------
+        // Filename has spaces (the uploaded file, not a renamed convention like every other UI
+        // asset here) — kept as-is rather than renamed on disk, since AssetDatabase.LoadAssetAtPath
+        // works fine with spaces in a path.
+        private const string RevivePromptPanel = "Assets/_Project/Sprites/UI/Revive Prompt panel background.png";
+        private const string BtnRevive = "Assets/_Project/Sprites/UI/Btn_revive.png";
+        private const string BtnDecline = "Assets/_Project/Sprites/UI/Btn_decline.png";
+        private const string BtnSkipCooldown = "Assets/_Project/Sprites/UI/Btn_skipcooldown.png";
+        private const string CoinUI = "Assets/_Project/Sprites/UI/Coin_UI.png";
+        private const string CoinBalanceChip = "Assets/_Project/Sprites/UI/Coin_Balance_Chip.png";
         private const string RetryButtonArt = "Assets/_Project/Sprites/UI/Retry.png";
         private const string MenuButtonArt = "Assets/_Project/Sprites/UI/Menu.png";
         private const string ResumeButtonArt = "Assets/_Project/Sprites/UI/Resume.png";
@@ -361,6 +372,7 @@ namespace FarmFuryArcade.EditorTools
             WireGameplayFont();
             WireSettingsFont();
             WireSettingsSign();
+            WireMonetisationArt();
 
             AssetDatabase.SaveAssets();
             AssetDatabase.Refresh();
@@ -386,6 +398,7 @@ namespace FarmFuryArcade.EditorTools
             HeavyFront, HeavyBack, DrifterFront, DrifterLeft, DrifterRight, DrifterBack, RobotEyes, DroneFront,
             LevelCompletePanel, LevelFailedPanel, PausedPanel,
             BtnPlay, BtnPause, BtnSettings, BtnQuit, BtnMusic, BtnNoSound, BtnHome, BtnSkip, BtnBack, BtnPlaque,
+            RevivePromptPanel, BtnRevive, BtnDecline, BtnSkipCooldown, CoinUI, CoinBalanceChip,
             RetryButtonArt, MenuButtonArt, ResumeButtonArt, SwapCharacterButtonArt, RestartButtonArt,
             SettingsButtonArt, QuitButtonArt,
             CluckCard, BessieCard, PercyCard, WoollyCard, DuckyCard, HoraceCard, GeraldCard, BillyCard,
@@ -1530,6 +1543,34 @@ namespace FarmFuryArcade.EditorTools
             // Round Btn_home.png, not Btn_back.png — same mockup-driven deviation as Settings (see
             // CreateRoundBackButton's doc comment); Level Select's back button is bottom-right.
             SetImageSprite(canvasTransform, "LevelSelectScreen/BackButton", home);
+
+            EditorSceneManager.SaveScene(EditorSceneManager.GetActiveScene());
+        }
+
+        /// <summary>Wires the Revive prompt's panel art + Revive/Decline buttons + coin icon, the
+        /// skip-cooldown button's icon, and the Gameplay HUD's coin balance chip — the monetisation
+        /// surface reviewed with the user, who then supplied art matching the Kling AI prompts
+        /// given for each piece. All six were previously either bare placeholder colors (Revive
+        /// prompt) or a text-only button (skip cooldown) or didn't exist at all (coin balance,
+        /// added alongside this wiring pass — see GameplayHUD.RefreshCoinBalanceText).</summary>
+        private static void WireMonetisationArt()
+        {
+            EditorSceneManager.OpenScene(ScenePath);
+            var canvasTransform = GameObject.Find("Canvas")?.transform;
+            if (canvasTransform == null)
+            {
+                Debug.LogWarning("[ArtWiringBuilder] Could not find Canvas — skipping monetisation art wiring.");
+                return;
+            }
+
+            SetImageSprite(canvasTransform, "GameplayScreen/RevivePromptOverlay/PanelArt", Load(RevivePromptPanel));
+            SetImageSprite(canvasTransform, "GameplayScreen/RevivePromptOverlay/PanelArt/Content/CostRow/CoinIcon", Load(CoinUI));
+            SetImageSprite(canvasTransform, "GameplayScreen/RevivePromptOverlay/PanelArt/Content/ReviveButton", Load(BtnRevive));
+            SetImageSprite(canvasTransform, "GameplayScreen/RevivePromptOverlay/PanelArt/Content/DeclineButton", Load(BtnDecline));
+
+            SetImageSprite(canvasTransform, "GameplayScreen/SkipCooldownButton", Load(BtnSkipCooldown));
+
+            SetImageSprite(canvasTransform, "GameplayScreen/CoinBalanceChip", Load(CoinBalanceChip));
 
             EditorSceneManager.SaveScene(EditorSceneManager.GetActiveScene());
         }

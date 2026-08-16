@@ -29,6 +29,7 @@ namespace FarmFuryArcade.UI
     {
         [SerializeField] private TextMeshProUGUI scoreText;
         [SerializeField] private TextMeshProUGUI timerText;
+        [SerializeField] private TextMeshProUGUI coinBalanceText;
         [SerializeField] private Image characterPortrait;
         [SerializeField] private Image abilityCooldownRing;
         [SerializeField] private Button abilityButton;
@@ -110,6 +111,7 @@ namespace FarmFuryArcade.UI
             _lastObservedState = GameState.Playing;
             RefreshPortrait();
             UpdateScoreText();
+            RefreshCoinBalanceText();
         }
 
         private void OnDisable()
@@ -173,6 +175,7 @@ namespace FarmFuryArcade.UI
 
             AnimateScoreTowardTarget();
             RefreshTimerText();
+            RefreshCoinBalanceText();
             UpdatePowerPelletUI();
         }
 
@@ -232,6 +235,21 @@ namespace FarmFuryArcade.UI
             else
             {
                 timerText.color = _timerNormalColor;
+            }
+        }
+
+        /// <summary>Coin_Balance_Chip.png's right half is reserved for the number (see
+        /// ArtWiringBuilder.WireMonetisationArt) — this is the only place the player's running coin
+        /// balance is shown anywhere in the game; previously SaveManager.CoinBalance had no on-screen
+        /// display at all, only ever surfaced indirectly via the Revive prompt's cost text/the skip-
+        /// cooldown button's cost label. Polled every frame (same convention as RefreshTimerText/
+        /// AnimateScoreTowardTarget) rather than event-driven, since SaveManager has no
+        /// OnCoinBalanceChanged event to hook.</summary>
+        private void RefreshCoinBalanceText()
+        {
+            if (coinBalanceText != null && SaveManager.Instance != null)
+            {
+                coinBalanceText.text = SaveManager.Instance.CoinBalance.ToString("N0");
             }
         }
 
