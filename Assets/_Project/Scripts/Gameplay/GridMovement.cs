@@ -26,6 +26,16 @@ namespace FarmFuryArcade.Gameplay
 
         public Vector2Int CurrentGridPosition { get; private set; }
         public Direction CurrentDirection { get; private set; } = Direction.None;
+
+        /// <summary>The last non-None value CurrentDirection held — unlike CurrentDirection itself
+        /// (which resets to None the instant a held direction is released or blocked, so it can be
+        /// read while genuinely stationary), this persists so a facing-direction ability (e.g.
+        /// BounceRollAbility) can fire correctly even when activated while standing still, in
+        /// whichever of the 4 directions the character actually last faced — not always defaulting
+        /// to Down. Starts at Down to match every character's idle sprite (CharacterAnimator falls
+        /// back to Down for the same reason).</summary>
+        public Direction LastFacingDirection { get; private set; } = Direction.Down;
+
         public float Speed => speed;
 
         private void OnEnable()
@@ -118,6 +128,7 @@ namespace FarmFuryArcade.Gameplay
             }
 
             CurrentDirection = _heldDirection;
+            LastFacingDirection = _heldDirection;
 
             float remaining = speed * TileMapRenderer.CellSize * Time.deltaTime;
             Vector3 targetCenter = _tileMap.GridToWorld(nextCell);
