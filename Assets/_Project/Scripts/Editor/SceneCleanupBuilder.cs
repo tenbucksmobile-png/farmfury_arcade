@@ -17,6 +17,50 @@ namespace FarmFuryArcade.EditorTools
     {
         private const string ScenePath = "Assets/_Project/Scenes/Game.unity";
 
+        /// <summary>Wires the AdManager component's LevelPlay app key / placement ID fields —
+        /// these are config values (not art, not code), landing piecemeal as the user works through
+        /// the LevelPlay/Unity Ads dashboard per-platform, so this is re-run each time a new batch
+        /// of IDs comes in rather than waiting for the full set. Only ever sets a field when a
+        /// non-empty value is provided here, so re-running after only the iOS values arrive doesn't
+        /// clobber the already-confirmed Android ones back to empty.
+        ///
+        /// Android confirmed 2026-08-16 from the Unity Monetization dashboard's new Placements flow
+        /// (which replaced the old ironSource-style "Ad units + Instances" flow on 2026-08-11):
+        /// Game ID (== LevelPlay's app key) 800356804, Rewarded placement "Rewarded_Android",
+        /// Interstitial placement "Interstitial_Android". iOS values not yet available.</summary>
+        [MenuItem("Farm Fury Arcade/Wire AdManager Config")]
+        public static void WireAdManagerConfig()
+        {
+            EditorSceneManager.OpenScene(ScenePath);
+            var adManager = GameObject.Find("GameManagers")?.GetComponent<AdManager>();
+            if (adManager == null)
+            {
+                Debug.LogWarning("[SceneCleanupBuilder] Could not find AdManager on GameManagers.");
+                return;
+            }
+
+            var so = new SerializedObject(adManager);
+            SetIfNotEmpty(so, "androidAppKey", "800356804");
+            SetIfNotEmpty(so, "androidRewardedAdUnitId", "Rewarded_Android");
+            SetIfNotEmpty(so, "androidInterstitialAdUnitId", "Interstitial_Android");
+            // iOS fields (iosAppKey / iosRewardedAdUnitId / iosInterstitialAdUnitId) left untouched
+            // until those values are available.
+            so.ApplyModifiedPropertiesWithoutUndo();
+
+            EditorUtility.SetDirty(adManager);
+            EditorSceneManager.SaveScene(EditorSceneManager.GetActiveScene());
+            Debug.Log("[SceneCleanupBuilder] AdManager Android config wired (app key + 2 placement IDs). iOS still pending.");
+        }
+
+        private static void SetIfNotEmpty(SerializedObject so, string propertyName, string value)
+        {
+            if (string.IsNullOrEmpty(value))
+            {
+                return;
+            }
+            so.FindProperty(propertyName).stringValue = value;
+        }
+
         /// <summary>Phase1Test/Phase2Test/Phase3Test/Phase4Test each draw an always-on OnGUI debug
         /// overlay (manual test buttons) in the top-left/top area of the screen — independent of
         /// their runOnStart flag, since OnGUI doesn't check it. Every PhaseNProjectBuilder leaves
