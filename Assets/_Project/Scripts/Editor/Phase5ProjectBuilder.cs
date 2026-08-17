@@ -792,6 +792,22 @@ namespace FarmFuryArcade.EditorTools
                 new Vector2(ringRightOffsetX - ringSize - skipButtonGap, ringCenterY - skipButtonSize / 2f));
             skipCooldownButton.gameObject.SetActive(false);
 
+            // Monetisation (Phase 2, "extra ability charge"/"skip cooldown via ad" — per the
+            // Monetisation Build Plan doc these are literally the same button): a Watch Ad
+            // alternative sitting just left of the coin-cost button above, free instead of 3 coins.
+            // GameplayHUD.HandleAbilityCooldownChanged shows/hides it every tick, gated on both
+            // "on cooldown" and AdManager.IsRewardedAdReady (never a dead button). WatchAd.png (the
+            // revive prompt's art) is a wide 512x214 banner meant for a plaque-shaped button, not
+            // this square icon slot — squeezing it in here would squash its baked-in text
+            // unreadable, so this keeps a plain "AD" text label until dedicated square icon art
+            // exists, same "text label until art lands" convention SkipCooldownButton's own "-3"
+            // used before Btn_skipcooldown.png existed.
+            var watchAdSkipCooldownButton = CreateButton("WatchAdSkipCooldownButton", root.transform, "AD",
+                new Color(0.85f, 0.55f, 0.1f), 24f, skipButtonSize, out _);
+            AnchorBottomRight((RectTransform)watchAdSkipCooldownButton.transform, new Vector2(skipButtonSize, skipButtonSize),
+                new Vector2(ringRightOffsetX - ringSize - skipButtonGap * 2f - skipButtonSize, ringCenterY - skipButtonSize / 2f));
+            watchAdSkipCooldownButton.gameObject.SetActive(false);
+
             // Directional pad (left side, diamond/D-pad layout) — up.png/down.png/left.png/
             // right.png (wired by ArtWiringBuilder) already look like complete rounded buttons on
             // their own, so each is just a plain Image+Button, no separate background needed.
@@ -931,6 +947,7 @@ namespace FarmFuryArcade.EditorTools
             so.FindProperty("chainCounterText").objectReferenceValue = chainText;
             so.FindProperty("revivePrompt").objectReferenceValue = revivePrompt;
             so.FindProperty("skipCooldownButton").objectReferenceValue = skipCooldownButton;
+            so.FindProperty("watchAdSkipCooldownButton").objectReferenceValue = watchAdSkipCooldownButton;
             so.ApplyModifiedPropertiesWithoutUndo();
 
             return (root, banner);
