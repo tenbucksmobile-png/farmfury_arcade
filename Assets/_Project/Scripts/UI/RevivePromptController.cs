@@ -19,6 +19,7 @@ namespace FarmFuryArcade.UI
     {
         [SerializeField] private Button reviveButton;
         [SerializeField] private Button declineButton;
+        [SerializeField] private Button watchAdButton;
         [SerializeField] private TextMeshProUGUI costText;
 
         private void Awake()
@@ -29,12 +30,18 @@ namespace FarmFuryArcade.UI
             // elsewhere in this project.
             reviveButton.onClick.AddListener(HandleRevive);
             declineButton.onClick.AddListener(HandleDecline);
+            if (watchAdButton != null)
+            {
+                watchAdButton.onClick.AddListener(HandleWatchAd);
+            }
         }
 
         /// <summary>Called by GameplayHUD in response to GameManager.OnReviveOffered. Disables the
         /// Revive button up front if the player can't afford it, rather than letting them tap it
         /// and discover that after the fact — GameManager.AcceptRevive would just no-op on
-        /// insufficient funds, but a dead button is bad UX regardless of that safety net.</summary>
+        /// insufficient funds, but a dead button is bad UX regardless of that safety net. Same
+        /// "never show a dead button" rule applies to Watch Ad — hidden entirely unless AdManager
+        /// actually has a rewarded ad ready to show.</summary>
         public void Show()
         {
             if (costText != null)
@@ -45,6 +52,11 @@ namespace FarmFuryArcade.UI
             {
                 reviveButton.interactable = SaveManager.Instance != null &&
                     SaveManager.Instance.CoinBalance >= GameManager.ReviveCoinsCost;
+            }
+            if (watchAdButton != null)
+            {
+                watchAdButton.gameObject.SetActive(
+                    Core.AdManager.Instance != null && Core.AdManager.Instance.IsRewardedAdReady);
             }
             gameObject.SetActive(true);
         }
@@ -59,6 +71,35 @@ namespace FarmFuryArcade.UI
         {
             GameManager.Instance?.DeclineRevive();
             gameObject.SetActive(false);
+        }
+
+        /// <summary>onResult only ever reports true from AdManager when the reward was actually
+        /// granted (not just that the ad was shown/closed) — see AdManager.ShowRewardedAd's own doc
+        /// comment. A declined/failed/incomplete ad leaves the prompt open exactly as it was, rather
+        /// than dismissing or ending the run, so the player can still fall back to paying coins or
+        /// tapping Decline.</summary>
+        private void HandleWatchAd()
+        {
+            if (Core.AdManager.Instance == null)
+            {
+                return;
+            }
+
+            Core.AdManager.Instance.ShowRewardedAd("continue_after_death", rewarded =>
+            {
+                if (rewarded)
+                {
+                    GameManager.Instance?.AcceptReviveViaAd();
+                    gameObject.SetActive(false);
+                }
+                else if (watchAdButton != null)
+                {
+                    // Ad may have exhausted itself (LevelPlay reloads automatically, but not
+                    // instantly) — re-check readiness rather than leaving a dead button up.
+                    watchAdButton.gameObject.SetActive(
+                        Core.AdManager.Instance != null && Core.AdManager.Instance.IsRewardedAdReady);
+                }
+            });
         }
     }
 }

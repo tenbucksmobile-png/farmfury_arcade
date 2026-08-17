@@ -692,12 +692,31 @@ separately) — the tool only overwrites a field when a non-empty value is passe
 it after only one platform's values are known never clobbers the other platform's already-set
 fields back to empty.
 
-**Still not built**: the 4 rewarded ad placements from the plan (continue after death, double coins
-earned, extra ability charge, skip-cooldown via ad) — each needs a small new UI/art decision first,
-unlike the interstitial (which needed no new UI at all). No `Debug`-vs-`Release` build-config split
-exists yet for ad unit IDs either — `AdManager.enableTestSuite` (LevelPlay's in-app test-ad UI,
+**Still not built**: 3 of the 4 rewarded ad placements from the plan (double coins earned, extra
+ability charge, skip-cooldown via ad) — each needs a small new UI/art decision first, unlike the
+interstitial (which needed no new UI at all). No `Debug`-vs-`Release` build-config split exists yet
+for ad unit IDs either — `AdManager.enableTestSuite` (LevelPlay's in-app test-ad UI,
 `SetMetaData("is_test_suite", "enable")`) is a single Inspector bool toggled by hand, not swapped
 automatically per build type; must be turned off before cutting a real release build.
+
+**"Continue after death" — the first rewarded placement — is now built.** `RevivePromptController`
+gained a third button (`watchAdButton`, between Revive and Decline) alongside the existing
+5-coin-revive/decline pair, hidden entirely unless `AdManager.IsRewardedAdReady` (same
+never-show-a-dead-button rule the coin-affordability check already used). Tapping it calls
+`AdManager.ShowRewardedAd("continue_after_death", ...)`; the callback only grants the revive if the
+SDK actually confirms the reward fired (a closed-early/failed ad leaves the prompt exactly as it
+was, so the player can still fall back to coins or Decline). `GameManager.AcceptReviveViaAd()` is a
+sibling to `AcceptRevive()` — both now funnel through a shared private `GrantRevive()` (reset
+`DeathCountThisMaze` to `MaxRespawns`, unfreeze time) so the ad path grants the identical one-more-
+life effect without spending coins. The once-per-maze cap needs no extra flag — the prompt itself
+only ever fires on the death that exceeds `MaxRespawns`, same trigger condition already gating it.
+Uses real art, not a placeholder: `WatchAd.png` (baked-in "Watch Ad" label, same
+label-baked-into-the-button-art convention as `Yes.png`/`No.png`) wired via
+`ArtWiringBuilder`'s `BtnWatchAd` constant — added to `SpritesToConfigure` too, since omitting a
+sprite from that array is what caused the earlier Gerald/Billy PPU oversizing bug (see the Art
+status section's own note on that). The other 3 placements are unbuilt — each needs its own UI slot
+(Level Complete's shelf for double-coins, a slot beside the existing 3-coin skip-cooldown button for
+the other two) before art can be requested for them.
 
 ### Screens & scene flow (`Scripts/UI`, Phase 5)
 

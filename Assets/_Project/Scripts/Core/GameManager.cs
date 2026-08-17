@@ -200,11 +200,34 @@ namespace FarmFuryArcade.Core
                 return false;
             }
 
+            GrantRevive();
+            return true;
+        }
+
+        /// <summary>Called by the revive prompt's "Watch Ad" button once AdManager confirms the
+        /// reward was actually granted (never on a merely-closed/skipped ad — see
+        /// AdManager.ShowRewardedAd's own doc comment on that distinction). Same effect as
+        /// AcceptRevive, minus the coin spend — watching the ad IS the payment.</summary>
+        public bool AcceptReviveViaAd()
+        {
+            if (!ReviveDecisionPending)
+            {
+                return false;
+            }
+
+            GrantRevive();
+            return true;
+        }
+
+        /// <summary>Shared by AcceptRevive/AcceptReviveViaAd — resets DeathCountThisMaze back to
+        /// MaxRespawns (not below it) so the next death offers the prompt again rather than
+        /// silently handing out a free extra respawn cushion, and unfreezes time.</summary>
+        private void GrantRevive()
+        {
             DeathCountThisMaze = MaxRespawns;
             _wasRevived = true;
             ReviveDecisionPending = false;
             Time.timeScale = 1f;
-            return true;
         }
 
         /// <summary>Consumed exactly once by PlayerHealth.DeathSequence right after its WaitUntil on

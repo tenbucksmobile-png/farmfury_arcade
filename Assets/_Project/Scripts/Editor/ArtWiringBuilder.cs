@@ -292,6 +292,7 @@ namespace FarmFuryArcade.EditorTools
         private const string BtnRevive = "Assets/_Project/Sprites/UI/Yes.png";
         private const string BtnDecline = "Assets/_Project/Sprites/UI/No.png";
         private const string BtnSkipCooldown = "Assets/_Project/Sprites/UI/Btn_skipcooldown.png";
+        private const string BtnWatchAd = "Assets/_Project/Sprites/UI/WatchAd.png";
         // Currently unused — was wired onto the Revive prompt's cost-text row, removed alongside it
         // (see RevivePromptPanel's comment above). Left configured/imported in case a future screen
         // wants a standalone coin glyph.
@@ -418,7 +419,7 @@ namespace FarmFuryArcade.EditorTools
             HeavyFront, HeavyBack, DrifterFront, DrifterLeft, DrifterRight, DrifterBack, RobotEyes, DroneFront,
             LevelCompletePanel, LevelFailedPanel, PausedPanel,
             BtnPlay, BtnPause, BtnSettings, BtnQuit, BtnMusic, BtnNoSound, BtnHome, BtnSkip, BtnBack, BtnPlaque,
-            RevivePromptPanel, BtnRevive, BtnDecline, BtnSkipCooldown, CoinUI, CoinBalanceChip,
+            RevivePromptPanel, BtnRevive, BtnDecline, BtnWatchAd, BtnSkipCooldown, CoinUI, CoinBalanceChip,
             RetryButtonArt, MenuButtonArt, ResumeButtonArt, SwapCharacterButtonArt, RestartButtonArt,
             SettingsButtonArt, QuitButtonArt,
             CluckCard, BessieCard, PercyCard, WoollyCard, DuckyCard, HoraceCard, GeraldCard, BillyCard,
@@ -1584,6 +1585,7 @@ namespace FarmFuryArcade.EditorTools
 
             SetImageSprite(canvasTransform, "GameplayScreen/RevivePromptOverlay/PanelArt", Load(RevivePromptPanel));
             SetImageSprite(canvasTransform, "GameplayScreen/RevivePromptOverlay/PanelArt/Content/ReviveButton", Load(BtnRevive));
+            SetImageSprite(canvasTransform, "GameplayScreen/RevivePromptOverlay/PanelArt/Content/WatchAdButton", Load(BtnWatchAd));
             SetImageSprite(canvasTransform, "GameplayScreen/RevivePromptOverlay/PanelArt/Content/DeclineButton", Load(BtnDecline));
 
             SetImageSprite(canvasTransform, "GameplayScreen/SkipCooldownButton", Load(BtnSkipCooldown));

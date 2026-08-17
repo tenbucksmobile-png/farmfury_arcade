@@ -885,6 +885,12 @@ namespace FarmFuryArcade.EditorTools
             // unwired below; RevivePromptController.Show() already null-checks it.
             var reviveButton = CreateButton("ReviveButton", reviveGroup.transform, string.Empty, new Color(0.2f, 0.65f, 0.3f), out _);
             Object.DestroyImmediate(reviveButton.transform.Find("ReviveButton_Label").gameObject);
+            // Monetisation: rewarded-ad alternative to spending coins (Phase 2's "continue after
+            // death" placement — see CLAUDE.md). WatchAd.png bakes its own "Watch Ad" label in,
+            // same convention as Yes.png/No.png — the auto-generated TMP label is destroyed here
+            // and the real sprite is wired by ArtWiringBuilder (BtnWatchAd), not set inline.
+            var watchAdButton = CreateButton("WatchAdButton", reviveGroup.transform, string.Empty, new Color(0.85f, 0.55f, 0.1f), out _);
+            Object.DestroyImmediate(watchAdButton.transform.Find("WatchAdButton_Label").gameObject);
             var declineButton = CreateButton("DeclineButton", reviveGroup.transform, string.Empty, new Color(0.35f, 0.35f, 0.38f), out _);
             Object.DestroyImmediate(declineButton.transform.Find("DeclineButton_Label").gameObject);
             // reviveGroup's VerticalLayoutGroup has childControlHeight=false (see CreateVerticalGroup),
@@ -895,6 +901,8 @@ namespace FarmFuryArcade.EditorTools
             const float reviveButtonHeight = 90f; // was 130 — reduced per feedback, buttons read too large
             var reviveButtonRect = (RectTransform)reviveButton.transform;
             reviveButtonRect.sizeDelta = new Vector2(reviveButtonRect.sizeDelta.x, reviveButtonHeight);
+            var watchAdButtonRect = (RectTransform)watchAdButton.transform;
+            watchAdButtonRect.sizeDelta = new Vector2(watchAdButtonRect.sizeDelta.x, reviveButtonHeight);
             var declineButtonRect = (RectTransform)declineButton.transform;
             declineButtonRect.sizeDelta = new Vector2(declineButtonRect.sizeDelta.x, reviveButtonHeight);
             reviveRoot.SetActive(false);
@@ -903,6 +911,7 @@ namespace FarmFuryArcade.EditorTools
             var reviveSO = new SerializedObject(revivePrompt);
             reviveSO.FindProperty("reviveButton").objectReferenceValue = reviveButton;
             reviveSO.FindProperty("declineButton").objectReferenceValue = declineButton;
+            reviveSO.FindProperty("watchAdButton").objectReferenceValue = watchAdButton;
             reviveSO.ApplyModifiedPropertiesWithoutUndo();
 
             var hud = root.AddComponent<GameplayHUD>();
