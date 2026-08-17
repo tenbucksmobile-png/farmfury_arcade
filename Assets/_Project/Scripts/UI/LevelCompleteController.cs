@@ -41,11 +41,16 @@ namespace FarmFuryArcade.UI
         [SerializeField] private Button playButton;
         [SerializeField] private Button homeButton;
         [SerializeField] private Button settingsButton;
+        [SerializeField] private Button doubleCoinsButton;
+        [SerializeField] private TextMeshProUGUI doubleCoinsLabel;
         [SerializeField] private GameObject levelSelectScreen;
         [SerializeField] private LevelSelectController levelSelectController;
         [SerializeField] private SettingsPanel settingsPanel;
         [SerializeField] private NewCharacterUnlockScreen unlockScreen;
         [SerializeField] private NewWorldUnlockScreen worldUnlockScreen;
+
+        private const string DoubleCoinsIdleText = "2x Coins\n(Watch Ad)";
+        private const string DoubleCoinsClaimedText = "Coins Doubled!";
 
         private const float StarStepSeconds = 0.35f;
         private const float PreStarDelaySeconds = 0.3f;
@@ -56,10 +61,15 @@ namespace FarmFuryArcade.UI
             playButton.onClick.AddListener(Play);
             homeButton.onClick.AddListener(Home);
             settingsButton.onClick.AddListener(() => settingsPanel.Show());
+            if (doubleCoinsButton != null)
+            {
+                doubleCoinsButton.onClick.AddListener(HandleDoubleCoins);
+            }
         }
 
         private void OnEnable()
         {
+            RefreshDoubleCoinsButton();
             StartCoroutine(CelebrationSequence());
         }
 
@@ -137,5 +147,60 @@ namespace FarmFuryArcade.UI
         }
 
         private void Home() => SceneTransitionManager.Instance.ShowOnly(levelSelectScreen);
+
+        /// <summary>Rewarded-ad placement #2 (Monetisation Build Plan Phase 2): tops up this
+        /// completion's coin payout with an equal second copy — see GameManager.
+        /// ClaimDoubleCoinsViaAd's own doc comment for why that's an additive top-up rather than a
+        /// retroactive change to LastLevelResult.coinsEarned. Hidden entirely — never shown as a
+        /// dead button — whenever there's nothing to claim: no ad ready, no coins earned this
+        /// completion, or already claimed. No dedicated art exists for this button yet (see
+        /// CLAUDE.md's "Still not built" ad-placement note), so it uses a plain text label like the
+        /// skip-cooldown button did before its own icon art landed.</summary>
+        private void RefreshDoubleCoinsButton()
+        {
+            if (doubleCoinsButton == null)
+            {
+                return;
+            }
+
+            bool claimed = GameManager.Instance != null && GameManager.Instance.DoubleCoinsClaimed;
+            bool hasCoinsToDouble = GameManager.Instance != null && GameManager.Instance.LastLevelResult.coinsEarned > 0;
+            bool adReady = Core.AdManager.Instance != null && Core.AdManager.Instance.IsRewardedAdReady;
+
+            doubleCoinsButton.gameObject.SetActive(!claimed && hasCoinsToDouble && adReady);
+            if (doubleCoinsLabel != null)
+            {
+                doubleCoinsLabel.text = DoubleCoinsIdleText;
+            }
+        }
+
+        private void HandleDoubleCoins()
+        {
+            if (Core.AdManager.Instance == null)
+            {
+                return;
+            }
+
+            doubleCoinsButton.interactable = false;
+            Core.AdManager.Instance.ShowRewardedAd("double_coins_level_complete", rewarded =>
+            {
+                if (rewarded && GameManager.Instance != null && GameManager.Instance.ClaimDoubleCoinsViaAd())
+                {
+                    if (doubleCoinsLabel != null)
+                    {
+                        doubleCoinsLabel.text = DoubleCoinsClaimedText;
+                    }
+                    doubleCoinsButton.interactable = false;
+                }
+                else
+                {
+                    // Ad closed early/failed, or nothing left to claim — re-show as tappable rather
+                    // than leaving it stuck disabled, same re-check convention RevivePromptController
+                    // uses after a failed Watch Ad attempt.
+                    doubleCoinsButton.interactable = true;
+                    RefreshDoubleCoinsButton();
+                }
+            });
+        }
     }
 }

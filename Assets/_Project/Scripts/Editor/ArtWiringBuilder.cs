@@ -293,6 +293,11 @@ namespace FarmFuryArcade.EditorTools
         private const string BtnDecline = "Assets/_Project/Sprites/UI/No.png";
         private const string BtnSkipCooldown = "Assets/_Project/Sprites/UI/Btn_skipcooldown.png";
         private const string BtnWatchAd = "Assets/_Project/Sprites/UI/WatchAd.png";
+        // Level Complete's "double coins" rewarded-ad placement — icon-only, same convention as
+        // BtnSkipCooldown (no baked-in text; LevelCompleteController.doubleCoinsLabel renders the
+        // "2x Coins (Watch Ad)" text on top of it at runtime), NOT the self-contained-label
+        // convention BtnRevive/BtnDecline/BtnWatchAd use.
+        private const string BtnDoubleCoins = "Assets/_Project/Sprites/UI/DoubleCoins.png";
         // Currently unused — was wired onto the Revive prompt's cost-text row, removed alongside it
         // (see RevivePromptPanel's comment above). Left configured/imported in case a future screen
         // wants a standalone coin glyph.
@@ -419,7 +424,7 @@ namespace FarmFuryArcade.EditorTools
             HeavyFront, HeavyBack, DrifterFront, DrifterLeft, DrifterRight, DrifterBack, RobotEyes, DroneFront,
             LevelCompletePanel, LevelFailedPanel, PausedPanel,
             BtnPlay, BtnPause, BtnSettings, BtnQuit, BtnMusic, BtnNoSound, BtnHome, BtnSkip, BtnBack, BtnPlaque,
-            RevivePromptPanel, BtnRevive, BtnDecline, BtnWatchAd, BtnSkipCooldown, CoinUI, CoinBalanceChip,
+            RevivePromptPanel, BtnRevive, BtnDecline, BtnWatchAd, BtnSkipCooldown, BtnDoubleCoins, CoinUI, CoinBalanceChip,
             RetryButtonArt, MenuButtonArt, ResumeButtonArt, SwapCharacterButtonArt, RestartButtonArt,
             SettingsButtonArt, QuitButtonArt,
             CluckCard, BessieCard, PercyCard, WoollyCard, DuckyCard, HoraceCard, GeraldCard, BillyCard,
@@ -1591,6 +1596,8 @@ namespace FarmFuryArcade.EditorTools
             SetImageSprite(canvasTransform, "GameplayScreen/SkipCooldownButton", Load(BtnSkipCooldown));
 
             SetImageSprite(canvasTransform, "GameplayScreen/CoinBalanceChip", Load(CoinBalanceChip));
+
+            SetImageSprite(canvasTransform, "LevelCompleteScreen/PanelArt/ShelfContent/DoubleCoinsButton", Load(BtnDoubleCoins));
 
             EditorSceneManager.SaveScene(EditorSceneManager.GetActiveScene());
         }

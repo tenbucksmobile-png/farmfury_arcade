@@ -59,6 +59,13 @@ namespace FarmFuryArcade.Core
         /// frame it's set, before the next level's completion overwrites it.</summary>
         public int? JustUnlockedWorldIndex { get; private set; }
 
+        /// <summary>Monetisation: whether this level-complete's "double coins" rewarded-ad offer
+        /// has already been claimed. Reset to false on every EndLevel(true) call, same one-shot-
+        /// per-completion convention as JustUnlockedWorldIndex — LevelCompleteController reads it
+        /// to hide the Double Coins button once claimed, and ClaimDoubleCoinsViaAd refuses to pay
+        /// out twice for the same completion even if called again.</summary>
+        public bool DoubleCoinsClaimed { get; private set; }
+
         /// <summary>True from the moment a death would exceed MaxRespawns (RequestRevivePrompt)
         /// until AcceptRevive/DeclineRevive resolves it. PlayerHealth.DeathSequence polls this via
         /// WaitUntil instead of ending the run immediately, giving the player a chance to spend
@@ -230,6 +237,26 @@ namespace FarmFuryArcade.Core
             Time.timeScale = 1f;
         }
 
+        /// <summary>Called by LevelCompleteController's "Double Coins" button once AdManager
+        /// confirms the reward was actually granted (never on a merely-closed/skipped ad — same
+        /// distinction AcceptReviveViaAd relies on). Pays out a second copy of this completion's
+        /// LastLevelResult.coinsEarned — "double" meaning the ad grants an equal top-up on top of
+        /// what EndLevel(true) already paid, not a retroactive change to LastLevelResult.coinsEarned
+        /// itself (that field stays a record of the base payout). Refuses to pay out twice for the
+        /// same completion (DoubleCoinsClaimed) or when there's nothing to double.</summary>
+        public bool ClaimDoubleCoinsViaAd()
+        {
+            if (DoubleCoinsClaimed || LastLevelResult.coinsEarned <= 0 || SaveManager.Instance == null)
+            {
+                return false;
+            }
+
+            SaveManager.Instance.AddCoins(LastLevelResult.coinsEarned);
+            SaveManager.Instance.SaveProgress();
+            DoubleCoinsClaimed = true;
+            return true;
+        }
+
         /// <summary>Consumed exactly once by PlayerHealth.DeathSequence right after its WaitUntil on
         /// ReviveDecisionPending unblocks — tells it whether to fall through to the normal respawn
         /// path or stay faded out (DeclineRevive already ended the run in that case).</summary>
@@ -307,6 +334,7 @@ namespace FarmFuryArcade.Core
             AudioManager.Instance?.PlayLandingMusic();
 
             JustUnlockedWorldIndex = null;
+            DoubleCoinsClaimed = false;
 
             if (success && CurrentLevel != null && SaveManager.Instance != null)
             {

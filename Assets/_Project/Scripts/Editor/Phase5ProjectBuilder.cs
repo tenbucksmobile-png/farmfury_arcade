@@ -873,10 +873,12 @@ namespace FarmFuryArcade.EditorTools
 
             // Kept notably narrower than the backdrop's own 1300 width — per feedback the buttons
             // themselves should read smaller relative to the now-larger backdrop, not stretch to
-            // fill it.
-            var reviveGroup = CreateVerticalGroup("Content", revivePanelArtGO.transform, 14f, 30);
+            // fill it. Narrowed again (750 -> 480) per a follow-up screenshot review: the sign art's
+            // own hanging-plaque shape is noticeably narrower than a plain 750-wide box, so the
+            // Yes/Watch Ad/No buttons were overflowing past its visible wood edges on both sides.
+            var reviveGroup = CreateVerticalGroup("Content", revivePanelArtGO.transform, 10f, 30);
             var reviveGroupRect = (RectTransform)reviveGroup.transform;
-            reviveGroupRect.sizeDelta = new Vector2(750f, reviveGroupRect.sizeDelta.y);
+            reviveGroupRect.sizeDelta = new Vector2(480f, reviveGroupRect.sizeDelta.y);
             reviveGroupRect.anchoredPosition = new Vector2(0f, -20f);
 
             // No separate coin-icon/cost-text row anymore — the replacement panel art (see
@@ -898,7 +900,7 @@ namespace FarmFuryArcade.EditorTools
             // applied — the same CreateImage-args-are-inert pattern found elsewhere in this file.
             // Height set explicitly here instead; width still comes from the layout group
             // (childControlWidth=true), so only .y needs overriding.
-            const float reviveButtonHeight = 90f; // was 130 — reduced per feedback, buttons read too large
+            const float reviveButtonHeight = 62f; // was 130 -> 90 -> 62, reduced per feedback each pass — buttons kept reading too large for the sign art
             var reviveButtonRect = (RectTransform)reviveButton.transform;
             reviveButtonRect.sizeDelta = new Vector2(reviveButtonRect.sizeDelta.x, reviveButtonHeight);
             var watchAdButtonRect = (RectTransform)watchAdButton.transform;
@@ -1474,6 +1476,17 @@ namespace FarmFuryArcade.EditorTools
             var scoreText = CreateText("ScoreText", shelfGO.transform, "0", 66f, TextAlignmentOptions.Center, 80f, new Color(0.3f, 0.2f, 0.1f));
             var starDisplayGO = CreateStarDisplay("Stars", shelfGO.transform, 28);
 
+            // Monetisation rewarded-ad placement #2 ("double coins" — see CLAUDE.md's Monetisation
+            // section and LevelCompleteController's own doc comment). Sits in the shelf, below the
+            // stars — hidden by LevelCompleteController.RefreshDoubleCoinsButton whenever there's no
+            // ad ready/nothing to double/already claimed, so it never shows as a dead button. No
+            // dedicated art exists for this yet, same "text label until art lands" convention the
+            // skip-cooldown button used before Btn_skipcooldown.png existed.
+            var doubleCoinsButton = CreateButton("DoubleCoinsButton", shelfGO.transform,
+                string.Empty, new Color(1f, 0.72f, 0.1f), 22f, 70f, out var doubleCoinsLabel);
+            doubleCoinsButton.GetComponent<LayoutElement>().preferredWidth = 260f;
+            doubleCoinsLabel.text = "2x Coins\n(Watch Ad)";
+
             // Play/Home/Settings used to be one bottom-right row; split per feedback — Play now
             // sits alone bottom-left (matching the same bottom-left safe-area inset every other
             // screen's back button uses), Home/Settings stay paired bottom-right. Both rows share
@@ -1630,6 +1643,8 @@ namespace FarmFuryArcade.EditorTools
             so.FindProperty("playButton").objectReferenceValue = playButton;
             so.FindProperty("homeButton").objectReferenceValue = homeButton;
             so.FindProperty("settingsButton").objectReferenceValue = settingsButton;
+            so.FindProperty("doubleCoinsButton").objectReferenceValue = doubleCoinsButton;
+            so.FindProperty("doubleCoinsLabel").objectReferenceValue = doubleCoinsLabel;
             so.FindProperty("unlockScreen").objectReferenceValue = unlockScreen;
             so.FindProperty("worldUnlockScreen").objectReferenceValue = worldUnlockScreen;
             so.ApplyModifiedPropertiesWithoutUndo();
