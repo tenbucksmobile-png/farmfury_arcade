@@ -19,14 +19,20 @@ namespace FarmFuryArcade.UI
     {
         [SerializeField] private Button playButton;
         [SerializeField] private Button settingsButton;
+        [SerializeField] private Button shopButton;
 
         [SerializeField] private GameObject levelSelectScreen;
         [SerializeField] private SettingsPanel settingsPanel;
+        [SerializeField] private ShopController shopScreen;
 
         private void Awake()
         {
             playButton.onClick.AddListener(() => SceneTransitionManager.Instance.ShowOnly(levelSelectScreen));
             settingsButton.onClick.AddListener(() => settingsPanel.Show());
+            if (shopButton != null && shopScreen != null)
+            {
+                shopButton.onClick.AddListener(() => shopScreen.Show());
+            }
         }
 
         // Fires both at app launch (Main Menu starts active) and every time the player navigates

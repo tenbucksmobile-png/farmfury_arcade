@@ -60,7 +60,7 @@ namespace FarmFuryArcade.EditorTools
             var (gameplay, comboBanner) = BuildGameplayHUD(canvas.transform);
             var pause = BuildPauseMenu(canvas.transform);
             var settings = BuildSettingsPanel(canvas.transform);
-            var storeComingSoon = BuildStoreComingSoonPanel(canvas.transform);
+            var storeComingSoon = BuildShopOverlay(canvas.transform);
             var (levelComplete, unlockScreen) = BuildLevelComplete(canvas.transform);
             var levelFailed = BuildLevelFailed(canvas.transform);
             var roster = BuildCharacterRoster(canvas.transform, rosterCardPrefab);
@@ -75,7 +75,7 @@ namespace FarmFuryArcade.EditorTools
             var levelSelect = BuildLevelSelect(canvas.transform, levelTilePrefab, worldShieldPrefab);
 
             WireCrossReferences(mainMenu, gameplay, pause, settings,
-                levelComplete, unlockScreen, levelFailed, roster, leaderboards, chooseCharacter, comboBanner, levelSelect);
+                levelComplete, unlockScreen, levelFailed, roster, leaderboards, chooseCharacter, comboBanner, levelSelect, storeComingSoon);
 
             var transitionManager = managersGO.GetComponent<SceneTransitionManager>();
             var transitionSO = new SerializedObject(transitionManager);
@@ -270,6 +270,12 @@ namespace FarmFuryArcade.EditorTools
             // then, same "missing config just no-ops" convention AudioManager's missing-clip
             // handling already uses.
             if (managersGO.GetComponent<AdManager>() == null) managersGO.AddComponent<AdManager>();
+            // Monetisation (Phase 3): IAPManager connects to the store and fetches product
+            // metadata on Start() — no real store products are registered in App Store Connect/
+            // Play Console yet, so Connect() is expected to fail gracefully with a logged warning
+            // until that manual store-side setup happens (same "infrastructure ready, real config
+            // later" convention AdManager already established).
+            if (managersGO.GetComponent<IAPManager>() == null) managersGO.AddComponent<IAPManager>();
         }
 
         /// <summary>AudioManager's musicSourceA/musicSourceB/sfxPool were never actually assigned
@@ -616,10 +622,23 @@ namespace FarmFuryArcade.EditorTools
             settingsRect.sizeDelta = new Vector2(160f, 160f);
             settingsRect.anchoredPosition = new Vector2(-150f, 70f);
 
+            // Monetisation (Phase 3, IAP plumbing): entry point to ShopController — bottom-centre,
+            // between Play and Settings. No dedicated icon art exists yet (the plan doc's own "Art
+            // needed" list for this phase says purchase-card art is still zero), so this keeps a
+            // plain text label rather than an empty icon, same convention as every other
+            // placeholder button before its own art landed.
+            var shopButton = CreateButton("ShopButton", root.transform, "Shop", new Color(0.75f, 0.45f, 0.15f), 28f, 130f, out _);
+            var shopRect = (RectTransform)shopButton.transform;
+            shopRect.anchorMin = shopRect.anchorMax = new Vector2(0.5f, 0f);
+            shopRect.pivot = new Vector2(0.5f, 0f);
+            shopRect.sizeDelta = new Vector2(160f, 130f);
+            shopRect.anchoredPosition = new Vector2(0f, 70f);
+
             var controller = root.AddComponent<MainMenuController>();
             var so = new SerializedObject(controller);
             so.FindProperty("playButton").objectReferenceValue = playButton;
             so.FindProperty("settingsButton").objectReferenceValue = settingsButton;
+            so.FindProperty("shopButton").objectReferenceValue = shopButton;
             so.ApplyModifiedPropertiesWithoutUndo();
 
             return root;
@@ -1281,7 +1300,11 @@ namespace FarmFuryArcade.EditorTools
             languageDropdown.captionText = langLabel;
             languageDropdown.targetGraphic = languageCellGO.GetComponent<Image>();
             languageDropdown.template = CreateDropdownTemplate(languageCellGO.transform, languageDropdown);
-            // 6th grid cell (bottom-right) intentionally left empty — no GameObject created for it.
+
+            // 6th grid cell (bottom-right), previously left empty — now Restore Purchases
+            // (Monetisation Build Plan Phase 3; required by Apple for non-consumable products like
+            // Remove Ads, good practice on Android too). See SettingsPanel's own doc comment.
+            var (restoreButton, restoreLabel) = CreateButtonPlaqueCell("RestorePurchasesCell", gridGO.transform, "Restore\nPurchases");
 
             var versionText = CreateText("VersionText", root.transform, "v0.1", 16f, TextAlignmentOptions.Center, 24f);
             var versionRect = (RectTransform)versionText.transform;
@@ -1294,6 +1317,8 @@ namespace FarmFuryArcade.EditorTools
             so.FindProperty("vibrationToggle").objectReferenceValue = vibrationToggle;
             so.FindProperty("languageDropdown").objectReferenceValue = languageDropdown;
             so.FindProperty("leftHandedToggle").objectReferenceValue = leftHandedToggle;
+            so.FindProperty("restorePurchasesButton").objectReferenceValue = restoreButton;
+            so.FindProperty("restorePurchasesLabel").objectReferenceValue = restoreLabel;
             so.FindProperty("versionText").objectReferenceValue = versionText;
             so.FindProperty("closeButton").objectReferenceValue = closeButton;
             so.ApplyModifiedPropertiesWithoutUndo();
@@ -1425,19 +1450,100 @@ namespace FarmFuryArcade.EditorTools
             return toggle;
         }
 
-        // ---- Store "coming soon" (Store itself is Phase 6 scope) -------------------------------
+        /// <summary>Same plaque-cell visual convention as CreateTogglePlaqueCell (same colour,
+        /// same fixed-size-label-inside-a-bigger-plaque treatment), but a plain Button instead of a
+        /// Toggle — for the Settings grid's 6th cell (Restore Purchases, Monetisation Build Plan
+        /// Phase 3), an action, not a persistent on/off state.</summary>
+        private static (Button button, TextMeshProUGUI label) CreateButtonPlaqueCell(string name, Transform parent, string label)
+        {
+            var go = new GameObject(name, typeof(RectTransform), typeof(Image), typeof(Button));
+            go.transform.SetParent(parent, false);
+            var image = go.GetComponent<Image>();
+            image.sprite = PlaceholderSprite.Get(new Color(0.55f, 0.35f, 0.15f));
 
-        private static GameObject BuildStoreComingSoonPanel(Transform canvasTransform)
+            var button = go.GetComponent<Button>();
+            button.targetGraphic = image;
+
+            var labelText = CreateText(name + "_Label", go.transform, label, 56f, TextAlignmentOptions.Center, 40f);
+            var labelRect = (RectTransform)labelText.transform;
+            labelRect.anchorMin = labelRect.anchorMax = new Vector2(0.5f, 0.5f);
+            labelRect.pivot = new Vector2(0.5f, 0.5f);
+            labelRect.anchoredPosition = Vector2.zero;
+            labelRect.sizeDelta = new Vector2(210f, 60f);
+            labelText.enableAutoSizing = true;
+            labelText.fontSizeMin = 16f;
+            labelText.fontSizeMax = 44f;
+
+            return (button, labelText);
+        }
+
+        // ---- Shop (Monetisation Build Plan Phase 3 — coin packs + Remove Ads; the full cosmetics
+        // Store from Phase 4 is still unbuilt) ----------------------------------------------------
+
+        /// <summary>Replaces the old "Store is coming in Phase 6!" placeholder with a real (if
+        /// plain — no purchase-card art exists yet, see ShopController's own doc comment) purchase
+        /// surface: a 2x3 grid matching Settings' own grid convention, 5 coin-pack cells + 1 Remove
+        /// Ads cell, a status text row, and a close button. Root/overlay name kept as
+        /// "StoreComingSoonOverlay" for scene-path stability (ArtWiringBuilder and any future
+        /// screenshot/test tooling that looks it up by path) even though its content is no longer a
+        /// placeholder — same "path stays stable, content changes" convention as reusing an
+        /// existing GameObject name elsewhere in this project.</summary>
+        private static GameObject BuildShopOverlay(Transform canvasTransform)
         {
             var root = CreatePanel("StoreComingSoonOverlay", canvasTransform, new Color(0f, 0f, 0f, 0.85f));
-            var group = CreateVerticalGroup("Content", root.transform, 14f, 30);
-            CreateText("Message", group.transform, "The Store is coming in Phase 6!", 32f, TextAlignmentOptions.Center, 60f);
+            var group = CreateVerticalGroup("Content", root.transform, 20f, 30);
+            var groupRect = (RectTransform)group.transform;
+            groupRect.sizeDelta = new Vector2(940f, groupRect.sizeDelta.y);
+
+            CreateText("Title", group.transform, "Shop", 48f, TextAlignmentOptions.Center, 70f);
+
+            var gridGO = new GameObject("ProductGrid", typeof(RectTransform), typeof(GridLayoutGroup), typeof(LayoutElement));
+            gridGO.transform.SetParent(group.transform, false);
+            gridGO.GetComponent<LayoutElement>().preferredHeight = 420f;
+            var grid = gridGO.GetComponent<GridLayoutGroup>();
+            grid.cellSize = new Vector2(280f, 120f);
+            grid.spacing = new Vector2(30f, 30f);
+            grid.childAlignment = TextAnchor.UpperCenter;
+            grid.constraint = GridLayoutGroup.Constraint.FixedColumnCount;
+            grid.constraintCount = 3;
+
+            var products = new (string id, string displayName)[]
+            {
+                (IAPManager.Coins100ProductId, "100 Coins"),
+                (IAPManager.Coins500ProductId, "500 Coins"),
+                (IAPManager.Coins1500ProductId, "1,500 Coins"),
+                (IAPManager.Coins5000ProductId, "5,000 Coins"),
+                (IAPManager.Coins15000ProductId, "15,000 Coins"),
+                (IAPManager.RemoveAdsProductId, "Remove Ads"),
+            };
+
+            var productButtonsProp = new (string id, string displayName, Button button, TextMeshProUGUI label)[products.Length];
+            for (int i = 0; i < products.Length; i++)
+            {
+                var (id, displayName) = products[i];
+                var button = CreateButton(id + "Button", gridGO.transform, $"{displayName}\n...",
+                    new Color(0.85f, 0.55f, 0.1f), 28f, 120f, out var label);
+                productButtonsProp[i] = (id, displayName, button, label);
+            }
+
+            var statusText = CreateText("StatusText", group.transform, string.Empty, 28f, TextAlignmentOptions.Center, 40f);
             var closeButton = CreateButton("CloseButton", group.transform, "Back", new Color(0.35f, 0.35f, 0.38f), out _);
 
-            var simpleClose = root.AddComponent<SimpleClosePanel>();
-            var closeSO = new SerializedObject(simpleClose);
-            closeSO.FindProperty("closeButton").objectReferenceValue = closeButton;
-            closeSO.ApplyModifiedPropertiesWithoutUndo();
+            var shop = root.AddComponent<ShopController>();
+            var shopSO = new SerializedObject(shop);
+            var arrayProp = shopSO.FindProperty("productButtons");
+            arrayProp.arraySize = productButtonsProp.Length;
+            for (int i = 0; i < productButtonsProp.Length; i++)
+            {
+                var element = arrayProp.GetArrayElementAtIndex(i);
+                element.FindPropertyRelative("productId").stringValue = productButtonsProp[i].id;
+                element.FindPropertyRelative("displayName").stringValue = productButtonsProp[i].displayName;
+                element.FindPropertyRelative("button").objectReferenceValue = productButtonsProp[i].button;
+                element.FindPropertyRelative("label").objectReferenceValue = productButtonsProp[i].label;
+            }
+            shopSO.FindProperty("statusText").objectReferenceValue = statusText;
+            shopSO.FindProperty("closeButton").objectReferenceValue = closeButton;
+            shopSO.ApplyModifiedPropertiesWithoutUndo();
 
             return root;
         }
@@ -1915,13 +2021,14 @@ namespace FarmFuryArcade.EditorTools
             GameObject gameplay, GameObject pause, GameObject settings,
             GameObject levelComplete, NewCharacterUnlockScreen unlockScreen, GameObject levelFailed,
             GameObject roster, GameObject leaderboards, ChooseCharacterScreen chooseCharacterScreen,
-            ComboNotificationBanner comboBanner, GameObject levelSelect)
+            ComboNotificationBanner comboBanner, GameObject levelSelect, GameObject shop)
         {
             var settingsPanel = settings.GetComponent<SettingsPanel>();
             SetRefs(settingsPanel, ("mainMenuScreen", mainMenu));
 
             SetRefs(mainMenu.GetComponent<MainMenuController>(),
-                ("levelSelectScreen", levelSelect), ("settingsPanel", settingsPanel));
+                ("levelSelectScreen", levelSelect), ("settingsPanel", settingsPanel),
+                ("shopScreen", shop.GetComponent<ShopController>()));
 
             SetRefs(levelSelect.GetComponent<LevelSelectController>(),
                 ("mainMenuScreen", mainMenu), ("gameplayScreen", gameplay));

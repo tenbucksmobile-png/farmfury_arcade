@@ -571,10 +571,11 @@ scene flow" below for its full description. The original Phase 4 `CharacterSwapU
 ### Monetisation (`Scripts/Core/GameManager.cs`, `AdManager.cs`, `Scripts/UI/RevivePromptController.cs`)
 
 The GDD's Section 11 describes 7 revenue streams (ads, IAP, cosmetic store, season pass,
-cross-promotion). Coin economy and ad-SDK infrastructure now exist; IAP infrastructure
-(`com.unity.purchasing`) is installed but not wired to any product yet; cosmetic store and season
-pass don't exist. A full build-order plan for the remaining phases was reviewed and is followed —
-see "Ad mediation (LevelPlay + AdMob)" below for what's actually built vs. still pending. The GDD's
+cross-promotion). Coin economy, ad-SDK infrastructure (all 4 rewarded placements + interstitial),
+and IAP plumbing (Remove Ads + 5 coin packs, a minimal Shop screen, Restore Purchases) now exist;
+cosmetic store and season pass don't exist. A full build-order plan for the remaining phases was
+reviewed and is followed — see "Ad mediation (LevelPlay + AdMob)" and "IAP plumbing" below for what's
+actually built vs. still pending. The GDD's
 per-level coin formula (1/level, 5/new-best, 25/daily) was deliberately **not** adopted — the
 actual formula (`BaseCoinsPerLevel` 10 + `CoinsPerStar` 5 × stars, in `GameManager.
 ComputeLevelResult`) predates this review and was kept as-is by choice, not an oversight. "10 coins
@@ -650,8 +651,8 @@ mediating **AdMob** as its network — chosen over AdMob-direct specifically bec
 of the developer's had thin ad fill on iOS from a single network, and fill from any one network
 gets worse under child-directed treatment (below), which excludes most personalized/programmatic
 demand. Mediation gives multiple networks a chance to fill each request, directly addressing that
-failure mode. Unity IAP (`com.unity.purchasing`) is also installed as infrastructure alongside this
-but isn't wired to anything yet.
+failure mode. Unity IAP (`com.unity.purchasing`) is also installed alongside this — see "IAP
+plumbing" below for what it's wired to.
 
 **Every ad request is treated as child-directed (COPPA)** — the GDD's "8-45" target audience pulls
 in under-13 users, and this was the deliberate, simpler-to-implement-correctly choice over runtime
@@ -675,9 +676,9 @@ interaction so gameplay code never touches `Unity.Services.LevelPlay` directly) 
   skipped/unready ad doesn't mean the next check fires immediately). Structurally guaranteed to
   never fire mid-`GameState.Playing`, since `LoadLevel` only ever runs at a level transition.
 
-**`SaveManager` gained `AdsRemoved`** (bool, persisted — for a future Remove Ads IAP;
-`NotifyLevelLoaded` already early-outs on it, so wiring that purchase later needs no call-site
-changes) **and `LevelsSinceLastInterstitial`** (the rolling counter above, exposed via a getter +
+**`SaveManager` gained `AdsRemoved`** (bool, persisted — `NotifyLevelLoaded` already early-outs on
+it; `IAPManager`'s Remove Ads purchase now sets it, see "IAP plumbing" below) **and
+`LevelsSinceLastInterstitial`** (the rolling counter above, exposed via a getter +
 `SetLevelsSinceLastInterstitial` setter rather than a plain settable property, since the
 increment-vs-reset-to-0 decision belongs to `AdManager`, not `SaveManager`).
 
@@ -692,31 +693,97 @@ separately) — the tool only overwrites a field when a non-empty value is passe
 it after only one platform's values are known never clobbers the other platform's already-set
 fields back to empty.
 
-**Still not built**: 3 of the 4 rewarded ad placements from the plan (double coins earned, extra
-ability charge, skip-cooldown via ad) — each needs a small new UI/art decision first, unlike the
-interstitial (which needed no new UI at all). No `Debug`-vs-`Release` build-config split exists yet
-for ad unit IDs either — `AdManager.enableTestSuite` (LevelPlay's in-app test-ad UI,
+**All 4 rewarded ad placements from the plan are now built.** No `Debug`-vs-`Release` build-config
+split exists yet for ad unit IDs — `AdManager.enableTestSuite` (LevelPlay's in-app test-ad UI,
 `SetMetaData("is_test_suite", "enable")`) is a single Inspector bool toggled by hand, not swapped
 automatically per build type; must be turned off before cutting a real release build.
 
-**"Continue after death" — the first rewarded placement — is now built.** `RevivePromptController`
-gained a third button (`watchAdButton`, between Revive and Decline) alongside the existing
-5-coin-revive/decline pair, hidden entirely unless `AdManager.IsRewardedAdReady` (same
-never-show-a-dead-button rule the coin-affordability check already used). Tapping it calls
-`AdManager.ShowRewardedAd("continue_after_death", ...)`; the callback only grants the revive if the
-SDK actually confirms the reward fired (a closed-early/failed ad leaves the prompt exactly as it
-was, so the player can still fall back to coins or Decline). `GameManager.AcceptReviveViaAd()` is a
-sibling to `AcceptRevive()` — both now funnel through a shared private `GrantRevive()` (reset
-`DeathCountThisMaze` to `MaxRespawns`, unfreeze time) so the ad path grants the identical one-more-
-life effect without spending coins. The once-per-maze cap needs no extra flag — the prompt itself
-only ever fires on the death that exceeds `MaxRespawns`, same trigger condition already gating it.
-Uses real art, not a placeholder: `WatchAd.png` (baked-in "Watch Ad" label, same
-label-baked-into-the-button-art convention as `Yes.png`/`No.png`) wired via
-`ArtWiringBuilder`'s `BtnWatchAd` constant — added to `SpritesToConfigure` too, since omitting a
-sprite from that array is what caused the earlier Gerald/Billy PPU oversizing bug (see the Art
-status section's own note on that). The other 3 placements are unbuilt — each needs its own UI slot
-(Level Complete's shelf for double-coins, a slot beside the existing 3-coin skip-cooldown button for
-the other two) before art can be requested for them.
+**"Continue after death"** — `RevivePromptController` gained a third button (`watchAdButton`,
+between Revive and Decline) alongside the existing 5-coin-revive/decline pair, hidden entirely
+unless `AdManager.IsRewardedAdReady` (same never-show-a-dead-button rule the coin-affordability
+check already used). Tapping it calls `AdManager.ShowRewardedAd("continue_after_death", ...)`; the
+callback only grants the revive if the SDK actually confirms the reward fired (a closed-early/failed
+ad leaves the prompt exactly as it was, so the player can still fall back to coins or Decline).
+`GameManager.AcceptReviveViaAd()` is a sibling to `AcceptRevive()` — both now funnel through a
+shared private `GrantRevive()` (reset `DeathCountThisMaze` to `MaxRespawns`, unfreeze time) so the ad
+path grants the identical one-more-life effect without spending coins. The once-per-maze cap needs
+no extra flag — the prompt itself only ever fires on the death that exceeds `MaxRespawns`, same
+trigger condition already gating it. Uses real art: `WatchAd.png` (baked-in "Watch Ad" label, same
+label-baked-into-the-button-art convention as `Yes.png`/`No.png`) wired via `ArtWiringBuilder`'s
+`BtnWatchAd` constant.
+
+**"Double coins earned"** — `LevelCompleteController` gained a "2x Coins (Watch Ad)" button on
+`LevelComplete.png`'s shelf, below the score/stars. `GameManager.ClaimDoubleCoinsViaAd()` (a sibling
+to `AcceptRevive`/`AcceptReviveViaAd`'s pattern) pays out a second copy of that completion's
+`LastLevelResult.coinsEarned` once `AdManager` confirms the reward — an additive top-up, not a
+retroactive rewrite of `coinsEarned` itself. `GameManager.DoubleCoinsClaimed` (reset every
+`EndLevel(true)`) stops it being claimed twice for the same completion. Uses real icon art
+(`DoubleCoins.png`, a coin-stack + ×2 badge) with the "2x Coins (Watch Ad)" text rendered at runtime
+on top — icon-only, not baked-in-label, since the button is small and square.
+
+**"Extra ability charge" / "skip cooldown via ad"** — per the plan doc's own text, these two listed
+placements are literally the same feature ("(d) same button, ad as the free alternative to spending
+coins"), not two separate ones. Built as one: a Watch Ad button in `GameplayHUD` sitting just left of
+the existing 3-coin skip-cooldown button, calling `AbilityBase.SkipCooldown()` via
+`AdManager.ShowRewardedAd("skip_cooldown_via_ad", ...)` only on a confirmed reward. Shown/hidden
+every tick alongside the coin button (`HandleAbilityCooldownChanged`), gated on both "on cooldown"
+and `AdManager.IsRewardedAdReady`. No dedicated square icon art exists yet — `WatchAd.png` is a wide
+512x214 plaque banner sized for the revive prompt, and would squash unreadable in this small HUD
+slot — so it keeps a plain "AD" text label for now, same convention the coin button's "-3" used
+before `Btn_skipcooldown.png` existed.
+
+### IAP plumbing (`Scripts/Core/IAPManager.cs`, `Scripts/UI/ShopController.cs`)
+
+Monetisation Build Plan Phase 3. `com.unity.purchasing` (5.4.2) uses the newer async
+`UnityIAPServices`/`StoreController` API (`Connect()`, `FetchProducts()`, `PurchaseProduct()`,
+`RestoreTransactions()`, event-based `OnPurchasePending`/`OnPurchaseFailed`/etc.) — not the older
+`IStoreListener`/`ConfigurationBuilder` pattern older Unity IAP docs/tutorials describe. If you're
+reading old sample code that implements `IStoreListener.ProcessPurchase`, it's for a different
+package version; follow the pattern in `Library/PackageCache/com.unity.purchasing@.../Samples~/01
+BuyingConsumables/` instead.
+
+**`IAPManager`** (parallel to `AdManager`/`AudioManager` — singleton on `GameManagers`, owns all SDK
+interaction) connects on `Start()` and fetches the product catalogue once connected: 1
+non-consumable (`remove_ads`, $4.99, grants `RemoveAdsBonusCoins` = 100 per the GDD's "Includes 100
+bonus coins") + 5 consumables (`coins_100`/`500`/`1500`/`5000`/`15000`, prices exactly matching GDD
+Section 11's table). `HandlePurchasePending` grants the effect (`SaveManager.AddCoins`/`AdsRemoved`)
+and calls `ConfirmPurchase` — same grant-then-confirm order the package's own sample uses.
+`GetPriceString(productId)` returns the real localized price once the store connection resolves
+metadata, falling back to the GDD's static price table until then (or forever, in the Editor/dev
+builds where no real store is configured) — UI should never show a blank price.
+
+**Remove Ads does NOT disable rewarded-ad availability** — the GDD is explicit ("Still shows
+rewarded ad prompts as an option"), so only `AdManager.NotifyLevelLoaded`'s interstitial path checks
+`SaveManager.AdsRemoved`; none of the 4 rewarded placements above do. `SaveManager.AdsRemoved`
+already existed before this phase (added alongside the interstitial in Phase 2, per its own doc
+comment above) — no new persistence needed.
+
+**`ShopController`** replaced the old "Store is coming in Phase 6!" placeholder panel (same root
+GameObject name, `StoreComingSoonOverlay`, kept for scene-path stability even though the content
+changed) — a plain 2x3 grid of the 6 products, a status text row, and a close button. **This is
+deliberately not the full cosmetics Store** the GDD's Section 11 describes (hats/skins/trails/
+themes) — that's Phase 4 scope and doesn't exist yet; this screen is only the Phase 3 purchase
+surface for coin packs + Remove Ads. No purchase-card art exists yet (per the plan doc's own "Art
+needed" list — zero art exists here), so every button is a plain text label
+(`"{displayName}\n{price}"`), same "text label until art lands" convention every other unart'd
+placeholder button in this project uses. Reached via a new **Main Menu "Shop" button** (bottom-
+centre, between Play and Settings — also no dedicated icon art yet). Remove Ads' button disables
+itself once `SaveManager.AdsRemoved` is already true (a non-consumable can't be purchased twice).
+
+**Restore Purchases** now fills Settings' 2x3 grid's previously-empty 6th cell (see the Settings
+section under "Landing/Gameplay-HUD cleanup" below for that grid's own history) — a plain
+`CreateButtonPlaqueCell` (a new sibling to `CreateTogglePlaqueCell`, same visual convention, Button
+instead of Toggle) calling `IAPManager.RestorePurchases`, with its own label swapping
+"Restore Purchases" → "Restoring..." → "Restored!"/back to idle as the one feedback mechanism (no
+toast system exists in this project yet).
+
+**Still not built** (Phase 3's own "Technical needed" list, none of it is code): the 6 products
+aren't registered in App Store Connect/Google Play Console yet, so `IAPManager.Connect()` is
+expected to fail gracefully with a logged warning in the Editor and in any build without real store
+config — same "infrastructure ready, real config later" pattern `AdManager` already established for
+its own ad unit IDs. No sandbox test accounts exist yet either. Purchase-card art and a "Thank you"
+confirmation toast (both listed as Phase 3 "Art needed," the toast marked optional in the plan doc)
+are unbuilt.
 
 ### Screens & scene flow (`Scripts/UI`, Phase 5)
 
@@ -782,15 +849,18 @@ predate this removal.
 **Landing/Gameplay-HUD cleanup (post-Phase-5):** once real art landed, screens got stripped down
 from their original Phase 5 layouts:
 
-- **Main Menu** (`MainMenuController`) is now just two icon buttons directly on `landing.png`
+- **Main Menu** (`MainMenuController`) was cut down to two icon buttons directly on `landing.png`
   (which already bakes in the "FARM FURY ARCADE" logo) — `PlayButton` bottom-left → Level Select,
   `SettingsButton` bottom-right → the Settings overlay. The old vertical button stack (Character
   Roster/Daily Challenge/Store/Leaderboards) and its duplicate "Title" text are gone, along with
-  the `MainMenuScreen/Content` vertical group they lived in. Those four screens/systems still get
-  built by `Phase5ProjectBuilder.BuildAll` and still work — they just have no entry point from Main
-  Menu anymore, so reaching them today means calling `SceneTransitionManager.ShowOnly` on them
-  directly (nothing currently does). `CharacterRosterScreen`/`LeaderboardsScreen` keep their own
-  `mainMenuScreen` back-reference for their "Back" buttons regardless.
+  the `MainMenuScreen/Content` vertical group they lived in. Character Roster/Daily Challenge/
+  Leaderboards still get built by `Phase5ProjectBuilder.BuildAll` and still work — they just have no
+  entry point from Main Menu, so reaching them today means calling `SceneTransitionManager.ShowOnly`
+  on them directly (nothing currently does). `CharacterRosterScreen`/`LeaderboardsScreen` keep their
+  own `mainMenuScreen` back-reference for their "Back" buttons regardless. Store regained an entry
+  point later (Monetisation Phase 3's IAP plumbing) — a third `ShopButton`, bottom-centre between
+  Play and Settings, opens `ShopController` (see "IAP plumbing" above); Main Menu is a three-button
+  screen again, not two, as of that change.
 - **World Map** at this point in the project's history had similarly lost its top-left `HomeButton`
   + horizontally-scrolling level-marker strip (`LevelMarker`/`StarDisplay`, built via
   `CreateHorizontalScrollView`) in favour of the same bottom-left/right icon-button convention as
@@ -2144,21 +2214,28 @@ and reopen the project normally to confirm nothing was corrupted.
   outright afterward — see "Removed: World Map screen".
 
 ## Known gaps / flagged for Phase 6
-- **Store, Character Roster, and Leaderboards have no Main Menu entry point** — removed in the
-  landing-page cleanup (see "Landing/Gameplay-HUD cleanup" above) in favour of just Play/Settings.
-  All 3 screens still exist and build correctly; reaching them today requires calling
-  `SceneTransitionManager.ShowOnly` directly, since nothing currently does. Daily Challenge is
+- **Character Roster and Leaderboards have no Main Menu entry point** — removed in the
+  landing-page cleanup (see "Landing/Gameplay-HUD cleanup" above) in favour of just Play/Settings/
+  Shop. Both screens still exist and build correctly; reaching them today requires calling
+  `SceneTransitionManager.ShowOnly` directly, since nothing currently does. (Shop/`ShopController`
+  regained a Main Menu entry point when Monetisation Phase 3's IAP plumbing was built — see "IAP
+  plumbing" above — so it's no longer in this no-entry-point group.) Daily Challenge is
   different: it isn't a separate screen, just an objective overlaid on `LevelData_01` (index
   `DailyChallengeLevelIndex`, 0) — since that's the same level the normal Main Menu/Level Select
   flow already plays, `DailyChallengeManager.CheckCompletionOnLevelEnd` fires on any ordinary playthrough of
   level 0, no special entry point needed. (Before the Matchup screen's removal, that screen's
   `ShowForLevel` was one way to jump straight to a given level for testing; that shortcut is gone,
   but Daily Challenge completion never depended on it.)
-- **Store is a placeholder** ("coming in Phase 6" panel) per spec's own scope note — no cosmetics
-  UI or IAP hookup exists.
-- **Settings has no Restore/Reset Progress at all anymore** — both were removed entirely (not just
-  stubbed) in the 2026-07-31 mockup pass; Restore was Phase 6/cloud-save scope with no real action
-  either way. Real cloud-save restore is still Phase 6 scope if it comes back.
+- **Store is now a minimal, real IAP purchase surface (coin packs + Remove Ads), not a placeholder**
+  — see "IAP plumbing" above. The GDD's full cosmetics Store vision (hats/skins/trails/themes) is
+  still unbuilt and is Phase 4 scope, not Phase 6 as this section's own heading implies — that
+  phase-number mismatch predates this note and hasn't been reconciled.
+- **Settings' Restore/Reset Progress**: the original cloud-save Restore Progress and Reset Progress
+  buttons were removed entirely (not just stubbed) in the 2026-07-31 mockup pass — Restore was
+  Phase 6/cloud-save scope with no real action either way, and real cloud-save restore is still
+  Phase 6 scope if it comes back. The Settings grid's 6th cell that Restore Progress used to occupy
+  now hosts a *different* Restore — IAP's "Restore Purchases" (Monetisation Phase 3) — which is a
+  distinct, now-real feature that happens to reuse the same empty slot; see "IAP plumbing" above.
 - **Leaderboards has no cloud sync** — local-only, per spec.
 - **`DailyChallengeManager.CharacterLocked` isn't enforced**, only checked after the fact — a
   player can freely swap characters during a Character-Locked daily challenge; the run just won't
@@ -2186,8 +2263,9 @@ Main Menu ──Play──▶ Level Select ──tap unlocked tile──▶ Game
     │                                          (Retry loops back to Gameplay,
     │                                           or Pause ▸ Quit to Level Select)
     │
-    └──Settings (gear)────▶ modal overlay (2x3 plaque grid: music/sfx/vibration/left-handed/
-                             language) ──back (round icon)──▶ wherever it was opened from
+    ├──Settings (gear)────▶ modal overlay (2x3 plaque grid: music/sfx/vibration/left-handed/
+    │                        language/restore purchases) ──back (round icon)──▶ wherever opened from
+    └──Shop─────────────▶ modal overlay (5 coin packs + Remove Ads) ──Back──▶ Main Menu
 ```
 
 (An intermediate "World Map" screen used to sit between Main Menu and Level Select, and a Matchup
@@ -2202,9 +2280,11 @@ New Character Unlock is a special case: not reachable by navigation, it's trigge
 by `LevelCompleteController` partway through its own celebration sequence, whenever
 `UnlockManager.LastUnlockedBatch` isn't empty.
 
-**Character Roster, Store, and Leaderboards are no longer reachable from Main
-Menu** (removed in the landing-page cleanup — see "Landing/Gameplay-HUD cleanup" and the
-matching "Known gaps" entry). Each screen still exists and still works exactly as described
-above if shown directly via `SceneTransitionManager.ShowOnly` — there's just no button anywhere
-that does so today. Daily Challenge is unaffected, since it isn't a separate screen — see the
-matching "Known gaps" entry.
+**Character Roster and Leaderboards are no longer reachable from Main Menu** (removed in the
+landing-page cleanup — see "Landing/Gameplay-HUD cleanup" and the matching "Known gaps" entry).
+Both screens still exist and still work exactly as described above if shown directly via
+`SceneTransitionManager.ShowOnly` — there's just no button anywhere that does so today. Shop
+regained a Main Menu entry point when Monetisation Phase 3's IAP plumbing was built (see "IAP
+plumbing" above) — it's the overlay shown in the diagram, not one of the no-longer-reachable
+screens. Daily Challenge is unaffected, since it isn't a separate screen — see the matching
+"Known gaps" entry.
