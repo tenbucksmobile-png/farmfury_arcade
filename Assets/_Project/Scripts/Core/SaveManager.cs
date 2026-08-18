@@ -349,6 +349,22 @@ namespace FarmFuryArcade.Core
             return type == CosmeticType.Skin ? EquippedSkinKeyPrefix : EquippedHatKeyPrefix;
         }
 
+        /// <summary>Editor-tool testing helper only — grants ownership and equips a cosmetic
+        /// directly via PlayerPrefs, bypassing PurchaseCosmetic/SpendCoins and needing no live
+        /// SaveManager instance (same static-Edit-mode-safe convention as ResetAllProgressKeys),
+        /// so a batch-mode wiring tool can pre-equip freshly-authored cosmetics before any Store UI
+        /// exists to do it the real way. Do not call this from gameplay code.</summary>
+        public static void DebugForceEquipForTesting(CosmeticType type, CharacterType character, string cosmeticId)
+        {
+            if (string.IsNullOrEmpty(cosmeticId))
+            {
+                return;
+            }
+            PlayerPrefs.SetInt(CosmeticOwnedKeyPrefix + cosmeticId, 1);
+            PlayerPrefs.SetString(EquippedKeyPrefix(type) + character, cosmeticId);
+            PlayerPrefs.Save();
+        }
+
         // ---- Reset ------------------------------------------------------------------------------
 
         /// <summary>SettingsPanel's "Reset Progress" button, after confirmation. Deletes every

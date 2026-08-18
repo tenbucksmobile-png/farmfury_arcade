@@ -10,8 +10,10 @@ namespace FarmFuryArcade.Gameplay
     /// - Skin: pushes CosmeticData.skinFrames into CharacterAnimator.SetCosmeticFrameOverride,
     ///   which then drives the base SpriteRenderer as if it were the character's own art.
     /// - Hat: draws CosmeticData.hatFrames on a separate child SpriteRenderer layered above the
-    ///   character, tracking CharacterAnimator's CurrentDisplayDirection/CurrentFrameIndex/IsFlippedX
-    ///   every frame so it never drifts out of sync with the base walk cycle.
+    ///   character, positioned/scaled per CosmeticData.hatOffset/hatScale (per-cosmetic, not
+    ///   per-renderer — a sombrero and a party hat don't sit the same way on the same character),
+    ///   and tracking CharacterAnimator's CurrentDisplayDirection/CurrentFrameIndex/IsFlippedX every
+    ///   frame so it never drifts out of sync with the base walk cycle.
     ///
     /// No CosmeticData assets or hat/skin art exist yet (see CLAUDE.md's Phase 4 art-scope note) —
     /// with nothing equipped this component is a no-op: SaveManager.GetEquippedCosmetic returns ""
@@ -22,13 +24,9 @@ namespace FarmFuryArcade.Gameplay
     [RequireComponent(typeof(CharacterAnimator))]
     public class CharacterCosmeticRenderer : MonoBehaviour
     {
-        [Tooltip("Local offset for the hat sprite relative to the character's own SpriteRenderer " +
-                 "origin. Tune once real hat art lands and per-character head positions are known " +
-                 "— a single shared offset is a placeholder, not a final per-character value.")]
-        [SerializeField] private Vector3 hatLocalOffset = new Vector3(0f, 0.35f, 0f);
-
         private CharacterAnimator _animator;
         private CharacterBase _characterBase;
+        private Transform _hatTransform;
         private SpriteRenderer _hatRenderer;
         private CosmeticData _equippedHat;
 
@@ -39,7 +37,7 @@ namespace FarmFuryArcade.Gameplay
 
             var hatObject = new GameObject("EquippedHat");
             hatObject.transform.SetParent(transform, false);
-            hatObject.transform.localPosition = hatLocalOffset;
+            _hatTransform = hatObject.transform;
             _hatRenderer = hatObject.AddComponent<SpriteRenderer>();
             _hatRenderer.sortingOrder = GetComponent<SpriteRenderer>().sortingOrder + 1;
             _hatRenderer.enabled = false;
@@ -69,6 +67,11 @@ namespace FarmFuryArcade.Gameplay
             string equippedHatId = SaveManager.Instance.GetEquippedCosmetic(CosmeticType.Hat, character);
             _equippedHat = DataManager.Instance.GetCosmeticData(equippedHatId);
             _hatRenderer.enabled = _equippedHat != null && _equippedHat.hatFrames != null && _equippedHat.hatFrames.Length >= 8;
+            if (_hatRenderer.enabled)
+            {
+                _hatTransform.localPosition = _equippedHat.hatOffset;
+                _hatTransform.localScale = Vector3.one * _equippedHat.hatScale;
+            }
         }
 
         private void LateUpdate()

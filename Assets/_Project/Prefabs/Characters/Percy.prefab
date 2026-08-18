@@ -18,6 +18,7 @@ GameObject:
   - component: {fileID: 6727630132086616697}
   - component: {fileID: 2254999636883832636}
   - component: {fileID: 5930535464291049951}
+  - component: {fileID: 116314200188280195}
   m_Layer: 0
   m_Name: Percy
   m_TagString: Untagged
@@ -243,6 +244,18 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::FarmFuryArcade.Abilities.BounceRollAbility
   totalCooldown: 10
   trailPrefab: {fileID: 4441124703926700478, guid: bbf673a94d4804e489632ab6b8b12068, type: 3}
+--- !u!114 &116314200188280195
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 883729205389899470}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f0fc97e9f5dd5c14d9d68c79b7c2b805, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::FarmFuryArcade.Gameplay.CharacterCosmeticRenderer
 --- !u!213 &111321117233956486
 Sprite:
   serializedVersion: 2

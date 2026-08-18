@@ -54,6 +54,19 @@ namespace FarmFuryArcade.Data
                  "frame-for-frame instead of drifting out of sync.")]
         public Sprite[] hatFrames;
 
+        [Tooltip("Hat only, local offset (world units) from the character's own sprite origin. " +
+                 "Per-cosmetic (not per-CharacterCosmeticRenderer) because a sombrero and a party " +
+                 "hat don't sit at the same height on the same character, let alone across " +
+                 "characters with very different head shapes/sizes. Tune per (style, character) " +
+                 "pair once real art is in — see CLAUDE.md's positioning-convention note.")]
+        public Vector2 hatOffset = new Vector2(0f, 0.35f);
+
+        [Tooltip("Hat only, uniform scale applied on top of the sprite's own PPU-derived size. " +
+                 "1 = rendered at the same world size the sprite's pixel dimensions/PPU imply. Art " +
+                 "generated as a big standalone prop (not pre-scaled to a character's head) will " +
+                 "usually need this well below 1.")]
+        public float hatScale = 1f;
+
         [Tooltip("Skin only. A full replacement walk-cycle set, same 8-entry order as " +
                  "CharacterData.walkAnimationFrames — CharacterCosmeticRenderer feeds this into " +
                  "CharacterAnimator.SetCosmeticFrameOverride when this skin is equipped, in place " +
