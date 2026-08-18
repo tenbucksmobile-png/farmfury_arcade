@@ -785,6 +785,82 @@ its own ad unit IDs. No sandbox test accounts exist yet either. Purchase-card ar
 confirmation toast (both listed as Phase 3 "Art needed," the toast marked optional in the plan doc)
 are unbuilt.
 
+### Cosmetics system (`Scripts/Data/CosmeticData.cs`, `CosmeticType.cs`, `Scripts/Gameplay/CharacterCosmeticRenderer.cs`)
+
+Monetisation Build Plan Phase 4 (hats/skins/trails/maze themes — GDD Section 11's "Cosmetic Store,"
+non-gameplay-affecting). Only the **data model + persistence + rendering hook** exist so far; no
+`CosmeticData` assets, art, prefab wiring, or Store UI have been built yet — everything below is a
+safe no-op until a `CosmeticData` asset actually exists and something equips it.
+
+**`CosmeticData`** (ScriptableObject) covers all 4 GDD cosmetic categories in one asset shape
+(`CosmeticType`: Hat, Skin, Trail, MazeTheme) rather than one class per category, since they share
+enough fields (id, displayName, coinCost, previewSprite) that a single asset with per-type fields
+left unused by the other types was simpler than 4 near-duplicate ScriptableObjects. Hat/Skin are
+per-character (`character` field) — one asset per (style, character) pair, e.g. "Cowboy Hat,
+Cluck" and "Cowboy Hat, Bessie" are two separate assets sharing a `setId` so the Store can group/
+price them together while ownership is still tracked per exact asset. Trail is character-agnostic.
+MazeTheme is per-world (`mazeType` field instead of `character`). `hatFrames`/`skinFrames` follow
+the same 8-entry `[Up0,Up1,Down0,Down1,Left0,Left1,Right0,Right1]` order as
+`CharacterData.walkAnimationFrames` so a hat/skin can be looked up with the exact same direction
+index the base character animation is already using. Loaded via `DataManager.GetCosmeticData`/
+`GetAllCosmetics`/`GetCosmeticsForCharacter`/`GetCosmeticsByType`, same
+`Resources.LoadAll<T>("Cosmetics")` convention as Level/Character/RobotData — assets must live
+under `ScriptableObjects/Resources/Cosmetics/` once any exist. **`cosmeticId` must never be renamed
+after a player could own it** — it's the PlayerPrefs ownership key, so a rename orphans save data.
+
+**`SaveManager`** owns ownership (`IsCosmeticOwned`/`SetCosmeticOwned`) and equip state:
+`PurchaseCosmetic(CosmeticData)` spends coins via the existing `SpendCoins` and grants ownership in
+one call (returns `false` on already-owned/unaffordable/null, same affordability-gate convention as
+every other coin spend in this project). Equipped state is per-character for Hat/Skin
+(`GetEquippedCosmetic`/`SetEquippedCosmetic`), global for Trail (`GetEquippedTrail`), per-world for
+MazeTheme (`GetEquippedMazeTheme`) — three different persisted-string PlayerPrefs shapes because
+the "who does this equip apply to" axis genuinely differs per type. `ResetAllProgressKeys` sweeps
+every equip slot (enumerable via `CharacterType`/`MazeType`) but **cannot sweep cosmetic ownership
+itself** — `cosmeticId` is an arbitrary string with no enumerable range, and the reset method is
+static (no live `DataManager` to ask for the full catalogue when called from Edit mode). A "Reset
+Progress" today leaves purchased cosmetics owned; revisit only if a true full wipe is ever needed.
+
+**Rendering hook, two halves:**
+- **Skin** — `CharacterAnimator.SetCosmeticFrameOverride(Sprite[] skinFrames)` replaces
+  `characterData.walkAnimationFrames` entirely (not layered) whenever a full 8-entry array is
+  passed; `null` reverts to the character's own base art. A skin is a full recolor, so replacement
+  is correct — no separate "skin" SpriteRenderer exists.
+- **Hat** — `CharacterCosmeticRenderer` (new sibling component to `CharacterAnimator`, not yet
+  added to any character prefab) owns a child `EquippedHat` GameObject with its own
+  `SpriteRenderer`, sorted one order above the character's own. Every `LateUpdate` it reads
+  `CharacterAnimator.CurrentDisplayDirection`/`CurrentFrameIndex`/`IsFlippedX` (three new public
+  members `CharacterAnimator` exposes for exactly this) and picks the matching `hatFrames` slice, so
+  the hat can never visibly desync from the base walk-cycle frame it's tracking. `Refresh()` re-reads
+  `SaveManager`'s equipped Hat/Skin for this character — called from `CharacterBase.Initialize`
+  (after `characterType` is set), so every spawn/swap picks up the current equip state
+  automatically, the same way `CharacterAnimator.SetCharacterData` already does.
+
+**Positioning convention for hat/accessory art:** author each prop on the exact same 500×500
+transparent canvas every character's own directional art already uses, positioned within that
+canvas exactly where it would sit if drawn directly onto that character's real front sprite (trace
+against the real file as a guide layer, then delete the guide before export). Since Unity's sprite
+pivot defaults to center and this project's PPU convention (`ArtWiringBuilder`) always matches a
+sprite's own pixel width, two 500×500 center-pivoted sprites share the same coordinate space —
+`CharacterCosmeticRenderer.hatLocalOffset` can stay at its `(0,0,0)`-ish default with no per-
+character tuning needed, *if* the art itself is positioned correctly within its own canvas. That
+field is currently a single value shared across every equipped hat (a placeholder — a sombrero and
+a party hat don't sit at the same height on the same character either); move it onto `CosmeticData`
+itself (one offset per cosmetic) before fitting real hat art across many styles×characters, rather
+than fighting one shared value.
+
+**Not built yet:**
+- `CharacterCosmeticRenderer` isn't added to any of the 8 character prefabs — needs a
+  `Phase4ProjectBuilder`-style editor step (`LoadPrefabContents`/`SaveAsPrefabAsset` round-trip,
+  same convention that phase's other prefab-field gotcha already established).
+- No real `CosmeticData` assets, no art. A full Kling AI prompt set for the whole Phase 4 art list
+  (32 hats, 24 accessories, 8 skins, 12 maze-theme assets, 4 trails, 6 Store UI chrome pieces) was
+  drafted separately — ask for it if it's not already at hand.
+- No Store UI category tabs/purchase-equip flow for cosmetics — `ShopController` currently only
+  sells Phase 3's coin packs + Remove Ads.
+- `TileMapRenderer` doesn't yet consume `CosmeticData.themeWallSprite`/`themeGroundSprite`/
+  `themeBackdropSprite` — MazeTheme equip state persists in `SaveManager` but nothing reads it at
+  render time yet.
+
 ### Screens & scene flow (`Scripts/UI`, Phase 5)
 
 **Still single-scene** (see the architecture note at the top) — "scene transitions" are Canvas

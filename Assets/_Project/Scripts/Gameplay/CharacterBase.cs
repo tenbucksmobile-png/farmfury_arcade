@@ -33,6 +33,8 @@ namespace FarmFuryArcade.Gameplay
             _movement.SetSpeed(data.movementSpeed);
             _movement.SetCanCrossWater(data.canCrossWater);
             GetComponent<CharacterAnimator>()?.SetCharacterData(data);
+            // CharacterType must be set (above) before this reads it via GetEquippedCosmetic.
+            GetComponent<CharacterCosmeticRenderer>()?.Refresh();
         }
     }
 }

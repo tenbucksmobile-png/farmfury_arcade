@@ -28,6 +28,11 @@ namespace FarmFuryArcade.Core
         private const string TotalCombosTriggeredKey = "FFA_TotalCombosTriggered";
         private const string AdsRemovedKey = "FFA_AdsRemoved";
         private const string LevelsSinceLastInterstitialKey = "FFA_LevelsSinceLastInterstitial";
+        private const string CosmeticOwnedKeyPrefix = "FFA_CosmeticOwned_";
+        private const string EquippedHatKeyPrefix = "FFA_EquippedHat_";
+        private const string EquippedSkinKeyPrefix = "FFA_EquippedSkin_";
+        private const string EquippedTrailKeyPrefix = "FFA_EquippedTrail_";
+        private const string EquippedMazeThemeKeyPrefix = "FFA_EquippedMazeTheme_";
 
         /// <summary>Bound used only by ResetAllProgress's per-level key sweep — matches the GDD's
         /// 100-level World 1-6 scope even though only a handful of LevelData assets exist so far;
@@ -267,6 +272,83 @@ namespace FarmFuryArcade.Core
             PlayerPrefs.SetString(DailyChallengeCompletedDateKey, dateKey);
         }
 
+        // ---- Cosmetics (Monetisation Build Plan Phase 4) ---------------------------------------
+
+        /// <summary>Ownership is a plain one-shot flag per cosmeticId, same convention as
+        /// IsCharacterUnlocked/UnlockCharacter — a cosmetic is never "un-owned" once purchased.</summary>
+        public bool IsCosmeticOwned(string cosmeticId)
+        {
+            return !string.IsNullOrEmpty(cosmeticId) && PlayerPrefs.GetInt(CosmeticOwnedKeyPrefix + cosmeticId, 0) == 1;
+        }
+
+        public void SetCosmeticOwned(string cosmeticId)
+        {
+            if (string.IsNullOrEmpty(cosmeticId))
+            {
+                return;
+            }
+            PlayerPrefs.SetInt(CosmeticOwnedKeyPrefix + cosmeticId, 1);
+        }
+
+        /// <summary>Spends coins and grants ownership in one call — mirrors SpendCoins' bool-return
+        /// affordability check so ShopController can show/disable a purchase button the same way
+        /// the revive/skip-cooldown coin spends already do. Returns false (no-op) if the cosmetic
+        /// is null, already owned, or unaffordable.</summary>
+        public bool PurchaseCosmetic(CosmeticData cosmetic)
+        {
+            if (cosmetic == null || string.IsNullOrEmpty(cosmetic.cosmeticId) || IsCosmeticOwned(cosmetic.cosmeticId))
+            {
+                return false;
+            }
+            if (!SpendCoins(cosmetic.coinCost))
+            {
+                return false;
+            }
+            SetCosmeticOwned(cosmetic.cosmeticId);
+            return true;
+        }
+
+        /// <summary>Equipped Hat/Skin cosmetic id for one character ("" = none equipped). Trail
+        /// isn't per-character (equips on whichever character is currently active) and MazeTheme is
+        /// per-world, not per-character — use GetEquippedTrail/GetEquippedMazeTheme for those.</summary>
+        public string GetEquippedCosmetic(CosmeticType type, CharacterType character)
+        {
+            return PlayerPrefs.GetString(EquippedKeyPrefix(type) + character, string.Empty);
+        }
+
+        /// <summary>Pass an empty/null cosmeticId to unequip. Does not itself validate ownership —
+        /// callers (ShopController/ChooseCharacterScreen) should only ever offer owned cosmetics as
+        /// equip options.</summary>
+        public void SetEquippedCosmetic(CosmeticType type, CharacterType character, string cosmeticId)
+        {
+            PlayerPrefs.SetString(EquippedKeyPrefix(type) + character, cosmeticId ?? string.Empty);
+        }
+
+        public string GetEquippedTrail()
+        {
+            return PlayerPrefs.GetString(EquippedTrailKeyPrefix + "global", string.Empty);
+        }
+
+        public void SetEquippedTrail(string cosmeticId)
+        {
+            PlayerPrefs.SetString(EquippedTrailKeyPrefix + "global", cosmeticId ?? string.Empty);
+        }
+
+        public string GetEquippedMazeTheme(MazeType world)
+        {
+            return PlayerPrefs.GetString(EquippedMazeThemeKeyPrefix + world, string.Empty);
+        }
+
+        public void SetEquippedMazeTheme(MazeType world, string cosmeticId)
+        {
+            PlayerPrefs.SetString(EquippedMazeThemeKeyPrefix + world, cosmeticId ?? string.Empty);
+        }
+
+        private static string EquippedKeyPrefix(CosmeticType type)
+        {
+            return type == CosmeticType.Skin ? EquippedSkinKeyPrefix : EquippedHatKeyPrefix;
+        }
+
         // ---- Reset ------------------------------------------------------------------------------
 
         /// <summary>SettingsPanel's "Reset Progress" button, after confirmation. Deletes every
@@ -299,7 +381,21 @@ namespace FarmFuryArcade.Core
             foreach (CharacterType type in System.Enum.GetValues(typeof(CharacterType)))
             {
                 PlayerPrefs.DeleteKey(CharacterUnlockedKeyPrefix + type);
+                PlayerPrefs.DeleteKey(EquippedHatKeyPrefix + type);
+                PlayerPrefs.DeleteKey(EquippedSkinKeyPrefix + type);
             }
+            PlayerPrefs.DeleteKey(EquippedTrailKeyPrefix + "global");
+            foreach (MazeType world in System.Enum.GetValues(typeof(MazeType)))
+            {
+                PlayerPrefs.DeleteKey(EquippedMazeThemeKeyPrefix + world);
+            }
+            // NOTE: cosmetic OWNERSHIP keys (CosmeticOwnedKeyPrefix + cosmeticId) are NOT swept
+            // here — cosmeticId is an arbitrary string with no enumerable range like CharacterType/
+            // MazeType, and this method is static (no live DataManager to ask for the full
+            // catalogue when called from Edit mode). A "Reset Progress" that leaves purchased
+            // cosmetics owned is an acceptable gap for now; revisit if this ever needs to be a true
+            // full wipe (e.g. by looping DataManager.Instance.GetAllCosmetics() when a live
+            // instance exists).
 
             int maxWorldsForReset = Mathf.CeilToInt(MaxLevelsForReset / (float)UnlockProgression.LevelsPerWorld);
             for (int world = 0; world < maxWorldsForReset; world++)

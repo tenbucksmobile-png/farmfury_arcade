@@ -18,6 +18,7 @@ namespace FarmFuryArcade.Core
         private readonly Dictionary<int, LevelData> _levelsByIndex = new Dictionary<int, LevelData>();
         private readonly Dictionary<CharacterType, CharacterData> _characters = new Dictionary<CharacterType, CharacterData>();
         private readonly Dictionary<RobotType, RobotData> _robots = new Dictionary<RobotType, RobotData>();
+        private readonly Dictionary<string, CosmeticData> _cosmeticsById = new Dictionary<string, CosmeticData>();
 
         protected override void Awake()
         {
@@ -30,6 +31,7 @@ namespace FarmFuryArcade.Core
             _levelsByIndex.Clear();
             _characters.Clear();
             _robots.Clear();
+            _cosmeticsById.Clear();
 
             var levels = Resources.LoadAll<LevelData>("Levels");
             foreach (var level in levels)
@@ -49,7 +51,18 @@ namespace FarmFuryArcade.Core
                 _robots[robot.robotType] = robot;
             }
 
-            Debug.Log($"[DataManager] Loaded {levels.Length} level data, {characters.Length} character data, {robots.Length} robot data.");
+            var cosmetics = Resources.LoadAll<CosmeticData>("Cosmetics");
+            foreach (var cosmetic in cosmetics)
+            {
+                if (string.IsNullOrEmpty(cosmetic.cosmeticId))
+                {
+                    Debug.LogWarning($"[DataManager] CosmeticData '{cosmetic.name}' has no cosmeticId set — skipped.");
+                    continue;
+                }
+                _cosmeticsById[cosmetic.cosmeticId] = cosmetic;
+            }
+
+            Debug.Log($"[DataManager] Loaded {levels.Length} level data, {characters.Length} character data, {robots.Length} robot data, {cosmetics.Length} cosmetic data.");
         }
 
         public LevelData GetLevelData(int levelIndex)
@@ -92,6 +105,33 @@ namespace FarmFuryArcade.Core
             return _characters.Values
                 .Where(character => SaveManager.Instance != null && SaveManager.Instance.IsCharacterUnlocked(character.characterType))
                 .ToList();
+        }
+
+        public CosmeticData GetCosmeticData(string cosmeticId)
+        {
+            if (string.IsNullOrEmpty(cosmeticId))
+            {
+                return null;
+            }
+            return _cosmeticsById.TryGetValue(cosmeticId, out var cosmetic) ? cosmetic : null;
+        }
+
+        public IEnumerable<CosmeticData> GetAllCosmetics()
+        {
+            return _cosmeticsById.Values;
+        }
+
+        /// <summary>Hat/Skin cosmetics for one character — Store's per-character cosmetic tab and
+        /// CharacterCosmeticRenderer's equip lookup both filter this way rather than scanning the
+        /// full catalogue themselves.</summary>
+        public IEnumerable<CosmeticData> GetCosmeticsForCharacter(CharacterType character, CosmeticType type)
+        {
+            return _cosmeticsById.Values.Where(c => c.cosmeticType == type && c.character == character);
+        }
+
+        public IEnumerable<CosmeticData> GetCosmeticsByType(CosmeticType type)
+        {
+            return _cosmeticsById.Values.Where(c => c.cosmeticType == type);
         }
     }
 }

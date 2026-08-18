@@ -21,6 +21,19 @@ namespace FarmFuryArcade.Gameplay
         private float _frameTimer;
         private int _frameIndex;
 
+        /// <summary>Equipped-skin frames (CosmeticData.skinFrames, same 8-entry order as
+        /// CharacterData.walkAnimationFrames) set by CharacterCosmeticRenderer. When non-null this
+        /// REPLACES characterData's own frames entirely rather than layering on top — a skin is a
+        /// full recolor, not an overlay. Null means "no skin equipped," fall back to base art.</summary>
+        private Sprite[] _cosmeticFrameOverride;
+
+        /// <summary>Direction/frame-index actually being displayed this frame, read by
+        /// CharacterCosmeticRenderer so an equipped hat can track the exact same walk-cycle frame
+        /// instead of running its own independent (and easily desynced) timer.</summary>
+        public Direction CurrentDisplayDirection { get; private set; } = Direction.Down;
+        public int CurrentFrameIndex => _frameIndex;
+        public bool IsFlippedX => _spriteRenderer != null && _spriteRenderer.flipX;
+
         private void Awake()
         {
             _spriteRenderer = GetComponent<SpriteRenderer>();
@@ -32,10 +45,17 @@ namespace FarmFuryArcade.Gameplay
             characterData = data;
         }
 
+        /// <summary>Pass null to unequip (revert to characterData's own base art).</summary>
+        public void SetCosmeticFrameOverride(Sprite[] skinFrames)
+        {
+            _cosmeticFrameOverride = skinFrames != null && skinFrames.Length >= 8 ? skinFrames : null;
+        }
+
         private void Update()
         {
             Direction facing = _gridMovement != null ? _gridMovement.CurrentDirection : Direction.None;
             Direction dir = facing == Direction.None ? Direction.Down : facing;
+            CurrentDisplayDirection = dir;
             Sprite[] frames = GetFramesForDirection(dir);
             if (frames == null)
             {
@@ -69,9 +89,14 @@ namespace FarmFuryArcade.Gameplay
 
         private Sprite[] GetFramesForDirection(Direction dir)
         {
-            if (characterData == null || characterData.walkAnimationFrames == null || characterData.walkAnimationFrames.Length < 8)
+            Sprite[] source = _cosmeticFrameOverride;
+            if (source == null)
             {
-                return null;
+                if (characterData == null || characterData.walkAnimationFrames == null || characterData.walkAnimationFrames.Length < 8)
+                {
+                    return null;
+                }
+                source = characterData.walkAnimationFrames;
             }
 
             int baseIndex;
@@ -83,7 +108,7 @@ namespace FarmFuryArcade.Gameplay
                 default: baseIndex = 2; break; // Down
             }
 
-            return new[] { characterData.walkAnimationFrames[baseIndex], characterData.walkAnimationFrames[baseIndex + 1] };
+            return new[] { source[baseIndex], source[baseIndex + 1] };
         }
     }
 }
