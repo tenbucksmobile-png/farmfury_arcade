@@ -785,12 +785,13 @@ its own ad unit IDs. No sandbox test accounts exist yet either. Purchase-card ar
 confirmation toast (both listed as Phase 3 "Art needed," the toast marked optional in the plan doc)
 are unbuilt.
 
-### Cosmetics system (`Scripts/Data/CosmeticData.cs`, `CosmeticType.cs`, `Scripts/Gameplay/CharacterCosmeticRenderer.cs`)
+### Cosmetics system (`Scripts/Data/CosmeticData.cs`, `CosmeticType.cs`, `Scripts/Gameplay/CharacterCosmeticRenderer.cs`, `Scripts/Editor/CosmeticWiringBuilder.cs`)
 
 Monetisation Build Plan Phase 4 (hats/skins/trails/maze themes — GDD Section 11's "Cosmetic Store,"
-non-gameplay-affecting). Only the **data model + persistence + rendering hook** exist so far; no
-`CosmeticData` assets, art, prefab wiring, or Store UI have been built yet — everything below is a
-safe no-op until a `CosmeticData` asset actually exists and something equips it.
+non-gameplay-affecting). The data model + persistence + rendering hook are built, and one real test
+batch — 8 baseball caps, one per character, all Kling AI-generated — is wired end to end (see
+"First real cosmetic batch" below). No Store UI, no other hat/accessory/skin/trail/theme art exists
+yet.
 
 **`CosmeticData`** (ScriptableObject) covers all 4 GDD cosmetic categories in one asset shape
 (`CosmeticType`: Hat, Skin, Trail, MazeTheme) rather than one class per category, since they share
@@ -840,26 +841,55 @@ transparent canvas every character's own directional art already uses, positione
 canvas exactly where it would sit if drawn directly onto that character's real front sprite (trace
 against the real file as a guide layer, then delete the guide before export). Since Unity's sprite
 pivot defaults to center and this project's PPU convention (`ArtWiringBuilder`) always matches a
-sprite's own pixel width, two 500×500 center-pivoted sprites share the same coordinate space —
-`CharacterCosmeticRenderer.hatLocalOffset` can stay at its `(0,0,0)`-ish default with no per-
-character tuning needed, *if* the art itself is positioned correctly within its own canvas. That
-field is currently a single value shared across every equipped hat (a placeholder — a sombrero and
-a party hat don't sit at the same height on the same character either); move it onto `CosmeticData`
-itself (one offset per cosmetic) before fitting real hat art across many styles×characters, rather
-than fighting one shared value.
+sprite's own pixel width, two 500×500 center-pivoted sprites share the same coordinate space — a
+correctly-positioned hat would need `CosmeticData.hatOffset`/`hatScale` at their `(0, 0.35)`/`1`
+defaults with no per-character tuning at all. **The actual first batch of Kling art didn't follow
+this convention** — see below — so in practice every real cosmetic so far needed both fields
+manually tuned per character.
+
+**`hatOffset`/`hatScale` live on `CosmeticData` itself, not on `CharacterCosmeticRenderer`** — a
+sombrero and a party hat don't sit at the same height on the same character either, so a single
+shared value on the renderer component was wrong from the start and was replaced before any real
+art landed.
+
+**First real cosmetic batch (baseball caps, all 8 characters):** the Kling-generated art
+(`Assets/_Project/Sprites/Cosmetics/Cosmetics_Type_Hat/Baseball_*.png`) came back as large
+standalone prop renders filling most of their own 500×500 canvas, not pre-scaled/positioned to any
+specific character's head (i.e. it didn't follow the tracing convention above) — every cap needed a
+real `hatScale` well below 1 and a hand-picked `hatOffset.y`. `CosmeticWiringBuilder`
+(`Farm Fury Arcade > Wire Cosmetic Art (Baseball Caps)`) is the one-off tool that imports the 8
+sprites (same `ConfigureSpriteImporters`-style PPU-equals-texture-width pass `ArtWiringBuilder`
+already uses), creates the 8 `CosmeticData_BaseballCap_<Character>.asset` files under
+`ScriptableObjects/Resources/Cosmetics/`, adds `CharacterCosmeticRenderer` to all 8 character
+prefabs, and calls `SaveManager.DebugForceEquipForTesting` so every character spawns wearing its
+cap immediately — no Store UI needed to test. Its `hatOffset`/`hatScale` table is **first-pass
+eyeballed values** (this session has no visual Editor/Play mode access to verify a live render
+against) — expect to nudge them per character once actually seen in Play mode; that's a plain
+Inspector edit on the asset, no rebuild required. Re-run the tool (idempotent) after adding more
+sprites under the same folder to extend it to another hat style.
+
+**`SaveManager.DebugForceEquipForTesting(CosmeticType, CharacterType, cosmeticId)`** is a
+testing-only static helper (same static/Edit-mode-safe convention as `ResetAllProgressKeys`) that
+grants ownership and equips a cosmetic directly via PlayerPrefs, bypassing
+`PurchaseCosmetic`/`SpendCoins` entirely. Don't call it from real gameplay code — it exists so
+editor tooling can pre-equip freshly-authored cosmetics before any Store UI exists to do it the
+real way.
 
 **Not built yet:**
-- `CharacterCosmeticRenderer` isn't added to any of the 8 character prefabs — needs a
-  `Phase4ProjectBuilder`-style editor step (`LoadPrefabContents`/`SaveAsPrefabAsset` round-trip,
-  same convention that phase's other prefab-field gotcha already established).
-- No real `CosmeticData` assets, no art. A full Kling AI prompt set for the whole Phase 4 art list
-  (32 hats, 24 accessories, 8 skins, 12 maze-theme assets, 4 trails, 6 Store UI chrome pieces) was
-  drafted separately — ask for it if it's not already at hand.
 - No Store UI category tabs/purchase-equip flow for cosmetics — `ShopController` currently only
-  sells Phase 3's coin packs + Remove Ads.
+  sells Phase 3's coin packs + Remove Ads. The 8 baseball caps are equipped only via
+  `DebugForceEquipForTesting`, not through any real purchase flow.
+- No accessory/skin/trail/maze-theme art or `CosmeticData` assets yet — only the baseball cap hat
+  style exists. A full Kling AI prompt set for the whole remaining Phase 4 art list (24 accessories,
+  8 skins, 12 maze-theme assets, 4 trails, 3 more hat styles × 8 characters, 6 Store UI chrome
+  pieces) was drafted separately — ask for it if it's not already at hand (also saved as a
+  cross-session memory pointer to the published prompt list).
 - `TileMapRenderer` doesn't yet consume `CosmeticData.themeWallSprite`/`themeGroundSprite`/
   `themeBackdropSprite` — MazeTheme equip state persists in `SaveManager` but nothing reads it at
   render time yet.
+- Hat art is single-orientation only (one sprite reused across all 8 `hatFrames` slots) — it won't
+  turn/flip meaningfully with the character; matches the "no dedicated directional art yet" fallback
+  convention several base characters already use.
 
 ### Screens & scene flow (`Scripts/UI`, Phase 5)
 
