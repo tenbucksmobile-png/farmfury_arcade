@@ -644,6 +644,18 @@ frame (`RefreshCoinBalanceText`, same convention as `RefreshTimerText`/`AnimateS
 count ever appeared were the Revive prompt's baked-in cost text and the skip-cooldown button's "-3"
 label, neither of which shows the player's actual running total.
 
+**The chip's box was sized wrong from the start** — `Coin_Balance_Chip.png` is a SQUARE (500x500)
+wood-frame image with a horizontal pill (icon left half / blank right half) centered inside it, not
+a wide pill-shaped image on its own, but the box was originally 220x70 with `preserveAspect =
+false`, assuming the art was pill-shaped — force-squashing the square wood frame into a short
+banner (caught via a gameplay screenshot review). Resized to 110x110 to match the art's real
+aspect, with `CoinBalanceText` repositioned over the pill's blank right half within that square
+(`anchorMin (0.50, 0.33)` to `anchorMax (0.88, 0.64)`) — same "box aspect must match the art" fix
+already applied to the Revive Prompt panel and Level Complete panel, and later to the Coin/Shop
+buttons above and below. **Check this pattern first on any future "looks squashed" report** — a
+uGUI `Image`'s box sized to an assumed aspect that doesn't match the actual uploaded art, combined
+with `SetImageSprite`'s always-Sliced/ignores-`preserveAspect` behaviour, is now a recurring cause.
+
 ### Ad mediation (LevelPlay + AdMob) (`Scripts/Core/AdManager.cs`)
 
 Unity's **Ads Mediation (LevelPlay)** package (`com.unity.services.levelplay`) is installed,
@@ -760,15 +772,17 @@ comment above) — no new persistence needed.
 
 **`ShopController`** replaced the old "Store is coming in Phase 6!" placeholder panel (same root
 GameObject name, `StoreComingSoonOverlay`, kept for scene-path stability even though the content
-changed) — a plain 2x3 grid of the 6 products, a status text row, and a close button. **This is
-deliberately not the full cosmetics Store** the GDD's Section 11 describes (hats/skins/trails/
-themes) — that's Phase 4 scope and doesn't exist yet; this screen is only the Phase 3 purchase
-surface for coin packs + Remove Ads. No purchase-card art exists yet (per the plan doc's own "Art
+changed) — a plain 2x3 grid of the 6 products, a status text row, and a close button. **This screen
+is deliberately just the Phase 3 IAP purchase surface** (coin packs + Remove Ads); the GDD's Section
+11 cosmetics Store (hats/skins/trails/themes) is a separate screen, `CosmeticStoreScreen`, reached
+via a "Cosmetics" button on this one — see the Cosmetics section's own "Cosmetics Store UI"
+subsection. No purchase-card art exists yet for the 6 IAP products (per the plan doc's own "Art
 needed" list — zero art exists here), so every button is a plain text label
 (`"{displayName}\n{price}"`), same "text label until art lands" convention every other unart'd
 placeholder button in this project uses. Reached via a new **Main Menu "Shop" button** (bottom-
-centre, between Play and Settings — also no dedicated icon art yet). Remove Ads' button disables
-itself once `SaveManager.AdsRemoved` is already true (a non-consumable can't be purchased twice).
+centre, between Play and Settings — now uses real `Shop.png` art, see "Landing/Gameplay-HUD
+cleanup" below). Remove Ads' button disables itself once `SaveManager.AdsRemoved` is already true
+(a non-consumable can't be purchased twice).
 
 **Restore Purchases** now fills Settings' 2x3 grid's previously-empty 6th cell (see the Settings
 section under "Landing/Gameplay-HUD cleanup" below for that grid's own history) — a plain
@@ -860,13 +874,20 @@ real `hatScale` well below 1 and a hand-picked `hatOffset.y`. `CosmeticWiringBui
 (`Farm Fury Arcade > Wire Cosmetic Art (Baseball Caps)`) is the one-off tool that imports the 8
 sprites (same `ConfigureSpriteImporters`-style PPU-equals-texture-width pass `ArtWiringBuilder`
 already uses), creates the 8 `CosmeticData_BaseballCap_<Character>.asset` files under
-`ScriptableObjects/Resources/Cosmetics/`, adds `CharacterCosmeticRenderer` to all 8 character
-prefabs, and calls `SaveManager.DebugForceEquipForTesting` so every character spawns wearing its
-cap immediately — no Store UI needed to test. Its `hatOffset`/`hatScale` table is **first-pass
+`ScriptableObjects/Resources/Cosmetics/`, and adds `CharacterCosmeticRenderer` to all 8 character
+prefabs. Its `hatOffset`/`hatScale` table is **first-pass
 eyeballed values** (this session has no visual Editor/Play mode access to verify a live render
 against) — expect to nudge them per character once actually seen in Play mode; that's a plain
 Inspector edit on the asset, no rebuild required. Re-run the tool (idempotent) after adding more
-sprites under the same folder to extend it to another hat style.
+sprites under the same folder to extend it to another hat style. **First playtest feedback (2026-
+08-18): caps sat too low, sunk toward the face on every character** — `hatOffset.y` raised by a
+flat +0.15 world units across all 8 entries as a first-pass correction (still eyeballed, no live
+render access this session either — re-tune further if it overshoots).
+
+**Baseball caps now require a real coin purchase (50 each)** — see "Cosmetics Store UI" below.
+`CosmeticWiringBuilder.WireBaseballCaps` no longer calls `SaveManager.DebugForceEquipForTesting`
+for them; that call is still available for future ad-hoc testing, just not used by this shipped
+content path anymore.
 
 **`SaveManager.DebugForceEquipForTesting(CosmeticType, CharacterType, cosmeticId)`** is a
 testing-only static helper (same static/Edit-mode-safe convention as `ResetAllProgressKeys`) that
@@ -875,18 +896,67 @@ grants ownership and equips a cosmetic directly via PlayerPrefs, bypassing
 editor tooling can pre-equip freshly-authored cosmetics before any Store UI exists to do it the
 real way.
 
+**Trail cosmetics (4, character-agnostic):** `CosmeticWiringBuilder.WireTrails` wires
+`CornHuskTrail.png`/`EmberTrail.png`/`SparkleDust.png`/`RainbowRibbon.png` (dropped in under
+`Sprites/Cosmetics/CosmeticType.Trail/`) as real `CosmeticData` assets with first-pass coin pricing
+(Corn Husk 60, Ember 100, Sparkle Dust 100, Rainbow Ribbon 150 — "Rainbow" already means the rarest
+tier elsewhere in this game, power pellets, so it's priced highest; not from any design doc, easy
+to retune per-asset). `trailEffectPrefab` is left null on all 4 — see "Not built yet" below, there's
+still no Trail rendering hook, so equipping one persists correctly (ownership + equip state) but
+has no visible effect in gameplay yet.
+
+### Cosmetics Store UI (`Scripts/UI/CosmeticStoreScreen.cs`, `CosmeticCardController.cs`)
+
+The real purchase/equip surface, reached via a new "Cosmetics" button on `ShopController`'s own
+screen (layered on top of it, same "overlay on top of overlay" convention `ChooseCharacterScreen`
+uses over Pause — not folded into `ShopController` itself, and not a 4th Main Menu button, since
+Main Menu is deliberately kept minimal per the landing-page cleanup above).
+
+**`CosmeticStoreScreen`** has 3 category tabs (`Hat`/`Trail`/`MazeTheme` — no Skin tab, no Skin
+`CosmeticData` assets exist yet) built as plain icon buttons (`Hat_Icon.png`/`Trails_Tab_Icon.png`/
+`MazeThemeTab.png`, dimmed via a flat tint when not the active tab — no dedicated "selected" art
+exists yet) rather than a `Toggle` group, since no tab-switching helper existed anywhere in this
+project's UI builder toolkit before this. Selecting a tab clears and repopulates a horizontal
+`ScrollRect` of `CosmeticCardController` cards: Hat queries `DataManager.GetCosmeticsForCharacter
+(CharacterManager.Instance.ActiveCharacter, CosmeticType.Hat)` (so Hat browsing is scoped to
+whichever character is currently active — no in-Store character switcher exists, swap character
+first via Pause/Choose Character to shop for a different one's hats), Trail/MazeTheme both query
+`DataManager.GetCosmeticsByType` (character-agnostic). Tapping a card's action button buys it via
+`SaveManager.PurchaseCosmetic` (shows "Not enough coins!" via `statusText` on failure, same
+lightweight feedback convention `ShopController`'s own status text uses) then immediately equips it
+— there's no separate buy-then-equip step. Equipping branches on `CosmeticData.cosmeticType` since
+`SaveManager`'s equip accessors are type-specific, not one generic method: `SetEquippedCosmetic`
+for Hat/Skin (per-character), `SetEquippedTrail` for Trail (global, not per-character), 
+`SetEquippedMazeTheme` for MazeTheme (per-world). A Hat/Skin equip also calls
+`CharacterManager.Instance.ActiveCharacterObject.GetComponent<CharacterCosmeticRenderer>().Refresh()`
+immediately afterward so the change is visible on the live character without needing a
+respawn/swap.
+
+**`CosmeticCardController`** is modeled directly on `CharacterSelectCard`'s shape (same
+`Initialize(...)`/`button.interactable`/`RemoveAllListeners`-then-`AddListener` idiom) — icon,
+name, price (hidden once owned), an `EquippedBadge_Icon.png` overlay (toggled active, positioned
+as a fixed top-right badge via `LayoutElement.ignoreLayout = true` so the card's own
+`VerticalLayoutGroup` doesn't stack it as another row), and an action button whose label reads
+"Buy {cost}" / "Equip" / "Equipped" depending on state — disabled once already equipped, same
+"can't tap an already-active item" convention `CharacterSelectCard` uses for the active character's
+own card. `PurchaseCardFrame.png`/`EquippedBadge_Icon.png` are baked directly into the card prefab
+at Editor-tool construction time (`Phase5ProjectBuilder.BuildCosmeticCardPrefab`, which configures
+their sprite import settings itself rather than depending on `ArtWiringBuilder` having already run
+— self-contained the same way `CosmeticWiringBuilder.ConfigureAndLoadSprite` is) rather than looked
+up by scene path afterward, avoiding a second `LoadPrefabContents`/`SaveAsPrefabAsset` prefab
+round-trip.
+
 **Not built yet:**
-- No Store UI category tabs/purchase-equip flow for cosmetics — `ShopController` currently only
-  sells Phase 3's coin packs + Remove Ads. The 8 baseball caps are equipped only via
-  `DebugForceEquipForTesting`, not through any real purchase flow.
-- No accessory/skin/trail/maze-theme art or `CosmeticData` assets yet — only the baseball cap hat
-  style exists. A full Kling AI prompt set for the whole remaining Phase 4 art list (24 accessories,
-  8 skins, 12 maze-theme assets, 4 trails, 3 more hat styles × 8 characters, 6 Store UI chrome
-  pieces) was drafted separately — ask for it if it's not already at hand (also saved as a
-  cross-session memory pointer to the published prompt list).
+- No Skin or MazeTheme `CosmeticData` assets exist yet — those tabs render an empty card row until
+  content does. A full Kling AI prompt set for the whole remaining Phase 4 art list (24 accessories,
+  8 skins, 12 maze-theme assets, 3 more hat styles × 8 characters) was drafted separately — ask for
+  it if it's not already at hand (also saved as a cross-session memory pointer to the published
+  prompt list).
+- No Trail rendering hook — `CharacterCosmeticRenderer` only handles Hat/Skin. Equipping a Trail
+  persists correctly (shown via the Equipped badge on reopen) but has no visible in-game effect.
 - `TileMapRenderer` doesn't yet consume `CosmeticData.themeWallSprite`/`themeGroundSprite`/
-  `themeBackdropSprite` — MazeTheme equip state persists in `SaveManager` but nothing reads it at
-  render time yet.
+  `themeBackdropSprite` — MazeTheme equip state would persist in `SaveManager` but nothing reads it
+  at render time yet, moot until MazeTheme assets exist anyway.
 - Hat art is single-orientation only (one sprite reused across all 8 `hatFrames` slots) — it won't
   turn/flip meaningfully with the character; matches the "no dedicated directional art yet" fallback
   convention several base characters already use.
@@ -966,7 +1036,13 @@ from their original Phase 5 layouts:
   own `mainMenuScreen` back-reference for their "Back" buttons regardless. Store regained an entry
   point later (Monetisation Phase 3's IAP plumbing) — a third `ShopButton`, bottom-centre between
   Play and Settings, opens `ShopController` (see "IAP plumbing" above); Main Menu is a three-button
-  screen again, not two, as of that change.
+  screen again, not two, as of that change. `ShopButton` used a plain orange placeholder + "Shop"
+  text label until `Shop.png` (a wide banner with its own "Shop" label + coin icon baked in) landed
+  — the auto-generated text label is destroyed the same way `Yes.png`/`No.png`/`Btn_home.png`'s
+  self-contained-label buttons already do, and the button's box was widened from 160x130 to
+  260x130 to match the art's real ~2:1 aspect (`ArtWiringBuilder.SetImageSprite` always applies
+  `Image.Type.Sliced`, which ignores `preserveAspect`, so the box's own aspect is what actually
+  keeps the banner from being squashed — same fix as the Coin Balance Chip below).
 - **World Map** at this point in the project's history had similarly lost its top-left `HomeButton`
   + horizontally-scrolling level-marker strip (`LevelMarker`/`StarDisplay`, built via
   `CreateHorizontalScrollView`) in favour of the same bottom-left/right icon-button convention as
@@ -1910,6 +1986,12 @@ values from the GDD's color palette where one exists (e.g. walls = Wall Brown `#
 - **App icon** — `AppIcon.png` set as the Unity Player Settings icon (`PlayerSettings.
   SetIconsForTargetGroup`, Standalone + the default/`Unknown` group) — a project-settings change,
   not a scene/prefab one.
+- **Main Menu Shop button** — `Shop.png` (a wide banner baking in its own "Shop" label + coin icon)
+  replaces the old plain-orange-placeholder + text-label `ShopButton`.
+- **Cosmetics Store chrome** — `Hat_Icon.png`/`Trails_Tab_Icon.png`/`MazeThemeTab.png` wired onto
+  `CosmeticStoreScreen`'s 3 tab buttons; `PurchaseCardFrame.png`/`EquippedBadge_Icon.png` are baked
+  directly into the `CosmeticCard` prefab at construction time instead (see the Cosmetics section's
+  "Cosmetics Store UI" subsection), so they're not part of `ArtWiringBuilder`'s scene-path wiring.
 
 **Percy now has full directional art**: real Left (`Flat1.png`→`Flat2.png` flick) and Right
 (`Right1.png`→`Right2.png` flick) walk-cycle frames (`ArtWiringBuilder.WirePercy`,

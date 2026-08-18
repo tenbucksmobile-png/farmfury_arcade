@@ -8,11 +8,12 @@ namespace FarmFuryArcade.UI
 {
     /// <summary>
     /// Monetisation Build Plan Phase 3's minimal purchase surface: 5 coin packs + Remove Ads,
-    /// reached from Main Menu. Replaces the old "Store is coming in Phase 6!" placeholder — the
-    /// full cosmetics Store (hats/skins/trails/themes) is still Phase 4 scope and doesn't exist
-    /// yet; this screen is deliberately just the IAP plumbing's purchase surface, with plain text
-    /// labels since no purchase-card art has been commissioned yet (see the plan doc's own "Art
-    /// needed" list for Phase 3 — currently zero art exists here).
+    /// reached from Main Menu. Replaces the old "Store is coming in Phase 6!" placeholder; this
+    /// screen is deliberately just the IAP plumbing's purchase surface, with plain text labels
+    /// since no purchase-card art has been commissioned yet (see the plan doc's own "Art needed"
+    /// list for Phase 3 — currently zero art exists here). The Phase 4 cosmetics Store
+    /// (hats/trails/maze themes) is a separate screen, <see cref="CosmeticStoreScreen"/>, reached
+    /// via this screen's own "Cosmetics" button rather than folded into this one.
     ///
     /// Overlay convention, same as SettingsPanel/RevivePromptController — shown/hidden directly via
     /// Show()/SetActive, not through SceneTransitionManager.
@@ -32,11 +33,23 @@ namespace FarmFuryArcade.UI
         [SerializeField] private TextMeshProUGUI statusText;
         [SerializeField] private Button closeButton;
 
+        // Monetisation Build Plan Phase 4 — opens the cosmetics purchase/equip screen, layered on
+        // top of this one (same "overlay on top of overlay" convention ChooseCharacterScreen uses
+        // over Pause). Nested here rather than a 4th Main Menu button since Main Menu is
+        // deliberately kept minimal (see CLAUDE.md's landing-page cleanup).
+        [SerializeField] private Button cosmeticsButton;
+        [SerializeField] private CosmeticStoreScreen cosmeticStoreScreen;
+
         private void Awake()
         {
             if (closeButton != null)
             {
                 closeButton.onClick.AddListener(() => gameObject.SetActive(false));
+            }
+
+            if (cosmeticsButton != null && cosmeticStoreScreen != null)
+            {
+                cosmeticsButton.onClick.AddListener(() => cosmeticStoreScreen.Show());
             }
 
             if (productButtons == null)

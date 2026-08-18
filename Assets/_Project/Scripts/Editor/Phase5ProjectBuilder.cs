@@ -7,6 +7,7 @@ using UnityEngine;
 using UnityEngine.UI;
 using TMPro;
 using FarmFuryArcade.Core;
+using FarmFuryArcade.Data;
 using FarmFuryArcade.Gameplay;
 using FarmFuryArcade.UI;
 using FarmFuryArcade.Utilities;
@@ -61,6 +62,10 @@ namespace FarmFuryArcade.EditorTools
             var pause = BuildPauseMenu(canvas.transform);
             var settings = BuildSettingsPanel(canvas.transform);
             var storeComingSoon = BuildShopOverlay(canvas.transform);
+            var cosmeticCardPrefab = BuildCosmeticCardPrefab();
+            var cosmeticStore = BuildCosmeticStoreScreen(canvas.transform, cosmeticCardPrefab);
+            SetRefs(storeComingSoon.GetComponent<ShopController>(),
+                ("cosmeticStoreScreen", cosmeticStore.GetComponent<CosmeticStoreScreen>()));
             var (levelComplete, unlockScreen) = BuildLevelComplete(canvas.transform);
             var levelFailed = BuildLevelFailed(canvas.transform);
             var roster = BuildCharacterRoster(canvas.transform, rosterCardPrefab);
@@ -97,6 +102,7 @@ namespace FarmFuryArcade.EditorTools
             pause.SetActive(false);
             settings.SetActive(false);
             storeComingSoon.SetActive(false);
+            cosmeticStore.SetActive(false);
             chooseCharacter.gameObject.SetActive(false);
             unlockScreen.gameObject.SetActive(false); // BuildLevelComplete already does this too; explicit for clarity
 
@@ -623,15 +629,20 @@ namespace FarmFuryArcade.EditorTools
             settingsRect.anchoredPosition = new Vector2(-150f, 70f);
 
             // Monetisation (Phase 3, IAP plumbing): entry point to ShopController — bottom-centre,
-            // between Play and Settings. No dedicated icon art exists yet (the plan doc's own "Art
-            // needed" list for this phase says purchase-card art is still zero), so this keeps a
-            // plain text label rather than an empty icon, same convention as every other
-            // placeholder button before its own art landed.
-            var shopButton = CreateButton("ShopButton", root.transform, "Shop", new Color(0.75f, 0.45f, 0.15f), 28f, 130f, out _);
+            // between Play and Settings. Shop.png (wired by ArtWiringBuilder) bakes its own "Shop"
+            // label + coin icon into the art, so the auto-generated text label is destroyed here,
+            // same "icon art replaces auto-label" convention Yes.png/No.png/Btn_home.png use
+            // elsewhere. Box widened from the original 160x130 (~1.2:1) to 260x130 (~2:1) to match
+            // the source art's real wide-banner aspect — SetImageSprite always applies
+            // Image.Type.Sliced, which ignores preserveAspect entirely, so getting the box's own
+            // aspect right is what actually prevents the banner being squashed (same fix already
+            // applied to the Coin Balance Chip/Revive Prompt panel/Level Complete panel).
+            var shopButton = CreateButton("ShopButton", root.transform, string.Empty, new Color(0.75f, 0.45f, 0.15f), 28f, 130f, out _);
+            Object.DestroyImmediate(shopButton.transform.Find("ShopButton_Label").gameObject);
             var shopRect = (RectTransform)shopButton.transform;
             shopRect.anchorMin = shopRect.anchorMax = new Vector2(0.5f, 0f);
             shopRect.pivot = new Vector2(0.5f, 0f);
-            shopRect.sizeDelta = new Vector2(160f, 130f);
+            shopRect.sizeDelta = new Vector2(260f, 130f);
             shopRect.anchoredPosition = new Vector2(0f, 70f);
 
             var controller = root.AddComponent<MainMenuController>();
@@ -670,21 +681,28 @@ namespace FarmFuryArcade.EditorTools
             // Monetisation: coin balance chip, just below ScoreText — previously SaveManager.
             // CoinBalance had no on-screen display anywhere at all (only surfaced indirectly via the
             // Revive prompt's cost text / skip-cooldown button's cost label), which is bad UX once
-            // the player is actually being asked to spend coins on both of those. Coin_Balance_Chip.png
-            // has its own left (icon) / right (number) halves baked in, so the icon needs no separate
-            // child Image — just the number text positioned over the right half.
-            const float coinChipWidth = 220f;
-            const float coinChipHeight = 70f;
-            var coinChipImage = CreateImage("CoinBalanceChip", root.transform, new Color(0.85f, 0.65f, 0.2f), coinChipWidth, coinChipHeight);
+            // the player is actually being asked to spend coins on both of those.
+            //
+            // Coin_Balance_Chip.png is a SQUARE (500x500) wood-frame image with a horizontal pill
+            // (icon left half / blank right half) centered inside it — not a wide pill-shaped image
+            // on its own. This box used to be sized 220x70 with preserveAspect=false, assuming the
+            // art was pill-shaped; that force-squashed the square wood frame into a short banner,
+            // crushing the border and the pill inside it (caught via a gameplay screenshot review).
+            // Sized square to match the art's real aspect now, same "box aspect must match the art"
+            // fix already applied to the Revive Prompt panel and Level Complete panel.
+            const float coinChipSize = 110f;
+            var coinChipImage = CreateImage("CoinBalanceChip", root.transform, new Color(0.85f, 0.65f, 0.2f), coinChipSize, coinChipSize);
             var coinChipRect = (RectTransform)coinChipImage.transform;
-            AnchorTopLeft(coinChipRect, new Vector2(coinChipWidth, coinChipHeight), new Vector2(170f, -276f));
+            AnchorTopLeft(coinChipRect, new Vector2(coinChipSize, coinChipSize), new Vector2(170f, -276f));
             coinChipImage.preserveAspect = false;
 
-            var coinBalanceText = CreateText("CoinBalanceText", coinChipImage.transform, "0", 32f, TextAlignmentOptions.Center, coinChipHeight);
+            var coinBalanceText = CreateText("CoinBalanceText", coinChipImage.transform, "0", 28f, TextAlignmentOptions.Center, coinChipSize);
             var coinBalanceTextRect = (RectTransform)coinBalanceText.transform;
-            // Right half of the chip only — the left half is the coin icon baked into the art.
-            coinBalanceTextRect.anchorMin = new Vector2(0.5f, 0f);
-            coinBalanceTextRect.anchorMax = new Vector2(1f, 1f);
+            // Positioned over the pill's blank right half within the square canvas (roughly
+            // x:50%-88%, y:33%-64% of the full 500x500 art) — the left half/rest of the square is
+            // the coin icon + wood frame baked into the art, not a spot for text.
+            coinBalanceTextRect.anchorMin = new Vector2(0.50f, 0.33f);
+            coinBalanceTextRect.anchorMax = new Vector2(0.88f, 0.64f);
             coinBalanceTextRect.offsetMin = Vector2.zero;
             coinBalanceTextRect.offsetMax = Vector2.zero;
             coinBalanceText.color = new Color(0.3f, 0.2f, 0.1f);
@@ -1527,6 +1545,11 @@ namespace FarmFuryArcade.EditorTools
             }
 
             var statusText = CreateText("StatusText", group.transform, string.Empty, 28f, TextAlignmentOptions.Center, 40f);
+            // Monetisation Build Plan Phase 4 — opens the cosmetics purchase/equip screen (built
+            // separately by BuildCosmeticStoreScreen, layered on top of this one). No dedicated
+            // icon art for this button yet, same "plain plaque, text label" convention the coin
+            // pack buttons above already use.
+            var cosmeticsButton = CreateButton("CosmeticsButton", group.transform, "Cosmetics", new Color(0.85f, 0.55f, 0.1f), 28f, 70f, out _);
             var closeButton = CreateButton("CloseButton", group.transform, "Back", new Color(0.35f, 0.35f, 0.38f), out _);
 
             var shop = root.AddComponent<ShopController>();
@@ -1543,7 +1566,189 @@ namespace FarmFuryArcade.EditorTools
             }
             shopSO.FindProperty("statusText").objectReferenceValue = statusText;
             shopSO.FindProperty("closeButton").objectReferenceValue = closeButton;
+            shopSO.FindProperty("cosmeticsButton").objectReferenceValue = cosmeticsButton;
+            // cosmeticStoreScreen is wired later in BuildAll, once BuildCosmeticStoreScreen has
+            // actually created that screen (cross-screen reference, same deferred-wiring pattern
+            // WireCrossReferences uses for every other screen-to-screen link).
             shopSO.ApplyModifiedPropertiesWithoutUndo();
+
+            return root;
+        }
+
+        private const string CosmeticsChromeFolder = "Assets/_Project/Sprites/Cosmetics";
+
+        /// <summary>Configures a texture as a Sprite (PPU = its own width, same convention every
+        /// other sprite-importer pass in this project uses) and loads it. Self-contained rather
+        /// than depending on ArtWiringBuilder having already run, since this prefab is built
+        /// earlier in the standard Phase2->Phase5->ArtWiringBuilder rebuild chain — mirrors
+        /// CosmeticWiringBuilder.ConfigureAndLoadSprite's same self-contained approach.</summary>
+        private static Sprite ConfigureAndLoadCosmeticChromeSprite(string path)
+        {
+            if (!File.Exists(path))
+            {
+                Debug.LogWarning($"[Phase5ProjectBuilder] Expected cosmetics chrome sprite not found, skipping: {path}");
+                return null;
+            }
+
+            AssetDatabase.ImportAsset(path, ImportAssetOptions.ForceUpdate);
+            var importer = AssetImporter.GetAtPath(path) as TextureImporter;
+            if (importer == null)
+            {
+                return null;
+            }
+
+            importer.textureType = TextureImporterType.Sprite;
+            importer.spriteImportMode = SpriteImportMode.Single;
+            importer.alphaIsTransparency = true;
+            importer.mipmapEnabled = false;
+            importer.filterMode = FilterMode.Bilinear;
+            importer.GetSourceTextureWidthAndHeight(out int width, out int _);
+            importer.spritePixelsPerUnit = width > 0 ? width : 100;
+            importer.SaveAndReimport();
+
+            return AssetDatabase.LoadAssetAtPath<Sprite>(path);
+        }
+
+        /// <summary>One purchasable/equippable cosmetic card — PurchaseCardFrame.png background,
+        /// an icon child for CosmeticData.previewSprite, name/price text, an EquippedBadge_Icon.png
+        /// overlay (inactive by default, ignoreLayout so it sits as a fixed top-right badge rather
+        /// than another stacked row), and a Buy/Equip button. Frame/badge art is baked into the
+        /// prefab itself here (not looked up by scene path like most art wiring), which avoids a
+        /// second ArtWiringBuilder prefab round-trip (LoadPrefabContents/SaveAsPrefabAsset).</summary>
+        private static GameObject BuildCosmeticCardPrefab()
+        {
+            Sprite frameSprite = ConfigureAndLoadCosmeticChromeSprite($"{CosmeticsChromeFolder}/PurchaseCardFrame.png");
+            Sprite badgeSprite = ConfigureAndLoadCosmeticChromeSprite($"{CosmeticsChromeFolder}/EquippedBadge_Icon.png");
+
+            var go = new GameObject("CosmeticCard", typeof(RectTransform), typeof(Image), typeof(VerticalLayoutGroup), typeof(LayoutElement));
+            var rt = (RectTransform)go.transform;
+            rt.sizeDelta = new Vector2(220f, 260f);
+            var frameImage = go.GetComponent<Image>();
+            frameImage.sprite = frameSprite != null ? frameSprite : PlaceholderSprite.Get(new Color(0.55f, 0.35f, 0.15f));
+            frameImage.preserveAspect = false;
+            var vlg = go.GetComponent<VerticalLayoutGroup>();
+            vlg.padding = new RectOffset(12, 12, 16, 12);
+            vlg.spacing = 4f;
+            vlg.childControlWidth = true;
+            vlg.childControlHeight = false;
+            vlg.childForceExpandWidth = true;
+            vlg.childAlignment = TextAnchor.UpperCenter;
+            go.GetComponent<LayoutElement>().preferredWidth = 220f;
+
+            var iconImage = CreateImage("Icon", go.transform, Color.white, 110f, 110f);
+            ((RectTransform)iconImage.transform).sizeDelta = new Vector2(110f, 110f);
+            var nameText = CreateText("Name", go.transform, "Cosmetic", 20f, TextAlignmentOptions.Center, 30f);
+            ((RectTransform)nameText.transform).sizeDelta = new Vector2(0f, 30f);
+            var priceText = CreateText("Price", go.transform, "0", 22f, TextAlignmentOptions.Center, 30f);
+            ((RectTransform)priceText.transform).sizeDelta = new Vector2(0f, 30f);
+            var actionButton = CreateButton("ActionButton", go.transform, "Buy", new Color(0.85f, 0.65f, 0.2f), 20f, 50f, out var actionLabel);
+            ((RectTransform)actionButton.transform).sizeDelta = new Vector2(0f, 50f);
+
+            // Equipped badge — top-right overlay, not part of the vertical stack (ignoreLayout keeps
+            // VerticalLayoutGroup from treating it as another row).
+            var badgeImage = CreateImage("EquippedBadge", go.transform, Color.white, 40f, 40f);
+            var badgeLayoutElement = badgeImage.GetComponent<LayoutElement>();
+            badgeLayoutElement.ignoreLayout = true;
+            var badgeRect = (RectTransform)badgeImage.transform;
+            badgeRect.anchorMin = badgeRect.anchorMax = new Vector2(1f, 1f);
+            badgeRect.pivot = new Vector2(1f, 1f);
+            badgeRect.sizeDelta = new Vector2(40f, 40f);
+            badgeRect.anchoredPosition = new Vector2(-8f, -8f);
+            badgeImage.sprite = badgeSprite != null ? badgeSprite : PlaceholderSprite.Get(new Color(0.2f, 0.8f, 0.3f));
+            badgeImage.gameObject.SetActive(false);
+
+            var card = go.AddComponent<CosmeticCardController>();
+            var so = new SerializedObject(card);
+            so.FindProperty("frameImage").objectReferenceValue = frameImage;
+            so.FindProperty("iconImage").objectReferenceValue = iconImage;
+            so.FindProperty("nameText").objectReferenceValue = nameText;
+            so.FindProperty("priceText").objectReferenceValue = priceText;
+            so.FindProperty("equippedBadge").objectReferenceValue = badgeImage.gameObject;
+            so.FindProperty("actionButton").objectReferenceValue = actionButton;
+            so.FindProperty("actionButtonLabel").objectReferenceValue = actionLabel;
+            so.ApplyModifiedPropertiesWithoutUndo();
+
+            return SaveAndDestroy(go, $"{UIPrefabFolder}/CosmeticCard.prefab");
+        }
+
+        /// <summary>Hat/Trail/MazeTheme category tabs + a scrolling row of CosmeticCardController
+        /// cards. Every element is positioned directly against the root panel via explicit anchors
+        /// rather than nested inside a VerticalLayoutGroup "Content" wrapper (the pattern
+        /// BuildShopOverlay uses) — CreateHorizontalScrollView's fully-stretched root RectTransform
+        /// reports a zero sizeDelta, which a childControlHeight=false parent layout group reads
+        /// directly as its stacking height (the same root cause CLAUDE.md documents for the old
+        /// Level Select scroll-range bug), so nesting it inside another layout group here would
+        /// collapse it to zero height. BuildCharacterRoster sidesteps the same trap by parenting its
+        /// own scroll view directly to a plain panel instead of a layout group — this screen follows
+        /// that precedent rather than BuildShopOverlay's.</summary>
+        private static GameObject BuildCosmeticStoreScreen(Transform canvasTransform, GameObject cardPrefab)
+        {
+            var root = CreatePanel("CosmeticStoreScreen", canvasTransform, new Color(0f, 0f, 0f, 0.9f));
+
+            var titleText = CreateText("Title", root.transform, "Cosmetics", 48f, TextAlignmentOptions.Center, 70f);
+            AnchorTopCenter((RectTransform)titleText.transform, new Vector2(860f, 90f), new Vector2(0f, -30f));
+
+            var coinBalanceText = CreateText("CoinBalanceText", root.transform, "0", 32f, TextAlignmentOptions.Right, 50f);
+            AnchorTopRight((RectTransform)coinBalanceText.transform, new Vector2(200f, 50f), new Vector2(-60f, -40f));
+
+            var tabRow = CreateHorizontalGroup("TabRow", root.transform, 20f);
+            var tabRowRect = (RectTransform)tabRow.transform;
+            tabRowRect.anchorMin = tabRowRect.anchorMax = new Vector2(0.5f, 1f);
+            tabRowRect.pivot = new Vector2(0.5f, 1f);
+            tabRowRect.sizeDelta = new Vector2(600f, 90f);
+            tabRowRect.anchoredPosition = new Vector2(0f, -140f);
+
+            var tabDefs = new (CosmeticType type, string name)[]
+            {
+                (CosmeticType.Hat, "HatTabButton"),
+                (CosmeticType.Trail, "TrailTabButton"),
+                (CosmeticType.MazeTheme, "MazeThemeTabButton"),
+            };
+            var tabButtonsData = new (CosmeticType type, Button button, Image icon)[tabDefs.Length];
+            for (int i = 0; i < tabDefs.Length; i++)
+            {
+                var (type, name) = tabDefs[i];
+                var tabButton = CreateButton(name, tabRow.transform, string.Empty, Color.white, 20f, 90f, out _);
+                Object.DestroyImmediate(tabButton.transform.Find(name + "_Label").gameObject);
+                var tabIconImage = tabButton.GetComponent<Image>();
+                tabIconImage.preserveAspect = true;
+                tabButtonsData[i] = (type, tabButton, tabIconImage);
+            }
+
+            // Vertical budget (bottom-up): CloseButton 40-110, StatusText 140-180, ScrollView
+            // 220-(top-260) — each with a clear gap from its neighbour, since AnchorBottomCenter/
+            // AnchorTopCenter values here don't come from a LayoutGroup that would space them
+            // automatically (see this method's own doc comment for why a LayoutGroup isn't used).
+            var scrollRect = CreateHorizontalScrollView("CardScrollView", root.transform, out var cardContent);
+            var scrollRectTransform = (RectTransform)((Component)scrollRect).transform;
+            scrollRectTransform.anchorMin = new Vector2(0f, 0f);
+            scrollRectTransform.anchorMax = new Vector2(1f, 1f);
+            scrollRectTransform.offsetMin = new Vector2(0f, 220f);
+            scrollRectTransform.offsetMax = new Vector2(0f, -260f);
+
+            var statusText = CreateText("StatusText", root.transform, string.Empty, 24f, TextAlignmentOptions.Center, 40f);
+            AnchorBottomCenter((RectTransform)statusText.transform, new Vector2(860f, 40f), new Vector2(0f, 140f));
+
+            var closeButton = CreateButton("CloseButton", root.transform, "Back", new Color(0.35f, 0.35f, 0.38f), 26f, 70f, out _);
+            AnchorBottomCenter((RectTransform)closeButton.transform, new Vector2(240f, 70f), new Vector2(0f, 40f));
+
+            var screen = root.AddComponent<CosmeticStoreScreen>();
+            var so = new SerializedObject(screen);
+            var arrayProp = so.FindProperty("tabButtons");
+            arrayProp.arraySize = tabButtonsData.Length;
+            for (int i = 0; i < tabButtonsData.Length; i++)
+            {
+                var element = arrayProp.GetArrayElementAtIndex(i);
+                element.FindPropertyRelative("type").enumValueIndex = (int)tabButtonsData[i].type;
+                element.FindPropertyRelative("button").objectReferenceValue = tabButtonsData[i].button;
+                element.FindPropertyRelative("icon").objectReferenceValue = tabButtonsData[i].icon;
+            }
+            so.FindProperty("cardContainer").objectReferenceValue = cardContent;
+            so.FindProperty("cardPrefab").objectReferenceValue = cardPrefab;
+            so.FindProperty("coinBalanceText").objectReferenceValue = coinBalanceText;
+            so.FindProperty("statusText").objectReferenceValue = statusText;
+            so.FindProperty("closeButton").objectReferenceValue = closeButton;
+            so.ApplyModifiedPropertiesWithoutUndo();
 
             return root;
         }

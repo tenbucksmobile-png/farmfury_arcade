@@ -303,6 +303,9 @@ namespace FarmFuryArcade.EditorTools
         // wants a standalone coin glyph.
         private const string CoinUI = "Assets/_Project/Sprites/UI/Coin_UI.png";
         private const string CoinBalanceChip = "Assets/_Project/Sprites/UI/Coin_Balance_Chip.png";
+        // Main Menu's Shop button — bakes its own "Shop" label + coin icon into the art, replacing
+        // the plain orange placeholder + text label ShopButton used before this landed.
+        private const string ShopButtonArt = "Assets/_Project/Sprites/UI/Shop.png";
         private const string RetryButtonArt = "Assets/_Project/Sprites/UI/Retry.png";
         private const string MenuButtonArt = "Assets/_Project/Sprites/UI/Menu.png";
         private const string ResumeButtonArt = "Assets/_Project/Sprites/UI/Resume.png";
@@ -364,6 +367,14 @@ namespace FarmFuryArcade.EditorTools
         private const string HoraceCard = "Assets/_Project/Sprites/UI/Horace_Horse.png";
         private const string GeraldCard = "Assets/_Project/Sprites/UI/Gerald_Turkey.png";
         private const string BillyCard = "Assets/_Project/Sprites/UI/Billy_Goat.png";
+
+        // ---- Cosmetics Store tab icons (Monetisation Build Plan Phase 4) --------------------
+        // PurchaseCardFrame.png/EquippedBadge_Icon.png are wired directly by
+        // Phase5ProjectBuilder.BuildCosmeticCardPrefab (baked into the card prefab itself, not
+        // looked up by scene path), so only the 3 tab button icons need a SetImageSprite call here.
+        private const string HatTabIcon = "Assets/_Project/Sprites/Cosmetics/Hat_Icon.png";
+        private const string TrailsTabIcon = "Assets/_Project/Sprites/Cosmetics/Trails_Tab_Icon.png";
+        private const string MazeThemeTabIcon = "Assets/_Project/Sprites/Cosmetics/MazeThemeTab.png";
 
         // ---- On-screen directional pad -----------------------------------------------------
         private const string DPadUp = "Assets/_Project/Sprites/UI/up.png";
@@ -439,7 +450,8 @@ namespace FarmFuryArcade.EditorTools
             OrchardWallTile, OrchardFloorTileSprite, OrchardBackgroundSprite, OrchardWarpTile, WheatWarpTile, RedApplePellet, CherryBonus,
             WheatWallTile, WheatFloorTileSprite, MiniLoafPellet, RareGrainSackBonus,
             SelectLevelText, CornFieldText, VegetablePatchText, OrchardText, WheatfieldText, SettingsSignText,
-            LogoImage, CluckEggIcon, CluckEggCracked, CluckEggBurst
+            LogoImage, CluckEggIcon, CluckEggCracked, CluckEggBurst,
+            HatTabIcon, TrailsTabIcon, MazeThemeTabIcon, ShopButtonArt
         };
 
         private static void ConfigureSpriteImporters()
@@ -1518,6 +1530,7 @@ namespace FarmFuryArcade.EditorTools
 
             SetImageSprite(canvasTransform, "MainMenuScreen/PlayButton", play);
             SetImageSprite(canvasTransform, "MainMenuScreen/SettingsButton", settings);
+            SetImageSprite(canvasTransform, "MainMenuScreen/ShopButton", Load(ShopButtonArt));
 
             SetImageSprite(canvasTransform, "GameplayScreen/PauseButton", pause);
             SetImageSprite(canvasTransform, "GameplayScreen/DPadUpButton", Load(DPadUp));
@@ -1602,6 +1615,14 @@ namespace FarmFuryArcade.EditorTools
             SetImageSprite(canvasTransform, "GameplayScreen/CoinBalanceChip", Load(CoinBalanceChip));
 
             SetImageSprite(canvasTransform, "LevelCompleteScreen/PanelArt/ShelfContent/DoubleCoinsButton", Load(BtnDoubleCoins));
+
+            // Cosmetics Store tab icons (Monetisation Build Plan Phase 4) — preserveAspect is set
+            // true at construction time in Phase5ProjectBuilder.BuildCosmeticStoreScreen, since
+            // SetImageSprite always applies Image.Type.Sliced and never touches that flag itself.
+            SetImageSprite(canvasTransform, "CosmeticStoreScreen/TabRow/HatTabButton", Load(HatTabIcon));
+            SetImageSprite(canvasTransform, "CosmeticStoreScreen/TabRow/TrailTabButton", Load(TrailsTabIcon));
+            SetImageSprite(canvasTransform, "CosmeticStoreScreen/TabRow/MazeThemeTabButton", Load(MazeThemeTabIcon));
+            SetImageSprite(canvasTransform, "CosmeticStoreScreen/CloseButton", Load(BtnBack));
 
             EditorSceneManager.SaveScene(EditorSceneManager.GetActiveScene());
         }
