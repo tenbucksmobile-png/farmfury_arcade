@@ -13,8 +13,9 @@ namespace FarmFuryArcade.Core
     /// singleton on GameManagers, owns all SDK interaction so gameplay/UI code never touches
     /// UnityEngine.Purchasing directly.
     ///
-    /// Product catalogue (Monetisation Build Plan Phase 3, values from the GDD's Section 11):
-    /// 1 non-consumable (RemoveAds, $4.99, also grants RemoveAdsBonusCoins) + 5 consumable coin
+    /// Product catalogue (Monetisation Build Plan Phase 3, values from the GDD's Section 11, later
+    /// retuned — the 1,500-coin pack was dropped and the two top packs' prices lowered):
+    /// 1 non-consumable (RemoveAds, $4.99, also grants RemoveAdsBonusCoins) + 4 consumable coin
     /// packs. Server-side receipt validation is deliberately skipped (Unity IAP's own client-side
     /// validation is enough for a solo project per the plan doc; revisit only if coin fraud
     /// becomes a real problem post-launch).
@@ -28,7 +29,6 @@ namespace FarmFuryArcade.Core
         public const string RemoveAdsProductId = "remove_ads";
         public const string Coins100ProductId = "coins_100";
         public const string Coins500ProductId = "coins_500";
-        public const string Coins1500ProductId = "coins_1500";
         public const string Coins5000ProductId = "coins_5000";
         public const string Coins15000ProductId = "coins_15000";
 
@@ -39,7 +39,6 @@ namespace FarmFuryArcade.Core
         {
             { Coins100ProductId, 100 },
             { Coins500ProductId, 500 },
-            { Coins1500ProductId, 1500 },
             { Coins5000ProductId, 5000 },
             { Coins15000ProductId, 15000 },
         };
@@ -52,9 +51,8 @@ namespace FarmFuryArcade.Core
             { RemoveAdsProductId, "$4.99" },
             { Coins100ProductId, "$0.99" },
             { Coins500ProductId, "$3.99" },
-            { Coins1500ProductId, "$9.99" },
-            { Coins5000ProductId, "$19.99" },
-            { Coins15000ProductId, "$49.99" },
+            { Coins5000ProductId, "$9.99" },
+            { Coins15000ProductId, "$19.99" },
         };
 
         public bool IsInitialized { get; private set; }
@@ -98,7 +96,6 @@ namespace FarmFuryArcade.Core
                 new ProductDefinition(RemoveAdsProductId, ProductType.NonConsumable),
                 new ProductDefinition(Coins100ProductId, ProductType.Consumable),
                 new ProductDefinition(Coins500ProductId, ProductType.Consumable),
-                new ProductDefinition(Coins1500ProductId, ProductType.Consumable),
                 new ProductDefinition(Coins5000ProductId, ProductType.Consumable),
                 new ProductDefinition(Coins15000ProductId, ProductType.Consumable),
             };

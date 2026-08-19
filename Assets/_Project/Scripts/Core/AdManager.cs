@@ -186,11 +186,19 @@ namespace FarmFuryArcade.Core
         /// counter and shows an interstitial once it reaches interstitialLevelInterval, resetting
         /// the counter either way (so a skipped/unready ad doesn't mean the NEXT check fires
         /// immediately). Deliberately never called while GameState.Playing (LoadLevel always runs
-        /// between levels, never mid-run) and respects SaveManager.AdsRemoved.</summary>
-        public void NotifyLevelLoaded()
+        /// between levels, never mid-run) and respects SaveManager.AdsRemoved.
+        ///
+        /// <paramref name="onReady"/> fires exactly once, either back-to-back on the same frame (no
+        /// interstitial was due, wasn't ready, or ads are removed) or once a shown interstitial
+        /// actually closes (including a failed display, so a frozen caller — GameManager.LoadLevel
+        /// freezes Time.timeScale around this call — can never hang waiting on an ad that never
+        /// shows). GameManager relies on this to gate the start of gameplay behind the ad instead of
+        /// letting the level run in the background underneath it.</summary>
+        public void NotifyLevelLoaded(System.Action onReady)
         {
             if (SaveManager.Instance == null || SaveManager.Instance.AdsRemoved)
             {
+                onReady?.Invoke();
                 return;
             }
 
@@ -198,14 +206,33 @@ namespace FarmFuryArcade.Core
             if (count < interstitialLevelInterval)
             {
                 SaveManager.Instance.SetLevelsSinceLastInterstitial(count);
+                onReady?.Invoke();
                 return;
             }
 
             SaveManager.Instance.SetLevelsSinceLastInterstitial(0);
-            if (IsInterstitialAdReady)
+            if (!IsInterstitialAdReady)
             {
-                _interstitialAd.ShowAd();
+                onReady?.Invoke();
+                return;
             }
+
+            void HandleClosed(LevelPlayAdInfo info)
+            {
+                _interstitialAd.OnAdClosed -= HandleClosed;
+                _interstitialAd.OnAdDisplayFailed -= HandleDisplayFailed;
+                onReady?.Invoke();
+            }
+            void HandleDisplayFailed(LevelPlayAdInfo info, LevelPlayAdError error)
+            {
+                _interstitialAd.OnAdClosed -= HandleClosed;
+                _interstitialAd.OnAdDisplayFailed -= HandleDisplayFailed;
+                onReady?.Invoke();
+            }
+
+            _interstitialAd.OnAdClosed += HandleClosed;
+            _interstitialAd.OnAdDisplayFailed += HandleDisplayFailed;
+            _interstitialAd.ShowAd();
         }
     }
 }

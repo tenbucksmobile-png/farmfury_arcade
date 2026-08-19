@@ -1567,7 +1567,6 @@ namespace FarmFuryArcade.EditorTools
             {
                 (IAPManager.Coins100ProductId, "100 Coins"),
                 (IAPManager.Coins500ProductId, "500 Coins"),
-                (IAPManager.Coins1500ProductId, "1,500 Coins"),
                 (IAPManager.Coins5000ProductId, "5,000 Coins"),
                 (IAPManager.Coins15000ProductId, "15,000 Coins"),
                 (IAPManager.RemoveAdsProductId, "Remove Ads"),

@@ -598,7 +598,7 @@ scene flow" below for its full description. The original Phase 4 `CharacterSwapU
 
 The GDD's Section 11 describes 7 revenue streams (ads, IAP, cosmetic store, season pass,
 cross-promotion). Coin economy, ad-SDK infrastructure (all 4 rewarded placements + interstitial),
-and IAP plumbing (Remove Ads + 5 coin packs, a minimal Shop screen, Restore Purchases) now exist;
+and IAP plumbing (Remove Ads + 4 coin packs, a minimal Shop screen, Restore Purchases) now exist;
 cosmetic store and season pass don't exist. A full build-order plan for the remaining phases was
 reviewed and is followed — see "Ad mediation (LevelPlay + AdMob)" and "IAP plumbing" below for what's
 actually built vs. still pending. The GDD's
@@ -724,11 +724,21 @@ interaction so gameplay code never touches `Unity.Services.LevelPlay` directly) 
   `OnAdRewarded` actually fired, not just that the ad was shown and closed — a player can close a
   rewarded ad before it finishes, which should never grant the reward.
 - **Interstitial ads** (`LevelPlayInterstitialAd`) — same load/show/auto-reload shape.
-  `NotifyLevelLoaded()`, called from `GameManager.LoadLevel` on every level transition, drives a
-  rolling counter (`SaveManager.LevelsSinceLastInterstitial`) that shows an interstitial every
-  `interstitialLevelInterval` (6, configurable) levels and resets the counter either way (a
+  `NotifyLevelLoaded(onReady)`, called from `GameManager.LoadLevel` on every level transition,
+  drives a rolling counter (`SaveManager.LevelsSinceLastInterstitial`) that shows an interstitial
+  every `interstitialLevelInterval` (6, configurable) levels and resets the counter either way (a
   skipped/unready ad doesn't mean the next check fires immediately). Structurally guaranteed to
   never fire mid-`GameState.Playing`, since `LoadLevel` only ever runs at a level transition.
+  **`onReady` gates the actual start of play** — `GameManager.LoadLevel` sets `Time.timeScale = 0f`
+  (same freeze convention `PauseGame`/`RequestRevivePrompt` use) right after spawning the level's
+  content, then calls `NotifyLevelLoaded(() => Time.timeScale = 1f)`; `onReady` fires immediately
+  (no perceptible pause) when no ad is due/ready, or once a shown interstitial actually closes
+  (including a failed display — `OnAdDisplayFailed` also unblocks it, so a frozen caller can never
+  hang waiting on an ad that never shows). Fixes an earlier bug where the interstitial displayed as
+  a bare overlay while the maze kept simulating underneath it (player/robots moving, the level timer
+  burning) — freezing time means the ad genuinely gates gameplay instead of just covering it, and
+  since `Time.time` (what `GetElapsedSeconds` reads) doesn't advance while frozen, no level time is
+  lost waiting on the ad either.
 
 **`SaveManager` gained `AdsRemoved`** (bool, persisted — `NotifyLevelLoaded` already early-outs on
 it; `IAPManager`'s Remove Ads purchase now sets it, see "IAP plumbing" below) **and
@@ -812,12 +822,14 @@ BuyingConsumables/` instead.
 **`IAPManager`** (parallel to `AdManager`/`AudioManager` — singleton on `GameManagers`, owns all SDK
 interaction) connects on `Start()` and fetches the product catalogue once connected: 1
 non-consumable (`remove_ads`, $4.99, grants `RemoveAdsBonusCoins` = 100 per the GDD's "Includes 100
-bonus coins") + 5 consumables (`coins_100`/`500`/`1500`/`5000`/`15000`, prices exactly matching GDD
-Section 11's table). `HandlePurchasePending` grants the effect (`SaveManager.AddCoins`/`AdsRemoved`)
-and calls `ConfirmPurchase` — same grant-then-confirm order the package's own sample uses.
-`GetPriceString(productId)` returns the real localized price once the store connection resolves
-metadata, falling back to the GDD's static price table until then (or forever, in the Editor/dev
-builds where no real store is configured) — UI should never show a blank price.
+bonus coins") + 4 consumables (`coins_100` $0.99 / `coins_500` $3.99 / `coins_5000` $9.99 /
+`coins_15000` $19.99 — the GDD's own Section 11 table originally also had a `coins_1500` $9.99 pack;
+it was dropped and the two top packs' prices lowered in a later retuning pass, so these are no
+longer the GDD's literal numbers). `HandlePurchasePending` grants the effect (`SaveManager.
+AddCoins`/`AdsRemoved`) and calls `ConfirmPurchase` — same grant-then-confirm order the package's
+own sample uses. `GetPriceString(productId)` returns the real localized price once the store
+connection resolves metadata, falling back to this static price table until then (or forever, in
+the Editor/dev builds where no real store is configured) — UI should never show a blank price.
 
 **Remove Ads does NOT disable rewarded-ad availability** — the GDD is explicit ("Still shows
 rewarded ad prompts as an option"), so only `AdManager.NotifyLevelLoaded`'s interstitial path checks
@@ -827,12 +839,12 @@ comment above) — no new persistence needed.
 
 **`ShopController`** replaced the old "Store is coming in Phase 6!" placeholder panel (same root
 GameObject name, `StoreComingSoonOverlay`, kept for scene-path stability even though the content
-changed) — a plain 2x3 grid of the 6 products, a status text row, and a close button. **This screen
-is deliberately just the Phase 3 IAP purchase surface** (coin packs + Remove Ads); the GDD's Section
-11 cosmetics Store (hats/skins/trails/themes) is a separate screen, `CosmeticStoreScreen`, reached
-via a "Cosmetics" button on this one — see the Cosmetics section's own "Cosmetics Store UI"
-subsection. No purchase-card art exists yet for the 6 IAP products (per the plan doc's own "Art
-needed" list — zero art exists here), so every button is a plain text label
+changed) — a plain 3-column grid of the 5 products (2 full rows + 1), a status text row, and a
+close button. **This screen is deliberately just the Phase 3 IAP purchase surface** (coin packs +
+Remove Ads); the GDD's Section 11 cosmetics Store (hats/skins/trails/themes) is a separate screen,
+`CosmeticStoreScreen`, reached via a "Cosmetics" button on this one — see the Cosmetics section's
+own "Cosmetics Store UI" subsection. No purchase-card art exists yet for the 5 IAP products (per
+the plan doc's own "Art needed" list — zero art exists here), so every button is a plain text label
 (`"{displayName}\n{price}"`), same "text label until art lands" convention every other unart'd
 placeholder button in this project uses. Reached via a new **Main Menu "Shop" button** (bottom-
 centre, between Play and Settings — now uses real `Shop.png` art, see "Landing/Gameplay-HUD
@@ -2541,7 +2553,7 @@ Main Menu ──Play──▶ Level Select ──tap unlocked tile──▶ Game
     ├──Settings (gear)────▶ modal overlay (2x3 plaque grid: music/sfx/vibration/left-handed/
     │                        language/restore purchases, + top-right Leaderboards button)
     │                        ──back (round icon)──▶ wherever opened from
-    └──Shop─────────────▶ modal overlay (5 coin packs + Remove Ads) ──Back──▶ Main Menu
+    └──Shop─────────────▶ modal overlay (4 coin packs + Remove Ads) ──Back──▶ Main Menu
 
 Level Select also has its own top-right Daily Challenge button (loads LevelData_01 directly,
 independent of the world-select/tile-grid state) — not shown above since it doesn't branch the

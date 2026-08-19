@@ -117,12 +117,24 @@ namespace FarmFuryArcade.Core
             _levelStartTime = Time.time;
             CurrentState = GameState.Playing;
             AudioManager.Instance?.ResumeBackgroundMusic();
-            // Between-levels interstitial trigger — deliberately called here (never mid-Playing,
-            // since LoadLevel only ever runs at a level transition) rather than from wherever the
-            // player tapped a level tile, so every LoadLevel call site gets this for free.
-            AdManager.Instance?.NotifyLevelLoaded();
 
             _sceneController.LoadLevelContent(level);
+
+            // Between-levels interstitial trigger — deliberately called here (never mid-Playing,
+            // since LoadLevel only ever runs at a level transition) rather than from wherever the
+            // player tapped a level tile, so every LoadLevel call site gets this for free. Time is
+            // frozen (same convention PauseGame/RequestRevivePrompt use) for whatever gap
+            // NotifyLevelLoaded takes to resolve, so a due interstitial genuinely gates the start of
+            // play instead of showing as an overlay while the player/robots/timer keep running
+            // behind it — _levelStartTime is already stamped above, and Time.time (what
+            // GetElapsedSeconds reads) doesn't advance while frozen, so no time is lost either.
+            // When no ad is due/ready, NotifyLevelLoaded's callback fires back-to-back on the same
+            // frame and this is imperceptible.
+            if (AdManager.Instance != null)
+            {
+                Time.timeScale = 0f;
+                AdManager.Instance.NotifyLevelLoaded(() => Time.timeScale = 1f);
+            }
         }
 
         /// <summary>Seconds since LoadLevel while Playing/Paused; frozen at the final value once
