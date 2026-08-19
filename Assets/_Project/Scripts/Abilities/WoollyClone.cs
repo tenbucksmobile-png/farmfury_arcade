@@ -67,6 +67,24 @@ namespace FarmFuryArcade.Abilities
             }
 
             Vector2Int cell = _tileMap.WorldToGrid(transform.position);
+
+            // Hard containment guard: cell is derived from raw transform.position every frame with
+            // no clamping (WorldToGrid/GridToWorld do no bounds checking of their own), and
+            // _currentDirection is only re-validated at "atCenter" events — GetValidDirections
+            // already stops the clone from ever CHOOSING a wall/water/out-of-bounds neighbour, but
+            // this is a belt-and-suspenders check against ending up on (and dropping an egg onto) an
+            // invalid cell some other way — e.g. a wall a Headbutt Through/Iron Stampede use
+            // destroyed mid-run turning a former border cell walkable, or any other edge case not
+            // already covered by the direction-selection logic. If the cell we've arrived at isn't
+            // actually walkable, snap back to the last confirmed-good cell and re-pick a direction
+            // from there instead of trusting it.
+            if (!_tileMap.IsWalkable(cell))
+            {
+                cell = _currentGridPosition;
+                transform.position = _tileMap.GridToWorld(cell);
+                _currentDirection = Direction.None;
+            }
+
             Vector3 cellCenter = _tileMap.GridToWorld(cell);
             bool atCenter = Vector3.Distance(transform.position, cellCenter) < AlignmentEpsilon;
 

@@ -29,6 +29,11 @@ namespace FarmFuryArcade.UI
         [SerializeField] private TextMeshProUGUI versionText;
         [SerializeField] private Button closeButton;
         [SerializeField] private GameObject mainMenuScreen;
+        // Leaderboards moved here (top-right, Leaderboard.png sign) per feedback that Main Menu
+        // should stay to just Play/Settings/Shop — Settings is reachable from both Main Menu and
+        // Pause, so this keeps Leaderboards reachable from gameplay too, not just the landing page.
+        [SerializeField] private Button leaderboardsButton;
+        [SerializeField] private GameObject leaderboardsScreen;
 
         private const string RestoreIdleText = "Restore\nPurchases";
 
@@ -43,6 +48,10 @@ namespace FarmFuryArcade.UI
             if (restorePurchasesButton != null)
             {
                 restorePurchasesButton.onClick.AddListener(HandleRestorePurchasesTapped);
+            }
+            if (leaderboardsButton != null && leaderboardsScreen != null)
+            {
+                leaderboardsButton.onClick.AddListener(() => SceneTransitionManager.Instance.ShowOnly(leaderboardsScreen));
             }
 
             if (versionText != null)

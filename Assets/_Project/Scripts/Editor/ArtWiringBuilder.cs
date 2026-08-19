@@ -303,9 +303,18 @@ namespace FarmFuryArcade.EditorTools
         // wants a standalone coin glyph.
         private const string CoinUI = "Assets/_Project/Sprites/UI/Coin_UI.png";
         private const string CoinBalanceChip = "Assets/_Project/Sprites/UI/Coin_Balance_Chip.png";
-        // Main Menu's Shop button — bakes its own "Shop" label + coin icon into the art, replacing
-        // the plain orange placeholder + text label ShopButton used before this landed.
+        // Main Menu's Shop button — a square 500x500 cash-wad icon (replaced the earlier wide
+        // "Shop" banner art in place, same filename; the old banner was renamed to ShopBanner.png
+        // and is unused/kept on disk). Icon-only now, no baked-in label to destroy an auto-label
+        // for — BuildMainMenu already leaves ShopButton's own auto-generated label undestroyed-vs-
+        // destroyed the same way every other icon button here does (destroyed, since the icon reads
+        // fine on its own).
         private const string ShopButtonArt = "Assets/_Project/Sprites/UI/Shop.png";
+        // Leaderboard.png/Challenge.png (666x392, ~1.699:1 hanging wood signs, own label baked in)
+        // — Leaderboards moved from Main Menu to Settings, Daily Challenge moved from Main Menu to
+        // Level Select (see MainMenuController/SettingsPanel/LevelSelectController doc comments).
+        private const string LeaderboardSignArt = "Assets/_Project/Sprites/UI/Leaderboard.png";
+        private const string DailyChallengeSignArt = "Assets/_Project/Sprites/UI/Challenge.png";
         private const string RetryButtonArt = "Assets/_Project/Sprites/UI/Retry.png";
         private const string MenuButtonArt = "Assets/_Project/Sprites/UI/Menu.png";
         private const string ResumeButtonArt = "Assets/_Project/Sprites/UI/Resume.png";
@@ -451,7 +460,7 @@ namespace FarmFuryArcade.EditorTools
             WheatWallTile, WheatFloorTileSprite, MiniLoafPellet, RareGrainSackBonus,
             SelectLevelText, CornFieldText, VegetablePatchText, OrchardText, WheatfieldText, SettingsSignText,
             LogoImage, CluckEggIcon, CluckEggCracked, CluckEggBurst,
-            HatTabIcon, TrailsTabIcon, MazeThemeTabIcon, ShopButtonArt
+            HatTabIcon, TrailsTabIcon, MazeThemeTabIcon, ShopButtonArt, LeaderboardSignArt, DailyChallengeSignArt
         };
 
         private static void ConfigureSpriteImporters()
@@ -484,21 +493,26 @@ namespace FarmFuryArcade.EditorTools
                 importer.GetSourceTextureWidthAndHeight(out int width, out int height);
                 importer.spritePixelsPerUnit = width > 0 ? width : 100;
 
-                // Stopgap for a real sizing bug: Billy_Front.png/Billy_back.png are tight portrait
-                // crops (213x401 / 234x408) but Billy_left/right(1).png are a much more loosely
-                // padded 500x500 square — under the standard "PPU = this texture's own width" rule
-                // above, that made him render only ~1.0 world unit tall facing left/right versus
-                // ~1.88 tall facing up/down (CharacterAnimator swaps sprites with no per-frame scale
-                // compensation), a visible size pop every time he turns sideways. Overriding PPU
-                // here to match Front's height ratio (401/213) instead of this texture's own width
-                // keeps his apparent height consistent across every facing — at the cost of also
-                // rendering him wider than 1 grid cell while walking sideways, since a single PPU
-                // scalar can't correct height without scaling width too on a square source. Replace
-                // with a tighter crop of the Left/Right art (matching Front/Back's framing) instead
-                // of this override whenever that art lands.
-                if (path == BillyLeft0 || path == BillyLeft1 || path == BillyRight0 || path == BillyRight1)
+                // Fix for a real sizing bug (was a partial stopgap before — see git history):
+                // Billy_Front.png/Billy_back.png are tight portrait crops (213x401 / 234x408) while
+                // Billy_left/right(1).png are a much more loosely padded 500x500 square. The
+                // standard "PPU = this texture's own width" rule above renders every OTHER
+                // character at exactly 1x1 world units (all their art is a uniform 500x500 square),
+                // but applied to Billy's own tight crops it rendered him ~1.88 world units TALL
+                // facing up/down (401/213) — visibly oversized next to every other character and
+                // robot on the board, since a grid cell is 1 unit. A prior stopgap instead matched
+                // Left/Right's PPU to Front's height ratio, which kept all 4 facings *consistent*
+                // with each other but left him consistently oversized in every direction (self-
+                // consistent, not correctly calibrated against the rest of the cast).
+                //
+                // Correct fix: PPU = this texture's own HEIGHT (not width) for every Billy sprite,
+                // so he renders at exactly 1 world unit TALL in every facing — matching every other
+                // character's apparent height — with width scaling proportionally per each crop's
+                // real aspect (narrower for the tight Front/Back portrait crops, full 1 unit wide
+                // for the square Left/Right art) rather than forcing a uniform bounding box.
+                if (path == BillyFront || path == BillyBack || path == BillyLeft0 || path == BillyLeft1 || path == BillyRight0 || path == BillyRight1)
                 {
-                    importer.spritePixelsPerUnit = 500f * 213f / 401f;
+                    importer.spritePixelsPerUnit = height > 0 ? height : 100;
                 }
 
                 // Btn_plaque.png is a wide rounded-pill button graphic reused as a per-row
@@ -1531,6 +1545,8 @@ namespace FarmFuryArcade.EditorTools
             SetImageSprite(canvasTransform, "MainMenuScreen/PlayButton", play);
             SetImageSprite(canvasTransform, "MainMenuScreen/SettingsButton", settings);
             SetImageSprite(canvasTransform, "MainMenuScreen/ShopButton", Load(ShopButtonArt));
+            SetImageSprite(canvasTransform, "SettingsOverlay/LeaderboardsButton", Load(LeaderboardSignArt));
+            SetImageSprite(canvasTransform, "LevelSelectScreen/DailyChallengeButton", Load(DailyChallengeSignArt));
 
             SetImageSprite(canvasTransform, "GameplayScreen/PauseButton", pause);
             SetImageSprite(canvasTransform, "GameplayScreen/DPadUpButton", Load(DPadUp));
@@ -1614,7 +1630,9 @@ namespace FarmFuryArcade.EditorTools
 
             SetImageSprite(canvasTransform, "GameplayScreen/CoinBalanceChip", Load(CoinBalanceChip));
 
-            SetImageSprite(canvasTransform, "LevelCompleteScreen/PanelArt/ShelfContent/DoubleCoinsButton", Load(BtnDoubleCoins));
+            // No longer under PanelArt/ShelfContent — moved to a standalone right-edge button
+            // outside the card (see Phase5ProjectBuilder.BuildLevelComplete's own comment).
+            SetImageSprite(canvasTransform, "LevelCompleteScreen/DoubleCoinsButton", Load(BtnDoubleCoins));
 
             // Cosmetics Store tab icons (Monetisation Build Plan Phase 4) — preserveAspect is set
             // true at construction time in Phase5ProjectBuilder.BuildCosmeticStoreScreen, since

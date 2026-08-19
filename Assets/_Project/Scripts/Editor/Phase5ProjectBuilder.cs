@@ -574,6 +574,16 @@ namespace FarmFuryArcade.EditorTools
             // swallowed by whichever of those two draws on top of it.
             var backButton = CreateRoundBackButton(root.transform);
 
+            // Daily Challenge — moved here from Main Menu per feedback ("must go onto the world
+            // level scene"). Challenge.png (666x392, same hanging-sign convention/aspect as
+            // Leaderboard.png) sits top-right, always visible in both world-select and tile-grid
+            // states (not toggled alongside CurrentWorldIndicator, which only occupies the opposite
+            // top-left corner in the tile-grid state) — same size/inset as Settings' Leaderboards
+            // button for visual consistency between the two relocated features.
+            var dailyChallengeButton = CreateButton("DailyChallengeButton", root.transform, string.Empty, new Color(0.55f, 0.35f, 0.65f), 28f, 224f, out _);
+            Object.DestroyImmediate(dailyChallengeButton.transform.Find("DailyChallengeButton_Label").gameObject);
+            AnchorTopRight((RectTransform)dailyChallengeButton.transform, new Vector2(380f, 224f), new Vector2(-100f, -50f));
+
             var lockedHintPanel = BuildLockedHintPanel(root.transform);
 
             var controller = root.AddComponent<LevelSelectController>();
@@ -589,7 +599,8 @@ namespace FarmFuryArcade.EditorTools
                 ("scrollRect", scrollRect),
                 ("lockedHintPanel", lockedHintPanel),
                 ("backButton", backButton),
-                ("backButtonImage", backButton.GetComponent<Image>()));
+                ("backButtonImage", backButton.GetComponent<Image>()),
+                ("dailyChallengeButton", dailyChallengeButton));
 
             return root;
         }
@@ -628,22 +639,27 @@ namespace FarmFuryArcade.EditorTools
             settingsRect.sizeDelta = new Vector2(160f, 160f);
             settingsRect.anchoredPosition = new Vector2(-150f, 70f);
 
-            // Monetisation (Phase 3, IAP plumbing): entry point to ShopController — bottom-centre,
-            // between Play and Settings. Shop.png (wired by ArtWiringBuilder) bakes its own "Shop"
-            // label + coin icon into the art, so the auto-generated text label is destroyed here,
-            // same "icon art replaces auto-label" convention Yes.png/No.png/Btn_home.png use
-            // elsewhere. Box widened from the original 160x130 (~1.2:1) to 260x130 (~2:1) to match
-            // the source art's real wide-banner aspect — SetImageSprite always applies
-            // Image.Type.Sliced, which ignores preserveAspect entirely, so getting the box's own
-            // aspect right is what actually prevents the banner being squashed (same fix already
-            // applied to the Coin Balance Chip/Revive Prompt panel/Level Complete panel).
-            var shopButton = CreateButton("ShopButton", root.transform, string.Empty, new Color(0.75f, 0.45f, 0.15f), 28f, 130f, out _);
+            // Monetisation (Phase 3, IAP plumbing): entry point to ShopController. Moved from the
+            // bottom-centre wide banner to a top-right square icon per feedback — Shop.png is now a
+            // 500x500 cash-wad plaque icon (the old wide-banner art was renamed to ShopBanner.png
+            // and is unused/kept on disk), so it reads correctly as a square icon here rather than
+            // a banner. Sized to match Play/Settings' 160px icons; inset (-100,-50) keeps it inside
+            // the yellow safe-area guide while sitting in landing.png's clear top-right sky, above
+            // the "ARCADE" ribbon (which starts around y=200 of the 1280x720 source — comfortably
+            // below this icon's ~150px-tall footprint at this inset) so it never overlaps the
+            // baked-in header text.
+            var shopButton = CreateButton("ShopButton", root.transform, string.Empty, new Color(0.75f, 0.45f, 0.15f), 28f, 160f, out _);
             Object.DestroyImmediate(shopButton.transform.Find("ShopButton_Label").gameObject);
             var shopRect = (RectTransform)shopButton.transform;
-            shopRect.anchorMin = shopRect.anchorMax = new Vector2(0.5f, 0f);
-            shopRect.pivot = new Vector2(0.5f, 0f);
-            shopRect.sizeDelta = new Vector2(260f, 130f);
-            shopRect.anchoredPosition = new Vector2(0f, 70f);
+            shopRect.anchorMin = shopRect.anchorMax = new Vector2(1f, 1f);
+            shopRect.pivot = new Vector2(1f, 1f);
+            shopRect.sizeDelta = new Vector2(160f, 160f);
+            shopRect.anchoredPosition = new Vector2(-100f, -50f);
+
+            // Daily Challenge and Leaderboards no longer live on Main Menu — moved to Level Select
+            // and Settings respectively (see LevelSelectController/SettingsPanel's own doc comments
+            // and Phase5ProjectBuilder.BuildLevelSelect/BuildSettingsPanel) per feedback that the
+            // landing page should stay to just Play/Settings/Shop.
 
             var controller = root.AddComponent<MainMenuController>();
             var so = new SerializedObject(controller);
@@ -690,13 +706,18 @@ namespace FarmFuryArcade.EditorTools
             // crushing the border and the pill inside it (caught via a gameplay screenshot review).
             // Sized square to match the art's real aspect now, same "box aspect must match the art"
             // fix already applied to the Revive Prompt panel and Level Complete panel.
-            const float coinChipSize = 110f;
+            // Enlarged again (110 -> 170) per feedback it still read as too small next to the rest
+            // of the HUD — confirmed clear of the D-pad below it (chip's bottom edge lands ~284px
+            // above the D-pad's top edge even at this size, plenty of margin). Font scaled up by the
+            // same ratio (28 -> 44) so the balance number keeps reading proportionally, not just the
+            // frame around it.
+            const float coinChipSize = 170f;
             var coinChipImage = CreateImage("CoinBalanceChip", root.transform, new Color(0.85f, 0.65f, 0.2f), coinChipSize, coinChipSize);
             var coinChipRect = (RectTransform)coinChipImage.transform;
             AnchorTopLeft(coinChipRect, new Vector2(coinChipSize, coinChipSize), new Vector2(170f, -276f));
             coinChipImage.preserveAspect = false;
 
-            var coinBalanceText = CreateText("CoinBalanceText", coinChipImage.transform, "0", 28f, TextAlignmentOptions.Center, coinChipSize);
+            var coinBalanceText = CreateText("CoinBalanceText", coinChipImage.transform, "0", 44f, TextAlignmentOptions.Center, coinChipSize);
             var coinBalanceTextRect = (RectTransform)coinBalanceText.transform;
             // Positioned over the pill's blank right half within the square canvas (roughly
             // x:50%-88%, y:33%-64% of the full 500x500 art) — the left half/rest of the square is
@@ -924,15 +945,21 @@ namespace FarmFuryArcade.EditorTools
             revivePanelArtImage.sprite = PlaceholderSprite.Get(Color.clear);
             revivePanelArtImage.preserveAspect = true;
 
-            // Kept notably narrower than the backdrop's own 1300 width — per feedback the buttons
-            // themselves should read smaller relative to the now-larger backdrop, not stretch to
-            // fill it. Narrowed again (750 -> 480) per a follow-up screenshot review: the sign art's
-            // own hanging-plaque shape is noticeably narrower than a plain 750-wide box, so the
-            // Yes/Watch Ad/No buttons were overflowing past its visible wood edges on both sides.
-            var reviveGroup = CreateVerticalGroup("Content", revivePanelArtGO.transform, 10f, 30);
+            // Sized and centred against the actual pixel-measured blank parchment area inside
+            // "Revive Prompt panel background.png" (666x375 source): the readable interior runs
+            // roughly x=[200,475]/y=[100,265], well short of the 666x375 art's own outer wood-sign
+            // bounds — a plain visual read of the full sign (as earlier passes used) overestimated
+            // how much of it is actually usable, leaving the buttons undersized with large dead
+            // wood margins above Yes and below No. At the panel's current 1300x731 display scale
+            // (x1.952 vs the 666x375 source) that interior maps to world x=[-435,+434]/
+            // y=[+171,-151] — a 500-wide, ~324-tall content box centred at (0, +10) fills it with
+            // the padding/spacing/button-height combo below (20 + 84 + 16 + 84 + 16 + 84 + 20 =
+            // 324), matching the interior's real ~324-unit height instead of shrink-wrapping to a
+            // much smaller auto-sized block floating in the middle of it.
+            var reviveGroup = CreateVerticalGroup("Content", revivePanelArtGO.transform, 16f, 20);
             var reviveGroupRect = (RectTransform)reviveGroup.transform;
-            reviveGroupRect.sizeDelta = new Vector2(480f, reviveGroupRect.sizeDelta.y);
-            reviveGroupRect.anchoredPosition = new Vector2(0f, -20f);
+            reviveGroupRect.sizeDelta = new Vector2(500f, reviveGroupRect.sizeDelta.y);
+            reviveGroupRect.anchoredPosition = new Vector2(0f, 10f);
 
             // No separate coin-icon/cost-text row anymore — the replacement panel art (see
             // RevivePromptPanel's own doc comment) bakes "Revive for 5 coins?" directly into its
@@ -953,7 +980,7 @@ namespace FarmFuryArcade.EditorTools
             // applied — the same CreateImage-args-are-inert pattern found elsewhere in this file.
             // Height set explicitly here instead; width still comes from the layout group
             // (childControlWidth=true), so only .y needs overriding.
-            const float reviveButtonHeight = 62f; // was 130 -> 90 -> 62, reduced per feedback each pass — buttons kept reading too large for the sign art
+            const float reviveButtonHeight = 84f; // was 130 -> 90 -> 62 -> 84 — 62 undershot the sign's real ~165px-tall (image-space) interior badly enough to leave large dead wood margins above Yes and below No; 84 (paired with the 500-wide/16-spacing/20-padding group above) fills that measured interior evenly instead
             var reviveButtonRect = (RectTransform)reviveButton.transform;
             reviveButtonRect.sizeDelta = new Vector2(reviveButtonRect.sizeDelta.x, reviveButtonHeight);
             var watchAdButtonRect = (RectTransform)watchAdButton.transform;
@@ -1276,6 +1303,16 @@ namespace FarmFuryArcade.EditorTools
 
             var closeButton = CreateRoundBackButton(root.transform);
 
+            // Leaderboards — moved here from Main Menu per feedback (Settings is reachable from
+            // both Main Menu and Pause, so this keeps it reachable mid-run too, not just the
+            // landing page). Leaderboard.png is a 666x392 (~1.699:1) hanging wood sign with its own
+            // "Leader Board" label baked in, mirroring Logo's top-left size/inset on the opposite
+            // corner rather than joining the 2x3 toggle grid (already full at 6 cells, and this
+            // sign's aspect doesn't match those small plaques anyway).
+            var leaderboardsButton = CreateButton("LeaderboardsButton", root.transform, string.Empty, new Color(0.6f, 0.4f, 0.15f), 28f, 224f, out _);
+            Object.DestroyImmediate(leaderboardsButton.transform.Find("LeaderboardsButton_Label").gameObject);
+            AnchorTopRight((RectTransform)leaderboardsButton.transform, new Vector2(380f, 224f), new Vector2(-100f, -50f));
+
             var gridGO = new GameObject("SettingsGrid", typeof(RectTransform), typeof(GridLayoutGroup));
             gridGO.transform.SetParent(root.transform, false);
             var gridRect = (RectTransform)gridGO.transform;
@@ -1339,6 +1376,7 @@ namespace FarmFuryArcade.EditorTools
             so.FindProperty("restorePurchasesLabel").objectReferenceValue = restoreLabel;
             so.FindProperty("versionText").objectReferenceValue = versionText;
             so.FindProperty("closeButton").objectReferenceValue = closeButton;
+            so.FindProperty("leaderboardsButton").objectReferenceValue = leaderboardsButton;
             so.ApplyModifiedPropertiesWithoutUndo();
 
             return root;
@@ -1805,14 +1843,29 @@ namespace FarmFuryArcade.EditorTools
             var starDisplayGO = CreateStarDisplay("Stars", shelfGO.transform, 28);
 
             // Monetisation rewarded-ad placement #2 ("double coins" — see CLAUDE.md's Monetisation
-            // section and LevelCompleteController's own doc comment). Sits in the shelf, below the
-            // stars — hidden by LevelCompleteController.RefreshDoubleCoinsButton whenever there's no
-            // ad ready/nothing to double/already claimed, so it never shows as a dead button. No
+            // section and LevelCompleteController's own doc comment). Used to be a 3rd row crammed
+            // into the shelf below the stars — pixel-sampling LevelComplete.png's own blank shelf
+            // area (500x500 source, the true unobstructed band is only ~y=[225,380], i.e. a fraction
+            // range of roughly [0.24,0.55] of the card, which is what ShelfContent's 0.28-0.56 band
+            // above was already tuned to) showed that zone only has room for score+stars at a
+            // readable size — a 3rd stacked button was always going to read cramped there. Moved
+            // outside the card entirely instead: PanelArt is a square AspectRatioFitter sized to the
+            // screen's height (1080 in the 1920x1080 reference canvas), leaving a ~420px empty
+            // margin on each side once centered in the 1920-wide screen — plenty of room for a
+            // standalone button. Right-edge anchored, vertically placed at the shelf's own band
+            // centre (y=-113 from screen centre, matching the score/stars height) rather than the
+            // card's true centre, so it still reads as "the thing next to your score," not an
+            // unrelated floating button. Hidden by LevelCompleteController.RefreshDoubleCoinsButton
+            // exactly as before whenever there's no ad ready/nothing to double/already claimed. No
             // dedicated art exists for this yet, same "text label until art lands" convention the
             // skip-cooldown button used before Btn_skipcooldown.png existed.
-            var doubleCoinsButton = CreateButton("DoubleCoinsButton", shelfGO.transform,
-                string.Empty, new Color(1f, 0.72f, 0.1f), 22f, 70f, out var doubleCoinsLabel);
-            doubleCoinsButton.GetComponent<LayoutElement>().preferredWidth = 260f;
+            var doubleCoinsButton = CreateButton("DoubleCoinsButton", root.transform,
+                string.Empty, new Color(1f, 0.72f, 0.1f), 22f, 90f, out var doubleCoinsLabel);
+            var doubleCoinsRect = (RectTransform)doubleCoinsButton.transform;
+            doubleCoinsRect.anchorMin = doubleCoinsRect.anchorMax = new Vector2(1f, 0.5f);
+            doubleCoinsRect.pivot = new Vector2(0.5f, 0.5f);
+            doubleCoinsRect.sizeDelta = new Vector2(240f, 90f);
+            doubleCoinsRect.anchoredPosition = new Vector2(-210f, -113f);
             doubleCoinsLabel.text = "2x Coins\n(Watch Ad)";
 
             // Play/Home/Settings used to be one bottom-right row; split per feedback — Play now
@@ -2229,7 +2282,7 @@ namespace FarmFuryArcade.EditorTools
             ComboNotificationBanner comboBanner, GameObject levelSelect, GameObject shop)
         {
             var settingsPanel = settings.GetComponent<SettingsPanel>();
-            SetRefs(settingsPanel, ("mainMenuScreen", mainMenu));
+            SetRefs(settingsPanel, ("mainMenuScreen", mainMenu), ("leaderboardsScreen", leaderboards));
 
             SetRefs(mainMenu.GetComponent<MainMenuController>(),
                 ("levelSelectScreen", levelSelect), ("settingsPanel", settingsPanel),

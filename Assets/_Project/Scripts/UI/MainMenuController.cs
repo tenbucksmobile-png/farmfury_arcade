@@ -4,11 +4,11 @@ using FarmFuryArcade.Core;
 
 namespace FarmFuryArcade.UI
 {
-    /// <summary>Top-level menu. Stripped to just Play/Settings per the landing-page cleanup —
-    /// Character Roster, Daily Challenge, Store, and Leaderboards no longer have an entry point
-    /// here. Their screens/scripts are untouched (still built, still reachable if something else
-    /// calls SceneTransitionManager.ShowOnly on them directly) — only the Main Menu buttons and
-    /// this controller's references to them were removed.
+    /// <summary>Top-level menu — Play/Settings/Shop only. Leaderboards moved to Settings (its own
+    /// top-right button there) and Daily Challenge moved to Level Select (its own top-right button
+    /// there) per feedback that the landing page should stay to just these three; both had briefly
+    /// lived here as top-corner buttons before that move. Character Roster still has no entry
+    /// point anywhere (see CLAUDE.md's "Known gaps").
     ///
     /// Play opens Level Select directly. An intermediate "World Map" screen (Map.png background,
     /// Play/Home nav buttons — `WorldMapController`) used to sit here; it was removed outright

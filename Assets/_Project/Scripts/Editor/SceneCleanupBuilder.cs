@@ -5,6 +5,7 @@ using UnityEditor.SceneManagement;
 using UnityEngine;
 using UnityEngine.UI;
 using FarmFuryArcade.Core;
+using FarmFuryArcade.Data;
 using FarmFuryArcade.UI;
 using FarmFuryArcade.Utilities;
 
@@ -202,6 +203,28 @@ namespace FarmFuryArcade.EditorTools
             SaveManager.ResetAllProgressKeys();
             Debug.Log("[SceneCleanupBuilder] Cleared all level/world/character-unlock progress. " +
                       "Press Play — only Cluck and Bessie will be unlocked, and Level Select will start at Level 1.");
+        }
+
+        /// <summary>Baseball caps are being pulled from active testing for now (re-test later once
+        /// hatOffset/hatScale get a proper tuning pass — see CosmeticWiringBuilder's own doc
+        /// comment on the first-pass eyeballed values). CosmeticWiringBuilder.WireBaseballCaps no
+        /// longer force-equips them via SaveManager.DebugForceEquipForTesting (see its own comment),
+        /// but any Editor/device session that ran an OLDER build before that change — or that
+        /// manually equipped one for a screenshot — still has the equip flag sitting in its local
+        /// PlayerPrefs, which persists independently of code changes. This clears just the Hat slot
+        /// for all 8 characters (not a full progress reset) so nothing shows regardless of local
+        /// history, without touching the CosmeticData assets, CharacterCosmeticRenderer components,
+        /// or Store purchasability — the feature stays fully intact to resume testing later, this
+        /// only unequips it.</summary>
+        [MenuItem("Farm Fury Arcade/Debug/Unequip All Hats (Testing)")]
+        public static void UnequipAllHatsForTesting()
+        {
+            foreach (CharacterType character in System.Enum.GetValues(typeof(CharacterType)))
+            {
+                PlayerPrefs.DeleteKey("FFA_EquippedHat_" + character);
+            }
+            PlayerPrefs.Save();
+            Debug.Log("[SceneCleanupBuilder] Cleared equipped Hat slot for all characters — baseball caps (and any other hat) will no longer render until re-equipped.");
         }
 
         private static int _sfxDiagFrame;

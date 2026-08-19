@@ -647,7 +647,11 @@ namespace FarmFuryArcade.Core
         }
 
         /// <summary>Permanently destroys the wall at a cell (visually and for walkability) — used
-        /// by HeadbuttThroughAbility and the Iron Stampede combo buff on PuffUpAbility.</summary>
+        /// by HeadbuttThroughAbility and the Iron Stampede combo buff on PuffUpAbility. Spawns a
+        /// ground tile in the wall's place (matching the current maze's own art set) so the cell
+        /// reads as a normal floor tile afterward rather than a blank hole showing the backdrop
+        /// through — RenderMaze always pairs a ground tile with every non-wall cell up front, but a
+        /// cell that starts as a wall and gets destroyed mid-run never went through that pass.</summary>
         public void DestroyWallAt(Vector2Int cell)
         {
             if (_wallsByCell.TryGetValue(cell, out var wallGO))
@@ -661,6 +665,12 @@ namespace FarmFuryArcade.Core
             }
 
             SetTemporaryWalkable(cell, true);
+
+            if (_currentLevel != null)
+            {
+                var artSet = ResolveArtSet(_currentLevel.mazeType);
+                _spawned.Add(Instantiate(artSet.groundPrefab, GridToWorld(cell), Quaternion.identity, mazeParent));
+            }
         }
     }
 }

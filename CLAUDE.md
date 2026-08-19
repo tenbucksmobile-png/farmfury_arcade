@@ -473,6 +473,21 @@ the existing convention). Ducky's Skip Shot cooldown going from 2s to 10s does m
 re-arms much slower now, even though her real limiter was always the once-per-water-pair rule
 (`WaterTile.Used`), not the cooldown — confirmed as an intentional tradeoff, not an oversight.
 
+**`WoollyClone` has a hard containment guard against ending up on (or dropping an egg onto) a
+non-walkable/out-of-bounds cell.** Its wandering AI already reuses `RobotAI.GetValidDirections`
+(the same wall/water/bounds-respecting helper every robot uses) to choose its next direction, so it
+should never legitimately *choose* to move into a wall, water, or off-grid cell — but a gameplay
+screenshot showed a Feather-Storm-buffed clone's dropped egg sitting well outside the maze, past the
+border fence art entirely. `TileMapRenderer.WorldToGrid`/`GridToWorld` do no bounds clamping of
+their own, and direction is only re-validated at "atCenter" events, so a clone landing on the wrong
+cell some other way (e.g. a border wall a Headbutt Through/Iron Stampede use destroyed mid-run
+turning a former-wall cell walkable) had nothing catching it before treating that cell as legitimate
+and dropping an egg there. A full offline audit of all 101 levels' border-ring data found zero
+authoring gaps (every border cell is a wall or a legitimate warp tile), ruling out a maze-data cause
+— so `WoollyClone.Update()` now explicitly checks `_tileMap.IsWalkable(cell)` every frame before
+trusting it, snapping back to the last confirmed-good cell and re-picking a direction if it ever
+isn't, regardless of how it got there.
+
 **Every ability-created robot hazard now defeats on contact, not just stuns** (`ForceDefeat`,
 bypassing the Vulnerable requirement — same convention `PuffUpAbility` already used) — a later
 gameplay rule change: a deployed ability effect a robot runs through should kill it outright.
@@ -537,6 +552,17 @@ Kept general (still takes a `walkable` bool, not `DestroyWallAt`-specific) in ca
 wants a genuinely temporary override again. `GetWallAt(cell)` returns the wall GameObject for
 tinting — currently unused (its only caller was the old wall-phase glow), kept as public API rather
 than removed.
+
+**`DestroyWallAt` now also spawns a ground tile at the destroyed cell.** It used to only destroy the
+wall GameObject and mark the cell walkable via `SetTemporaryWalkable` — `RenderMaze` always pairs a
+ground tile with every non-wall cell up front, but a cell that starts as a wall and gets destroyed
+mid-run never went through that pass, leaving a genuinely blank hole (the maze backdrop showing
+straight through, not just an untextured square) wherever Billy's Headbutt Through or Gerald's Iron
+Stampede combo broke through a wall. Reported via a gameplay screenshot showing a cluster of missing
+floor tiles mid-maze; fixed by having `DestroyWallAt` instantiate the current level's own
+`ResolveArtSet(...).groundPrefab` at that cell (same art-set-aware call `RenderMaze` itself uses) —
+this is a runtime code fix, not a per-level data patch, so it applies to every level automatically
+regardless of which character/ability destroys the wall.
 
 **`playerMovement` in `RobotBase`/subclasses is a live property, not a cached field** — it reads
 `CharacterManager.Instance.ActiveCharacterObject` every access. A cached `FindFirstObjectByType`
@@ -606,7 +632,19 @@ Two coin-spend features exist:
   proportions until the box's own `sizeDelta` was corrected to match the art's real aspect ratio
   (and enlarged, 900x852 → 1300x731, per feedback it read as too small) — getting the box aspect
   right makes the forced Sliced stretch uniform, which is visually equivalent to `preserveAspect`
-  actually working. The Revive button is disabled up front if `SaveManager.CoinBalance <
+  actually working.
+
+  **The Yes/Watch Ad/No button group was later pixel-sampled and re-tuned again** — the box-aspect
+  fix above got the panel art itself sized correctly, but the button layout inside it was still
+  eyeballed against the sign's *outer* wood-frame bounds rather than its actual blank parchment
+  interior, leaving dead wood space above Yes and below No even though the buttons themselves looked
+  reasonably positioned in isolation. Sampling the real background pixels found the readable interior
+  is roughly x=[200,475]/y=[100,265] of the 666x375 source (mapping to world x=[-435,+434]/
+  y=[+171,-151] at the panel's 1300x731 display scale) — the `Content` group is now 500 wide with
+  84-tall buttons (was 62), 16px spacing, 20px padding, recentred at (0,+10), filling that measured
+  interior evenly instead of floating a smaller block inside it.
+
+  The Revive button is disabled up front if `SaveManager.CoinBalance <
   ReviveCoinsCost`, rather than letting the player tap it and find out. Accepting
   (`GameManager.AcceptRevive`) spends the coins and resets `DeathCountThisMaze` back to
   exactly `MaxRespawns` (not below it) — one paid extra life, not a free refill of all 3 — then
@@ -655,6 +693,10 @@ already applied to the Revive Prompt panel and Level Complete panel, and later t
 buttons above and below. **Check this pattern first on any future "looks squashed" report** — a
 uGUI `Image`'s box sized to an assumed aspect that doesn't match the actual uploaded art, combined
 with `SetImageSprite`'s always-Sliced/ignores-`preserveAspect` behaviour, is now a recurring cause.
+Enlarged again later (110x110 → 170x170, font 28 → 44 to match) per feedback it still read as too
+small next to the rest of the HUD — confirmed clear of the D-pad below it before resizing (chip's
+bottom edge lands well above the D-pad's top edge even at 170). `CoinBalanceText`'s anchor fractions
+are unchanged, so the text region scales automatically with the chip.
 
 ### Ad mediation (LevelPlay + AdMob) (`Scripts/Core/AdManager.cs`)
 
@@ -724,14 +766,27 @@ trigger condition already gating it. Uses real art: `WatchAd.png` (baked-in "Wat
 label-baked-into-the-button-art convention as `Yes.png`/`No.png`) wired via `ArtWiringBuilder`'s
 `BtnWatchAd` constant.
 
-**"Double coins earned"** — `LevelCompleteController` gained a "2x Coins (Watch Ad)" button on
-`LevelComplete.png`'s shelf, below the score/stars. `GameManager.ClaimDoubleCoinsViaAd()` (a sibling
-to `AcceptRevive`/`AcceptReviveViaAd`'s pattern) pays out a second copy of that completion's
-`LastLevelResult.coinsEarned` once `AdManager` confirms the reward — an additive top-up, not a
-retroactive rewrite of `coinsEarned` itself. `GameManager.DoubleCoinsClaimed` (reset every
-`EndLevel(true)`) stops it being claimed twice for the same completion. Uses real icon art
-(`DoubleCoins.png`, a coin-stack + ×2 badge) with the "2x Coins (Watch Ad)" text rendered at runtime
-on top — icon-only, not baked-in-label, since the button is small and square.
+**"Double coins earned"** — `LevelCompleteController` has a "2x Coins (Watch Ad)" button.
+`GameManager.ClaimDoubleCoinsViaAd()` (a sibling to `AcceptRevive`/`AcceptReviveViaAd`'s pattern)
+pays out a second copy of that completion's `LastLevelResult.coinsEarned` once `AdManager` confirms
+the reward — an additive top-up, not a retroactive rewrite of `coinsEarned` itself.
+`GameManager.DoubleCoinsClaimed` (reset every `EndLevel(true)`) stops it being claimed twice for the
+same completion. Uses real icon art (`DoubleCoins.png`, a coin-stack + ×2 badge) with the "2x Coins
+(Watch Ad)" text rendered at runtime on top — icon-only, not baked-in-label, since the button is
+small and square.
+
+**No longer sits inside the card's shelf** — it originally lived on `LevelComplete.png`'s shelf
+below the score/stars (a 3rd stacked row alongside `ScoreText`/`StarDisplay`), but pixel-sampling
+the actual art (500x500 source) showed the shelf's true blank interior is only ~y=[225,380] — a band
+that was already correctly tuned for score+stars alone (`ShelfContent`'s 0.28-0.56 anchor fraction
+matches it almost exactly) but had no real room for a 3rd row without reading cramped. Moved to a
+standalone button on the screen's right margin instead — `PanelArt` is a square `AspectRatioFitter`
+sized to the screen's height, which leaves a ~420px empty margin on each side once centred in the
+1920-wide reference canvas — right-edge anchored, positioned at the same height as the score/stars
+band (`anchoredPosition (-210,-113)`) so it still reads as "the thing next to your score" rather than
+an unrelated floating button. `ArtWiringBuilder`'s wiring path for its icon changed accordingly, from
+`LevelCompleteScreen/PanelArt/ShelfContent/DoubleCoinsButton` to `LevelCompleteScreen/
+DoubleCoinsButton`.
 
 **"Extra ability charge" / "skip cooldown via ad"** — per the plan doc's own text, these two listed
 placements are literally the same feature ("(d) same button, ad as the free alternative to spending
@@ -889,6 +944,16 @@ render access this session either — re-tune further if it overshoots).
 for them; that call is still available for future ad-hoc testing, just not used by this shipped
 content path anymore.
 
+**Baseball caps were pulled from active testing (2026-08-19)**, per feedback — "we will test this
+later" once `hatOffset`/`hatScale` get a proper tuning pass with real Play mode access.
+`SceneCleanupBuilder.UnequipAllHatsForTesting` (`Farm Fury Arcade > Debug > Unequip All Hats
+(Testing)`) clears the equipped-Hat PlayerPrefs key for all 8 characters — a defensive step since
+`WireBaseballCaps` hasn't force-equipped them since the coin-purchase change above, but any local
+Editor/device session that ran an older build (or manually equipped one for a screenshot) still had
+the equip flag sitting in PlayerPrefs independent of code changes. This doesn't delete the
+`CosmeticData` assets, `CharacterCosmeticRenderer` components, or Store purchasability — the feature
+stays fully intact to resume testing later, this only unequips it.
+
 **`SaveManager.DebugForceEquipForTesting(CosmeticType, CharacterType, cosmeticId)`** is a
 testing-only static helper (same static/Edit-mode-safe convention as `ResetAllProgressKeys`) that
 grants ownership and equips a cosmetic directly via PlayerPrefs, bypassing
@@ -1029,20 +1094,37 @@ from their original Phase 5 layouts:
   (which already bakes in the "FARM FURY ARCADE" logo) — `PlayButton` bottom-left → Level Select,
   `SettingsButton` bottom-right → the Settings overlay. The old vertical button stack (Character
   Roster/Daily Challenge/Store/Leaderboards) and its duplicate "Title" text are gone, along with
-  the `MainMenuScreen/Content` vertical group they lived in. Character Roster/Daily Challenge/
-  Leaderboards still get built by `Phase5ProjectBuilder.BuildAll` and still work — they just have no
-  entry point from Main Menu, so reaching them today means calling `SceneTransitionManager.ShowOnly`
-  on them directly (nothing currently does). `CharacterRosterScreen`/`LeaderboardsScreen` keep their
-  own `mainMenuScreen` back-reference for their "Back" buttons regardless. Store regained an entry
-  point later (Monetisation Phase 3's IAP plumbing) — a third `ShopButton`, bottom-centre between
-  Play and Settings, opens `ShopController` (see "IAP plumbing" above); Main Menu is a three-button
-  screen again, not two, as of that change. `ShopButton` used a plain orange placeholder + "Shop"
-  text label until `Shop.png` (a wide banner with its own "Shop" label + coin icon baked in) landed
-  — the auto-generated text label is destroyed the same way `Yes.png`/`No.png`/`Btn_home.png`'s
-  self-contained-label buttons already do, and the button's box was widened from 160x130 to
-  260x130 to match the art's real ~2:1 aspect (`ArtWiringBuilder.SetImageSprite` always applies
-  `Image.Type.Sliced`, which ignores `preserveAspect`, so the box's own aspect is what actually
-  keeps the banner from being squashed — same fix as the Coin Balance Chip below).
+  the `MainMenuScreen/Content` vertical group they lived in. Character Roster still has no entry
+  point (see "Known gaps"). Store regained an entry point later (Monetisation Phase 3's IAP
+  plumbing) — a third `ShopButton` opens `ShopController` (see "IAP plumbing" above); Main Menu is
+  a three-button screen again, not two, as of that change.
+
+  **Shop button went through two art passes.** It used a plain orange placeholder + "Shop" text
+  label until `Shop.png` (originally a wide banner with its own "Shop" label + coin icon baked in)
+  landed, bottom-centre between Play and Settings, box widened 160x130 → 260x130 to match the art's
+  ~2:1 aspect. That banner art was later swapped for a square 500x500 cash-wad plaque icon (same
+  filename, `Shop.png`, overwritten in place — the original banner survives on disk renamed to
+  `ShopBanner.png`, unused) and the button relocated to a top-right 160x160 icon (matching Play/
+  Settings' size), inset (-100,-50) — pixel-checked against `landing.png`'s own layout (1280x720
+  source) to confirm this sits in clear sky above the "ARCADE" ribbon (which starts around y=200 of
+  that source), so it never overlaps the baked-in header text. (`ArtWiringBuilder.SetImageSprite`
+  always applies `Image.Type.Sliced`, which ignores `preserveAspect`, so the box's own aspect
+  matching the art is what actually prevents squashing — same fix as the Coin Balance Chip below,
+  and the same pattern that bit the Revive Prompt panel and Level Complete panel too.)
+
+  **Leaderboards and Daily Challenge briefly got their own Main Menu top-corner buttons** (to close
+  the "no entry point" gap noted below), then were relocated again per feedback that the landing
+  page should stay to just Play/Settings/Shop: **Leaderboards moved to the Settings overlay**
+  (`SettingsPanel.leaderboardsButton`, top-right, `Leaderboard.png` — a 666x392 hanging wood sign
+  with its own "Leader Board" label baked in, opens `LeaderboardsScreen`) — reachable from both Main
+  Menu and Pause now, not just the landing page, since Settings opens from either. **Daily Challenge
+  moved to Level Select** (`LevelSelectController.dailyChallengeButton`, top-right, `Challenge.png`,
+  same sign convention/aspect as Leaderboard's — always visible in both the world-select carousel
+  and tile-grid states, unlike `CurrentWorldIndicator` which only occupies the opposite top-left
+  corner in the tile-grid state). Both buttons use the same 380x224 box size/inset for visual
+  consistency between the two relocated features. `LeaderboardsScreen`/`CharacterRosterScreen` keep
+  their own `mainMenuScreen` back-reference for their "Back" buttons regardless of which screen
+  opened them.
 - **World Map** at this point in the project's history had similarly lost its top-left `HomeButton`
   + horizontally-scrolling level-marker strip (`LevelMarker`/`StarDisplay`, built via
   `CreateHorizontalScrollView`) in favour of the same bottom-left/right icon-button convention as
@@ -2135,21 +2217,27 @@ always), check this array first** before suspecting the sprite itself or `localS
 the second and third time this exact omission has caused it (see Orchard's wall/floor/backdrop/
 pellet/bonus consts above, found the same way).
 
-**Billy still has a real, unresolved sizing inconsistency between facings — a stopgap is in place,
-not a fix.** Unlike every other character's art (uniformly 500x500 square in every direction), his
-`Billy_Front.png`/`Billy_back.png` are tight portrait crops (213x401 / 234x408) while
-`Billy_left/right(1).png` are a much more loosely-padded 500x500 square. Since `CharacterAnimator`
-just swaps `_spriteRenderer.sprite` with no per-frame scale compensation, and PPU is normally set to
-each texture's own width, this rendered him ~1.88 world units tall facing up/down but only ~1.0
-tall facing left/right — a visible size pop on turning, caught via a direct pixel-dimension check
-across all 8 characters' art (only Billy has a directional aspect-ratio mismatch; every other
-character's directions are all 500x500). **Stopgap:** `ConfigureSpriteImporters` now overrides PPU
-for just `Billy_left/right(1).png` to `500 * 213 / 401 ≈ 265.6` (matching Front's height ratio)
-instead of the texture's own width, so his apparent height is now consistent across every facing —
-at the cost of also rendering him wider than 1 grid cell while walking sideways, since a single PPU
-scalar can't fix height independent of width on a square source. The real fix is a tighter crop of
-the Left/Right art (matching Front/Back's framing) whenever that art lands; replace the override
-with the standard `width > 0 ? width : 100` rule at that point, not before.
+**Billy's sizing inconsistency is now actually fixed, not just stopgapped.** Unlike every other
+character's art (uniformly 500x500 square in every direction), his `Billy_Front.png`/
+`Billy_back.png` are tight portrait crops (213x401 / 234x408) while `Billy_left/right(1).png` are a
+much more loosely-padded 500x500 square. Since `CharacterAnimator` just swaps
+`_spriteRenderer.sprite` with no per-frame scale compensation, and PPU is normally set to each
+texture's own WIDTH (which renders every other character at exactly 1x1 world units, since their art
+is uniformly square), applying that same rule to Billy's tight crops rendered him ~1.88 world units
+TALL facing up/down — not just inconsistent across his own facings, but visibly oversized against
+every other character and robot on the board (a grid cell is 1 unit). An earlier stopgap only
+matched Left/Right's PPU to Front's height ratio, which kept his 4 facings internally consistent
+with each other but left him consistently oversized in every direction — self-consistent, not
+correctly calibrated. Reported directly via a gameplay screenshot ("his scale is too oversized").
+
+**Fix:** `ConfigureSpriteImporters` now overrides PPU to each texture's own HEIGHT (not width) for
+all 6 Billy sprites (Front/Back/Left0/Left1/Right0/Right1), so he renders at exactly 1 world unit
+tall in every facing — matching every other character — with width scaling proportionally per each
+crop's real aspect (narrower for the tight Front/Back portraits, full 1 unit for the square Left/
+Right art) rather than forcing a uniform bounding box. No art recrop needed for this fix, though a
+tighter crop of the Left/Right art (matching Front/Back's framing) would still be a nice-to-have —
+if that lands later, this whole per-Billy override block can be deleted and he'll fall through to
+the same standard `width > 0 ? width : 100` rule every other character already uses.
 
 **Still missing / not wired:** a Vulnerable-state robot sprite and the Loading Screen background
 (uploaded, unwired — see above). Cluck's Egg Drop effect art and the branding Logo are both wired
@@ -2402,18 +2490,17 @@ and reopen the project normally to confirm nothing was corrupted.
   outright afterward — see "Removed: World Map screen".
 
 ## Known gaps / flagged for Phase 6
-- **Character Roster and Leaderboards have no Main Menu entry point** — removed in the
-  landing-page cleanup (see "Landing/Gameplay-HUD cleanup" above) in favour of just Play/Settings/
-  Shop. Both screens still exist and build correctly; reaching them today requires calling
-  `SceneTransitionManager.ShowOnly` directly, since nothing currently does. (Shop/`ShopController`
-  regained a Main Menu entry point when Monetisation Phase 3's IAP plumbing was built — see "IAP
-  plumbing" above — so it's no longer in this no-entry-point group.) Daily Challenge is
-  different: it isn't a separate screen, just an objective overlaid on `LevelData_01` (index
-  `DailyChallengeLevelIndex`, 0) — since that's the same level the normal Main Menu/Level Select
-  flow already plays, `DailyChallengeManager.CheckCompletionOnLevelEnd` fires on any ordinary playthrough of
-  level 0, no special entry point needed. (Before the Matchup screen's removal, that screen's
-  `ShowForLevel` was one way to jump straight to a given level for testing; that shortcut is gone,
-  but Daily Challenge completion never depended on it.)
+- **Character Roster has no entry point anywhere** — removed in the landing-page cleanup (see
+  "Landing/Gameplay-HUD cleanup" above) in favour of just Play/Settings/Shop, and never regained
+  one the way Leaderboards/Daily Challenge/Shop each eventually did. The screen still exists and
+  builds correctly; reaching it today requires calling `SceneTransitionManager.ShowOnly` directly,
+  since nothing currently does. Leaderboards now has an entry point again (Settings overlay,
+  top-right) and Daily Challenge has one on Level Select (top-right) — see "Landing/Gameplay-HUD
+  cleanup" above — so neither is in this no-entry-point state any more; Daily Challenge additionally
+  never strictly needed a dedicated entry point in the first place, since it isn't a separate screen,
+  just an objective overlaid on `LevelData_01` (index `DailyChallengeLevelIndex`, 0) —
+  `DailyChallengeManager.CheckCompletionOnLevelEnd` fires on any ordinary playthrough of level 0
+  regardless of how that level was reached.
 - **Store is now a minimal, real IAP purchase surface (coin packs + Remove Ads), not a placeholder**
   — see "IAP plumbing" above. The GDD's full cosmetics Store vision (hats/skins/trails/themes) is
   still unbuilt and is Phase 4 scope, not Phase 6 as this section's own heading implies — that
@@ -2452,8 +2539,13 @@ Main Menu ──Play──▶ Level Select ──tap unlocked tile──▶ Game
     │                                           or Pause ▸ Quit to Level Select)
     │
     ├──Settings (gear)────▶ modal overlay (2x3 plaque grid: music/sfx/vibration/left-handed/
-    │                        language/restore purchases) ──back (round icon)──▶ wherever opened from
+    │                        language/restore purchases, + top-right Leaderboards button)
+    │                        ──back (round icon)──▶ wherever opened from
     └──Shop─────────────▶ modal overlay (5 coin packs + Remove Ads) ──Back──▶ Main Menu
+
+Level Select also has its own top-right Daily Challenge button (loads LevelData_01 directly,
+independent of the world-select/tile-grid state) — not shown above since it doesn't branch the
+screen graph, just jumps straight into Gameplay HUD the same way an unlocked tile tap does.
 ```
 
 (An intermediate "World Map" screen used to sit between Main Menu and Level Select, and a Matchup
@@ -2468,11 +2560,10 @@ New Character Unlock is a special case: not reachable by navigation, it's trigge
 by `LevelCompleteController` partway through its own celebration sequence, whenever
 `UnlockManager.LastUnlockedBatch` isn't empty.
 
-**Character Roster and Leaderboards are no longer reachable from Main Menu** (removed in the
-landing-page cleanup — see "Landing/Gameplay-HUD cleanup" and the matching "Known gaps" entry).
-Both screens still exist and still work exactly as described above if shown directly via
-`SceneTransitionManager.ShowOnly` — there's just no button anywhere that does so today. Shop
-regained a Main Menu entry point when Monetisation Phase 3's IAP plumbing was built (see "IAP
-plumbing" above) — it's the overlay shown in the diagram, not one of the no-longer-reachable
-screens. Daily Challenge is unaffected, since it isn't a separate screen — see the matching
-"Known gaps" entry.
+**Character Roster is the only screen with no entry point anywhere** (removed in the landing-page
+cleanup — see "Landing/Gameplay-HUD cleanup" and the matching "Known gaps" entry). It still exists
+and still works exactly as described above if shown directly via `SceneTransitionManager.ShowOnly`
+— there's just no button anywhere that does so today. Leaderboards (via Settings) and Daily
+Challenge (via Level Select) both regained entry points after briefly living on Main Menu — see
+"Landing/Gameplay-HUD cleanup" above. Shop regained a Main Menu entry point when Monetisation
+Phase 3's IAP plumbing was built (see "IAP plumbing" above) — it's the overlay shown in the diagram.
