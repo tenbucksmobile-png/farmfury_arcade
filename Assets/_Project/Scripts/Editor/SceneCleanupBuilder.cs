@@ -364,6 +364,64 @@ namespace FarmFuryArcade.EditorTools
                 : "[LevelSelectDiag] FAIL: little or no scroll range — this is why drags spring back immediately.");
         }
 
+        /// <summary>Logs the actual serialized state of every screen built via
+        /// Phase5ProjectBuilder.ApplyDimmedLandingBackground (Settings/Shop/CosmeticsHub/Hat+Trail
+        /// purchase/Leaderboards) — root Image sprite+color+sibling index, and the PosterBackdrop
+        /// child's own sprite+color+sibling index+active state. Exists because a screenshot alone
+        /// couldn't settle whether the 50%-opacity dim was actually reaching the built scene or
+        /// failing at some other point (stale build, wrong sibling order, disabled GameObject,
+        /// sprite import failure) — this reads the real component values directly out of the
+        /// Editor-mode scene, no Play mode and no visual interpretation required.</summary>
+        [MenuItem("Farm Fury Arcade/Debug/Diagnose Dimmed Backdrops")]
+        public static void DiagnoseDimmedBackdrops()
+        {
+            EditorSceneManager.OpenScene(ScenePath);
+
+            var canvas = GameObject.Find("Canvas");
+            if (canvas == null)
+            {
+                Debug.LogError("[BackdropDiag] Could not find Canvas in the scene.");
+                return;
+            }
+
+            string[] screenNames =
+            {
+                "SettingsOverlay", "StoreComingSoonOverlay", "CosmeticsHubScreen",
+                "HatPurchaseScreen", "TrailPurchaseScreen", "LeaderboardsScreen"
+            };
+
+            foreach (var name in screenNames)
+            {
+                var screenTransform = canvas.transform.Find(name);
+                if (screenTransform == null)
+                {
+                    Debug.LogWarning($"[BackdropDiag] {name}: NOT FOUND under Canvas.");
+                    continue;
+                }
+
+                var rootImage = screenTransform.GetComponent<Image>();
+                string rootDesc = rootImage != null
+                    ? $"sprite={(rootImage.sprite != null ? rootImage.sprite.name : "null")} color={rootImage.color} siblingIndex={screenTransform.GetSiblingIndex()}"
+                    : "NO Image component on root";
+
+                var poster = screenTransform.Find("PosterBackdrop");
+                string posterDesc;
+                if (poster == null)
+                {
+                    posterDesc = "MISSING — ApplyDimmedLandingBackground never ran, or this scene predates that fix";
+                }
+                else
+                {
+                    var posterImage = poster.GetComponent<Image>();
+                    posterDesc = posterImage != null
+                        ? $"active={poster.gameObject.activeSelf} sprite={(posterImage.sprite != null ? posterImage.sprite.name : "null")} color={posterImage.color} siblingIndex={poster.GetSiblingIndex()} (root has {screenTransform.childCount} children)"
+                        : "child exists but has NO Image component";
+                }
+
+                Debug.Log($"[BackdropDiag] {name} -> root: {rootDesc} | PosterBackdrop: {posterDesc}");
+            }
+        }
+
         private static void DedupeAndDisable<T>() where T : MonoBehaviour
         {
             var instances = Resources.FindObjectsOfTypeAll<T>()

@@ -1363,13 +1363,17 @@ Story):
   `CreateRoundBackButton`). `CreateIconButton` is the shared no-label/preserveAspect/explicit-
   sizeDelta helper every one of these buttons goes through.
 - **Every text/wood-sign header is the same size/position** —
-  `Phase5ProjectBuilder.CreateHeaderSign` (860x320, `(0,-40)` top-center offset), benchmarked
-  against Level Select's own "SELECT LEVEL" sign. Used by Settings, Shop, Cosmetics hub, and the
-  new Leaderboards header. Hat/Trail purchase screens keep their small icon-only breadcrumb instead
+  `Phase5ProjectBuilder.CreateHeaderSign` (**550x310, `(0,-55)` top-center offset** — re-tuned
+  2026-08-20 evening against a pixel-measured benchmark mockup; see "Settings backdrop/header
+  gotchas" below for why and by how much). Used by Settings, Shop, Cosmetics hub, and the
+  Leaderboards header. Hat/Trail purchase screens keep their small icon-only breadcrumb instead
   of a text sign, so they're not part of this standard.
-- **Every screen using the `landing.png` "poster" backdrop shows it at 50% opacity** —
-  `Phase5ProjectBuilder.ApplyDimmedLandingBackground`. Applies to Settings, Shop, Cosmetics hub,
-  Hat/Trail purchase, and the rebuilt Leaderboards screen.
+- **Every screen using the poster backdrop shows it pre-faded** — `Phase5ProjectBuilder.
+  ApplyDimmedLandingBackground` defaults to `Landing_Opacity.png` (a version of `landing.png` with
+  the dim baked directly into the pixels by hand, not a runtime alpha blend) at full alpha. Applies
+  to Settings, Shop, Cosmetics hub, Hat/Trail purchase, and Leaderboards. See "Settings backdrop/
+  header gotchas" below — this replaced an earlier `landing.png`-at-50%-runtime-alpha approach that
+  looked correct in code but silently failed to render dimmed at all.
 - Screens with bespoke non-square button art predating this pass — Pause, Choose Character, Level
   Failed, Character Roster, Gameplay HUD — are deliberately **not** touched; forcing a wide banner
   button into a square box would squash it, the exact bug this pass fixed for DoubleCoins (below).
@@ -1377,8 +1381,10 @@ Story):
 **Settings** was rebuilt from scratch to match a new mockup, discarding the entire old 2x3 toggle/
 dropdown/Restore-Purchases grid — Music/SFX volume, Vibration, Left-Handed, Language, and IAP
 Restore Purchases are **no longer wired to anything** (the underlying `SaveManager` state and
-`IAPManager.RestorePurchases` still exist, just nothing calls them). The new layout: dimmed
-`landing.png` backdrop, `Logo.png` top-left, `SettingsSign.png` header, and a 4x2
+`IAPManager.RestorePurchases` still exist, just nothing calls them). The new layout: dimmed poster
+backdrop (**no `LogoImage` on this screen** — removed per explicit request once the backdrop dim
+made the poster's own baked-in "FARM FURY ARCADE" wordmark read clearly enough on its own; every
+other screen in this family still has one), `SettingsSign.png` header, and a 4x2
 `GridLayoutGroup` of plaque cells — row 1 wired (**Shop** — see its relocation history below,
 **Music** mute toggle via `Btn_music-remove.png`, dimming to a grey tint when muted since no
 dedicated "off" art variant exists, **Leaderboards** via `Btn_LeaderBoard.png`, **Character Story**
@@ -1388,6 +1394,63 @@ for the old `Btn_plaque.png` per an explicit art-swap request — reserved for w
 into these cells next). The round close button (`Btn_back.png`, matching the Shop/Cosmetics suite's
 icon rather than the old distinct "go home" `Btn_home.png`) now just closes the overlay instead of
 always forcing navigation to Main Menu, since it no longer reads as a "go home" action.
+
+**Settings backdrop/header gotchas (2026-08-20 evening follow-up pass).** After the redesign above
+shipped, the backdrop dim reported as simply not visible — chased across several rounds, with two
+real, previously-undiscovered bugs found and fixed:
+
+1. **`PlaceholderSprite.Get()` sprites don't reliably survive a scene save/reload.**
+   `ApplyDimmedLandingBackground` originally set the dimmed poster directly on the panel's own root
+   `Image` (overwriting `CreatePanel`'s opaque backing) — fixed earlier the same day to instead
+   layer the poster as a separate `PosterBackdrop` child on top of the root's existing opaque
+   backing. That fix was logically correct but still didn't render dimmed, because the root's own
+   backing turned out to be broken too: `CreatePanel(..., Color.black)` sets the root `Image.sprite`
+   to `PlaceholderSprite.Get(Color.black)` — a `Sprite.Create()` built from a plain
+   `new Texture2D(...)` that's never saved as a real `AssetDatabase` asset (no `.meta`, no GUID).
+   That kind of purely-in-memory `Sprite` reference does not reliably re-serialize across a scene
+   save/reload the way an embedded prefab sub-asset does — confirmed via a new Edit-mode diagnostic
+   (`Farm Fury Arcade > Debug > Diagnose Dimmed Backdrops`, `SceneCleanupBuilder.
+   DiagnoseDimmedBackdrops`, same reflection-free-log convention as `Diagnose Level Select Scroll
+   Range`) showing the root `Image` had `sprite=null`, `color=white` on every one of these 6
+   screens in the actually-saved scene, despite the live batch-mode session that built them showing
+   the correct assignment. A null sprite + white color renders as an opaque WHITE rect via `Image`'s
+   own null-sprite fallback, not opaque black — so the "dimmed" poster on top of it was blending
+   toward white the whole time, never toward black. **Fix:** `ApplyDimmedLandingBackground` now
+   forces the root `Image` to `sprite=null` / `color=Color.black` explicitly, rather than trusting
+   `CreatePanel`'s placeholder assignment to still be intact. A null-sprite `Image` already renders
+   a solid filled rect from its own `color` — no asset reference to lose on serialization. **If a
+   future screen's `CreatePanel`-based solid-color backing ever silently reads as white/default
+   instead of the requested color, check this exact pattern first** — same class of "looks right in
+   the building session, breaks on reload" bug as the Phase 4 prefab-field gotcha and the button
+   listener gotcha already documented under Editor tooling.
+2. **Even with that fixed, a 50%-alpha runtime blend of `landing.png` still wasn't giving a
+   convincing dim** (subjectively too subtle against the actual poster art's brightness). Rather
+   than keep tuning the runtime alpha value, `Landing_Opacity.png` — a copy of `landing.png` with
+   the fade baked into the pixels by hand — was added and made `ApplyDimmedLandingBackground`'s
+   default poster (`opacity` param now defaults to `1f`, i.e. no runtime blend at all). The method
+   still takes `posterFileName`/`opacity` params in case a screen ever needs to override this.
+
+**Settings header/grid sizing (same follow-up pass), all measured directly off benchmark mockups
+via gridline-overlay pixel analysis, not eyeballed:**
+- **Header sign** grew from the redesign's original 860x320 box to 692x390 (matching the sign art's
+  own aspect ratio, ~1.776, so `preserveAspect` stopped wasting box space) — then that turned out
+  too large, its bottom edge landing 60px past the icon grid's own top edge (both computed directly
+  from the layout code: header bottom = `55 + height`; grid top = `540 - (gridCenterY) - gridHeight/2`
+  in the 1920x1080 reference canvas). Settled at **550x310** (`StandardHeaderSignSize`), which gives
+  a verified clearance to the grid rather than an eyeballed one.
+- **Icon grid spacing** (`cellSpacing` in `BuildSettingsPanel`) went from 50 to **77** — measured
+  off the benchmark's own icon-to-icon gap (~4% of screen width, vs. 50's ~2.6% in the 1920-wide
+  canvas).
+- **Icon grid vertical position** — was bunched immediately under the header with a large dead zone
+  below it down to the screen edge; recentered to the midpoint of the space between the header's
+  bottom edge and the screen's own bottom edge (`gridRect.anchoredPosition = (0, -183)`), verified
+  clear of the round back button's corner position by X-coordinate alone (grid's own width maxes
+  out well short of the button's horizontal position, regardless of any Y-range overlap).
+- **`Icon_bare.png`** (the row-2 blank-plaque art) was cropped to fill its own canvas edge-to-edge,
+  matching every row-1 icon (`Shop.png`, `Btn_LeaderBoard.png`, etc., all ~99.6% fill) — the
+  original art only filled ~63%×70% of its 500x500 canvas, so even at an identical
+  `StandardIconButtonSize` cell, row 2's plaques rendered visibly smaller than row 1's. This was a
+  pure art-content issue, not a layout bug — the grid code already sized every cell identically.
 
 **Daily Challenge button** (`LevelSelectController.dailyChallengeButton`, top-right of Level
 Select) was unwired shortly before this pass, per explicit instruction — its sign art and
@@ -1712,7 +1775,9 @@ phase made for art (solid-colour placeholders instead of real sprites).
   Also no longer wires `matchup.png`/its buttons (see "Removed: Matchup screen").
 - **`SceneCleanupBuilder`** (`Farm Fury Arcade > Disable Debug Test Overlays` /
   `Farm Fury Arcade > Fit Gameplay Camera To Maze` / `Farm Fury Arcade > Debug > Reset All
-  Progress (Testing)` / `Farm Fury Arcade > Wire AdManager Config`) — small targeted scene-hygiene
+  Progress (Testing)` / `Farm Fury Arcade > Wire AdManager Config` / `Farm Fury Arcade > Debug >
+  Diagnose Level Select Scroll Range` / `Farm Fury Arcade > Debug > Diagnose Dimmed Backdrops`) —
+  small targeted scene-hygiene
   fixes that are neither "wire art" nor "rebuild a phase's content." `DisableDebugTestOverlays`
   deactivates (and de-duplicates) the 5 `Phase*Test` GameObjects; `FitGameplayCameraToMaze` (renamed
   from `ZoomInGameplayCamera` — it now does the opposite) sets the Main Camera's `orthographicSize`
@@ -1725,7 +1790,9 @@ phase made for art (solid-colour placeholders instead of real sprites).
   dependent). `WireAdManagerConfig` sets `AdManager`'s LevelPlay app-key/placement-ID fields on the
   scene's `AdManager` component (see "Ad mediation" above) — only overwrites a field when a
   non-empty value is passed in, so it's safe to re-run as new platform values arrive piecemeal
-  without clobbering ones already set. All four entry points are safe to re-run.
+  without clobbering ones already set. `DiagnoseLevelSelectScrollRange`/`DiagnoseDimmedBackdrops`
+  are read-only Edit-mode diagnostics — see "Level Select" and "Settings backdrop/header gotchas"
+  above for what each answers. All entry points here are safe to re-run.
 
 `Phase1Test.cs`/`Phase2Test.cs`/`Phase3Test.cs`/`Phase4Test.cs`/`Phase5Test.cs` (`Scripts/Core`) are verification
 harnesses, not gameplay — each auto-runs a battery of checks on `Start()` and logs `PASS`/`FAIL`/

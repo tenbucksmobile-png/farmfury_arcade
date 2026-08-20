@@ -1295,12 +1295,9 @@ namespace FarmFuryArcade.EditorTools
             StretchFull((RectTransform)root.transform);
             ApplyDimmedLandingBackground(root);
 
-            var logoImageGO = new GameObject("LogoImage", typeof(RectTransform), typeof(Image));
-            logoImageGO.transform.SetParent(root.transform, false);
-            var logoImage = logoImageGO.GetComponent<Image>();
-            logoImage.sprite = LoadUiSprite("Logo.png");
-            logoImage.preserveAspect = true;
-            AnchorTopLeft((RectTransform)logoImageGO.transform, new Vector2(420f, 238f), new Vector2(100f, -50f));
+            // No LogoImage on this screen (removed per explicit request) — landing.png's own
+            // baked-in "FARM FURY ARCADE" wordmark already reads through the dimmed backdrop, and
+            // the separate Logo.png badge duplicated it in the same top-left corner.
 
             CreateHeaderSign(root.transform, LoadUiSprite("SettingsSign.png"));
 
@@ -1314,11 +1311,27 @@ namespace FarmFuryArcade.EditorTools
             var gridRect = (RectTransform)gridGO.transform;
             gridRect.anchorMin = gridRect.anchorMax = new Vector2(0.5f, 0.5f);
             gridRect.pivot = new Vector2(0.5f, 0.5f);
-            float cellSpacing = 50f;
+            // Measured directly off the Settings benchmark mockup (gridline analysis): adjacent
+            // icons sit ~4% of screen width apart (icon width ~11%, gap ~4%, of a 1280px-wide
+            // reference), not the ~2.6% gap the old 50px spacing produced in this 1920-wide canvas
+            // (50/1920 = 2.6%). 0.04*1920 = 76.8, rounded to 77 — matches the benchmark's actual
+            // icon-to-icon spacing in both axes (GridLayoutGroup.spacing applies this uniformly).
+            float cellSpacing = 77f;
             float gridWidth = 4 * StandardIconButtonSize + 3 * cellSpacing;
             float gridHeight = 2 * StandardIconButtonSize + cellSpacing;
             gridRect.sizeDelta = new Vector2(gridWidth + 100f, gridHeight + 60f);
-            gridRect.anchoredPosition = new Vector2(0f, -60f);
+            // Centered in the vertical space between the header's bottom edge (365px from screen
+            // top, from StandardHeaderSignOffset/Size above) and the screen's own bottom edge
+            // (1080px) rather than sitting bunched just under the header — per feedback that the
+            // grid needs to "sit nicely middle aligned" with the empty space below it. Midpoint of
+            // that 365-1080 zone is 722.5px from top regardless of the grid's own height (centering
+            // targets the midpoint, not an edge), so this offset doesn't need to change when
+            // cellSpacing above changes gridHeight. Verified clear of CreateRoundBackButton's
+            // bottom-right corner button by X position alone: gridWidth=4*160+3*77=871, container
+            // sizeDelta.x=971, so the grid's own edge maxes out at canvas X=+485.5 even at this
+            // wider spacing; the back button's left edge sits at X=+650 — a ~164-unit gap — so this
+            // shift can't crowd it regardless of any Y-range overlap.
+            gridRect.anchoredPosition = new Vector2(0f, -183f);
             var grid = gridGO.GetComponent<GridLayoutGroup>();
             grid.cellSize = new Vector2(StandardIconButtonSize, StandardIconButtonSize);
             grid.spacing = new Vector2(cellSpacing, cellSpacing);
@@ -1445,18 +1458,74 @@ namespace FarmFuryArcade.EditorTools
         // aren't touched — forcing their wide banner-style buttons into a square box would squash
         // them, the exact bug this same session already fixed once for DoubleCoins.png.
         private const float StandardIconButtonSize = 160f;
-        private static readonly Vector2 StandardHeaderSignSize = new Vector2(860f, 320f);
-        private static readonly Vector2 StandardHeaderSignOffset = new Vector2(0f, -40f);
-        private const float StandardBackdropOpacity = 0.5f;
+        // Sized to guarantee real clearance above BuildSettingsPanel's icon grid, not just eyeballed
+        // against the benchmark: with the grid's own layout math (StandardIconButtonSize=160,
+        // cellSpacing=50 -> gridHeight=370, container sizeDelta.y=gridHeight+60=430, anchoredPosition
+        // Y=-60 on a (0.5,0.5)-pivoted rect in a 1920x1080 canvas), the grid's own top edge sits
+        // exactly 385px below the screen top. The header box's top offset is 55px below the screen
+        // top (AnchorTopCenter, pivot.y=1), so its bottom edge sits (55 + height)px down — this
+        // height (310) keeps that bottom edge at 365px, a real verified 20px gap above the grid's
+        // 385px top edge (comfortably over the requested 8px minimum). The previous 692x390 box put
+        // the bottom edge at 445px, 60px PAST the grid's top edge — a real, computed overlap, not a
+        // rendering glitch (confirmed against a screenshot showing the sign covering row 1's icons).
+        // Width (550) keeps the box's aspect (550/310 ~= 1.77) matching the sign art's own aspect
+        // (666x375 ~= 1.776), so preserveAspect doesn't waste any of the box on empty space.
+        private static readonly Vector2 StandardHeaderSignSize = new Vector2(550f, 310f);
+        private static readonly Vector2 StandardHeaderSignOffset = new Vector2(0f, -55f);
 
-        /// <summary>Sets a screen's own root Image to landing.png at the standard dimmed opacity —
-        /// same "poster" background every screen in this redesign wave shares, just faded so it
-        /// reads as a backdrop rather than competing with the content on top of it.</summary>
-        private static void ApplyDimmedLandingBackground(GameObject root)
+        /// <summary>Adds landing.png at the standard dimmed opacity as a CHILD layer on top of the
+        /// root's own opaque black Image — same "poster" background every screen in this redesign
+        /// wave shares, faded so it reads as a backdrop rather than competing with the content on
+        /// top of it.
+        ///
+        /// Deliberately does NOT set the sprite/color directly on the root's own Image (an earlier
+        /// version did, and the dimming silently read as a no-op): every one of these 6 screens is
+        /// an overlay shown via plain SetActive on top of whatever's already showing (Main Menu or
+        /// Pause), not through SceneTransitionManager.ShowOnly, so the screen behind stays active
+        /// and visible underneath. CreatePanel already gives the root an opaque black Image — that
+        /// was the only thing standing between the overlay and whatever's behind it. Overwriting
+        /// that Image's own sprite/color to a 50%-alpha landing.png removed the opaque backing
+        /// entirely, so the "dimmed" poster ended up alpha-blending against whatever was actually
+        /// rendered underneath instead of against black — for Settings opened from Main Menu,
+        /// that's the exact same landing.png at full opacity, and blending an image at 50% over an
+        /// identical copy of itself reproduces that same image unchanged, so no dimming was ever
+        /// visible. Keeping the root's own opaque black Image intact and layering the dimmed poster
+        /// as a separate stretched child on top of it composites against a real black backing
+        /// instead, so the dim is genuine no matter what's behind the overlay.
+        ///
+        /// Root's own backing is forced to sprite=null/color=Color.black here rather than trusting
+        /// CreatePanel's PlaceholderSprite.Get(Color.black) call to still be intact — diagnostic
+        /// logging (Farm Fury Arcade > Debug > Diagnose Dimmed Backdrops) on a freshly reloaded scene
+        /// showed the root Image's sprite reference had come back NULL with color stuck at Unity's
+        /// default white, on every one of these 6 screens. PlaceholderSprite.Get creates its Sprite
+        /// from a plain `new Texture2D(...)` that's never saved as a real AssetDatabase asset (no
+        /// .meta, no GUID) — Unity does not reliably re-serialize that kind of purely-in-memory
+        /// Sprite reference across a scene save/reload the way an embedded prefab sub-asset survives.
+        /// The result: a null sprite + default white color renders as an opaque WHITE rect via
+        /// Image's own null-sprite fallback, not opaque black — so the "dimmed" poster on top of it
+        /// was blending toward white/washed-out the whole time, never toward black. A null sprite
+        /// with color explicitly set to black sidesteps the fragile reference entirely: Image already
+        /// renders a solid filled rect when sprite is null, tinted by color, with no asset reference
+        /// to lose on serialization.</summary>
+        /// <param name="posterFileName">Defaults to Landing_Opacity.png at full (1f) alpha — a
+        /// pre-faded PNG with the dim baked directly into the pixels, used uniformly across all 6
+        /// screens for a consistent look. This replaced an earlier runtime-alpha-blend approach
+        /// (landing.png shown at StandardBackdropOpacity/0.5 via Image.color.a) once that runtime
+        /// blend was confirmed working via a Settings-only test — baking the fade into the art
+        /// instead removes any dependency on runtime alpha compositing behaving consistently across
+        /// screens, and matches "uniform across pages" per explicit request.</param>
+        private static void ApplyDimmedLandingBackground(GameObject root, string posterFileName = "Landing_Opacity.png", float opacity = 1f)
         {
-            var image = root.GetComponent<Image>();
-            image.sprite = LoadUiSprite("landing.png");
-            image.color = new Color(1f, 1f, 1f, StandardBackdropOpacity);
+            var rootImage = root.GetComponent<Image>();
+            rootImage.sprite = null;
+            rootImage.color = Color.black;
+
+            var posterGO = new GameObject("PosterBackdrop", typeof(RectTransform), typeof(Image));
+            posterGO.transform.SetParent(root.transform, false);
+            StretchFull((RectTransform)posterGO.transform);
+            var image = posterGO.GetComponent<Image>();
+            image.sprite = LoadUiSprite(posterFileName);
+            image.color = new Color(1f, 1f, 1f, opacity);
         }
 
         /// <summary>Standardized top-center wood-sign header — same size/position on every screen
