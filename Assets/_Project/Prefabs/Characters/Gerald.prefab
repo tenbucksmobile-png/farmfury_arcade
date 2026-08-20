@@ -18,6 +18,7 @@ GameObject:
   - component: {fileID: 4142458515983930525}
   - component: {fileID: 5924537980096110333}
   - component: {fileID: 2238995698341075642}
+  - component: {fileID: 8917833116604654009}
   m_Layer: 0
   m_Name: Gerald
   m_TagString: Untagged
@@ -242,6 +243,18 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::FarmFuryArcade.Abilities.PuffUpAbility
   totalCooldown: 10
+--- !u!114 &8917833116604654009
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 6417997775500658249}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f0fc97e9f5dd5c14d9d68c79b7c2b805, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::FarmFuryArcade.Gameplay.CharacterCosmeticRenderer
 --- !u!28 &-4775603152445390727
 Texture2D:
   m_ObjectHideFlags: 0

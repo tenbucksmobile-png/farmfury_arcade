@@ -1,3 +1,4 @@
+using System;
 using System.IO;
 using UnityEditor;
 using UnityEngine;
@@ -153,6 +154,98 @@ namespace FarmFuryArcade.EditorTools
             AssetDatabase.SaveAssets();
             AssetDatabase.Refresh();
             Debug.Log($"[CosmeticWiringBuilder] Wired {Trails.Length} trail cosmetics with coin pricing (60/100/100/150) and imported {StoreChromeFiles.Length} Store UI chrome sprites (not yet wired into any screen — no cosmetics Store UI exists yet).");
+        }
+
+        private struct UniversalHatEntry
+        {
+            public string Id;
+            public string DisplayName;
+            public string SpriteFileName;
+            public Vector2 HatOffset;
+            public float HatScale;
+
+            public UniversalHatEntry(string id, string displayName, string spriteFileName, Vector2 hatOffset, float hatScale)
+            {
+                Id = id;
+                DisplayName = displayName;
+                SpriteFileName = spriteFileName;
+                HatOffset = hatOffset;
+                HatScale = hatScale;
+            }
+        }
+
+        // Cowboy Hat / Sombrero (2026-08-20 Shop redesign) — unlike the 8 per-character baseball
+        // caps above, only one piece of art exists for each of these two styles (not fitted per
+        // character), so each is a single universal CosmeticData asset instead of one per
+        // character. The unframed source art (no wood-frame border) is used here for the in-game
+        /// overlay sprite — the framed versions (FrameCowboy.png/FrameSombrero.png) are used only
+        // as the Shop's own purchase-button icon, wired directly in Phase5ProjectBuilder. Offset/
+        // scale are first-pass eyeballed against Cluck's own head size (this session has no visual
+        // Editor/Play mode access) — same "expect to nudge later" convention as the baseball caps.
+        private static readonly UniversalHatEntry[] UniversalHats =
+        {
+            new UniversalHatEntry(IAPManagerHatCowboyId, "Cowboy Hat", "kling_20260818_IMAGE_Prop_shots_3923_0.png", new Vector2(0f, 0.55f), 0.62f),
+            new UniversalHatEntry(IAPManagerHatSombreroId, "Sombrero", "kling_20260818_IMAGE_isolated_g_4590_0.png", new Vector2(0f, 0.55f), 0.62f),
+        };
+
+        // Local copies of IAPManager's cosmeticId constants — CosmeticWiringBuilder is an Editor-
+        // only assembly and shouldn't need a runtime-assembly reference just for two string
+        // literals; keep these in sync with IAPManager.CowboyHatCosmeticId/SombreroCosmeticId by
+        // hand if either ever changes (both are load-bearing PlayerPrefs ownership keys, so neither
+        // should change without a save-data migration anyway — see CosmeticData.cosmeticId's own
+        // doc comment).
+        private const string IAPManagerHatCowboyId = "cowboy_hat";
+        private const string IAPManagerHatSombreroId = "sombrero_hat";
+
+        [MenuItem("Farm Fury Arcade/Wire Cosmetic Art (Universal Hats)")]
+        public static void WireUniversalHats()
+        {
+            Directory.CreateDirectory(CosmeticDataFolder);
+
+            foreach (var entry in UniversalHats)
+            {
+                string spritePath = $"{CosmeticSpriteFolder}/{entry.SpriteFileName}";
+                Sprite sprite = ConfigureAndLoadSprite(spritePath);
+                if (sprite == null)
+                {
+                    continue;
+                }
+
+                string dataPath = $"{CosmeticDataFolder}/CosmeticData_{entry.Id}.asset";
+                var data = AssetDatabase.LoadAssetAtPath<CosmeticData>(dataPath);
+                if (data == null)
+                {
+                    data = ScriptableObject.CreateInstance<CosmeticData>();
+                    AssetDatabase.CreateAsset(data, dataPath);
+                }
+
+                data.cosmeticId = entry.Id;
+                data.setId = entry.Id;
+                data.displayName = entry.DisplayName;
+                data.cosmeticType = CosmeticType.Hat;
+                // character is left at its enum default — this asset is equipped identically
+                // regardless of which character is active (see IAPManager.GrantAndEquipHat), so
+                // the per-character field GetCosmeticsForCharacter would normally filter on is
+                // simply unused for this asset.
+                data.coinCost = 0; // sold via real-money IAP now, not coins — see IAPManager.
+                data.previewSprite = sprite;
+                data.hatFrames = new[] { sprite, sprite, sprite, sprite, sprite, sprite, sprite, sprite };
+                data.hatOffset = entry.HatOffset;
+                data.hatScale = entry.HatScale;
+                EditorUtility.SetDirty(data);
+            }
+
+            // Ensures CharacterCosmeticRenderer exists on every character prefab even if this menu
+            // item is run before "Wire Cosmetic Art (Baseball Caps)" — both hat sources need the
+            // same component, so whichever runs first should leave every prefab ready for either.
+            foreach (CharacterType character in Enum.GetValues(typeof(CharacterType)))
+            {
+                AddCosmeticRendererToPrefab(character);
+            }
+
+            AssetDatabase.SaveAssets();
+            AssetDatabase.Refresh();
+            Debug.Log("[CosmeticWiringBuilder] Wired universal Cowboy Hat / Sombrero cosmetics ($3.99 IAP each, applies to whichever character is active on purchase).");
         }
 
         [MenuItem("Farm Fury Arcade/Wire Cosmetic Art (Baseball Caps)")]

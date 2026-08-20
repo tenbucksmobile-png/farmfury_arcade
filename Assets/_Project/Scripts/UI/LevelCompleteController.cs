@@ -26,31 +26,25 @@ namespace FarmFuryArcade.UI
     /// shelf — the previous crop/robot/time/perfect-bonus breakdown, combo-achievements line, and
     /// "new best" badge are gone.
     ///
-    /// A single Skip button used to be the only way off this screen (returning to Level Select) —
-    /// replaced with 3 buttons per a later mockup: Play jumps straight into Level Select's tile grid
-    /// for the world containing the level that was just unlocked (via
-    /// LevelSelectController.OpenLevelSelectForLevel, so the player immediately sees the newly
-    /// unlocked tile rather than having to navigate there manually — this is what actually exercises
-    /// the unlock chain end to end), Home returns to Level Select's world-select state (one step
-    /// further back), and Settings opens the same SettingsPanel overlay Main Menu/Pause use.
+    /// A single Skip button used to be the only way off this screen (returning to Level Select),
+    /// then a Play/Home/Settings row. Home and Settings were removed (2026-08-20, per a screenshot
+    /// review) — Play jumps straight into Level Select's tile grid for the world containing the
+    /// level that was just unlocked (via LevelSelectController.OpenLevelSelectForLevel, so the
+    /// player immediately sees the newly unlocked tile rather than having to navigate there
+    /// manually — this is what actually exercises the unlock chain end to end) and is now the only
+    /// real navigation off this screen; DoubleCoins took over the bottom-right corner Home/Settings
+    /// used to share.
     /// </summary>
     public class LevelCompleteController : MonoBehaviour
     {
         [SerializeField] private StarDisplay starDisplay;
         [SerializeField] private TextMeshProUGUI scoreText;
         [SerializeField] private Button playButton;
-        [SerializeField] private Button homeButton;
-        [SerializeField] private Button settingsButton;
         [SerializeField] private Button doubleCoinsButton;
-        [SerializeField] private TextMeshProUGUI doubleCoinsLabel;
         [SerializeField] private GameObject levelSelectScreen;
         [SerializeField] private LevelSelectController levelSelectController;
-        [SerializeField] private SettingsPanel settingsPanel;
         [SerializeField] private NewCharacterUnlockScreen unlockScreen;
         [SerializeField] private NewWorldUnlockScreen worldUnlockScreen;
-
-        private const string DoubleCoinsIdleText = "2x Coins\n(Watch Ad)";
-        private const string DoubleCoinsClaimedText = "Coins Doubled!";
 
         private const float StarStepSeconds = 0.35f;
         private const float PreStarDelaySeconds = 0.3f;
@@ -59,8 +53,6 @@ namespace FarmFuryArcade.UI
         private void Awake()
         {
             playButton.onClick.AddListener(Play);
-            homeButton.onClick.AddListener(Home);
-            settingsButton.onClick.AddListener(() => settingsPanel.Show());
             if (doubleCoinsButton != null)
             {
                 doubleCoinsButton.onClick.AddListener(HandleDoubleCoins);
@@ -146,16 +138,15 @@ namespace FarmFuryArcade.UI
             SceneTransitionManager.Instance.ShowOnly(levelSelectScreen);
         }
 
-        private void Home() => SceneTransitionManager.Instance.ShowOnly(levelSelectScreen);
-
         /// <summary>Rewarded-ad placement #2 (Monetisation Build Plan Phase 2): tops up this
         /// completion's coin payout with an equal second copy — see GameManager.
         /// ClaimDoubleCoinsViaAd's own doc comment for why that's an additive top-up rather than a
         /// retroactive change to LastLevelResult.coinsEarned. Hidden entirely — never shown as a
         /// dead button — whenever there's nothing to claim: no ad ready, no coins earned this
-        /// completion, or already claimed. No dedicated art exists for this button yet (see
-        /// CLAUDE.md's "Still not built" ad-placement note), so it uses a plain text label like the
-        /// skip-cooldown button did before its own icon art landed.</summary>
+        /// completion, or already claimed. Icon-only now (DoubleCoins.png, no text label — see
+        /// Phase5ProjectBuilder.BuildLevelComplete for why the old text overlay was removed);
+        /// "claimed" feedback is just disabling the button, same as every other icon-only button in
+        /// this project that has no dedicated "used" art variant.</summary>
         private void RefreshDoubleCoinsButton()
         {
             if (doubleCoinsButton == null)
@@ -168,10 +159,6 @@ namespace FarmFuryArcade.UI
             bool adReady = Core.AdManager.Instance != null && Core.AdManager.Instance.IsRewardedAdReady;
 
             doubleCoinsButton.gameObject.SetActive(!claimed && hasCoinsToDouble && adReady);
-            if (doubleCoinsLabel != null)
-            {
-                doubleCoinsLabel.text = DoubleCoinsIdleText;
-            }
         }
 
         private void HandleDoubleCoins()
@@ -186,10 +173,6 @@ namespace FarmFuryArcade.UI
             {
                 if (rewarded && GameManager.Instance != null && GameManager.Instance.ClaimDoubleCoinsViaAd())
                 {
-                    if (doubleCoinsLabel != null)
-                    {
-                        doubleCoinsLabel.text = DoubleCoinsClaimedText;
-                    }
                     doubleCoinsButton.interactable = false;
                 }
                 else

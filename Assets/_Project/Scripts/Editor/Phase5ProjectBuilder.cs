@@ -1,4 +1,4 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using UnityEditor;
@@ -61,11 +61,31 @@ namespace FarmFuryArcade.EditorTools
             var (gameplay, comboBanner) = BuildGameplayHUD(canvas.transform);
             var pause = BuildPauseMenu(canvas.transform);
             var settings = BuildSettingsPanel(canvas.transform);
+            var characterStory = BuildCharacterStoryPlaceholder(canvas.transform);
             var storeComingSoon = BuildShopOverlay(canvas.transform);
-            var cosmeticCardPrefab = BuildCosmeticCardPrefab();
-            var cosmeticStore = BuildCosmeticStoreScreen(canvas.transform, cosmeticCardPrefab);
+            var cosmeticsHub = BuildCosmeticsHubScreen(canvas.transform);
+            var hatPurchase = BuildCosmeticPurchaseScreen(canvas.transform, "HatPurchaseScreen", LoadCosmeticsSprite("Hat_Icon.png"),
+                new (string productId, Sprite frameSprite)[]
+                {
+                    (IAPManager.HatBaseballCapProductId, LoadHatArtSprite("FrameBaseballCap.png")),
+                    (IAPManager.HatCowboyHatProductId, LoadHatArtSprite("FrameCowboy.png")),
+                    (IAPManager.HatSombreroProductId, LoadHatArtSprite("FrameSombrero.png")),
+                },
+                LoadUiSprite("3.99.png"));
+            var trailPurchase = BuildCosmeticPurchaseScreen(canvas.transform, "TrailPurchaseScreen", LoadCosmeticsSprite("Trails_Tab_Icon.png"),
+                new (string productId, Sprite frameSprite)[]
+                {
+                    (IAPManager.TrailCornHuskProductId, LoadTrailArtSprite("FrameCornHuskTrail.png")),
+                    (IAPManager.TrailRainbowRibbonProductId, LoadTrailArtSprite("FrameRainbowRibbon.png")),
+                    (IAPManager.TrailSparkleDustProductId, LoadTrailArtSprite("FrameSparkleDust(1).png")),
+                    (IAPManager.TrailEmberProductId, LoadTrailArtSprite("FrameEmberTrail.png")),
+                },
+                LoadUiSprite("3.99.png"));
             SetRefs(storeComingSoon.GetComponent<ShopController>(),
-                ("cosmeticStoreScreen", cosmeticStore.GetComponent<CosmeticStoreScreen>()));
+                ("cosmeticsHubScreen", cosmeticsHub.GetComponent<CosmeticsHubScreen>()));
+            SetRefs(cosmeticsHub.GetComponent<CosmeticsHubScreen>(),
+                ("hatPurchaseScreen", hatPurchase.GetComponent<CosmeticPurchaseScreen>()),
+                ("trailPurchaseScreen", trailPurchase.GetComponent<CosmeticPurchaseScreen>()));
             var (levelComplete, unlockScreen) = BuildLevelComplete(canvas.transform);
             var levelFailed = BuildLevelFailed(canvas.transform);
             var roster = BuildCharacterRoster(canvas.transform, rosterCardPrefab);
@@ -80,7 +100,7 @@ namespace FarmFuryArcade.EditorTools
             var levelSelect = BuildLevelSelect(canvas.transform, levelTilePrefab, worldShieldPrefab);
 
             WireCrossReferences(mainMenu, gameplay, pause, settings,
-                levelComplete, unlockScreen, levelFailed, roster, leaderboards, chooseCharacter, comboBanner, levelSelect, storeComingSoon);
+                levelComplete, unlockScreen, levelFailed, roster, leaderboards, chooseCharacter, comboBanner, levelSelect, storeComingSoon, characterStory);
 
             var transitionManager = managersGO.GetComponent<SceneTransitionManager>();
             var transitionSO = new SerializedObject(transitionManager);
@@ -101,8 +121,11 @@ namespace FarmFuryArcade.EditorTools
             }
             pause.SetActive(false);
             settings.SetActive(false);
+            characterStory.SetActive(false);
             storeComingSoon.SetActive(false);
-            cosmeticStore.SetActive(false);
+            cosmeticsHub.SetActive(false);
+            hatPurchase.SetActive(false);
+            trailPurchase.SetActive(false);
             chooseCharacter.gameObject.SetActive(false);
             unlockScreen.gameObject.SetActive(false); // BuildLevelComplete already does this too; explicit for clarity
 
@@ -501,6 +524,10 @@ namespace FarmFuryArcade.EditorTools
             // this screen already has its own top-left identity element, CurrentWorldIndicator (built
             // below), anchored at the exact same inset. A LogoImage was added in an earlier pass
             // without noticing that clash; removed again per feedback that the two badges overlapped.
+            //
+            // The Shop icon briefly lived here (top-left, world-select state only) before being
+            // moved again to Settings' new 4x2 grid (2026-08-20) — see Phase5ProjectBuilder.
+            // BuildSettingsPanel.
 
             // TitleImage replaces the old TMP "SELECT LEVEL" text — SelectLevelSign.png is the
             // word-art itself, wired by ArtWiringBuilder. preserveAspect so it never distorts.
@@ -639,33 +666,18 @@ namespace FarmFuryArcade.EditorTools
             settingsRect.sizeDelta = new Vector2(160f, 160f);
             settingsRect.anchoredPosition = new Vector2(-150f, 70f);
 
-            // Monetisation (Phase 3, IAP plumbing): entry point to ShopController. Moved from the
-            // bottom-centre wide banner to a top-right square icon per feedback — Shop.png is now a
-            // 500x500 cash-wad plaque icon (the old wide-banner art was renamed to ShopBanner.png
-            // and is unused/kept on disk), so it reads correctly as a square icon here rather than
-            // a banner. Sized to match Play/Settings' 160px icons; inset (-100,-50) keeps it inside
-            // the yellow safe-area guide while sitting in landing.png's clear top-right sky, above
-            // the "ARCADE" ribbon (which starts around y=200 of the 1280x720 source — comfortably
-            // below this icon's ~150px-tall footprint at this inset) so it never overlaps the
-            // baked-in header text.
-            var shopButton = CreateButton("ShopButton", root.transform, string.Empty, new Color(0.75f, 0.45f, 0.15f), 28f, 160f, out _);
-            Object.DestroyImmediate(shopButton.transform.Find("ShopButton_Label").gameObject);
-            var shopRect = (RectTransform)shopButton.transform;
-            shopRect.anchorMin = shopRect.anchorMax = new Vector2(1f, 1f);
-            shopRect.pivot = new Vector2(1f, 1f);
-            shopRect.sizeDelta = new Vector2(160f, 160f);
-            shopRect.anchoredPosition = new Vector2(-100f, -50f);
-
-            // Daily Challenge and Leaderboards no longer live on Main Menu — moved to Level Select
-            // and Settings respectively (see LevelSelectController/SettingsPanel's own doc comments
-            // and Phase5ProjectBuilder.BuildLevelSelect/BuildSettingsPanel) per feedback that the
-            // landing page should stay to just Play/Settings/Shop.
+            // Shop icon moved off Main Menu entirely (2026-08-20) — relocated to Level Select's
+            // world-select page, top-left inside the safe-area guide (see BuildLevelSelect). Main
+            // Menu is back down to just Play/Settings.
+            //
+            // Daily Challenge and Leaderboards also no longer live on Main Menu — moved to Level
+            // Select and Settings respectively (see LevelSelectController/SettingsPanel's own doc
+            // comments) per feedback that the landing page should stay minimal.
 
             var controller = root.AddComponent<MainMenuController>();
             var so = new SerializedObject(controller);
             so.FindProperty("playButton").objectReferenceValue = playButton;
             so.FindProperty("settingsButton").objectReferenceValue = settingsButton;
-            so.FindProperty("shopButton").objectReferenceValue = shopButton;
             so.ApplyModifiedPropertiesWithoutUndo();
 
             return root;
@@ -1259,371 +1271,147 @@ namespace FarmFuryArcade.EditorTools
             return plaqueGO;
         }
 
-        /// <summary>Built to a specific Canva mockup (2026-07-31), not freehand: full-screen
-        /// Bg_LevelSelect.png (moon/windmill/barn night farm, already includes all decorative
-        /// elements — nothing else needs to draw them), Logo.png top-left, SettingsSign.png as the
-        /// header (replacing the old TMP "SETTINGS" text), a 2-column x 3-row grid of Btn_plaque.png
-        /// cells for the actual controls, and a round Btn_home.png back button bottom-right — the
-        /// one screen-specific deviation from CreateGenericBackButton's bottom-left convention,
-        /// because the mockup places it there explicitly. Only 5 of the 6 grid cells are filled
-        /// (Music/SFX/Vibration/Left-Handed/Language); the 6th (bottom-right of the grid) is left
-        /// empty per spec rather than inventing a 6th setting. Volume sliders were dropped — Music/
-        /// SFX are now simple whole-plaque mute toggles like Vibration/Left-Handed, since a plaque
-        /// this size can't cleanly host both a tap target and a drag target without gesture
-        /// conflicts, and the mockup's plaques are all the same plain shape with no slider drawn.</summary>
+        /// <summary>Rebuilt from scratch to match a new Canva mockup (2026-08-20) exactly, discarding
+        /// the entire old 2x3 toggle/dropdown/Restore-Purchases grid. landing.png at 50% opacity
+        /// (a new "dimmed backdrop" treatment — every other overlay/screen in this project uses its
+        /// background art at full opacity) sits behind Logo.png top-left and SettingsSign.png as the
+        /// header, same insets those already used. A 4x2 GridLayoutGroup of plaque cells follows:
+        /// row 1 is wired (Shop.png — relocated here from Level Select, Btn_music-remove.png,
+        /// Btn_LeaderBoard.png, Btn_CharacterStory.png), row 2 is 4 deliberately blank Btn_plaque.png
+        /// cells — same "leave it empty rather than invent a feature" convention this grid has used
+        /// before (e.g. its old 6th cell), reserved for whatever gets planned into them next. All
+        /// art is baked directly at construction time (self-contained, same convention Shop/
+        /// Cosmetics use) rather than looked up by ArtWiringBuilder afterward.
+        ///
+        /// Music/SFX/Vibration/Left-Handed/Language and IAP Restore Purchases are no longer in the
+        /// visible UI at all — SaveManager still has the underlying MusicOn/SfxOn/VibrationOn/
+        /// LeftHanded/Language state and IAPManager.RestorePurchases still exists, just nothing
+        /// here calls them anymore. Restore Purchases in particular has no Settings surface right
+        /// now (Apple requires one for non-consumables) — flagged as a gap, not silently dropped;
+        /// revisit once one of the 4 blank cells gets planned for it.</summary>
         private static GameObject BuildSettingsPanel(Transform canvasTransform)
         {
             var root = CreatePanel("SettingsOverlay", canvasTransform, Color.black);
             StretchFull((RectTransform)root.transform);
+            ApplyDimmedLandingBackground(root);
 
-            // Logo/BackButton positions come from the 2026-07-31 device-frame screenshot review —
-            // both were confirmed correct and are left alone. Title and the plaque grid went through
-            // a second pass after that review: the first attempt repositioned both to avoid overlap,
-            // but the ask was resize-only, not reposition — so both are back at their original
-            // anchored positions here. Title's size is capped at ~1.23x (not the full ~1.86x tried
-            // before) specifically because anything bigger, at its original position, overlaps the
-            // enlarged Logo (which keeps its new size/position per that review) — a geometric limit,
-            // not a design choice. The grid's anchoredPosition is nudged down slightly (-60 -> -90)
-            // from its original value to clear the modestly-bigger title; its own box (sizeDelta,
-            // cellSize) is otherwise unchanged from its original spacious layout except for the
-            // smaller cellSize/spacing, which is the one dimension actually meant to shrink.
             var logoImageGO = new GameObject("LogoImage", typeof(RectTransform), typeof(Image));
             logoImageGO.transform.SetParent(root.transform, false);
             var logoImage = logoImageGO.GetComponent<Image>();
-            logoImage.sprite = PlaceholderSprite.Get(Color.clear);
+            logoImage.sprite = LoadUiSprite("Logo.png");
             logoImage.preserveAspect = true;
             AnchorTopLeft((RectTransform)logoImageGO.transform, new Vector2(420f, 238f), new Vector2(100f, -50f));
 
-            var titleImageGO = new GameObject("TitleImage", typeof(RectTransform), typeof(Image));
-            titleImageGO.transform.SetParent(root.transform, false);
-            var titleImage = titleImageGO.GetComponent<Image>();
-            titleImage.sprite = PlaceholderSprite.Get(Color.clear);
-            titleImage.preserveAspect = true;
-            AnchorTopCenter((RectTransform)titleImageGO.transform, new Vector2(860f, 320f), new Vector2(0f, -40f));
+            CreateHeaderSign(root.transform, LoadUiSprite("SettingsSign.png"));
 
             var closeButton = CreateRoundBackButton(root.transform);
+            closeButton.GetComponent<Image>().sprite = LoadUiSprite("Btn_back.png");
 
-            // Leaderboards — moved here from Main Menu per feedback (Settings is reachable from
-            // both Main Menu and Pause, so this keeps it reachable mid-run too, not just the
-            // landing page). Leaderboard.png is a 666x392 (~1.699:1) hanging wood sign with its own
-            // "Leader Board" label baked in, mirroring Logo's top-left size/inset on the opposite
-            // corner rather than joining the 2x3 toggle grid (already full at 6 cells, and this
-            // sign's aspect doesn't match those small plaques anyway).
-            var leaderboardsButton = CreateButton("LeaderboardsButton", root.transform, string.Empty, new Color(0.6f, 0.4f, 0.15f), 28f, 224f, out _);
-            Object.DestroyImmediate(leaderboardsButton.transform.Find("LeaderboardsButton_Label").gameObject);
-            AnchorTopRight((RectTransform)leaderboardsButton.transform, new Vector2(380f, 224f), new Vector2(-100f, -50f));
-
+            // 4 columns x StandardIconButtonSize cells, evenly spaced — icons and blank cells alike
+            // are all the same size (see the cross-screen layout standards note above).
             var gridGO = new GameObject("SettingsGrid", typeof(RectTransform), typeof(GridLayoutGroup));
             gridGO.transform.SetParent(root.transform, false);
             var gridRect = (RectTransform)gridGO.transform;
             gridRect.anchorMin = gridRect.anchorMax = new Vector2(0.5f, 0.5f);
             gridRect.pivot = new Vector2(0.5f, 0.5f);
-            gridRect.sizeDelta = new Vector2(900f, 460f);
-            gridRect.anchoredPosition = new Vector2(0f, -90f);
+            float cellSpacing = 50f;
+            float gridWidth = 4 * StandardIconButtonSize + 3 * cellSpacing;
+            float gridHeight = 2 * StandardIconButtonSize + cellSpacing;
+            gridRect.sizeDelta = new Vector2(gridWidth + 100f, gridHeight + 60f);
+            gridRect.anchoredPosition = new Vector2(0f, -60f);
             var grid = gridGO.GetComponent<GridLayoutGroup>();
-            // Plaques enlarged 2x (210x60 -> 420x120) per request; spacing scaled to match so the
-            // now-bigger cells stay evenly spaced rather than crowding together. CreateTogglePlaqueCell
-            // keeps each label's own text box pinned at the ORIGINAL 210x60 size (see its own comment)
-            // so only the plaque artwork grows, not the text.
-            grid.cellSize = new Vector2(420f, 120f);
-            grid.spacing = new Vector2(48f, 40f);
+            grid.cellSize = new Vector2(StandardIconButtonSize, StandardIconButtonSize);
+            grid.spacing = new Vector2(cellSpacing, cellSpacing);
             grid.childAlignment = TextAnchor.UpperCenter;
             grid.constraint = GridLayoutGroup.Constraint.FixedColumnCount;
-            grid.constraintCount = 2;
+            grid.constraintCount = 4;
 
-            var musicToggle = CreateTogglePlaqueCell("MusicCell", gridGO.transform, "Music");
-            var sfxToggle = CreateTogglePlaqueCell("SfxCell", gridGO.transform, "SFX");
-            var vibrationToggle = CreateTogglePlaqueCell("VibrationCell", gridGO.transform, "Vibration");
-            var leftHandedToggle = CreateTogglePlaqueCell("LeftHandedCell", gridGO.transform, "Left-Handed");
+            var shopButton = CreateIconButton("ShopCell", gridGO.transform, LoadUiSprite("Shop.png"), StandardIconButtonSize);
+            var musicButton = CreateIconButton("MusicCell", gridGO.transform, LoadUiSprite("Btn_music-remove.png"), StandardIconButtonSize);
+            var leaderboardsButton = CreateIconButton("LeaderboardCell", gridGO.transform, LoadUiSprite("Btn_LeaderBoard.png"), StandardIconButtonSize);
+            var characterStoryButton = CreateIconButton("CharacterStoryCell", gridGO.transform, LoadUiSprite("Btn_CharacterStory.png"), StandardIconButtonSize);
 
-            var languageCellGO = new GameObject("LanguageCell", typeof(RectTransform), typeof(Image), typeof(TMP_Dropdown));
-            languageCellGO.transform.SetParent(gridGO.transform, false);
-            languageCellGO.GetComponent<Image>().sprite = PlaceholderSprite.Get(new Color(0.55f, 0.35f, 0.15f));
-            var languageDropdown = languageCellGO.GetComponent<TMP_Dropdown>();
-            languageDropdown.options.Clear();
-            languageDropdown.options.Add(new TMP_Dropdown.OptionData("English"));
-            var langLabel = CreateText("Label", languageCellGO.transform, "English", 52f, TextAlignmentOptions.Center, 40f);
-            // Same fixed-size-label-inside-a-bigger-plaque treatment as CreateTogglePlaqueCell.
-            var langLabelRect = (RectTransform)langLabel.transform;
-            langLabelRect.anchorMin = langLabelRect.anchorMax = new Vector2(0.5f, 0.5f);
-            langLabelRect.pivot = new Vector2(0.5f, 0.5f);
-            langLabelRect.anchoredPosition = Vector2.zero;
-            langLabelRect.sizeDelta = new Vector2(210f, 60f);
-            langLabel.enableAutoSizing = true;
-            langLabel.fontSizeMin = 20f;
-            langLabel.fontSizeMax = 52f;
-            languageDropdown.captionText = langLabel;
-            languageDropdown.targetGraphic = languageCellGO.GetComponent<Image>();
-            languageDropdown.template = CreateDropdownTemplate(languageCellGO.transform, languageDropdown);
-
-            // 6th grid cell (bottom-right), previously left empty — now Restore Purchases
-            // (Monetisation Build Plan Phase 3; required by Apple for non-consumable products like
-            // Remove Ads, good practice on Android too). See SettingsPanel's own doc comment.
-            var (restoreButton, restoreLabel) = CreateButtonPlaqueCell("RestorePurchasesCell", gridGO.transform, "Restore\nPurchases");
-
-            var versionText = CreateText("VersionText", root.transform, "v0.1", 16f, TextAlignmentOptions.Center, 24f);
-            var versionRect = (RectTransform)versionText.transform;
-            AnchorBottomCenter(versionRect, new Vector2(200f, 24f), new Vector2(0f, 20f));
+            // Row 2 — deliberately blank, reserved for whatever gets planned into these next.
+            // Icon_bare.png replaces the old Btn_plaque.png for this blank-cell art.
+            for (int i = 0; i < 4; i++)
+            {
+                var blankImage = CreateImage($"BlankCell{i}", gridGO.transform, Color.white, StandardIconButtonSize, StandardIconButtonSize);
+                blankImage.sprite = LoadUiSprite("Icon_bare.png");
+                blankImage.preserveAspect = true;
+                blankImage.raycastTarget = false;
+                ((RectTransform)blankImage.transform).sizeDelta = new Vector2(StandardIconButtonSize, StandardIconButtonSize);
+            }
 
             var controller = root.AddComponent<SettingsPanel>();
             var so = new SerializedObject(controller);
-            so.FindProperty("musicToggle").objectReferenceValue = musicToggle;
-            so.FindProperty("sfxToggle").objectReferenceValue = sfxToggle;
-            so.FindProperty("vibrationToggle").objectReferenceValue = vibrationToggle;
-            so.FindProperty("languageDropdown").objectReferenceValue = languageDropdown;
-            so.FindProperty("leftHandedToggle").objectReferenceValue = leftHandedToggle;
-            so.FindProperty("restorePurchasesButton").objectReferenceValue = restoreButton;
-            so.FindProperty("restorePurchasesLabel").objectReferenceValue = restoreLabel;
-            so.FindProperty("versionText").objectReferenceValue = versionText;
             so.FindProperty("closeButton").objectReferenceValue = closeButton;
+            so.FindProperty("shopButton").objectReferenceValue = shopButton;
+            so.FindProperty("musicButton").objectReferenceValue = musicButton;
+            so.FindProperty("musicButtonIcon").objectReferenceValue = musicButton.GetComponent<Image>();
             so.FindProperty("leaderboardsButton").objectReferenceValue = leaderboardsButton;
+            so.FindProperty("characterStoryButton").objectReferenceValue = characterStoryButton;
+            // shopScreen/leaderboardsScreen/characterStoryScreen/mainMenuScreen are wired later in
+            // BuildAll's WireCrossReferences, once those screens actually exist.
             so.ApplyModifiedPropertiesWithoutUndo();
 
             return root;
         }
 
-        /// <summary>TMP_Dropdown.Show() throws ("The template needs to be assigned and must have a
-        /// child GameObject with a Toggle component") if template is left null — it was never
-        /// wired here, so tapping the Language plaque errored instead of opening. Builds the
-        /// minimal Template/Viewport/Content/Item hierarchy TMP_Dropdown requires (single "English"
-        /// option, so the dropdown list itself is mostly vestigial today, but it still needs to be
-        /// functional rather than throwing).</summary>
-        private static RectTransform CreateDropdownTemplate(Transform dropdownParent, TMP_Dropdown dropdown)
+        /// <summary>Placeholder screen for "Btn_CharacterStory" — "this is where we will tell a
+        /// story about each character," per the request that added this button; no real content
+        /// exists yet. World1_Cornfield.png backdrop + Logo.png top-left (same convention every
+        /// other opaque overlay in this project uses), a centred "Coming Soon" label, and a round
+        /// back button wired via SimpleClosePanel (same trivial self-closing pattern the old Store
+        /// "coming in Phase 6" placeholder used) rather than a dedicated controller class, since
+        /// there's no real behaviour here yet beyond closing.</summary>
+        private static GameObject BuildCharacterStoryPlaceholder(Transform canvasTransform)
         {
-            var templateGO = new GameObject("Template", typeof(RectTransform), typeof(Image), typeof(ScrollRect));
-            templateGO.transform.SetParent(dropdownParent, false);
-            var templateRect = (RectTransform)templateGO.transform;
-            templateRect.anchorMin = new Vector2(0f, 0f);
-            templateRect.anchorMax = new Vector2(1f, 0f);
-            templateRect.pivot = new Vector2(0.5f, 1f);
-            templateRect.anchoredPosition = new Vector2(0f, 2f);
-            templateRect.sizeDelta = new Vector2(0f, 150f);
-            templateGO.GetComponent<Image>().sprite = PlaceholderSprite.Get(new Color(0.2f, 0.12f, 0.05f, 0.97f));
+            var root = CreatePanel("CharacterStoryScreen", canvasTransform, Color.black);
+            StretchFull((RectTransform)root.transform);
+            root.GetComponent<Image>().sprite = LoadUiSprite("World1_Cornfield.png");
 
-            var viewportGO = new GameObject("Viewport", typeof(RectTransform), typeof(Image), typeof(Mask));
-            viewportGO.transform.SetParent(templateGO.transform, false);
-            StretchFull((RectTransform)viewportGO.transform);
-            viewportGO.GetComponent<Image>().sprite = PlaceholderSprite.Get(Color.white);
-            viewportGO.GetComponent<Mask>().showMaskGraphic = false;
+            var logoImageGO = new GameObject("LogoImage", typeof(RectTransform), typeof(Image));
+            logoImageGO.transform.SetParent(root.transform, false);
+            var logoImage = logoImageGO.GetComponent<Image>();
+            logoImage.sprite = LoadUiSprite("Logo.png");
+            logoImage.preserveAspect = true;
+            AnchorTopLeft((RectTransform)logoImageGO.transform, new Vector2(420f, 238f), new Vector2(100f, -50f));
 
-            var contentGO = new GameObject("Content", typeof(RectTransform));
-            contentGO.transform.SetParent(viewportGO.transform, false);
-            var contentRect = (RectTransform)contentGO.transform;
-            contentRect.anchorMin = new Vector2(0f, 1f);
-            contentRect.anchorMax = new Vector2(1f, 1f);
-            contentRect.pivot = new Vector2(0.5f, 1f);
-            contentRect.anchoredPosition = Vector2.zero;
-            contentRect.sizeDelta = new Vector2(0f, 40f);
+            var comingSoonText = CreateText("ComingSoonText", root.transform, "Character Stories\nComing Soon", 56f, TextAlignmentOptions.Center, 200f);
+            var comingSoonRect = (RectTransform)comingSoonText.transform;
+            comingSoonRect.anchorMin = comingSoonRect.anchorMax = new Vector2(0.5f, 0.5f);
+            comingSoonRect.pivot = new Vector2(0.5f, 0.5f);
+            comingSoonRect.sizeDelta = new Vector2(900f, 200f);
+            comingSoonRect.anchoredPosition = Vector2.zero;
 
-            var itemGO = new GameObject("Item", typeof(RectTransform), typeof(Toggle));
-            itemGO.transform.SetParent(contentGO.transform, false);
-            var itemRect = (RectTransform)itemGO.transform;
-            itemRect.anchorMin = new Vector2(0f, 1f);
-            itemRect.anchorMax = new Vector2(1f, 1f);
-            itemRect.pivot = new Vector2(0.5f, 1f);
-            itemRect.anchoredPosition = Vector2.zero;
-            itemRect.sizeDelta = new Vector2(0f, 40f);
+            var closeButton = CreateRoundBackButton(root.transform);
+            closeButton.GetComponent<Image>().sprite = LoadUiSprite("Btn_back.png");
 
-            var itemBgGO = new GameObject("Item Background", typeof(RectTransform), typeof(Image));
-            itemBgGO.transform.SetParent(itemGO.transform, false);
-            StretchFull((RectTransform)itemBgGO.transform);
-            var itemBgImage = itemBgGO.GetComponent<Image>();
-            itemBgImage.sprite = PlaceholderSprite.Get(new Color(0.55f, 0.35f, 0.15f));
-
-            var itemCheckGO = new GameObject("Item Checkmark", typeof(RectTransform), typeof(Image));
-            itemCheckGO.transform.SetParent(itemGO.transform, false);
-            var itemCheckRect = (RectTransform)itemCheckGO.transform;
-            itemCheckRect.anchorMin = itemCheckRect.anchorMax = new Vector2(0f, 0.5f);
-            itemCheckRect.pivot = new Vector2(0.5f, 0.5f);
-            itemCheckRect.sizeDelta = new Vector2(20f, 20f);
-            itemCheckRect.anchoredPosition = new Vector2(20f, 0f);
-            var itemCheckImage = itemCheckGO.GetComponent<Image>();
-            itemCheckImage.sprite = PlaceholderSprite.Get(Color.white);
-
-            var itemLabelGO = new GameObject("Item Label", typeof(RectTransform), typeof(TextMeshProUGUI));
-            itemLabelGO.transform.SetParent(itemGO.transform, false);
-            var itemLabelRect = (RectTransform)itemLabelGO.transform;
-            itemLabelRect.anchorMin = Vector2.zero;
-            itemLabelRect.anchorMax = Vector2.one;
-            itemLabelRect.offsetMin = new Vector2(40f, 2f);
-            itemLabelRect.offsetMax = new Vector2(-10f, -2f);
-            var itemLabel = itemLabelGO.GetComponent<TextMeshProUGUI>();
-            itemLabel.text = "Option A";
-            itemLabel.fontSize = 32f;
-            itemLabel.alignment = TextAlignmentOptions.Left;
-            itemLabel.color = Color.black;
-
-            var itemToggle = itemGO.GetComponent<Toggle>();
-            itemToggle.targetGraphic = itemBgImage;
-            itemToggle.graphic = itemCheckImage;
-            itemToggle.isOn = true;
-
-            var scrollRect = templateGO.GetComponent<ScrollRect>();
-            scrollRect.content = contentRect;
-            scrollRect.viewport = (RectTransform)viewportGO.transform;
-            scrollRect.horizontal = false;
-            scrollRect.movementType = ScrollRect.MovementType.Clamped;
-
-            dropdown.itemText = itemLabel;
-            dropdown.itemImage = itemCheckImage;
-
-            templateGO.SetActive(false);
-            return templateRect;
-        }
-
-        /// <summary>One Btn_plaque.png grid cell that IS the toggle — Toggle lives on the same
-        /// GameObject as the Image (targetGraphic = its own Image), so the entire plaque is the
-        /// click target, not just a small child checkbox. A centred label sits on top; no separate
-        /// checkbox/checkmark graphic is created at all, matching the mockup's plain plaques.</summary>
-        private static Toggle CreateTogglePlaqueCell(string name, Transform parent, string label)
-        {
-            var go = new GameObject(name, typeof(RectTransform), typeof(Image), typeof(Toggle));
-            go.transform.SetParent(parent, false);
-            var image = go.GetComponent<Image>();
-            image.sprite = PlaceholderSprite.Get(new Color(0.55f, 0.35f, 0.15f));
-
-            var toggle = go.GetComponent<Toggle>();
-            toggle.targetGraphic = image;
-            toggle.graphic = null;
-            toggle.isOn = true;
-
-            var labelText = CreateText(name + "_Label", go.transform, label, 56f, TextAlignmentOptions.Center, 40f);
-            // Fixed at the plaque's ORIGINAL size (210x60), centred, rather than stretched to fill
-            // the cell — the cell itself was enlarged 2x (see BuildSettingsPanel) so the plaque
-            // artwork reads bigger, but keeping the label's own box at its old size means its
-            // auto-sizing font computes the exact same size as before instead of growing with it.
-            var labelRect = (RectTransform)labelText.transform;
-            labelRect.anchorMin = labelRect.anchorMax = new Vector2(0.5f, 0.5f);
-            labelRect.pivot = new Vector2(0.5f, 0.5f);
-            labelRect.anchoredPosition = Vector2.zero;
-            labelRect.sizeDelta = new Vector2(210f, 60f);
-            // Auto-shrink rather than clip/overflow — the doubled font size (28 -> 56) doesn't
-            // reliably fit every label ("Left-Handed", "Vibration") at every plaque size.
-            labelText.enableAutoSizing = true;
-            labelText.fontSizeMin = 20f;
-            labelText.fontSizeMax = 56f;
-
-            return toggle;
-        }
-
-        /// <summary>Same plaque-cell visual convention as CreateTogglePlaqueCell (same colour,
-        /// same fixed-size-label-inside-a-bigger-plaque treatment), but a plain Button instead of a
-        /// Toggle — for the Settings grid's 6th cell (Restore Purchases, Monetisation Build Plan
-        /// Phase 3), an action, not a persistent on/off state.</summary>
-        private static (Button button, TextMeshProUGUI label) CreateButtonPlaqueCell(string name, Transform parent, string label)
-        {
-            var go = new GameObject(name, typeof(RectTransform), typeof(Image), typeof(Button));
-            go.transform.SetParent(parent, false);
-            var image = go.GetComponent<Image>();
-            image.sprite = PlaceholderSprite.Get(new Color(0.55f, 0.35f, 0.15f));
-
-            var button = go.GetComponent<Button>();
-            button.targetGraphic = image;
-
-            var labelText = CreateText(name + "_Label", go.transform, label, 56f, TextAlignmentOptions.Center, 40f);
-            var labelRect = (RectTransform)labelText.transform;
-            labelRect.anchorMin = labelRect.anchorMax = new Vector2(0.5f, 0.5f);
-            labelRect.pivot = new Vector2(0.5f, 0.5f);
-            labelRect.anchoredPosition = Vector2.zero;
-            labelRect.sizeDelta = new Vector2(210f, 60f);
-            labelText.enableAutoSizing = true;
-            labelText.fontSizeMin = 16f;
-            labelText.fontSizeMax = 44f;
-
-            return (button, labelText);
-        }
-
-        // ---- Shop (Monetisation Build Plan Phase 3 — coin packs + Remove Ads; the full cosmetics
-        // Store from Phase 4 is still unbuilt) ----------------------------------------------------
-
-        /// <summary>Replaces the old "Store is coming in Phase 6!" placeholder with a real (if
-        /// plain — no purchase-card art exists yet, see ShopController's own doc comment) purchase
-        /// surface: a 2x3 grid matching Settings' own grid convention, 5 coin-pack cells + 1 Remove
-        /// Ads cell, a status text row, and a close button. Root/overlay name kept as
-        /// "StoreComingSoonOverlay" for scene-path stability (ArtWiringBuilder and any future
-        /// screenshot/test tooling that looks it up by path) even though its content is no longer a
-        /// placeholder — same "path stays stable, content changes" convention as reusing an
-        /// existing GameObject name elsewhere in this project.</summary>
-        private static GameObject BuildShopOverlay(Transform canvasTransform)
-        {
-            var root = CreatePanel("StoreComingSoonOverlay", canvasTransform, new Color(0f, 0f, 0f, 0.85f));
-            var group = CreateVerticalGroup("Content", root.transform, 20f, 30);
-            var groupRect = (RectTransform)group.transform;
-            groupRect.sizeDelta = new Vector2(940f, groupRect.sizeDelta.y);
-
-            CreateText("Title", group.transform, "Shop", 48f, TextAlignmentOptions.Center, 70f);
-
-            var gridGO = new GameObject("ProductGrid", typeof(RectTransform), typeof(GridLayoutGroup), typeof(LayoutElement));
-            gridGO.transform.SetParent(group.transform, false);
-            gridGO.GetComponent<LayoutElement>().preferredHeight = 420f;
-            var grid = gridGO.GetComponent<GridLayoutGroup>();
-            grid.cellSize = new Vector2(280f, 120f);
-            grid.spacing = new Vector2(30f, 30f);
-            grid.childAlignment = TextAnchor.UpperCenter;
-            grid.constraint = GridLayoutGroup.Constraint.FixedColumnCount;
-            grid.constraintCount = 3;
-
-            var products = new (string id, string displayName)[]
-            {
-                (IAPManager.Coins100ProductId, "100 Coins"),
-                (IAPManager.Coins500ProductId, "500 Coins"),
-                (IAPManager.Coins5000ProductId, "5,000 Coins"),
-                (IAPManager.Coins15000ProductId, "15,000 Coins"),
-                (IAPManager.RemoveAdsProductId, "Remove Ads"),
-            };
-
-            var productButtonsProp = new (string id, string displayName, Button button, TextMeshProUGUI label)[products.Length];
-            for (int i = 0; i < products.Length; i++)
-            {
-                var (id, displayName) = products[i];
-                var button = CreateButton(id + "Button", gridGO.transform, $"{displayName}\n...",
-                    new Color(0.85f, 0.55f, 0.1f), 28f, 120f, out var label);
-                productButtonsProp[i] = (id, displayName, button, label);
-            }
-
-            var statusText = CreateText("StatusText", group.transform, string.Empty, 28f, TextAlignmentOptions.Center, 40f);
-            // Monetisation Build Plan Phase 4 — opens the cosmetics purchase/equip screen (built
-            // separately by BuildCosmeticStoreScreen, layered on top of this one). No dedicated
-            // icon art for this button yet, same "plain plaque, text label" convention the coin
-            // pack buttons above already use.
-            var cosmeticsButton = CreateButton("CosmeticsButton", group.transform, "Cosmetics", new Color(0.85f, 0.55f, 0.1f), 28f, 70f, out _);
-            var closeButton = CreateButton("CloseButton", group.transform, "Back", new Color(0.35f, 0.35f, 0.38f), out _);
-
-            var shop = root.AddComponent<ShopController>();
-            var shopSO = new SerializedObject(shop);
-            var arrayProp = shopSO.FindProperty("productButtons");
-            arrayProp.arraySize = productButtonsProp.Length;
-            for (int i = 0; i < productButtonsProp.Length; i++)
-            {
-                var element = arrayProp.GetArrayElementAtIndex(i);
-                element.FindPropertyRelative("productId").stringValue = productButtonsProp[i].id;
-                element.FindPropertyRelative("displayName").stringValue = productButtonsProp[i].displayName;
-                element.FindPropertyRelative("button").objectReferenceValue = productButtonsProp[i].button;
-                element.FindPropertyRelative("label").objectReferenceValue = productButtonsProp[i].label;
-            }
-            shopSO.FindProperty("statusText").objectReferenceValue = statusText;
-            shopSO.FindProperty("closeButton").objectReferenceValue = closeButton;
-            shopSO.FindProperty("cosmeticsButton").objectReferenceValue = cosmeticsButton;
-            // cosmeticStoreScreen is wired later in BuildAll, once BuildCosmeticStoreScreen has
-            // actually created that screen (cross-screen reference, same deferred-wiring pattern
-            // WireCrossReferences uses for every other screen-to-screen link).
-            shopSO.ApplyModifiedPropertiesWithoutUndo();
+            var panel = root.AddComponent<SimpleClosePanel>();
+            SetRefs(panel, ("closeButton", closeButton));
 
             return root;
         }
 
+        // ---- Shop / Cosmetics (2026-08-20 redesign — matches the new Shop/Cosmetics/Hats/Trails
+        // mockups exactly; replaces the old plain-text-button coin grid and the tab-based
+        // CosmeticStoreScreen entirely) ----------------------------------------------------------
+
+        private const string UISpriteFolder = "Assets/_Project/Sprites/UI";
         private const string CosmeticsChromeFolder = "Assets/_Project/Sprites/Cosmetics";
+        private const string HatArtFolder = "Assets/_Project/Sprites/Cosmetics/Cosmetics_Type_Hat";
+        private const string TrailArtFolder = "Assets/_Project/Sprites/Cosmetics/CosmeticType.Trail";
 
         /// <summary>Configures a texture as a Sprite (PPU = its own width, same convention every
         /// other sprite-importer pass in this project uses) and loads it. Self-contained rather
-        /// than depending on ArtWiringBuilder having already run, since this prefab is built
+        /// than depending on ArtWiringBuilder having already run, since these screens are built
         /// earlier in the standard Phase2->Phase5->ArtWiringBuilder rebuild chain — mirrors
         /// CosmeticWiringBuilder.ConfigureAndLoadSprite's same self-contained approach.</summary>
         private static Sprite ConfigureAndLoadCosmeticChromeSprite(string path)
         {
             if (!File.Exists(path))
             {
-                Debug.LogWarning($"[Phase5ProjectBuilder] Expected cosmetics chrome sprite not found, skipping: {path}");
+                Debug.LogWarning($"[Phase5ProjectBuilder] Expected sprite not found, skipping: {path}");
                 return null;
             }
 
@@ -1646,149 +1434,269 @@ namespace FarmFuryArcade.EditorTools
             return AssetDatabase.LoadAssetAtPath<Sprite>(path);
         }
 
-        /// <summary>One purchasable/equippable cosmetic card — PurchaseCardFrame.png background,
-        /// an icon child for CosmeticData.previewSprite, name/price text, an EquippedBadge_Icon.png
-        /// overlay (inactive by default, ignoreLayout so it sits as a fixed top-right badge rather
-        /// than another stacked row), and a Buy/Equip button. Frame/badge art is baked into the
-        /// prefab itself here (not looked up by scene path like most art wiring), which avoids a
-        /// second ArtWiringBuilder prefab round-trip (LoadPrefabContents/SaveAsPrefabAsset).</summary>
-        private static GameObject BuildCosmeticCardPrefab()
+        // ---- Cross-screen layout standards (2026-08-20 consistency pass) ----------------------
+        // Applies to the family of screens rebuilt in this redesign wave (Main Menu, Level Select,
+        // Settings, Shop, Cosmetics hub/purchase, Level Complete, Leaderboards, Character Story) —
+        // every square icon-style button in that family is the same size, every text/wood-sign
+        // header is the same size/position (Level Select's "SELECT LEVEL" sign is the benchmark),
+        // and every screen using the landing.png ("farmfuryposter") backdrop shows it dimmed to
+        // 50% opacity rather than full strength. Screens with bespoke non-square button art (Pause,
+        // Choose Character, Level Failed, Character Roster, Gameplay HUD) predate this pass and
+        // aren't touched — forcing their wide banner-style buttons into a square box would squash
+        // them, the exact bug this same session already fixed once for DoubleCoins.png.
+        private const float StandardIconButtonSize = 160f;
+        private static readonly Vector2 StandardHeaderSignSize = new Vector2(860f, 320f);
+        private static readonly Vector2 StandardHeaderSignOffset = new Vector2(0f, -40f);
+        private const float StandardBackdropOpacity = 0.5f;
+
+        /// <summary>Sets a screen's own root Image to landing.png at the standard dimmed opacity —
+        /// same "poster" background every screen in this redesign wave shares, just faded so it
+        /// reads as a backdrop rather than competing with the content on top of it.</summary>
+        private static void ApplyDimmedLandingBackground(GameObject root)
         {
-            Sprite frameSprite = ConfigureAndLoadCosmeticChromeSprite($"{CosmeticsChromeFolder}/PurchaseCardFrame.png");
-            Sprite badgeSprite = ConfigureAndLoadCosmeticChromeSprite($"{CosmeticsChromeFolder}/EquippedBadge_Icon.png");
-
-            var go = new GameObject("CosmeticCard", typeof(RectTransform), typeof(Image), typeof(VerticalLayoutGroup), typeof(LayoutElement));
-            var rt = (RectTransform)go.transform;
-            rt.sizeDelta = new Vector2(220f, 260f);
-            var frameImage = go.GetComponent<Image>();
-            frameImage.sprite = frameSprite != null ? frameSprite : PlaceholderSprite.Get(new Color(0.55f, 0.35f, 0.15f));
-            frameImage.preserveAspect = false;
-            var vlg = go.GetComponent<VerticalLayoutGroup>();
-            vlg.padding = new RectOffset(12, 12, 16, 12);
-            vlg.spacing = 4f;
-            vlg.childControlWidth = true;
-            vlg.childControlHeight = false;
-            vlg.childForceExpandWidth = true;
-            vlg.childAlignment = TextAnchor.UpperCenter;
-            go.GetComponent<LayoutElement>().preferredWidth = 220f;
-
-            var iconImage = CreateImage("Icon", go.transform, Color.white, 110f, 110f);
-            ((RectTransform)iconImage.transform).sizeDelta = new Vector2(110f, 110f);
-            var nameText = CreateText("Name", go.transform, "Cosmetic", 20f, TextAlignmentOptions.Center, 30f);
-            ((RectTransform)nameText.transform).sizeDelta = new Vector2(0f, 30f);
-            var priceText = CreateText("Price", go.transform, "0", 22f, TextAlignmentOptions.Center, 30f);
-            ((RectTransform)priceText.transform).sizeDelta = new Vector2(0f, 30f);
-            var actionButton = CreateButton("ActionButton", go.transform, "Buy", new Color(0.85f, 0.65f, 0.2f), 20f, 50f, out var actionLabel);
-            ((RectTransform)actionButton.transform).sizeDelta = new Vector2(0f, 50f);
-
-            // Equipped badge — top-right overlay, not part of the vertical stack (ignoreLayout keeps
-            // VerticalLayoutGroup from treating it as another row).
-            var badgeImage = CreateImage("EquippedBadge", go.transform, Color.white, 40f, 40f);
-            var badgeLayoutElement = badgeImage.GetComponent<LayoutElement>();
-            badgeLayoutElement.ignoreLayout = true;
-            var badgeRect = (RectTransform)badgeImage.transform;
-            badgeRect.anchorMin = badgeRect.anchorMax = new Vector2(1f, 1f);
-            badgeRect.pivot = new Vector2(1f, 1f);
-            badgeRect.sizeDelta = new Vector2(40f, 40f);
-            badgeRect.anchoredPosition = new Vector2(-8f, -8f);
-            badgeImage.sprite = badgeSprite != null ? badgeSprite : PlaceholderSprite.Get(new Color(0.2f, 0.8f, 0.3f));
-            badgeImage.gameObject.SetActive(false);
-
-            var card = go.AddComponent<CosmeticCardController>();
-            var so = new SerializedObject(card);
-            so.FindProperty("frameImage").objectReferenceValue = frameImage;
-            so.FindProperty("iconImage").objectReferenceValue = iconImage;
-            so.FindProperty("nameText").objectReferenceValue = nameText;
-            so.FindProperty("priceText").objectReferenceValue = priceText;
-            so.FindProperty("equippedBadge").objectReferenceValue = badgeImage.gameObject;
-            so.FindProperty("actionButton").objectReferenceValue = actionButton;
-            so.FindProperty("actionButtonLabel").objectReferenceValue = actionLabel;
-            so.ApplyModifiedPropertiesWithoutUndo();
-
-            return SaveAndDestroy(go, $"{UIPrefabFolder}/CosmeticCard.prefab");
+            var image = root.GetComponent<Image>();
+            image.sprite = LoadUiSprite("landing.png");
+            image.color = new Color(1f, 1f, 1f, StandardBackdropOpacity);
         }
 
-        /// <summary>Hat/Trail/MazeTheme category tabs + a scrolling row of CosmeticCardController
-        /// cards. Every element is positioned directly against the root panel via explicit anchors
-        /// rather than nested inside a VerticalLayoutGroup "Content" wrapper (the pattern
-        /// BuildShopOverlay uses) — CreateHorizontalScrollView's fully-stretched root RectTransform
-        /// reports a zero sizeDelta, which a childControlHeight=false parent layout group reads
-        /// directly as its stacking height (the same root cause CLAUDE.md documents for the old
-        /// Level Select scroll-range bug), so nesting it inside another layout group here would
-        /// collapse it to zero height. BuildCharacterRoster sidesteps the same trap by parenting its
-        /// own scroll view directly to a plain panel instead of a layout group — this screen follows
-        /// that precedent rather than BuildShopOverlay's.</summary>
-        private static GameObject BuildCosmeticStoreScreen(Transform canvasTransform, GameObject cardPrefab)
+        /// <summary>Standardized top-center wood-sign header — same size/position on every screen
+        /// in this redesign wave, benchmarked against Level Select's own "SELECT LEVEL" sign
+        /// (SetAnchorRect/AnchorTopCenter, 860x320, (0,-40) offset).</summary>
+        private static Image CreateHeaderSign(Transform screenRoot, Sprite sprite)
         {
-            var root = CreatePanel("CosmeticStoreScreen", canvasTransform, new Color(0f, 0f, 0f, 0.9f));
+            var go = new GameObject("TitleImage", typeof(RectTransform), typeof(Image));
+            go.transform.SetParent(screenRoot, false);
+            var image = go.GetComponent<Image>();
+            image.sprite = sprite;
+            image.preserveAspect = true;
+            AnchorTopCenter((RectTransform)go.transform, StandardHeaderSignSize, StandardHeaderSignOffset);
+            return image;
+        }
 
-            var titleText = CreateText("Title", root.transform, "Cosmetics", 48f, TextAlignmentOptions.Center, 70f);
-            AnchorTopCenter((RectTransform)titleText.transform, new Vector2(860f, 90f), new Vector2(0f, -30f));
+        private static Sprite LoadUiSprite(string fileName) => ConfigureAndLoadCosmeticChromeSprite($"{UISpriteFolder}/{fileName}");
+        private static Sprite LoadCosmeticsSprite(string fileName) => ConfigureAndLoadCosmeticChromeSprite($"{CosmeticsChromeFolder}/{fileName}");
+        private static Sprite LoadHatArtSprite(string fileName) => ConfigureAndLoadCosmeticChromeSprite($"{HatArtFolder}/{fileName}");
+        private static Sprite LoadTrailArtSprite(string fileName) => ConfigureAndLoadCosmeticChromeSprite($"{TrailArtFolder}/{fileName}");
 
-            var coinBalanceText = CreateText("CoinBalanceText", root.transform, "0", 32f, TextAlignmentOptions.Right, 50f);
-            AnchorTopRight((RectTransform)coinBalanceText.transform, new Vector2(200f, 50f), new Vector2(-60f, -40f));
+        /// <summary>Icon-only button — no label, art's own aspect preserved, explicit sizeDelta set
+        /// directly rather than relying on LayoutElement (the parent HorizontalLayoutGroup rows this
+        /// is used in all set childControlWidth/Height = false, which reads each child's raw
+        /// RectTransform size directly and never consults LayoutElement — same gotcha CLAUDE.md
+        /// documents for the D-pad/Level Select scroll-range bugs).</summary>
+        private static Button CreateIconButton(string name, Transform parent, Sprite sprite, float size)
+        {
+            var button = CreateButton(name, parent, string.Empty, Color.white, 20f, size, out _);
+            Object.DestroyImmediate(button.transform.Find(name + "_Label").gameObject);
+            var image = button.GetComponent<Image>();
+            image.sprite = sprite;
+            image.preserveAspect = true;
+            ((RectTransform)button.transform).sizeDelta = new Vector2(size, size);
+            return button;
+        }
 
-            var tabRow = CreateHorizontalGroup("TabRow", root.transform, 20f);
-            var tabRowRect = (RectTransform)tabRow.transform;
-            tabRowRect.anchorMin = tabRowRect.anchorMax = new Vector2(0.5f, 1f);
-            tabRowRect.pivot = new Vector2(0.5f, 1f);
-            tabRowRect.sizeDelta = new Vector2(600f, 90f);
-            tabRowRect.anchoredPosition = new Vector2(0f, -140f);
+        /// <summary>Coin-pack purchase screen — landing.png background (matching every mockup in
+        /// this redesign), ShopBanner.png "Shop" sign, 4 self-contained coin-pack plaques
+        /// (100/500/5000/15000.png each bake in their own coin count + $ price, so no separate
+        /// label text is built on top the way the old plain-text-button version needed), a
+        /// Btn_Cosmetics.png button opening the new cosmetics hub, and a round back button. No
+        /// dedicated triangle/mountain back icon was uploaded for this mockup (same substitution
+        /// convention CreateRoundBackButton's own doc comment describes for Choose Character) —
+        /// Btn_back.png stands in. Root/overlay name kept as "StoreComingSoonOverlay" for
+        /// scene-path stability (ArtWiringBuilder and any future screenshot/test tooling that looks
+        /// it up by path) even though its content has been rebuilt from scratch twice now.</summary>
+        private static GameObject BuildShopOverlay(Transform canvasTransform)
+        {
+            var root = CreatePanel("StoreComingSoonOverlay", canvasTransform, Color.black);
+            ApplyDimmedLandingBackground(root);
 
-            var tabDefs = new (CosmeticType type, string name)[]
+            CreateHeaderSign(root.transform, LoadUiSprite("ShopBanner.png"));
+
+            // 4-column single-row grid (same construction as Settings' icon grid) instead of a
+            // HorizontalLayoutGroup — a layout group with childControlWidth=true stretches each
+            // child to fill whatever width remains, which doesn't reliably produce an exact
+            // StandardIconButtonSize square; GridLayoutGroup guarantees it.
+            var coinRowGO = new GameObject("CoinRow", typeof(RectTransform), typeof(GridLayoutGroup));
+            coinRowGO.transform.SetParent(root.transform, false);
+            var coinRowRect = (RectTransform)coinRowGO.transform;
+            coinRowRect.anchorMin = coinRowRect.anchorMax = new Vector2(0.5f, 0.5f);
+            coinRowRect.pivot = new Vector2(0.5f, 0.5f);
+            float coinRowSpacing = 50f;
+            coinRowRect.sizeDelta = new Vector2(4 * StandardIconButtonSize + 3 * coinRowSpacing + 100f, StandardIconButtonSize + 40f);
+            coinRowRect.anchoredPosition = new Vector2(0f, 20f);
+            var coinGrid = coinRowGO.GetComponent<GridLayoutGroup>();
+            coinGrid.cellSize = new Vector2(StandardIconButtonSize, StandardIconButtonSize);
+            coinGrid.spacing = new Vector2(coinRowSpacing, 0f);
+            coinGrid.childAlignment = TextAnchor.MiddleCenter;
+            coinGrid.constraint = GridLayoutGroup.Constraint.FixedColumnCount;
+            coinGrid.constraintCount = 4;
+
+            var coinDefs = new (string productId, string fileName)[]
             {
-                (CosmeticType.Hat, "HatTabButton"),
-                (CosmeticType.Trail, "TrailTabButton"),
-                (CosmeticType.MazeTheme, "MazeThemeTabButton"),
+                (IAPManager.Coins100ProductId, "100.png"),
+                (IAPManager.Coins500ProductId, "500.png"),
+                (IAPManager.Coins5000ProductId, "5000.png"),
+                (IAPManager.Coins15000ProductId, "15000.png"),
             };
-            var tabButtonsData = new (CosmeticType type, Button button, Image icon)[tabDefs.Length];
-            for (int i = 0; i < tabDefs.Length; i++)
+
+            var coinButtonsData = new (string id, Button button)[coinDefs.Length];
+            for (int i = 0; i < coinDefs.Length; i++)
             {
-                var (type, name) = tabDefs[i];
-                var tabButton = CreateButton(name, tabRow.transform, string.Empty, Color.white, 20f, 90f, out _);
-                Object.DestroyImmediate(tabButton.transform.Find(name + "_Label").gameObject);
-                var tabIconImage = tabButton.GetComponent<Image>();
-                tabIconImage.preserveAspect = true;
-                tabButtonsData[i] = (type, tabButton, tabIconImage);
+                var (id, fileName) = coinDefs[i];
+                coinButtonsData[i] = (id, CreateIconButton(id + "Button", coinRowGO.transform, LoadUiSprite(fileName), StandardIconButtonSize));
             }
 
-            // Vertical budget (bottom-up): CloseButton 40-110, StatusText 140-180, ScrollView
-            // 220-(top-260) — each with a clear gap from its neighbour, since AnchorBottomCenter/
-            // AnchorTopCenter values here don't come from a LayoutGroup that would space them
-            // automatically (see this method's own doc comment for why a LayoutGroup isn't used).
-            var scrollRect = CreateHorizontalScrollView("CardScrollView", root.transform, out var cardContent);
-            var scrollRectTransform = (RectTransform)((Component)scrollRect).transform;
-            scrollRectTransform.anchorMin = new Vector2(0f, 0f);
-            scrollRectTransform.anchorMax = new Vector2(1f, 1f);
-            scrollRectTransform.offsetMin = new Vector2(0f, 220f);
-            scrollRectTransform.offsetMax = new Vector2(0f, -260f);
+            var cosmeticsButton = CreateIconButton("CosmeticsButton", root.transform, LoadUiSprite("Btn_Cosmetics.png"), StandardIconButtonSize);
+            AnchorBottomCenter((RectTransform)cosmeticsButton.transform, new Vector2(StandardIconButtonSize, StandardIconButtonSize), new Vector2(0f, 70f));
 
-            var statusText = CreateText("StatusText", root.transform, string.Empty, 24f, TextAlignmentOptions.Center, 40f);
-            AnchorBottomCenter((RectTransform)statusText.transform, new Vector2(860f, 40f), new Vector2(0f, 140f));
+            var closeButton = CreateRoundBackButton(root.transform, bottomRight: true);
+            closeButton.GetComponent<Image>().sprite = LoadUiSprite("Btn_back.png");
 
-            var closeButton = CreateButton("CloseButton", root.transform, "Back", new Color(0.35f, 0.35f, 0.38f), 26f, 70f, out _);
-            AnchorBottomCenter((RectTransform)closeButton.transform, new Vector2(240f, 70f), new Vector2(0f, 40f));
+            var statusText = CreateText("StatusText", root.transform, string.Empty, 26f, TextAlignmentOptions.Center, 40f);
+            AnchorBottomCenter((RectTransform)statusText.transform, new Vector2(860f, 40f), new Vector2(0f, 250f));
 
-            var screen = root.AddComponent<CosmeticStoreScreen>();
-            var so = new SerializedObject(screen);
-            var arrayProp = so.FindProperty("tabButtons");
-            arrayProp.arraySize = tabButtonsData.Length;
-            for (int i = 0; i < tabButtonsData.Length; i++)
+            var shop = root.AddComponent<ShopController>();
+            var shopSO = new SerializedObject(shop);
+            var arrayProp = shopSO.FindProperty("coinPackButtons");
+            arrayProp.arraySize = coinButtonsData.Length;
+            for (int i = 0; i < coinButtonsData.Length; i++)
             {
                 var element = arrayProp.GetArrayElementAtIndex(i);
-                element.FindPropertyRelative("type").enumValueIndex = (int)tabButtonsData[i].type;
-                element.FindPropertyRelative("button").objectReferenceValue = tabButtonsData[i].button;
-                element.FindPropertyRelative("icon").objectReferenceValue = tabButtonsData[i].icon;
+                element.FindPropertyRelative("productId").stringValue = coinButtonsData[i].id;
+                element.FindPropertyRelative("button").objectReferenceValue = coinButtonsData[i].button;
             }
-            so.FindProperty("cardContainer").objectReferenceValue = cardContent;
-            so.FindProperty("cardPrefab").objectReferenceValue = cardPrefab;
-            so.FindProperty("coinBalanceText").objectReferenceValue = coinBalanceText;
+            shopSO.FindProperty("statusText").objectReferenceValue = statusText;
+            shopSO.FindProperty("closeButton").objectReferenceValue = closeButton;
+            shopSO.FindProperty("cosmeticsButton").objectReferenceValue = cosmeticsButton;
+            // cosmeticsHubScreen is wired later in BuildAll, once BuildCosmeticsHubScreen has
+            // actually created that screen (cross-screen reference, same deferred-wiring pattern
+            // WireCrossReferences uses for every other screen-to-screen link).
+            shopSO.ApplyModifiedPropertiesWithoutUndo();
+
+            return root;
+        }
+
+        /// <summary>Cosmetics category hub — landing.png background, Cosmetics.png "Cosmetics"
+        /// sign, and 3 icons (Hat_Icon.png / Trails_Tab_Icon.png "comet" / MazeThemeTab.png "map").
+        /// The map icon is shown (matching the mockup) but has no click handler — no maze-theme
+        /// cosmetic content exists yet, per explicit instruction not to build that destination.</summary>
+        private static GameObject BuildCosmeticsHubScreen(Transform canvasTransform)
+        {
+            var root = CreatePanel("CosmeticsHubScreen", canvasTransform, Color.black);
+            ApplyDimmedLandingBackground(root);
+
+            CreateHeaderSign(root.transform, LoadUiSprite("Cosmetics.png"));
+
+            var iconRow = CreateHorizontalGroup("IconRow", root.transform, 50f);
+            var iconRowRect = (RectTransform)iconRow.transform;
+            iconRowRect.anchorMin = iconRowRect.anchorMax = new Vector2(0.5f, 0.5f);
+            iconRowRect.pivot = new Vector2(0.5f, 0.5f);
+            iconRowRect.sizeDelta = new Vector2(3 * StandardIconButtonSize + 2 * 50f + 60f, StandardIconButtonSize + 20f);
+            iconRowRect.anchoredPosition = Vector2.zero;
+            iconRow.GetComponent<LayoutElement>().preferredHeight = StandardIconButtonSize;
+            var iconRowHlg = iconRow.GetComponent<HorizontalLayoutGroup>();
+            iconRowHlg.childControlWidth = false;
+            iconRowHlg.childForceExpandWidth = false;
+            iconRowHlg.childControlHeight = false;
+            iconRowHlg.childForceExpandHeight = false;
+            iconRowHlg.childAlignment = TextAnchor.MiddleCenter;
+
+            var hatButton = CreateIconButton("HatButton", iconRow.transform, LoadCosmeticsSprite("Hat_Icon.png"), StandardIconButtonSize);
+            var trailButton = CreateIconButton("TrailButton", iconRow.transform, LoadCosmeticsSprite("Trails_Tab_Icon.png"), StandardIconButtonSize);
+
+            // Map/MazeTheme icon — display-only, matches the mockup, no navigation wired (no
+            // MazeTheme cosmetic content exists yet).
+            var mapImage = CreateImage("MapIcon", iconRow.transform, Color.white, StandardIconButtonSize, StandardIconButtonSize);
+            mapImage.sprite = LoadCosmeticsSprite("MazeThemeTab.png");
+            mapImage.preserveAspect = true;
+            ((RectTransform)mapImage.transform).sizeDelta = new Vector2(StandardIconButtonSize, StandardIconButtonSize);
+
+            var closeButton = CreateRoundBackButton(root.transform, bottomRight: true);
+            closeButton.GetComponent<Image>().sprite = LoadUiSprite("Btn_back.png");
+
+            var hub = root.AddComponent<CosmeticsHubScreen>();
+            var so = new SerializedObject(hub);
+            so.FindProperty("hatButton").objectReferenceValue = hatButton;
+            so.FindProperty("trailButton").objectReferenceValue = trailButton;
+            so.FindProperty("closeButton").objectReferenceValue = closeButton;
+            // hatPurchaseScreen/trailPurchaseScreen are wired later in BuildAll, once those screens
+            // have actually been created (same deferred cross-screen-reference pattern as Shop's
+            // own cosmeticsHubScreen field above).
+            so.ApplyModifiedPropertiesWithoutUndo();
+
+            return root;
+        }
+
+        /// <summary>Generic cosmetic-style purchase screen — reused for both Hats (3 items:
+        /// Baseball Cap / Cowboy Hat / Sombrero) and Trails (4 items: Corn Husk / Rainbow Ribbon /
+        /// Sparkle Dust / Ember), since both mockups share the same layout: a breadcrumb icon, a
+        /// row of framed purchase items (each item's own wood-frame art is baked directly into the
+        /// button, same "art baked at construction time" convention the old CosmeticCardController
+        /// used for PurchaseCardFrame.png), a single price plaque (every item on a given screen is
+        /// $3.99), and a round back button. Every item purchases via IAPManager directly on tap —
+        /// see CosmeticPurchaseScreen's own doc comment for the purchase/grant flow.</summary>
+        private static GameObject BuildCosmeticPurchaseScreen(Transform canvasTransform, string screenName,
+            Sprite breadcrumbSprite, (string productId, Sprite frameSprite)[] items, Sprite priceSprite)
+        {
+            var root = CreatePanel(screenName, canvasTransform, Color.black);
+            ApplyDimmedLandingBackground(root);
+
+            var breadcrumbGO = new GameObject("BreadcrumbIcon", typeof(RectTransform), typeof(Image));
+            breadcrumbGO.transform.SetParent(root.transform, false);
+            var breadcrumbImage = breadcrumbGO.GetComponent<Image>();
+            breadcrumbImage.sprite = breadcrumbSprite;
+            breadcrumbImage.preserveAspect = true;
+            AnchorTopCenter((RectTransform)breadcrumbGO.transform, new Vector2(StandardIconButtonSize, StandardIconButtonSize), new Vector2(0f, -30f));
+
+            var itemRow = CreateHorizontalGroup("ItemRow", root.transform, 50f);
+            var itemRowRect = (RectTransform)itemRow.transform;
+            itemRowRect.anchorMin = itemRowRect.anchorMax = new Vector2(0.5f, 0.5f);
+            itemRowRect.pivot = new Vector2(0.5f, 0.5f);
+            itemRowRect.sizeDelta = new Vector2(items.Length * StandardIconButtonSize + (items.Length - 1) * 50f + 60f, StandardIconButtonSize + 20f);
+            itemRowRect.anchoredPosition = new Vector2(0f, 20f);
+            itemRow.GetComponent<LayoutElement>().preferredHeight = StandardIconButtonSize;
+            var itemRowHlg = itemRow.GetComponent<HorizontalLayoutGroup>();
+            itemRowHlg.childControlWidth = false;
+            itemRowHlg.childForceExpandWidth = false;
+            itemRowHlg.childControlHeight = false;
+            itemRowHlg.childForceExpandHeight = false;
+            itemRowHlg.childAlignment = TextAnchor.MiddleCenter;
+
+            var itemButtonsData = new (string id, Button button)[items.Length];
+            for (int i = 0; i < items.Length; i++)
+            {
+                itemButtonsData[i] = (items[i].productId, CreateIconButton($"Item{i}Button", itemRow.transform, items[i].frameSprite, StandardIconButtonSize));
+            }
+
+            var priceGO = new GameObject("PriceSign", typeof(RectTransform), typeof(Image));
+            priceGO.transform.SetParent(root.transform, false);
+            var priceImage = priceGO.GetComponent<Image>();
+            priceImage.sprite = priceSprite;
+            priceImage.preserveAspect = true;
+            AnchorBottomCenter((RectTransform)priceGO.transform, new Vector2(360f, 190f), new Vector2(0f, 90f));
+
+            var closeButton = CreateRoundBackButton(root.transform, bottomRight: true);
+            closeButton.GetComponent<Image>().sprite = LoadUiSprite("Btn_back.png");
+
+            var statusText = CreateText("StatusText", root.transform, string.Empty, 24f, TextAlignmentOptions.Center, 40f);
+            AnchorBottomCenter((RectTransform)statusText.transform, new Vector2(860f, 40f), new Vector2(0f, 20f));
+
+            var screen = root.AddComponent<CosmeticPurchaseScreen>();
+            var so = new SerializedObject(screen);
+            var arrayProp = so.FindProperty("itemButtons");
+            arrayProp.arraySize = itemButtonsData.Length;
+            for (int i = 0; i < itemButtonsData.Length; i++)
+            {
+                var element = arrayProp.GetArrayElementAtIndex(i);
+                element.FindPropertyRelative("productId").stringValue = itemButtonsData[i].id;
+                element.FindPropertyRelative("button").objectReferenceValue = itemButtonsData[i].button;
+            }
             so.FindProperty("statusText").objectReferenceValue = statusText;
             so.FindProperty("closeButton").objectReferenceValue = closeButton;
             so.ApplyModifiedPropertiesWithoutUndo();
 
             return root;
         }
+
 
         // ---- Level Complete + New Character Unlock ---------------------------------------------
 
@@ -1842,57 +1750,22 @@ namespace FarmFuryArcade.EditorTools
             var starDisplayGO = CreateStarDisplay("Stars", shelfGO.transform, 28);
 
             // Monetisation rewarded-ad placement #2 ("double coins" — see CLAUDE.md's Monetisation
-            // section and LevelCompleteController's own doc comment). Used to be a 3rd row crammed
-            // into the shelf below the stars — pixel-sampling LevelComplete.png's own blank shelf
-            // area (500x500 source, the true unobstructed band is only ~y=[225,380], i.e. a fraction
-            // range of roughly [0.24,0.55] of the card, which is what ShelfContent's 0.28-0.56 band
-            // above was already tuned to) showed that zone only has room for score+stars at a
-            // readable size — a 3rd stacked button was always going to read cramped there. Moved
-            // outside the card entirely instead: PanelArt is a square AspectRatioFitter sized to the
-            // screen's height (1080 in the 1920x1080 reference canvas), leaving a ~420px empty
-            // margin on each side once centered in the 1920-wide screen — plenty of room for a
-            // standalone button. Right-edge anchored, vertically placed at the shelf's own band
-            // centre (y=-113 from screen centre, matching the score/stars height) rather than the
-            // card's true centre, so it still reads as "the thing next to your score," not an
-            // unrelated floating button. Hidden by LevelCompleteController.RefreshDoubleCoinsButton
-            // exactly as before whenever there's no ad ready/nothing to double/already claimed. No
-            // dedicated art exists for this yet, same "text label until art lands" convention the
-            // skip-cooldown button used before Btn_skipcooldown.png existed.
-            var doubleCoinsButton = CreateButton("DoubleCoinsButton", root.transform,
-                string.Empty, new Color(1f, 0.72f, 0.1f), 22f, 90f, out var doubleCoinsLabel);
-            var doubleCoinsRect = (RectTransform)doubleCoinsButton.transform;
-            doubleCoinsRect.anchorMin = doubleCoinsRect.anchorMax = new Vector2(1f, 0.5f);
-            doubleCoinsRect.pivot = new Vector2(0.5f, 0.5f);
-            doubleCoinsRect.sizeDelta = new Vector2(240f, 90f);
-            doubleCoinsRect.anchoredPosition = new Vector2(-210f, -113f);
-            doubleCoinsLabel.text = "2x Coins\n(Watch Ad)";
+            // section and LevelCompleteController's own doc comment). Bottom-right, in the space
+            // Home/Settings used to share (both removed 2026-08-20 per a screenshot review — Play
+            // is the only real navigation left on this screen) — mirrors PlayButton's own
+            // bottom-left inset/size exactly (StandardIconButtonSize, 150/110 inset) for symmetry.
+            // Previously a wide 240x90 text-label button; DoubleCoins.png is actually square
+            // (501x500), so that box squashed it badly (the same Sliced-ignores-preserveAspect
+            // box-aspect-must-match-the-art bug this project has hit repeatedly elsewhere) — square
+            // box + real art + preserveAspect fixes it, and the auto-created text label is
+            // destroyed (icon only now, matching the mockup review that called out "remove the
+            // white text overlay").
+            var doubleCoinsButton = CreateIconButton("DoubleCoinsButton", root.transform, LoadUiSprite("DoubleCoins.png"), StandardIconButtonSize);
+            AnchorBottomRight((RectTransform)doubleCoinsButton.transform, new Vector2(StandardIconButtonSize, StandardIconButtonSize), new Vector2(-150f, 110f));
 
-            // Play/Home/Settings used to be one bottom-right row; split per feedback — Play now
-            // sits alone bottom-left (matching the same bottom-left safe-area inset every other
-            // screen's back button uses), Home/Settings stay paired bottom-right. Both rows share
-            // the same 110px bottom inset so their button centres land on the same horizontal line
-            // (matching the horseshoe art baked into both bottom corners of the card) — they'd
-            // drifted out of alignment when Play's own inset was deepened (70 -> 110) for
-            // safe-area clearance without carrying the same change over to ActionButtons.
-            var playButton = CreateButton("PlayButton", root.transform, string.Empty, new Color(0.85f, 0.55f, 0.1f), 28f, 130f, out _);
+            var playButton = CreateButton("PlayButton", root.transform, string.Empty, new Color(0.85f, 0.55f, 0.1f), 28f, StandardIconButtonSize, out _);
             Object.DestroyImmediate(playButton.transform.Find("PlayButton_Label").gameObject);
-            AnchorBottomLeft((RectTransform)playButton.transform, new Vector2(130f, 130f), new Vector2(150f, 110f));
-
-            var actionRow = CreateHorizontalGroup("ActionButtons", root.transform, 24f);
-            actionRow.GetComponent<LayoutElement>().preferredHeight = 130f;
-            // Bottom-right (was bottom-center) per a device-frame review — bottom-center sat
-            // outside the yellow safe-area guide on a real aspect. Inset deepened again (-100 ->
-            // -220) per a follow-up review — the row (Play, when it was still part of this group)
-            // still crossed the yellow guide's right edge at -100. Negative X moves inward for a
-            // right-pivoted anchor (see CreateRoundBackButton's doc comment). Width shrunk to match
-            // now that it's only 2 buttons instead of 3. Y inset raised (70 -> 110) to match
-            // PlayButton's own bottom inset — see the comment above.
-            AnchorBottomRight((RectTransform)actionRow.transform, new Vector2(320f, 130f), new Vector2(-220f, 110f));
-
-            var homeButton = CreateButton("HomeButton", actionRow.transform, string.Empty, new Color(0.85f, 0.55f, 0.1f), 28f, 130f, out _);
-            Object.DestroyImmediate(homeButton.transform.Find("HomeButton_Label").gameObject);
-            var settingsButton = CreateButton("SettingsButton", actionRow.transform, string.Empty, new Color(0.85f, 0.55f, 0.1f), 28f, 130f, out _);
-            Object.DestroyImmediate(settingsButton.transform.Find("SettingsButton_Label").gameObject);
+            AnchorBottomLeft((RectTransform)playButton.transform, new Vector2(StandardIconButtonSize, StandardIconButtonSize), new Vector2(150f, 110f));
 
             // New Character Unlock overlay, layered on top of Level Complete — rebuilt to match a
             // Canva mockup: full-screen night-farm backdrop (same World1_Cornfield.png convention
@@ -2021,10 +1894,7 @@ namespace FarmFuryArcade.EditorTools
             so.FindProperty("starDisplay").objectReferenceValue = starDisplayGO.GetComponent<StarDisplay>();
             so.FindProperty("scoreText").objectReferenceValue = scoreText;
             so.FindProperty("playButton").objectReferenceValue = playButton;
-            so.FindProperty("homeButton").objectReferenceValue = homeButton;
-            so.FindProperty("settingsButton").objectReferenceValue = settingsButton;
             so.FindProperty("doubleCoinsButton").objectReferenceValue = doubleCoinsButton;
-            so.FindProperty("doubleCoinsLabel").objectReferenceValue = doubleCoinsLabel;
             so.FindProperty("unlockScreen").objectReferenceValue = unlockScreen;
             so.FindProperty("worldUnlockScreen").objectReferenceValue = worldUnlockScreen;
             so.ApplyModifiedPropertiesWithoutUndo();
@@ -2117,16 +1987,27 @@ namespace FarmFuryArcade.EditorTools
 
         // ---- Leaderboards -----------------------------------------------------------------------
 
+        /// <summary>Rebuilt (2026-08-20) to match the rest of this redesign wave — dimmed
+        /// landing.png backdrop, Leaderboard.png as the standardized header sign (reused from its
+        /// old corner-button role — same wood-sign convention as ShopBanner.png/Cosmetics.png/
+        /// SettingsSign.png), stats centred below it, and a round back button matching every other
+        /// screen in this suite (was CreateGenericBackButton's rectangular Btn_back before).</summary>
         private static GameObject BuildLeaderboards(Transform canvasTransform)
         {
-            var root = CreatePanel("LeaderboardsScreen", canvasTransform, new Color(0.10f, 0.12f, 0.16f));
-            var group = CreateVerticalGroup("Content", root.transform, 14f, 30);
+            var root = CreatePanel("LeaderboardsScreen", canvasTransform, Color.black);
+            ApplyDimmedLandingBackground(root);
 
-            CreateText("Title", group.transform, "LEADERBOARDS", 40f, TextAlignmentOptions.Center, 60f);
-            var statsText = CreateText("StatsText", group.transform, string.Empty, 24f, TextAlignmentOptions.Left, 200f);
-            // Pulled out of "Content" so it lands in the generic bottom-left screen-corner spot
-            // instead of stacking inline under the stats text.
-            var backButton = CreateGenericBackButton(root.transform);
+            CreateHeaderSign(root.transform, LoadUiSprite("Leaderboard.png"));
+
+            var statsText = CreateText("StatsText", root.transform, string.Empty, 32f, TextAlignmentOptions.Center, 260f, Color.white);
+            var statsRect = (RectTransform)statsText.transform;
+            statsRect.anchorMin = statsRect.anchorMax = new Vector2(0.5f, 0.5f);
+            statsRect.pivot = new Vector2(0.5f, 0.5f);
+            statsRect.sizeDelta = new Vector2(900f, 260f);
+            statsRect.anchoredPosition = new Vector2(0f, -40f);
+
+            var backButton = CreateRoundBackButton(root.transform, bottomRight: false);
+            backButton.GetComponent<Image>().sprite = LoadUiSprite("Btn_back.png");
 
             var controller = root.AddComponent<LeaderboardsScreen>();
             var so = new SerializedObject(controller);
@@ -2278,14 +2159,15 @@ namespace FarmFuryArcade.EditorTools
             GameObject gameplay, GameObject pause, GameObject settings,
             GameObject levelComplete, NewCharacterUnlockScreen unlockScreen, GameObject levelFailed,
             GameObject roster, GameObject leaderboards, ChooseCharacterScreen chooseCharacterScreen,
-            ComboNotificationBanner comboBanner, GameObject levelSelect, GameObject shop)
+            ComboNotificationBanner comboBanner, GameObject levelSelect, GameObject shop, GameObject characterStory)
         {
             var settingsPanel = settings.GetComponent<SettingsPanel>();
-            SetRefs(settingsPanel, ("mainMenuScreen", mainMenu), ("leaderboardsScreen", leaderboards));
+            SetRefs(settingsPanel,
+                ("leaderboardsScreen", leaderboards),
+                ("shopScreen", shop.GetComponent<ShopController>()), ("characterStoryScreen", characterStory));
 
             SetRefs(mainMenu.GetComponent<MainMenuController>(),
-                ("levelSelectScreen", levelSelect), ("settingsPanel", settingsPanel),
-                ("shopScreen", shop.GetComponent<ShopController>()));
+                ("levelSelectScreen", levelSelect), ("settingsPanel", settingsPanel));
 
             SetRefs(levelSelect.GetComponent<LevelSelectController>(),
                 ("mainMenuScreen", mainMenu), ("gameplayScreen", gameplay));
@@ -2302,7 +2184,7 @@ namespace FarmFuryArcade.EditorTools
 
             SetRefs(levelComplete.GetComponent<LevelCompleteController>(),
                 ("levelSelectScreen", levelSelect), ("levelSelectController", levelSelect.GetComponent<LevelSelectController>()),
-                ("settingsPanel", settingsPanel), ("unlockScreen", unlockScreen));
+                ("unlockScreen", unlockScreen));
 
             SetRefs(levelFailed.GetComponent<LevelFailedController>(),
                 ("gameplayScreen", gameplay), ("levelSelectScreen", levelSelect));

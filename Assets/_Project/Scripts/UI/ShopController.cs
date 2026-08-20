@@ -7,13 +7,14 @@ using FarmFuryArcade.Core;
 namespace FarmFuryArcade.UI
 {
     /// <summary>
-    /// Monetisation Build Plan Phase 3's minimal purchase surface: 5 coin packs + Remove Ads,
-    /// reached from Main Menu. Replaces the old "Store is coming in Phase 6!" placeholder; this
-    /// screen is deliberately just the IAP plumbing's purchase surface, with plain text labels
-    /// since no purchase-card art has been commissioned yet (see the plan doc's own "Art needed"
-    /// list for Phase 3 — currently zero art exists here). The Phase 4 cosmetics Store
-    /// (hats/trails/maze themes) is a separate screen, <see cref="CosmeticStoreScreen"/>, reached
-    /// via this screen's own "Cosmetics" button rather than folded into this one.
+    /// Coin-pack purchase surface (2026-08-20 redesign) — matches the new Shop mockup exactly:
+    /// landing.png background, a "Shop" wood sign, 4 self-contained coin-pack plaques (each bakes
+    /// in its own coin count + $ price, so no separate label text is needed the way the old plain
+    /// text-button version required), a "Cosmetics" button that opens
+    /// <see cref="CosmeticsHubScreen"/>, and a back button. Remove Ads is no longer sold from this
+    /// screen — the new mockup only shows the 4 coin packs + Cosmetics, so that IAP product (still
+    /// registered in IAPManager) currently has no purchase surface; revisit if Remove Ads needs a
+    /// new home.
     ///
     /// Overlay convention, same as SettingsPanel/RevivePromptController — shown/hidden directly via
     /// Show()/SetActive, not through SceneTransitionManager.
@@ -21,24 +22,20 @@ namespace FarmFuryArcade.UI
     public class ShopController : MonoBehaviour
     {
         [Serializable]
-        private struct ProductButton
+        private struct CoinPackButton
         {
             public string productId;
-            public string displayName;
             public Button button;
-            public TextMeshProUGUI label;
         }
 
-        [SerializeField] private ProductButton[] productButtons;
+        [SerializeField] private CoinPackButton[] coinPackButtons;
         [SerializeField] private TextMeshProUGUI statusText;
         [SerializeField] private Button closeButton;
 
-        // Monetisation Build Plan Phase 4 — opens the cosmetics purchase/equip screen, layered on
-        // top of this one (same "overlay on top of overlay" convention ChooseCharacterScreen uses
-        // over Pause). Nested here rather than a 4th Main Menu button since Main Menu is
-        // deliberately kept minimal (see CLAUDE.md's landing-page cleanup).
+        // Opens the cosmetics purchase hub, layered on top of this screen (same "overlay on top of
+        // overlay" convention ChooseCharacterScreen uses over Pause).
         [SerializeField] private Button cosmeticsButton;
-        [SerializeField] private CosmeticStoreScreen cosmeticStoreScreen;
+        [SerializeField] private CosmeticsHubScreen cosmeticsHubScreen;
 
         private void Awake()
         {
@@ -47,17 +44,17 @@ namespace FarmFuryArcade.UI
                 closeButton.onClick.AddListener(() => gameObject.SetActive(false));
             }
 
-            if (cosmeticsButton != null && cosmeticStoreScreen != null)
+            if (cosmeticsButton != null && cosmeticsHubScreen != null)
             {
-                cosmeticsButton.onClick.AddListener(() => cosmeticStoreScreen.Show());
+                cosmeticsButton.onClick.AddListener(() => cosmeticsHubScreen.Show());
             }
 
-            if (productButtons == null)
+            if (coinPackButtons == null)
             {
                 return;
             }
 
-            foreach (var entry in productButtons)
+            foreach (var entry in coinPackButtons)
             {
                 if (entry.button == null)
                 {
@@ -74,15 +71,12 @@ namespace FarmFuryArcade.UI
             {
                 IAPManager.Instance.OnPurchaseSucceeded += HandlePurchaseSucceeded;
                 IAPManager.Instance.OnPurchaseFailed += HandlePurchaseFailed;
-                IAPManager.Instance.OnProductsReady += RefreshPrices;
             }
 
             if (statusText != null)
             {
                 statusText.text = string.Empty;
             }
-            RefreshPrices();
-            RefreshRemoveAdsState();
         }
 
         private void OnDisable()
@@ -91,7 +85,6 @@ namespace FarmFuryArcade.UI
             {
                 IAPManager.Instance.OnPurchaseSucceeded -= HandlePurchaseSucceeded;
                 IAPManager.Instance.OnPurchaseFailed -= HandlePurchaseFailed;
-                IAPManager.Instance.OnProductsReady -= RefreshPrices;
             }
         }
 
@@ -124,10 +117,6 @@ namespace FarmFuryArcade.UI
             {
                 statusText.text = "Purchase complete!";
             }
-            if (productId == IAPManager.RemoveAdsProductId)
-            {
-                RefreshRemoveAdsState();
-            }
         }
 
         private void HandlePurchaseFailed(string productId, string reason)
@@ -135,45 +124,6 @@ namespace FarmFuryArcade.UI
             if (statusText != null)
             {
                 statusText.text = "Purchase failed.";
-            }
-        }
-
-        /// <summary>Swaps in real localized prices once IAPManager's store connection resolves them
-        /// (IAPManager.GetPriceString falls back to the GDD's static price table until then, so the
-        /// label is never blank).</summary>
-        private void RefreshPrices()
-        {
-            if (productButtons == null)
-            {
-                return;
-            }
-
-            foreach (var entry in productButtons)
-            {
-                if (entry.label == null)
-                {
-                    continue;
-                }
-                string price = IAPManager.Instance != null ? IAPManager.Instance.GetPriceString(entry.productId) : string.Empty;
-                entry.label.text = string.IsNullOrEmpty(price) ? entry.displayName : $"{entry.displayName}\n{price}";
-            }
-        }
-
-        /// <summary>Remove Ads is non-consumable — once owned, disable its button rather than
-        /// letting the player tap a purchase they already have.</summary>
-        private void RefreshRemoveAdsState()
-        {
-            if (productButtons == null || SaveManager.Instance == null)
-            {
-                return;
-            }
-
-            foreach (var entry in productButtons)
-            {
-                if (entry.productId == IAPManager.RemoveAdsProductId && entry.button != null)
-                {
-                    entry.button.interactable = !SaveManager.Instance.AdsRemoved;
-                }
             }
         }
     }

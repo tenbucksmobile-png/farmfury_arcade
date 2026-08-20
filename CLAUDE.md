@@ -846,12 +846,16 @@ Remove Ads); the GDD's Section 11 cosmetics Store (hats/skins/trails/themes) is 
 own "Cosmetics Store UI" subsection. No purchase-card art exists yet for the 5 IAP products (per
 the plan doc's own "Art needed" list — zero art exists here), so every button is a plain text label
 (`"{displayName}\n{price}"`), same "text label until art lands" convention every other unart'd
-placeholder button in this project uses. Reached via a new **Main Menu "Shop" button** (bottom-
-centre, between Play and Settings — now uses real `Shop.png` art, see "Landing/Gameplay-HUD
-cleanup" below). Remove Ads' button disables itself once `SaveManager.AdsRemoved` is already true
-(a non-consumable can't be purchased twice).
+placeholder button in this project uses. This screen itself has since been rebuilt to match a real
+mockup (2026-08-20) — see "Settings / Leaderboards / Level Complete redesign" further down for its
+current layout and entry point (now Settings' 4x2 grid, not Main Menu — the Shop icon moved twice
+after this section was originally written). Remove Ads' button disables itself once
+`SaveManager.AdsRemoved` is already true (a non-consumable can't be purchased twice).
 
-**Restore Purchases** now fills Settings' 2x3 grid's previously-empty 6th cell (see the Settings
+**Restore Purchases is no longer wired to anything** as of the 2026-08-20 Settings redesign (see
+"Settings / Leaderboards / Level Complete redesign" further down) — the method/logic below still
+exists in `IAPManager`/`SettingsPanel`'s history, just nothing currently calls it. The paragraph
+below describes the pre-redesign Settings 2x3 grid this used to live in, kept for context:
 section under "Landing/Gameplay-HUD cleanup" below for that grid's own history) — a plain
 `CreateButtonPlaqueCell` (a new sibling to `CreateTogglePlaqueCell`, same visual convention, Button
 instead of Toggle) calling `IAPManager.RestorePurchases`, with its own label swapping
@@ -982,61 +986,94 @@ to retune per-asset). `trailEffectPrefab` is left null on all 4 — see "Not bui
 still no Trail rendering hook, so equipping one persists correctly (ownership + equip state) but
 has no visible effect in gameplay yet.
 
-### Cosmetics Store UI (`Scripts/UI/CosmeticStoreScreen.cs`, `CosmeticCardController.cs`)
+### Cosmetics Store UI (2026-08-20 redesign — `Scripts/UI/CosmeticsHubScreen.cs`, `CosmeticPurchaseScreen.cs`)
 
-The real purchase/equip surface, reached via a new "Cosmetics" button on `ShopController`'s own
-screen (layered on top of it, same "overlay on top of overlay" convention `ChooseCharacterScreen`
-uses over Pause — not folded into `ShopController` itself, and not a 4th Main Menu button, since
-Main Menu is deliberately kept minimal per the landing-page cleanup above).
+**Rebuilt from scratch to match a new set of Canva mockups exactly** — the tab-based
+`CosmeticStoreScreen`/`CosmeticCardController` (coin-priced, scrolling card row, Hat/Trail/
+MazeTheme tabs) is gone entirely, along with the old plain-text-button `ShopController` grid. Both
+were replaced by 4 flat, purpose-built screens, each reusing `landing.png` as its background (same
+art as Main Menu) with a wood-sign title and framed purchase items on top — all baked directly at
+Editor-tool construction time (`Phase5ProjectBuilder`'s `BuildShopOverlay`/
+`BuildCosmeticsHubScreen`/`BuildCosmeticPurchaseScreen`, self-contained the same way
+`CosmeticWiringBuilder.ConfigureAndLoadSprite` is, so `ArtWiringBuilder` has nothing left to wire
+for any of these 4 screens):
 
-**`CosmeticStoreScreen`** has 3 category tabs (`Hat`/`Trail`/`MazeTheme` — no Skin tab, no Skin
-`CosmeticData` assets exist yet) built as plain icon buttons (`Hat_Icon.png`/`Trails_Tab_Icon.png`/
-`MazeThemeTab.png`, dimmed via a flat tint when not the active tab — no dedicated "selected" art
-exists yet) rather than a `Toggle` group, since no tab-switching helper existed anywhere in this
-project's UI builder toolkit before this. Selecting a tab clears and repopulates a horizontal
-`ScrollRect` of `CosmeticCardController` cards: Hat queries `DataManager.GetCosmeticsForCharacter
-(CharacterManager.Instance.ActiveCharacter, CosmeticType.Hat)` (so Hat browsing is scoped to
-whichever character is currently active — no in-Store character switcher exists, swap character
-first via Pause/Choose Character to shop for a different one's hats), Trail/MazeTheme both query
-`DataManager.GetCosmeticsByType` (character-agnostic). Tapping a card's action button buys it via
-`SaveManager.PurchaseCosmetic` (shows "Not enough coins!" via `statusText` on failure, same
-lightweight feedback convention `ShopController`'s own status text uses) then immediately equips it
-— there's no separate buy-then-equip step. Equipping branches on `CosmeticData.cosmeticType` since
-`SaveManager`'s equip accessors are type-specific, not one generic method: `SetEquippedCosmetic`
-for Hat/Skin (per-character), `SetEquippedTrail` for Trail (global, not per-character), 
-`SetEquippedMazeTheme` for MazeTheme (per-world). A Hat/Skin equip also calls
-`CharacterManager.Instance.ActiveCharacterObject.GetComponent<CharacterCosmeticRenderer>().Refresh()`
-immediately afterward so the change is visible on the live character without needing a
-respawn/swap.
+1. **Shop** (`StoreComingSoonOverlay`, `ShopController`) — `ShopBanner.png` sign, 4 self-contained
+   coin-pack plaques (`100.png`/`500.png`/`5000.png`/`15000.png`, each already bakes in its own
+   coin count + $ price, so no separate label text is built on top the way the old text-button
+   version needed), a `Btn_Cosmetics.png` button opening the Cosmetics hub, and a round back
+   button. Reached from Main Menu's own Shop button, unchanged. Remove Ads is no longer sold from
+   this screen (the mockup only shows the 4 coin packs + Cosmetics) — the IAP product still exists
+   in `IAPManager` but currently has no purchase surface.
+2. **Cosmetics hub** (`CosmeticsHubScreen`, its own new controller) — a `Cosmetics.png` sign and 3
+   icons: `Hat_Icon.png` → Hats screen, `Trails_Tab_Icon.png` ("comet") → Trails screen, and
+   `MazeThemeTab.png` ("map") shown but **not wired to anything** — no maze-theme cosmetic content
+   exists yet, per explicit instruction not to build that destination. Reached via Shop's
+   Cosmetics button, layered on top of it (same "overlay on top of overlay" convention
+   `ChooseCharacterScreen` uses over Pause).
+3. **Hats** (`HatPurchaseScreen`, `CosmeticPurchaseScreen`) — 3 framed items (`FrameBaseballCap.png`
+   / `FrameCowboy.png` / `FrameSombrero.png`, each already a complete wood-framed icon — no
+   separate frame+icon composition needed) and one `3.99.png` price plaque (every item is $3.99).
+4. **Trails** (`TrailPurchaseScreen`, same `CosmeticPurchaseScreen` component, reused) — 4 framed
+   items (`FrameCornHuskTrail.png` / `FrameRainbowRibbon.png` / `FrameSparkleDust(1).png` note the
+   `(1)` — `FrameSparkleDust.png` without it is a corrupt 0-byte file, left on disk unreferenced —
+   / `FrameEmberTrail.png`) and the same `3.99.png` price plaque.
 
-**`CosmeticCardController`** is modeled directly on `CharacterSelectCard`'s shape (same
-`Initialize(...)`/`button.interactable`/`RemoveAllListeners`-then-`AddListener` idiom) — icon,
-name, price (hidden once owned), an `EquippedBadge_Icon.png` overlay (toggled active, positioned
-as a fixed top-right badge via `LayoutElement.ignoreLayout = true` so the card's own
-`VerticalLayoutGroup` doesn't stack it as another row), and an action button whose label reads
-"Buy {cost}" / "Equip" / "Equipped" depending on state — disabled once already equipped, same
-"can't tap an already-active item" convention `CharacterSelectCard` uses for the active character's
-own card. `PurchaseCardFrame.png`/`EquippedBadge_Icon.png` are baked directly into the card prefab
-at Editor-tool construction time (`Phase5ProjectBuilder.BuildCosmeticCardPrefab`, which configures
-their sprite import settings itself rather than depending on `ArtWiringBuilder` having already run
-— self-contained the same way `CosmeticWiringBuilder.ConfigureAndLoadSprite` is) rather than looked
-up by scene path afterward, avoiding a second `LoadPrefabContents`/`SaveAsPrefabAsset` prefab
-round-trip.
+**`CosmeticPurchaseScreen` is one generic component reused for both Hats and Trails** — an array of
+`(productId, Button)` pairs, a status text, and a close button; tapping an item calls
+`IAPManager.PurchaseProduct(productId)` directly (no separate confirm step, no owned/equipped state
+shown — a `NonConsumable` re-purchase attempt is handled store-side). All cosmetic purchase/grant
+logic moved into `IAPManager` itself (`GrantBaseballCapSet`/`GrantAndEquipHat`/`GrantAndEquipTrail`,
+called from `HandlePurchasePending`) rather than living in the UI layer the way
+`CosmeticStoreScreen.HandleCardTapped` used to — the UI screens now only kick off a purchase and
+show processing/success/failure feedback, matching `ShopController`'s existing coin-pack pattern.
+
+**Cosmetics moved off the coin-priced `SaveManager.PurchaseCosmetic` flow onto real-money IAP** —
+every hat/trail in the new mockups bakes in a `$` price, not a coin cost, so `IAPManager` gained 7
+new `NonConsumable` products (`hat_baseball_cap`/`hat_cowboy_hat`/`hat_sombrero`/`trail_cornhusk`/
+`trail_ember`/`trail_sparkledust`/`trail_rainbowribbon`, all $3.99 fallback price) alongside the
+existing coin packs + Remove Ads. `CosmeticData.coinCost` still exists on every asset but is unused
+for these — `0` on the two new universal hats, still its old value (unused) on the 8 baseball caps
+and 4 trails.
+
+**Baseball Cap is bought once as a whole style, not per character** — `IAPManager.
+GrantBaseballCapSet` grants ownership of every character's own `baseball_cap_<character>`
+`CosmeticData` (the existing 8 per-character assets from `CosmeticWiringBuilder.WireBaseballCaps`,
+unchanged) in one purchase, then auto-equips whichever character is currently active.
+
+**Cowboy Hat and Sombrero are single universal `CosmeticData` assets** (`cowboy_hat`/
+`sombrero_hat`, `CosmeticWiringBuilder.WireUniversalHats`, `Farm Fury Arcade > Wire Cosmetic Art
+(Universal Hats)`) — unlike the baseball caps, no per-character art exists for either style, so one
+asset covers every character (the `character` field is left at its enum default and simply
+unused). The in-game overlay sprite for each is the **unframed** source art (no wood-frame
+border) — `kling_20260818_IMAGE_Prop_shots_3923_0.png` (Cowboy Hat) and
+`kling_20260818_IMAGE_isolated_g_4590_0.png` (Sombrero), both found by matching pixel content
+against the corresponding `Frame*.png` icon since neither was named to make the pairing obvious.
+The `Frame*.png` files (icon + wood frame baked into one image) are used only as the Shop's own
+purchase-button art, wired directly in `Phase5ProjectBuilder`, never as the equipped sprite.
+`hatOffset`/`hatScale` are first-pass eyeballed the same way the baseball caps' were (no visual
+Editor/Play mode access this session) — expect to nudge per the same "plain Inspector edit, no
+rebuild required" workflow.
 
 **Not built yet:**
-- No Skin or MazeTheme `CosmeticData` assets exist yet — those tabs render an empty card row until
-  content does. A full Kling AI prompt set for the whole remaining Phase 4 art list (24 accessories,
+- No Skin or MazeTheme `CosmeticData` assets exist yet, and neither has a Store surface in the new
+  design either (no Skin screen at all; MazeTheme's icon is present but deliberately unwired — see
+  above). A full Kling AI prompt set for the whole remaining Phase 4 art list (24 accessories,
   8 skins, 12 maze-theme assets, 3 more hat styles × 8 characters) was drafted separately — ask for
   it if it's not already at hand (also saved as a cross-session memory pointer to the published
   prompt list).
 - No Trail rendering hook — `CharacterCosmeticRenderer` only handles Hat/Skin. Equipping a Trail
-  persists correctly (shown via the Equipped badge on reopen) but has no visible in-game effect.
+  persists correctly (`SaveManager.GetEquippedTrail`) but has no visible in-game effect.
 - `TileMapRenderer` doesn't yet consume `CosmeticData.themeWallSprite`/`themeGroundSprite`/
   `themeBackdropSprite` — MazeTheme equip state would persist in `SaveManager` but nothing reads it
   at render time yet, moot until MazeTheme assets exist anyway.
-- Hat art is single-orientation only (one sprite reused across all 8 `hatFrames` slots) — it won't
-  turn/flip meaningfully with the character; matches the "no dedicated directional art yet" fallback
-  convention several base characters already use.
+- Hat art is single-orientation only (one sprite reused across all 8 `hatFrames` slots, for the
+  universal hats same as the baseball caps) — it won't turn/flip meaningfully with the character;
+  matches the "no dedicated directional art yet" fallback convention several base characters
+  already use.
+- No owned/equipped visual state on the new purchase screens (no "Equipped" badge, no disabling an
+  already-owned item) — the old `CosmeticCardController` had this via `EquippedBadge_Icon.png`; the
+  new flat mockups don't show it, and a `NonConsumable` re-purchase is a store-side no-op regardless.
 
 ### Screens & scene flow (`Scripts/UI`, Phase 5)
 
@@ -1314,6 +1351,73 @@ centred card pops it (scale, `SetAsLastSibling`, `carousel.enabled = false` firs
 (free if the player has 0), calls `CharacterManager.SwapCharacter`, then auto-closes back to
 Pause. Tab still toggles it too, via the same `InputController.OnSwapMenuToggleInput` event
 `CharacterSwapUI` used — nothing else needed to change to preserve that shortcut.
+
+### Settings / Leaderboards / Level Complete redesign (2026-08-20, `SettingsPanel.cs`, `LeaderboardsScreen.cs`, `LevelCompleteController.cs`)
+
+A later pass in the same 2026-08-20 redesign wave as Shop/Cosmetics above, covering three more
+screens plus a set of **cross-screen layout standards** now shared by the whole wave (Main Menu,
+Level Select, Settings, Shop, Cosmetics hub/purchase, Level Complete, Leaderboards, Character
+Story):
+- **Every square icon-style button in this screen family is the same size** —
+  `Phase5ProjectBuilder.StandardIconButtonSize` (160, matching Main Menu's Play/Settings and every
+  `CreateRoundBackButton`). `CreateIconButton` is the shared no-label/preserveAspect/explicit-
+  sizeDelta helper every one of these buttons goes through.
+- **Every text/wood-sign header is the same size/position** —
+  `Phase5ProjectBuilder.CreateHeaderSign` (860x320, `(0,-40)` top-center offset), benchmarked
+  against Level Select's own "SELECT LEVEL" sign. Used by Settings, Shop, Cosmetics hub, and the
+  new Leaderboards header. Hat/Trail purchase screens keep their small icon-only breadcrumb instead
+  of a text sign, so they're not part of this standard.
+- **Every screen using the `landing.png` "poster" backdrop shows it at 50% opacity** —
+  `Phase5ProjectBuilder.ApplyDimmedLandingBackground`. Applies to Settings, Shop, Cosmetics hub,
+  Hat/Trail purchase, and the rebuilt Leaderboards screen.
+- Screens with bespoke non-square button art predating this pass — Pause, Choose Character, Level
+  Failed, Character Roster, Gameplay HUD — are deliberately **not** touched; forcing a wide banner
+  button into a square box would squash it, the exact bug this pass fixed for DoubleCoins (below).
+
+**Settings** was rebuilt from scratch to match a new mockup, discarding the entire old 2x3 toggle/
+dropdown/Restore-Purchases grid — Music/SFX volume, Vibration, Left-Handed, Language, and IAP
+Restore Purchases are **no longer wired to anything** (the underlying `SaveManager` state and
+`IAPManager.RestorePurchases` still exist, just nothing calls them). The new layout: dimmed
+`landing.png` backdrop, `Logo.png` top-left, `SettingsSign.png` header, and a 4x2
+`GridLayoutGroup` of plaque cells — row 1 wired (**Shop** — see its relocation history below,
+**Music** mute toggle via `Btn_music-remove.png`, dimming to a grey tint when muted since no
+dedicated "off" art variant exists, **Leaderboards** via `Btn_LeaderBoard.png`, **Character Story**
+via `Btn_CharacterStory.png` — opens a new placeholder screen, "this is where we will tell a story
+about each character," no real content yet), row 2 deliberately blank (`Icon_bare.png`, swapped in
+for the old `Btn_plaque.png` per an explicit art-swap request — reserved for whatever gets planned
+into these cells next). The round close button (`Btn_back.png`, matching the Shop/Cosmetics suite's
+icon rather than the old distinct "go home" `Btn_home.png`) now just closes the overlay instead of
+always forcing navigation to Main Menu, since it no longer reads as a "go home" action.
+
+**Daily Challenge button** (`LevelSelectController.dailyChallengeButton`, top-right of Level
+Select) was unwired shortly before this pass, per explicit instruction — its sign art and
+`onClick` navigation were both stripped, leaving just the plain placeholder button shell at its
+existing position, pending being re-planned to a new destination/position. Not part of this
+redesign wave's screens; flagged here since it's easy to miss why it currently does nothing.
+
+**Shop icon relocation history** (worth knowing if you're chasing down a stale reference): Main
+Menu top-right → Level Select world-select page top-left → **Settings' 4x2 grid, row 1** (current).
+Only the last move stuck; if you find old code/docs mentioning either earlier position, they
+predate this settling point.
+
+**Leaderboards** was rebuilt to match the same visual language as the rest of this wave — dimmed
+`landing.png` backdrop, `Leaderboard.png` reused as the big header sign (previously only a small
+corner-button sign), stats text recentred below it, and a round back button (was a plain dark
+screen with a small rectangular `Btn_back` before). Still a real `SceneTransitionManager`
+`screenRoots` entry (not an overlay like Shop/Cosmetics), so its back button still does a proper
+`ShowOnly(mainMenuScreen)` rather than a plain `SetActive(false)`.
+
+**Level Complete**: Home and Settings buttons were removed entirely (per a screenshot review) —
+Play is now the only real navigation off this screen. `DoubleCoinsButton` (the "2x Coins, watch an
+ad" rewarded placement) took over the vacated bottom-right corner, mirroring Play's own bottom-left
+inset/size. Its squashed appearance was a real bug, not just a sizing preference: `DoubleCoins.png`
+is actually square (501x500), but the button box was a wide 240x90 text-label shape — the same
+Sliced-ignores-`preserveAspect` box-aspect-must-match-the-art bug this project has hit several times
+before (Coin Balance Chip, Revive Prompt panel, Level Complete panel). Fixed by using a square
+`StandardIconButtonSize` box and dropping the auto-created text label entirely (icon only now) —
+`LevelCompleteController` no longer references a `doubleCoinsLabel` field at all, and "claimed"
+feedback is just `button.interactable = false`, same convention every other icon-only button
+without a dedicated "used" art variant uses.
 
 ### Level Select (`Scripts/UI/LevelSelectController.cs`, `CardCarouselController.cs`, `LevelTileController.cs`, `LockedHintPanel.cs`, `Scripts/Utilities/UnlockProgression.cs`)
 
@@ -2080,12 +2184,15 @@ values from the GDD's color palette where one exists (e.g. walls = Wall Brown `#
 - **App icon** — `AppIcon.png` set as the Unity Player Settings icon (`PlayerSettings.
   SetIconsForTargetGroup`, Standalone + the default/`Unknown` group) — a project-settings change,
   not a scene/prefab one.
-- **Main Menu Shop button** — `Shop.png` (a wide banner baking in its own "Shop" label + coin icon)
-  replaces the old plain-orange-placeholder + text-label `ShopButton`.
-- **Cosmetics Store chrome** — `Hat_Icon.png`/`Trails_Tab_Icon.png`/`MazeThemeTab.png` wired onto
-  `CosmeticStoreScreen`'s 3 tab buttons; `PurchaseCardFrame.png`/`EquippedBadge_Icon.png` are baked
-  directly into the `CosmeticCard` prefab at construction time instead (see the Cosmetics section's
-  "Cosmetics Store UI" subsection), so they're not part of `ArtWiringBuilder`'s scene-path wiring.
+- **Shop icon** — `Shop.png`, historically a Main Menu button (as this bullet originally described)
+  — since relocated twice; as of the 2026-08-20 redesign it lives in Settings' 4x2 grid, baked
+  directly at construction time rather than wired here. See "Settings / Leaderboards / Level
+  Complete redesign" further down.
+- **Cosmetics Store chrome** — `CosmeticStoreScreen`/`CosmeticCardController` (the tab-based screen
+  this bullet originally described) no longer exist — replaced by `CosmeticsHubScreen`/
+  `CosmeticPurchaseScreen`, which bake all their own art directly at construction time instead of
+  being wired here. See the Cosmetics section's "Cosmetics Store UI" subsection for the current
+  screens.
 
 **Percy now has full directional art**: real Left (`Flat1.png`→`Flat2.png` flick) and Right
 (`Right1.png`→`Right2.png` flick) walk-cycle frames (`ArtWiringBuilder.WirePercy`,

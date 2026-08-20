@@ -3,6 +3,8 @@ using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
 using UnityEngine.Purchasing;
+using FarmFuryArcade.Data;
+using FarmFuryArcade.Gameplay;
 using FarmFuryArcade.Utilities;
 
 namespace FarmFuryArcade.Core
@@ -32,6 +34,29 @@ namespace FarmFuryArcade.Core
         public const string Coins5000ProductId = "coins_5000";
         public const string Coins15000ProductId = "coins_15000";
 
+        // Cosmetics Store (2026-08-20 redesign) — hats/trails moved off the coin-priced
+        // CosmeticData.coinCost flow (SaveManager.PurchaseCosmetic) onto real-money IAP, matching
+        // the new Shop/Cosmetics mockups which bake a real $ price into every purchase card. Each
+        // is a NonConsumable — bought once, owned forever, same convention RemoveAds already uses.
+        public const string HatBaseballCapProductId = "hat_baseball_cap";
+        public const string HatCowboyHatProductId = "hat_cowboy_hat";
+        public const string HatSombreroProductId = "hat_sombrero";
+
+        // Trail product ids intentionally match their CosmeticData.cosmeticId exactly (see
+        // CosmeticWiringBuilder.WireTrails) — trails are already character-agnostic, so the
+        // product id can double as the cosmetic id with no separate mapping table needed.
+        public const string TrailCornHuskProductId = "trail_cornhusk";
+        public const string TrailEmberProductId = "trail_ember";
+        public const string TrailSparkleDustProductId = "trail_sparkledust";
+        public const string TrailRainbowRibbonProductId = "trail_rainbowribbon";
+
+        /// <summary>Universal (character-agnostic) cosmeticId for the two new single-art hat
+        /// styles — unlike the 8 per-character "baseball_cap_&lt;character&gt;" assets, Cowboy Hat
+        /// and Sombrero only have one piece of art (not fitted per character), so one CosmeticData
+        /// asset each covers every character. See CosmeticWiringBuilder.WireUniversalHats.</summary>
+        public const string CowboyHatCosmeticId = "cowboy_hat";
+        public const string SombreroCosmeticId = "sombrero_hat";
+
         /// <summary>GDD Section 11: "Includes 100 bonus coins."</summary>
         public const int RemoveAdsBonusCoins = 100;
 
@@ -41,6 +66,11 @@ namespace FarmFuryArcade.Core
             { Coins500ProductId, 500 },
             { Coins5000ProductId, 5000 },
             { Coins15000ProductId, 15000 },
+        };
+
+        private static readonly string[] TrailProductIds =
+        {
+            TrailCornHuskProductId, TrailEmberProductId, TrailSparkleDustProductId, TrailRainbowRibbonProductId,
         };
 
         /// <summary>Fallback price strings shown before the store connection resolves real
@@ -53,6 +83,13 @@ namespace FarmFuryArcade.Core
             { Coins500ProductId, "$3.99" },
             { Coins5000ProductId, "$9.99" },
             { Coins15000ProductId, "$19.99" },
+            { HatBaseballCapProductId, "$3.99" },
+            { HatCowboyHatProductId, "$3.99" },
+            { HatSombreroProductId, "$3.99" },
+            { TrailCornHuskProductId, "$3.99" },
+            { TrailEmberProductId, "$3.99" },
+            { TrailSparkleDustProductId, "$3.99" },
+            { TrailRainbowRibbonProductId, "$3.99" },
         };
 
         public bool IsInitialized { get; private set; }
@@ -98,6 +135,13 @@ namespace FarmFuryArcade.Core
                 new ProductDefinition(Coins500ProductId, ProductType.Consumable),
                 new ProductDefinition(Coins5000ProductId, ProductType.Consumable),
                 new ProductDefinition(Coins15000ProductId, ProductType.Consumable),
+                new ProductDefinition(HatBaseballCapProductId, ProductType.NonConsumable),
+                new ProductDefinition(HatCowboyHatProductId, ProductType.NonConsumable),
+                new ProductDefinition(HatSombreroProductId, ProductType.NonConsumable),
+                new ProductDefinition(TrailCornHuskProductId, ProductType.NonConsumable),
+                new ProductDefinition(TrailEmberProductId, ProductType.NonConsumable),
+                new ProductDefinition(TrailSparkleDustProductId, ProductType.NonConsumable),
+                new ProductDefinition(TrailRainbowRibbonProductId, ProductType.NonConsumable),
             };
             _storeController.FetchProducts(definitions);
         }
@@ -208,6 +252,22 @@ namespace FarmFuryArcade.Core
                     SaveManager.Instance.SaveProgress();
                 }
             }
+            else if (productId == HatBaseballCapProductId)
+            {
+                GrantBaseballCapSet();
+            }
+            else if (productId == HatCowboyHatProductId)
+            {
+                GrantAndEquipHat(CowboyHatCosmeticId);
+            }
+            else if (productId == HatSombreroProductId)
+            {
+                GrantAndEquipHat(SombreroCosmeticId);
+            }
+            else if (Array.IndexOf(TrailProductIds, productId) >= 0)
+            {
+                GrantAndEquipTrail(productId);
+            }
             else
             {
                 Debug.LogWarning($"[IAPManager] Unrecognized product id in pending order: {productId}");
@@ -215,6 +275,60 @@ namespace FarmFuryArcade.Core
 
             _storeController.ConfirmPurchase(order);
             OnPurchaseSucceeded?.Invoke(productId);
+        }
+
+        /// <summary>Baseball Cap is bought once as a whole style, not per character — grants
+        /// ownership of every character's own "baseball_cap_&lt;character&gt;" CosmeticData (so
+        /// any character can equip it later, e.g. via a future per-character equip surface) and
+        /// auto-equips the currently active character's variant immediately, same "buy-then-equip"
+        /// convention the old coin-priced CosmeticStoreScreen used.</summary>
+        private void GrantBaseballCapSet()
+        {
+            if (SaveManager.Instance == null)
+            {
+                return;
+            }
+
+            foreach (CharacterType character in Enum.GetValues(typeof(CharacterType)))
+            {
+                SaveManager.Instance.SetCosmeticOwned($"baseball_cap_{character}".ToLowerInvariant());
+            }
+
+            CharacterType active = CharacterManager.Instance != null ? CharacterManager.Instance.ActiveCharacter : CharacterType.Cluck;
+            GrantAndEquipHat($"baseball_cap_{active}".ToLowerInvariant(), active);
+        }
+
+        /// <summary>Cowboy Hat / Sombrero — single universal CosmeticData (no per-character art),
+        /// so the same cosmeticId is granted/equipped regardless of which character is active.</summary>
+        private void GrantAndEquipHat(string cosmeticId)
+        {
+            CharacterType active = CharacterManager.Instance != null ? CharacterManager.Instance.ActiveCharacter : CharacterType.Cluck;
+            GrantAndEquipHat(cosmeticId, active);
+        }
+
+        private void GrantAndEquipHat(string cosmeticId, CharacterType character)
+        {
+            if (SaveManager.Instance == null)
+            {
+                return;
+            }
+
+            SaveManager.Instance.SetCosmeticOwned(cosmeticId);
+            SaveManager.Instance.SetEquippedCosmetic(CosmeticType.Hat, character, cosmeticId);
+            CharacterManager.Instance?.ActiveCharacterObject?.GetComponent<CharacterCosmeticRenderer>()?.Refresh();
+        }
+
+        /// <summary>Trails are already character-agnostic (one global equip slot) — grant ownership
+        /// then equip immediately, same buy-then-equip convention as hats.</summary>
+        private void GrantAndEquipTrail(string cosmeticId)
+        {
+            if (SaveManager.Instance == null)
+            {
+                return;
+            }
+
+            SaveManager.Instance.SetCosmeticOwned(cosmeticId);
+            SaveManager.Instance.SetEquippedTrail(cosmeticId);
         }
 
         private void HandlePurchaseFailed(FailedOrder order)

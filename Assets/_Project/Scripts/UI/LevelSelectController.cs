@@ -38,12 +38,9 @@ namespace FarmFuryArcade.UI
         [SerializeField] private Sprite backButtonTileGridSprite;
         [SerializeField] private GameObject mainMenuScreen;
         [SerializeField] private GameObject gameplayScreen;
-        // Daily Challenge has no dedicated screen of its own (see DailyChallengeManager) — it's
-        // just an objective overlaid on LevelData index DailyChallengeLevelIndex, so this button
-        // loads that level directly and shows Gameplay, the same effect tapping an ordinary tile
-        // has. Lives on this screen (top-right, always visible in both world-select and tile-grid
-        // states) rather than Main Menu — moved here per feedback that Main Menu should stay to
-        // just Play/Settings/Shop.
+        // 2026-08-20: unwired per explicit instruction ("remove all text and wiring... I will be
+        // re-planning all these buttons to scenes") — sign art and onClick navigation are both
+        // gone; only the plain placeholder shell remains at its existing top-right position.
         [SerializeField] private Button dailyChallengeButton;
 
         [Header("World Select")]
@@ -99,14 +96,6 @@ namespace FarmFuryArcade.UI
         {
             backButton.onClick.AddListener(OnBackButtonClicked);
             currentWorldIndicatorButton.onClick.AddListener(ShowWorldSelect);
-            if (dailyChallengeButton != null && gameplayScreen != null)
-            {
-                dailyChallengeButton.onClick.AddListener(() =>
-                {
-                    GameManager.Instance.LoadLevel(DailyChallengeManager.DailyChallengeLevelIndex);
-                    SceneTransitionManager.Instance.ShowOnly(gameplayScreen);
-                });
-            }
         }
 
         private void OnEnable()

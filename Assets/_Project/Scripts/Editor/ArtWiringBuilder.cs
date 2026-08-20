@@ -1490,13 +1490,12 @@ namespace FarmFuryArcade.EditorTools
             // instead of stretching to fill the full-screen overlay.
             SetImageSprite(canvasTransform, "PauseOverlay/PanelArt", Load(PausedPanel));
             SetImageSprite(canvasTransform, "PauseOverlay/LogoImage", Load(LogoImage));
-            // SettingsOverlay switched to Bg_LevelSelect.png (moon/windmill/barn) to match its own
-            // 2026-07-31 Canva mockup exactly. ChooseCharacterScreen switched to World1_Cornfield.png
-            // (same backdrop as Pause) per its own mockup — LoadingScreen Background.png is no longer
-            // used by either.
-            SetScreenBackground(canvasTransform, "SettingsOverlay", Load(BgLevelSelect));
+            // SettingsOverlay (2026-08-20 redesign) now bakes its own background/logo/title/grid
+            // art directly at construction time in Phase5ProjectBuilder.BuildSettingsPanel (self-
+            // contained, same convention Shop/Cosmetics use) — nothing to wire here anymore.
+            // ChooseCharacterScreen switched to World1_Cornfield.png (same backdrop as Pause) per
+            // its own mockup — LoadingScreen Background.png is no longer used by either.
             SetScreenBackground(canvasTransform, "ChooseCharacterScreen", Load(PauseBackground));
-            SetImageSprite(canvasTransform, "SettingsOverlay/LogoImage", Load(LogoImage));
             SetImageSprite(canvasTransform, "ChooseCharacterScreen/LogoImage", Load(LogoImage));
             // LevelSelectScreen deliberately has no LogoImage — see BuildLevelSelect's doc comment;
             // it clashes with CurrentWorldIndicator at the same top-left inset.
@@ -1540,13 +1539,18 @@ namespace FarmFuryArcade.EditorTools
             var settings = Load(BtnSettings);
             var home = Load(BtnHome);
             var back = Load(BtnBack);
-            var plaque = Load(BtnPlaque);
 
             SetImageSprite(canvasTransform, "MainMenuScreen/PlayButton", play);
             SetImageSprite(canvasTransform, "MainMenuScreen/SettingsButton", settings);
-            SetImageSprite(canvasTransform, "MainMenuScreen/ShopButton", Load(ShopButtonArt));
-            SetImageSprite(canvasTransform, "SettingsOverlay/LeaderboardsButton", Load(LeaderboardSignArt));
-            SetImageSprite(canvasTransform, "LevelSelectScreen/DailyChallengeButton", Load(DailyChallengeSignArt));
+
+            // Shop icon moved to LevelSelectScreen/ShopButton (2026-08-20) and is now baked
+            // directly at construction time in Phase5ProjectBuilder.BuildLevelSelect — nothing to
+            // wire here.
+            //
+            // SettingsOverlay/LeaderboardsButton and LevelSelectScreen/DailyChallengeButton are
+            // deliberately left unwired (2026-08-20, per explicit instruction) — both buttons still
+            // exist as plain placeholder shells at their current positions, sign art and onClick
+            // navigation removed, pending being re-planned to new destinations/positions.
 
             SetImageSprite(canvasTransform, "GameplayScreen/PauseButton", pause);
             SetImageSprite(canvasTransform, "GameplayScreen/DPadUpButton", Load(DPadUp));
@@ -1560,37 +1564,28 @@ namespace FarmFuryArcade.EditorTools
             SetImageSprite(canvasTransform, "PauseOverlay/PanelArt/SettingsButton", Load(SettingsButtonArt));
             SetImageSprite(canvasTransform, "PauseOverlay/PanelArt/QuitButton", Load(QuitButtonArt));
 
-            // Round Btn_home.png, not Btn_back.png — the mockup's back button on this screen is
-            // the round barn/home icon, bottom-right, unlike every other screen's rectangular
-            // Btn_back.png bottom-left (CreateGenericBackButton).
-            SetImageSprite(canvasTransform, "SettingsOverlay/BackButton", home);
+            // SettingsOverlay (2026-08-20 redesign) — round back button, 4x2 icon grid, and the
+            // relocated Shop icon are all baked directly at construction time in
+            // Phase5ProjectBuilder.BuildSettingsPanel — nothing to wire here anymore.
 
-            // One Btn_plaque.png per grid cell (Phase5ProjectBuilder.CreateTogglePlaqueCell) —
-            // matches the mockup's identical plaques exactly, 5 of the 6 grid slots filled.
-            SetImageSprite(canvasTransform, "SettingsOverlay/SettingsGrid/MusicCell", plaque);
-            SetImageSprite(canvasTransform, "SettingsOverlay/SettingsGrid/SfxCell", plaque);
-            SetImageSprite(canvasTransform, "SettingsOverlay/SettingsGrid/VibrationCell", plaque);
-            SetImageSprite(canvasTransform, "SettingsOverlay/SettingsGrid/LeftHandedCell", plaque);
-            SetImageSprite(canvasTransform, "SettingsOverlay/SettingsGrid/LanguageCell", plaque);
-
-            SetImageSprite(canvasTransform, "StoreComingSoonOverlay/Content/CloseButton", back);
+            // Shop/Cosmetics/Hats/Trails (2026-08-20 redesign) bake all their own art directly at
+            // construction time in Phase5ProjectBuilder (self-contained, same convention the old
+            // CosmeticCardController used for PurchaseCardFrame.png) — nothing to wire here.
 
             // Replay/Next Level/Home were removed per the 2026-07-31 mockup in favor of a single
-            // Skip button, later replaced again with this Play/Home/Settings row — see
-            // LevelCompleteController's doc comment for what each does. PlayButton was later split
-            // out of ActionButtons to stand alone bottom-left (a device-frame review moved it
-            // off the Home/Settings pair) — this path wasn't updated at the time, leaving it on
-            // its placeholder color despite the button existing and working functionally.
+            // Skip button, later replaced with a Play/Home/Settings row, then Home/Settings were
+            // removed entirely (2026-08-20 screenshot review) — Play is the only real navigation
+            // left, DoubleCoinsButton (self-baked now, see BuildLevelComplete) took over their
+            // bottom-right corner.
             SetImageSprite(canvasTransform, "LevelCompleteScreen/PlayButton", play);
-            SetImageSprite(canvasTransform, "LevelCompleteScreen/ActionButtons/HomeButton", home);
-            SetImageSprite(canvasTransform, "LevelCompleteScreen/ActionButtons/SettingsButton", settings);
             SetImageSprite(canvasTransform, "LevelCompleteScreen/NewCharacterUnlockOverlay/UnlockContent/ContinueButton", play);
 
             SetImageSprite(canvasTransform, "LevelFailedScreen/PanelArt/RestartButton", Load(RestartButtonArt));
             SetImageSprite(canvasTransform, "LevelFailedScreen/PanelArt/QuitButton", Load(QuitButtonArt));
 
             SetImageSprite(canvasTransform, "CharacterRosterScreen/BackButton", back);
-            SetImageSprite(canvasTransform, "LeaderboardsScreen/BackButton", back);
+            // LeaderboardsScreen (2026-08-20 redesign) bakes its own background/header/back button
+            // directly in Phase5ProjectBuilder.BuildLeaderboards — nothing to wire here.
             // The Choose Character mockup's round back icon is a triangle/mountain glyph with no
             // matching uploaded asset — substituted with Btn_back.png (it navigates back to Pause,
             // not to a home/landing destination, so Btn_back reads correctly here, unlike Settings/
@@ -1630,17 +1625,16 @@ namespace FarmFuryArcade.EditorTools
 
             SetImageSprite(canvasTransform, "GameplayScreen/CoinBalanceChip", Load(CoinBalanceChip));
 
-            // No longer under PanelArt/ShelfContent — moved to a standalone right-edge button
-            // outside the card (see Phase5ProjectBuilder.BuildLevelComplete's own comment).
-            SetImageSprite(canvasTransform, "LevelCompleteScreen/DoubleCoinsButton", Load(BtnDoubleCoins));
+            // LevelCompleteScreen/DoubleCoinsButton (2026-08-20 redesign) is self-baked directly in
+            // Phase5ProjectBuilder.BuildLevelComplete now (square box to match DoubleCoins.png's
+            // real square aspect — the old 240x90 text-button box was squashing it) — nothing to
+            // wire here. BtnDoubleCoins constant kept in case another screen needs it.
 
-            // Cosmetics Store tab icons (Monetisation Build Plan Phase 4) — preserveAspect is set
-            // true at construction time in Phase5ProjectBuilder.BuildCosmeticStoreScreen, since
-            // SetImageSprite always applies Image.Type.Sliced and never touches that flag itself.
-            SetImageSprite(canvasTransform, "CosmeticStoreScreen/TabRow/HatTabButton", Load(HatTabIcon));
-            SetImageSprite(canvasTransform, "CosmeticStoreScreen/TabRow/TrailTabButton", Load(TrailsTabIcon));
-            SetImageSprite(canvasTransform, "CosmeticStoreScreen/TabRow/MazeThemeTabButton", Load(MazeThemeTabIcon));
-            SetImageSprite(canvasTransform, "CosmeticStoreScreen/CloseButton", Load(BtnBack));
+            // Cosmetics hub/purchase screens (2026-08-20 redesign) bake all their own art directly
+            // at construction time in Phase5ProjectBuilder — nothing to wire here. HatTabIcon/
+            // TrailsTabIcon/MazeThemeTabIcon constants below are unused now but kept (same
+            // "extra art, no slot for it yet" convention elsewhere) in case a future screen needs
+            // them again.
 
             EditorSceneManager.SaveScene(EditorSceneManager.GetActiveScene());
         }
@@ -1855,16 +1849,9 @@ namespace FarmFuryArcade.EditorTools
                 return;
             }
 
-            // Title is SettingsSign.png word-art now (see WireSettingsSign), not TMP text, so it's
-            // no longer in this font list. Rebuilt as a 2x3 grid of whole-plaque toggle cells
-            // (Phase5ProjectBuilder.CreateTogglePlaqueCell) per the 2026-07-31 Canva mockup —
-            // paths below match that hierarchy, not the old Content/*Row_Plaque stack.
-            SetFont(canvasTransform, "SettingsOverlay/SettingsGrid/MusicCell/MusicCell_Label", font);
-            SetFont(canvasTransform, "SettingsOverlay/SettingsGrid/SfxCell/SfxCell_Label", font);
-            SetFont(canvasTransform, "SettingsOverlay/SettingsGrid/VibrationCell/VibrationCell_Label", font);
-            SetFont(canvasTransform, "SettingsOverlay/SettingsGrid/LeftHandedCell/LeftHandedCell_Label", font);
-            SetFont(canvasTransform, "SettingsOverlay/SettingsGrid/LanguageCell/Label", font);
-            SetFont(canvasTransform, "SettingsOverlay/VersionText", font);
+            // Title is SettingsSign.png word-art (see WireSettingsSign), not TMP text. The 2026-08-20
+            // redesign's 4x2 grid is icon-only (no per-cell text labels) and dropped VersionText
+            // entirely, so there's nothing left under SettingsOverlay for this font to apply to.
 
             EditorSceneManager.SaveScene(EditorSceneManager.GetActiveScene());
         }

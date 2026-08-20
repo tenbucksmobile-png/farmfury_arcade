@@ -1,135 +1,86 @@
 using UnityEngine;
 using UnityEngine.UI;
-using TMPro;
 using FarmFuryArcade.Core;
 
 namespace FarmFuryArcade.UI
 {
-    /// <summary>Modal, reachable from Main Menu or Pause. Rebuilt to match a Canva mockup
-    /// (2026-07-31): a 2-column grid of whole-plaque toggle buttons. The original Restore/Reset
-    /// Progress buttons were removed in that pass (Restore meant cloud-save restore, Phase 6 scope
-    /// with no real action at the time). The grid's 6th cell — left empty since then — is now used
-    /// for IAP "Restore Purchases" instead (Monetisation Build Plan Phase 3; required by Apple for
-    /// non-consumable products, good practice on Android too) — a different, now-real feature that
-    /// happens to reuse the same empty slot, not a revival of the old cloud-save button. Music/SFX
-    /// volume sliders were dropped in the mockup rebuild too — each plaque is now a single mute
-    /// on/off tap, same as Vibration/Left-Handed, since the grid cells aren't large enough to host
-    /// both a tap target and a drag target cleanly. Volume level itself still exists in SaveManager
-    /// (MusicVolume/SfxVolume) for whenever a volume control gets a dedicated slot again; only the
-    /// in-panel UI for it is gone.</summary>
+    /// <summary>Rebuilt from scratch (2026-08-20) to match a new Canva mockup exactly — see
+    /// Phase5ProjectBuilder.BuildSettingsPanel for the full layout rationale. Discards the entire
+    /// old 2x3 toggle/dropdown/Restore-Purchases grid; this is now a 4x2 icon grid, row 1 wired
+    /// (Shop, Music mute, Leaderboards, Character Story placeholder), row 2 deliberately blank.
+    ///
+    /// Overlay convention, same as ShopController/CosmeticsHubScreen — shown/hidden directly via
+    /// Show()/SetActive, not through SceneTransitionManager. The close button now matches the same
+    /// plain "back" icon (Btn_back.png) those screens use rather than the old distinct "go home"
+    /// icon, so it simply closes this overlay (revealing whatever was underneath — Main Menu or
+    /// Pause) instead of always forcing navigation back to Main Menu.</summary>
     public class SettingsPanel : MonoBehaviour
     {
-        [SerializeField] private Toggle musicToggle;
-        [SerializeField] private Toggle sfxToggle;
-        [SerializeField] private Toggle vibrationToggle;
-        [SerializeField] private TMP_Dropdown languageDropdown;
-        [SerializeField] private Toggle leftHandedToggle;
-        [SerializeField] private Button restorePurchasesButton;
-        [SerializeField] private TextMeshProUGUI restorePurchasesLabel;
-        [SerializeField] private TextMeshProUGUI versionText;
         [SerializeField] private Button closeButton;
-        [SerializeField] private GameObject mainMenuScreen;
-        // Leaderboards moved here (top-right, Leaderboard.png sign) per feedback that Main Menu
-        // should stay to just Play/Settings/Shop — Settings is reachable from both Main Menu and
-        // Pause, so this keeps Leaderboards reachable from gameplay too, not just the landing page.
+
+        [SerializeField] private Button shopButton;
+        [SerializeField] private ShopController shopScreen;
+
+        [SerializeField] private Button musicButton;
+        [SerializeField] private Image musicButtonIcon;
+
         [SerializeField] private Button leaderboardsButton;
         [SerializeField] private GameObject leaderboardsScreen;
 
-        private const string RestoreIdleText = "Restore\nPurchases";
+        // "This is where we will tell a story about each character" — placeholder destination,
+        // no real content yet (see Phase5ProjectBuilder.BuildCharacterStoryPlaceholder).
+        [SerializeField] private Button characterStoryButton;
+        [SerializeField] private GameObject characterStoryScreen;
+
+        /// <summary>Dims the music icon when muted — same tint-based on/off feedback convention
+        /// LockedTint/InactiveTabTint use elsewhere, since no dedicated "muted" art variant exists
+        /// for this icon.</summary>
+        private static readonly Color MutedTint = new Color(0.5f, 0.5f, 0.5f, 1f);
 
         private void Awake()
         {
-            closeButton.onClick.AddListener(HandleHomeTapped);
-            musicToggle.onValueChanged.AddListener(HandleMusicToggle);
-            sfxToggle.onValueChanged.AddListener(HandleSfxToggle);
-            vibrationToggle.onValueChanged.AddListener(v => SaveManager.Instance.VibrationOn = v);
-            languageDropdown.onValueChanged.AddListener(HandleLanguageChanged);
-            leftHandedToggle.onValueChanged.AddListener(v => SaveManager.Instance.LeftHanded = v);
-            if (restorePurchasesButton != null)
+            if (closeButton != null)
             {
-                restorePurchasesButton.onClick.AddListener(HandleRestorePurchasesTapped);
+                closeButton.onClick.AddListener(() => gameObject.SetActive(false));
+            }
+            if (shopButton != null && shopScreen != null)
+            {
+                shopButton.onClick.AddListener(() => shopScreen.Show());
+            }
+            if (musicButton != null)
+            {
+                musicButton.onClick.AddListener(HandleMusicButtonTapped);
             }
             if (leaderboardsButton != null && leaderboardsScreen != null)
             {
                 leaderboardsButton.onClick.AddListener(() => SceneTransitionManager.Instance.ShowOnly(leaderboardsScreen));
             }
-
-            if (versionText != null)
+            if (characterStoryButton != null && characterStoryScreen != null)
             {
-                versionText.text = $"v{Application.version}";
+                characterStoryButton.onClick.AddListener(() => characterStoryScreen.SetActive(true));
             }
-        }
-
-        /// <summary>Restore is a plain action button, not a toggle — reports through the plaque's
-        /// own label text (Restoring... -> Restored! / No purchases found) rather than a separate
-        /// toast, since this panel has no toast system and the label is already right there.</summary>
-        private void HandleRestorePurchasesTapped()
-        {
-            if (IAPManager.Instance == null)
-            {
-                return;
-            }
-
-            restorePurchasesButton.interactable = false;
-            if (restorePurchasesLabel != null)
-            {
-                restorePurchasesLabel.text = "Restoring...";
-            }
-
-            IAPManager.Instance.RestorePurchases(success =>
-            {
-                restorePurchasesButton.interactable = true;
-                if (restorePurchasesLabel != null)
-                {
-                    restorePurchasesLabel.text = success ? "Restored!" : RestoreIdleText;
-                }
-            });
         }
 
         public void Show()
         {
-            RefreshFromSave();
+            RefreshMusicIcon();
             gameObject.SetActive(true);
         }
 
-        /// <summary>Btn_home always returns to the landing page (Main Menu), regardless of whether
-        /// Settings was opened from Main Menu or from Pause — matching the button's "home" icon
-        /// rather than just closing back to wherever it was opened from.</summary>
-        private void HandleHomeTapped()
+        private void HandleMusicButtonTapped()
         {
-            gameObject.SetActive(false);
-            if (mainMenuScreen != null)
-            {
-                SceneTransitionManager.Instance.ShowOnly(mainMenuScreen);
-            }
-        }
-
-        private void HandleMusicToggle(bool on)
-        {
+            bool on = !SaveManager.Instance.MusicOn;
             SaveManager.Instance.MusicOn = on;
             AudioManager.Instance?.SetMusicMuted(!on);
+            RefreshMusicIcon();
         }
 
-        private void HandleSfxToggle(bool on)
+        private void RefreshMusicIcon()
         {
-            SaveManager.Instance.SfxOn = on;
-            AudioManager.Instance?.SetSFXMuted(!on);
-        }
-
-        private void HandleLanguageChanged(int index)
-        {
-            if (index >= 0 && index < languageDropdown.options.Count)
+            if (musicButtonIcon != null && SaveManager.Instance != null)
             {
-                SaveManager.Instance.Language = languageDropdown.options[index].text;
+                musicButtonIcon.color = SaveManager.Instance.MusicOn ? Color.white : MutedTint;
             }
-        }
-
-        private void RefreshFromSave()
-        {
-            musicToggle.SetIsOnWithoutNotify(SaveManager.Instance.MusicOn);
-            sfxToggle.SetIsOnWithoutNotify(SaveManager.Instance.SfxOn);
-            vibrationToggle.SetIsOnWithoutNotify(SaveManager.Instance.VibrationOn);
-            leftHandedToggle.SetIsOnWithoutNotify(SaveManager.Instance.LeftHanded);
         }
     }
 }
