@@ -171,6 +171,18 @@ namespace FarmFuryArcade.EditorTools
         private const string CluckEggBurst = "Assets/_Project/Sprites/Characters/CluckPower_3.png";
         private const string EggPrefabPath = AbilityPrefabFolder + "/Egg.prefab";
 
+        // ---- Ability button icon art (per-character {Name}_ability.png) — replaces the plain
+        // portraitSprite on GameplayHUD's on-screen ability button. Horace has no dedicated icon
+        // yet, so his ability button keeps falling back to portraitSprite (see CharacterData.
+        // abilityIconSprite's doc comment).
+        private const string CluckAbilityIcon = "Assets/_Project/Sprites/UI/Cluck_ability.png";
+        private const string BessieAbilityIcon = "Assets/_Project/Sprites/UI/Bessie_ability.png";
+        private const string WoollyAbilityIcon = "Assets/_Project/Sprites/UI/Woolly_ability.png";
+        private const string PercyAbilityIcon = "Assets/_Project/Sprites/UI/Percy_ability.png";
+        private const string DuckyAbilityIcon = "Assets/_Project/Sprites/UI/Ducky_ability.png";
+        private const string GeraldAbilityIcon = "Assets/_Project/Sprites/UI/Gerald_ability.png";
+        private const string BillyAbilityIcon = "Assets/_Project/Sprites/UI/Billy_ability.png";
+
         // ---- Sprite paths (this batch: maze wall/floor/warp tunnel art) ------------------------
         private const string WallCornTiles = "Assets/_Project/Sprites/UI/CornTiles.png";
         private const string FloorTile = "Assets/_Project/Sprites/UI/FloorTile.png";
@@ -460,7 +472,8 @@ namespace FarmFuryArcade.EditorTools
             WheatWallTile, WheatFloorTileSprite, MiniLoafPellet, RareGrainSackBonus,
             SelectLevelText, CornFieldText, VegetablePatchText, OrchardText, WheatfieldText, SettingsSignText,
             LogoImage, CluckEggIcon, CluckEggCracked, CluckEggBurst,
-            HatTabIcon, TrailsTabIcon, MazeThemeTabIcon, ShopButtonArt, LeaderboardSignArt, DailyChallengeSignArt
+            HatTabIcon, TrailsTabIcon, MazeThemeTabIcon, ShopButtonArt, LeaderboardSignArt, DailyChallengeSignArt,
+            CluckAbilityIcon, BessieAbilityIcon, WoollyAbilityIcon, PercyAbilityIcon, DuckyAbilityIcon, GeraldAbilityIcon, BillyAbilityIcon
         };
 
         private static void ConfigureSpriteImporters()
@@ -1348,6 +1361,43 @@ namespace FarmFuryArcade.EditorTools
             WireHorace();
             WireGerald();
             WireBilly();
+
+            WireAbilityIcons();
+        }
+
+        /// <summary>Wires each character's dedicated {Name}_ability.png onto CharacterData.
+        /// abilityIconSprite — GameplayHUD's on-screen ability button shows this instead of
+        /// portraitSprite once set (see its RefreshPortrait). Horace has no dedicated icon yet, so
+        /// he's deliberately left out here; his button keeps falling back to portraitSprite.</summary>
+        private static void WireAbilityIcons()
+        {
+            SetAbilityIcon("Cluck", CluckAbilityIcon);
+            SetAbilityIcon("Bessie", BessieAbilityIcon);
+            SetAbilityIcon("Woolly", WoollyAbilityIcon);
+            SetAbilityIcon("Percy", PercyAbilityIcon);
+            SetAbilityIcon("Ducky", DuckyAbilityIcon);
+            SetAbilityIcon("Gerald", GeraldAbilityIcon);
+            SetAbilityIcon("Billy", BillyAbilityIcon);
+        }
+
+        private static void SetAbilityIcon(string characterName, string spritePath)
+        {
+            var icon = Load(spritePath);
+            if (icon == null)
+            {
+                return;
+            }
+
+            string path = $"{CharacterDataFolder}/CharacterData_{characterName}.asset";
+            var data = AssetDatabase.LoadAssetAtPath<CharacterData>(path);
+            if (data == null)
+            {
+                Debug.LogWarning($"[ArtWiringBuilder] CharacterData_{characterName} not found at {path}");
+                return;
+            }
+
+            data.abilityIconSprite = icon;
+            EditorUtility.SetDirty(data);
         }
 
         // ---- New robots (Scout, Patrol, Heavy, Drifter) + universal defeated eyes -------------

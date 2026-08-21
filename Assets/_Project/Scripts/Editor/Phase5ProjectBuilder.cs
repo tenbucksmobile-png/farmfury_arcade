@@ -54,6 +54,10 @@ namespace FarmFuryArcade.EditorTools
             AddManagers(managersGO);
 
             GameObject rosterCardPrefab = BuildRosterCardPrefab();
+            // Built early (was further down, after BuildCharacterStoryPlaceholder) so Character
+            // Story's own card column can reuse the exact same prefab/sizing ChooseCharacterScreen
+            // uses instead of duplicating it.
+            var characterSelectCardPrefab = BuildCharacterSelectCardPrefab();
 
             var fadeGroup = BuildFadeOverlay(canvas.transform);
 
@@ -61,7 +65,7 @@ namespace FarmFuryArcade.EditorTools
             var (gameplay, comboBanner) = BuildGameplayHUD(canvas.transform);
             var pause = BuildPauseMenu(canvas.transform);
             var settings = BuildSettingsPanel(canvas.transform);
-            var characterStory = BuildCharacterStoryPlaceholder(canvas.transform);
+            var characterStory = BuildCharacterStoryPlaceholder(canvas.transform, characterSelectCardPrefab);
             var storeComingSoon = BuildShopOverlay(canvas.transform);
             var cosmeticsHub = BuildCosmeticsHubScreen(canvas.transform);
             var hatPurchase = BuildCosmeticPurchaseScreen(canvas.transform, "HatPurchaseScreen", LoadCosmeticsSprite("Hat_Icon.png"),
@@ -91,7 +95,6 @@ namespace FarmFuryArcade.EditorTools
             var roster = BuildCharacterRoster(canvas.transform, rosterCardPrefab);
             var leaderboards = BuildLeaderboards(canvas.transform);
 
-            var characterSelectCardPrefab = BuildCharacterSelectCardPrefab();
             var chooseCharacter = BuildChooseCharacterScreen(canvas.transform, characterSelectCardPrefab);
 
             var levelTilePrefab = BuildLevelTilePrefab();
@@ -655,7 +658,10 @@ namespace FarmFuryArcade.EditorTools
             playRect.anchorMax = new Vector2(0f, 0f);
             playRect.pivot = new Vector2(0f, 0f);
             playRect.sizeDelta = new Vector2(160f, 160f);
-            playRect.anchoredPosition = new Vector2(130f, 70f);
+            // Inset matched to SettingsButton's own 150px edge inset below (was 130 — a 20px
+            // asymmetry that read as Play sitting closer to the yellow safe-area guide than
+            // Settings on the opposite corner, per a device-frame screenshot review).
+            playRect.anchoredPosition = new Vector2(150f, 70f);
 
             var settingsButton = CreateButton("SettingsButton", root.transform, string.Empty, new Color(0.35f, 0.35f, 0.38f), 28f, 160f, out _);
             Object.DestroyImmediate(settingsButton.transform.Find("SettingsButton_Label").gameObject);
@@ -1371,24 +1377,22 @@ namespace FarmFuryArcade.EditorTools
         }
 
         /// <summary>Placeholder screen for "Btn_CharacterStory" — "this is where we will tell a
-        /// story about each character," per the request that added this button; no real content
-        /// exists yet. World1_Cornfield.png backdrop + Logo.png top-left (same convention every
-        /// other opaque overlay in this project uses), a centred "Coming Soon" label, and a round
-        /// back button wired via SimpleClosePanel (same trivial self-closing pattern the old Store
-        /// "coming in Phase 6" placeholder used) rather than a dedicated controller class, since
-        /// there's no real behaviour here yet beyond closing.</summary>
-        private static GameObject BuildCharacterStoryPlaceholder(Transform canvasTransform)
+        /// story about each character," per the request that added this button; no real story
+        /// content exists yet, only the roster layout. Rebuilt (2026-08-21) to match the rest of
+        /// the Settings-family redesign: dimmed landing.png backdrop (was World1_Cornfield.png),
+        /// no top-left LogoImage (removed per request — every other screen in this family still
+        /// has one, this is the one deliberate exception), and Btn_back kept at its existing
+        /// bottom-right position (CreateRoundBackButton's default). A left-hand vertical scroll
+        /// column lists all 8 characters in hierarchy order (Cluck first, same order
+        /// DataManager.GetAllCharacterData()/ChooseCharacterScreen use) using the exact same
+        /// CharacterSelectCard prefab/size (340x360) the character-swap screen uses — populated at
+        /// runtime by CharacterStoryScreen, not baked here, since DataManager isn't available in
+        /// Edit mode. "Coming Soon" stays centred on the right — the left column leaves it clear
+        /// for whenever real story content replaces it.</summary>
+        private static GameObject BuildCharacterStoryPlaceholder(Transform canvasTransform, GameObject characterSelectCardPrefab)
         {
             var root = CreatePanel("CharacterStoryScreen", canvasTransform, Color.black);
-            StretchFull((RectTransform)root.transform);
-            root.GetComponent<Image>().sprite = LoadUiSprite("World1_Cornfield.png");
-
-            var logoImageGO = new GameObject("LogoImage", typeof(RectTransform), typeof(Image));
-            logoImageGO.transform.SetParent(root.transform, false);
-            var logoImage = logoImageGO.GetComponent<Image>();
-            logoImage.sprite = LoadUiSprite("Logo.png");
-            logoImage.preserveAspect = true;
-            AnchorTopLeft((RectTransform)logoImageGO.transform, new Vector2(420f, 238f), new Vector2(100f, -50f));
+            ApplyDimmedLandingBackground(root);
 
             var comingSoonText = CreateText("ComingSoonText", root.transform, "Character Stories\nComing Soon", 56f, TextAlignmentOptions.Center, 200f);
             var comingSoonRect = (RectTransform)comingSoonText.transform;
@@ -1397,11 +1401,29 @@ namespace FarmFuryArcade.EditorTools
             comingSoonRect.sizeDelta = new Vector2(900f, 200f);
             comingSoonRect.anchoredPosition = Vector2.zero;
 
+            // Left column: a vertical ScrollRect (same helper Level Select's tile grid uses)
+            // constrained to a 420-wide strip near the left edge instead of stretching full-screen,
+            // so it sits clear of the centred "Coming Soon" text. CharacterSelectCard's root
+            // RectTransform already carries an explicit 340x360 sizeDelta (see
+            // BuildCharacterSelectCardPrefab), so it lays out correctly inside this
+            // childControlHeight=false content group with no extra LayoutElement needed — same
+            // "explicit sizeDelta, not a LayoutElement" fix Level Select's own scroll content needed.
+            var scrollRect = CreateVerticalScrollView("CharacterScrollView", root.transform, out var cardContainer);
+            var scrollRT = (RectTransform)scrollRect.transform;
+            scrollRT.anchorMin = new Vector2(0f, 0f);
+            scrollRT.anchorMax = new Vector2(0f, 1f);
+            scrollRT.pivot = new Vector2(0f, 0.5f);
+            scrollRT.anchoredPosition = new Vector2(100f, 0f);
+            scrollRT.sizeDelta = new Vector2(420f, -160f); // 420 wide, 80px top/bottom margin
+
             var closeButton = CreateRoundBackButton(root.transform);
             closeButton.GetComponent<Image>().sprite = LoadUiSprite("Btn_back.png");
 
-            var panel = root.AddComponent<SimpleClosePanel>();
-            SetRefs(panel, ("closeButton", closeButton));
+            var story = root.AddComponent<CharacterStoryScreen>();
+            SetRefs(story,
+                ("cardContainer", cardContainer),
+                ("cardPrefab", characterSelectCardPrefab),
+                ("closeButton", closeButton));
 
             return root;
         }
@@ -1584,16 +1606,21 @@ namespace FarmFuryArcade.EditorTools
             // HorizontalLayoutGroup — a layout group with childControlWidth=true stretches each
             // child to fill whatever width remains, which doesn't reliably produce an exact
             // StandardIconButtonSize square; GridLayoutGroup guarantees it.
+            // Coin plaque boards enlarged (160 -> 200) to more closely match how big Settings' own
+            // icons READ on screen — the coin-pack art (100.png etc.) bakes in more of its own
+            // transparent margin than Settings' tightly-cropped icons, so even at the identical
+            // StandardIconButtonSize box it rendered visibly smaller; a bigger box compensates.
+            float coinIconSize = StandardIconButtonSize * 1.25f;
             var coinRowGO = new GameObject("CoinRow", typeof(RectTransform), typeof(GridLayoutGroup));
             coinRowGO.transform.SetParent(root.transform, false);
             var coinRowRect = (RectTransform)coinRowGO.transform;
             coinRowRect.anchorMin = coinRowRect.anchorMax = new Vector2(0.5f, 0.5f);
             coinRowRect.pivot = new Vector2(0.5f, 0.5f);
             float coinRowSpacing = 50f;
-            coinRowRect.sizeDelta = new Vector2(4 * StandardIconButtonSize + 3 * coinRowSpacing + 100f, StandardIconButtonSize + 40f);
+            coinRowRect.sizeDelta = new Vector2(4 * coinIconSize + 3 * coinRowSpacing + 100f, coinIconSize + 40f);
             coinRowRect.anchoredPosition = new Vector2(0f, 20f);
             var coinGrid = coinRowGO.GetComponent<GridLayoutGroup>();
-            coinGrid.cellSize = new Vector2(StandardIconButtonSize, StandardIconButtonSize);
+            coinGrid.cellSize = new Vector2(coinIconSize, coinIconSize);
             coinGrid.spacing = new Vector2(coinRowSpacing, 0f);
             coinGrid.childAlignment = TextAnchor.MiddleCenter;
             coinGrid.constraint = GridLayoutGroup.Constraint.FixedColumnCount;
@@ -1611,17 +1638,22 @@ namespace FarmFuryArcade.EditorTools
             for (int i = 0; i < coinDefs.Length; i++)
             {
                 var (id, fileName) = coinDefs[i];
-                coinButtonsData[i] = (id, CreateIconButton(id + "Button", coinRowGO.transform, LoadUiSprite(fileName), StandardIconButtonSize));
+                coinButtonsData[i] = (id, CreateIconButton(id + "Button", coinRowGO.transform, LoadUiSprite(fileName), coinIconSize));
             }
 
-            var cosmeticsButton = CreateIconButton("CosmeticsButton", root.transform, LoadUiSprite("Btn_Cosmetics.png"), StandardIconButtonSize);
-            AnchorBottomCenter((RectTransform)cosmeticsButton.transform, new Vector2(StandardIconButtonSize, StandardIconButtonSize), new Vector2(0f, 70f));
+            // Btn_Cosmetics doubled in size (160 -> 320) and given more clearance off the bottom
+            // edge (70 -> 100 padding) per request.
+            float cosmeticsButtonSize = StandardIconButtonSize * 2f;
+            var cosmeticsButton = CreateIconButton("CosmeticsButton", root.transform, LoadUiSprite("Btn_Cosmetics.png"), cosmeticsButtonSize);
+            AnchorBottomCenter((RectTransform)cosmeticsButton.transform, new Vector2(cosmeticsButtonSize, cosmeticsButtonSize), new Vector2(0f, 100f));
 
             var closeButton = CreateRoundBackButton(root.transform, bottomRight: true);
             closeButton.GetComponent<Image>().sprite = LoadUiSprite("Btn_back.png");
 
+            // Raised (250 -> cosmeticsButton's own top edge + 40) so it clears the now much taller
+            // CosmeticsButton beneath it instead of landing inside its bounds.
             var statusText = CreateText("StatusText", root.transform, string.Empty, 26f, TextAlignmentOptions.Center, 40f);
-            AnchorBottomCenter((RectTransform)statusText.transform, new Vector2(860f, 40f), new Vector2(0f, 250f));
+            AnchorBottomCenter((RectTransform)statusText.transform, new Vector2(860f, 40f), new Vector2(0f, 100f + cosmeticsButtonSize + 40f));
 
             var shop = root.AddComponent<ShopController>();
             var shopSO = new SerializedObject(shop);
@@ -1714,15 +1746,23 @@ namespace FarmFuryArcade.EditorTools
             var breadcrumbImage = breadcrumbGO.GetComponent<Image>();
             breadcrumbImage.sprite = breadcrumbSprite;
             breadcrumbImage.preserveAspect = true;
-            AnchorTopCenter((RectTransform)breadcrumbGO.transform, new Vector2(StandardIconButtonSize, StandardIconButtonSize), new Vector2(0f, -30f));
+            // Top padding increased 30 -> 62 (+32px) — the icon was overlapping the dimmed poster's
+            // baked-in "FARM FURY" wordmark at the original offset (per a screenshot review).
+            AnchorTopCenter((RectTransform)breadcrumbGO.transform, new Vector2(StandardIconButtonSize, StandardIconButtonSize), new Vector2(0f, -62f));
 
-            var itemRow = CreateHorizontalGroup("ItemRow", root.transform, 50f);
+            // Item icons doubled (160 -> 320) and the row's own spacing scaled up to match (50 ->
+            // 100), so the gaps between icons stay visually proportional to the larger art instead
+            // of reading cramped — same "pad the row" request. Row itself nudged up (20 -> 40) to
+            // tighten the gap to the breadcrumb icon above now that both moved.
+            const float itemIconSize = StandardIconButtonSize * 2f;
+            const float itemSpacing = 100f;
+            var itemRow = CreateHorizontalGroup("ItemRow", root.transform, itemSpacing);
             var itemRowRect = (RectTransform)itemRow.transform;
             itemRowRect.anchorMin = itemRowRect.anchorMax = new Vector2(0.5f, 0.5f);
             itemRowRect.pivot = new Vector2(0.5f, 0.5f);
-            itemRowRect.sizeDelta = new Vector2(items.Length * StandardIconButtonSize + (items.Length - 1) * 50f + 60f, StandardIconButtonSize + 20f);
-            itemRowRect.anchoredPosition = new Vector2(0f, 20f);
-            itemRow.GetComponent<LayoutElement>().preferredHeight = StandardIconButtonSize;
+            itemRowRect.sizeDelta = new Vector2(items.Length * itemIconSize + (items.Length - 1) * itemSpacing + 60f, itemIconSize + 20f);
+            itemRowRect.anchoredPosition = new Vector2(0f, 40f);
+            itemRow.GetComponent<LayoutElement>().preferredHeight = itemIconSize;
             var itemRowHlg = itemRow.GetComponent<HorizontalLayoutGroup>();
             itemRowHlg.childControlWidth = false;
             itemRowHlg.childForceExpandWidth = false;
@@ -1733,7 +1773,7 @@ namespace FarmFuryArcade.EditorTools
             var itemButtonsData = new (string id, Button button)[items.Length];
             for (int i = 0; i < items.Length; i++)
             {
-                itemButtonsData[i] = (items[i].productId, CreateIconButton($"Item{i}Button", itemRow.transform, items[i].frameSprite, StandardIconButtonSize));
+                itemButtonsData[i] = (items[i].productId, CreateIconButton($"Item{i}Button", itemRow.transform, items[i].frameSprite, itemIconSize));
             }
 
             var priceGO = new GameObject("PriceSign", typeof(RectTransform), typeof(Image));
@@ -1741,7 +1781,10 @@ namespace FarmFuryArcade.EditorTools
             var priceImage = priceGO.GetComponent<Image>();
             priceImage.sprite = priceSprite;
             priceImage.preserveAspect = true;
-            AnchorBottomCenter((RectTransform)priceGO.transform, new Vector2(360f, 190f), new Vector2(0f, 90f));
+            // Enlarged ~1.4x (360x190 -> 500x266, same aspect) to read clearly against the now much
+            // bigger item icons above it; bottom offset kept at 90 rather than scaled the same 2x
+            // the icons got, tightening its gap to the row instead of letting it drift apart.
+            AnchorBottomCenter((RectTransform)priceGO.transform, new Vector2(500f, 266f), new Vector2(0f, 90f));
 
             var closeButton = CreateRoundBackButton(root.transform, bottomRight: true);
             closeButton.GetComponent<Image>().sprite = LoadUiSprite("Btn_back.png");
@@ -2075,7 +2118,10 @@ namespace FarmFuryArcade.EditorTools
             statsRect.sizeDelta = new Vector2(900f, 260f);
             statsRect.anchoredPosition = new Vector2(0f, -40f);
 
-            var backButton = CreateRoundBackButton(root.transform, bottomRight: false);
+            // Moved bottom-left -> bottom-right (per a screenshot review) to match every other
+            // screen in this redesign wave — Settings, Shop, Cosmetics hub, Hat/Trail purchase all
+            // use bottomRight: true; Leaderboards was the one outlier still sitting on the left.
+            var backButton = CreateRoundBackButton(root.transform, bottomRight: true);
             backButton.GetComponent<Image>().sprite = LoadUiSprite("Btn_back.png");
 
             var controller = root.AddComponent<LeaderboardsScreen>();

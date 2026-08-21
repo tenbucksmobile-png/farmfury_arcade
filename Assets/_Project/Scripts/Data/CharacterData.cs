@@ -9,6 +9,11 @@ namespace FarmFuryArcade.Data
         public string displayName;
         public Sprite portraitSprite;
 
+        [Tooltip("Dedicated ability-icon art ({Name}_ability.png) shown on GameplayHUD's on-screen " +
+                 "ability button instead of portraitSprite. Null falls back to portraitSprite (e.g. " +
+                 "Horace, who has no dedicated ability icon yet).")]
+        public Sprite abilityIconSprite;
+
         [Tooltip("Framed 'animal card' art (Sprites/UI/{Name}_{Species}.png) shown by " +
                  "ChooseCharacterScreen — distinct from portraitSprite, which is a plain front " +
                  "sprite reused for the HUD/Matchup-era cards. Null falls back to a placeholder " +

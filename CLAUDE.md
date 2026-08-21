@@ -1200,6 +1200,14 @@ from their original Phase 5 layouts:
   button (`GameplayHUD.characterPortrait` now points at this child, not the button's own Image),
   since swapping the button's own Image to a real (rectangular) character sprite would have
   overwritten the round shape entirely.
+
+  **The portrait art on this button was later swapped for a dedicated ability icon** (2026-08-21):
+  `CharacterData.abilityIconSprite` is a new field (falls back to `portraitSprite` when unset) that
+  `GameplayHUD.RefreshPortrait` now shows instead of the plain character portrait — wired via
+  `ArtWiringBuilder.WireAbilityIcons` from 7 new per-character `{Name}_ability.png` files
+  (`Sprites/UI/`). Horace has no dedicated icon yet, so his button still falls back to
+  `portraitSprite`. None of the cooldown-ring/grey-out/ready-flash/skip-cooldown-coin-or-ad
+  behaviour above changed — it all still operates on the same Image, just showing different art.
   `SoundButton`/`HomeButton` were later removed too (per playtest feedback) — both are reachable via
   Pause instead (Settings' music/SFX toggles, Pause's own Quit button) — leaving just a single
   `160x160` `PauseButton` (originally bottom-left, matching the Main Menu's Play/Settings buttons;
@@ -1394,6 +1402,42 @@ for the old `Btn_plaque.png` per an explicit art-swap request — reserved for w
 into these cells next). The round close button (`Btn_back.png`, matching the Shop/Cosmetics suite's
 icon rather than the old distinct "go home" `Btn_home.png`) now just closes the overlay instead of
 always forcing navigation to Main Menu, since it no longer reads as a "go home" action.
+
+**Character Story was rebuilt (2026-08-21)** to match the rest of this redesign family, per a
+screenshot review — `Phase5ProjectBuilder.BuildCharacterStoryPlaceholder` no longer shows
+`World1_Cornfield.png`; it now uses the standard dimmed `Landing_Opacity.png` backdrop
+(`ApplyDimmedLandingBackground`), and its top-left `LogoImage` was removed outright (this is the
+one screen in the family without one — every other screen still has one). `Btn_back` stays at its
+existing bottom-right position. A new left-hand vertical scroll column (`CharacterStoryScreen.cs`,
+`Scripts/UI`) lists all 8 characters using the exact same `CharacterSelectCard` prefab/size
+(340x360) `ChooseCharacterScreen` uses, populated at runtime in the same Cluck-first hierarchy
+order `DataManager.GetAllCharacterData()` already returns — every card renders
+unlocked/non-active/non-interactive for now (this is a browsing list, not the swap gate
+`ChooseCharacterScreen` enforces), since no per-character story content exists yet. Because the
+card column needs `BuildCharacterSelectCardPrefab`'s output, that prefab is now built earlier in
+`BuildAll` (was built later, just before `BuildChooseCharacterScreen`) and passed into
+`BuildCharacterStoryPlaceholder` too, rather than being duplicated. "Character Stories Coming Soon"
+stays centred where it was — the new column sits clear of it on the left, leaving room for real
+story content to replace that placeholder text later.
+
+**Several other Settings-family screens got sizing/position fixes (2026-08-21), all per direct
+screenshot review, no new mockup:**
+- **Main Menu's `PlayButton`** had a 20px asymmetric inset vs. `SettingsButton` on the opposite
+  corner (130 vs. 150 from its respective edge) — read as sitting closer to the yellow safe-area
+  guide than Settings. Matched to 150 on both.
+- **Hat/Trail purchase screens** (`BuildCosmeticPurchaseScreen`, shared by both): breadcrumb icon's
+  top padding increased 30→62 (it was overlapping the dimmed poster's baked-in wordmark); item
+  icons doubled 160→320 with spacing scaled 50→100 to match; the row itself nudged to keep a
+  tightened gap to the breadcrumb above it; the price plaque enlarged ~1.4x (360x190→500x266, same
+  aspect) to read against the now much bigger icons.
+- **Shop screen** (`BuildShopOverlay`): coin-pack plaque boxes enlarged 160→200 — the coin-pack art
+  bakes in more of its own transparent margin than Settings' tightly-cropped icons, so it rendered
+  visibly smaller at the identical box size; `Btn_Cosmetics` doubled 160→320 with its bottom padding
+  increased 70→100; `StatusText` repositioned to clear the taller Cosmetics button beneath it.
+- **Leaderboards' back button** moved bottom-left→bottom-right (`CreateRoundBackButton(...,
+  bottomRight: true)`) — it was the one screen left still sitting on the left in this redesign
+  wave; every other screen (Settings, Shop, Cosmetics hub, Hat/Trail purchase) already used
+  bottom-right.
 
 **Settings backdrop/header gotchas (2026-08-20 evening follow-up pass).** After the redesign above
 shipped, the backdrop dim reported as simply not visible — chased across several rounds, with two
@@ -2238,6 +2282,11 @@ values from the GDD's color palette where one exists (e.g. walls = Wall Brown `#
   version left a plain gold placeholder block on screen even after portrait art existed, since
   color tinting was never going to substitute for an actual portrait sprite. (The Matchup screen
   was an earlier consumer of these fields too, before its removal — see "Removed: Matchup screen".)
+- **Ability icons** (2026-08-21) — `CharacterData.abilityIconSprite`, a new field, is wired from 7
+  new `{Name}_ability.png` files (`Sprites/UI/`) via `ArtWiringBuilder.WireAbilityIcons` — Cluck,
+  Bessie, Woolly, Percy, Ducky, Gerald, Billy all have one; Horace doesn't yet. `GameplayHUD`'s
+  on-screen ability button shows this instead of the plain portrait now (see the Gameplay HUD
+  bullet under "Screens & scene flow" for the runtime side).
 - **Buttons** — `Btn_play/pause/settings/quit/home/skip/back/plaque` wired onto their matching
   buttons across every screen (Main Menu, Gameplay HUD, Pause, Settings, Level Select,
   Store, Level Complete/Failed, Roster, Leaderboards) via `ArtWiringBuilder.WireButtons` —
@@ -2702,10 +2751,11 @@ and reopen the project normally to confirm nothing was corrupted.
   player can freely swap characters during a Character-Locked daily challenge; the run just won't
   register as completed if more than one character was used. Real enforcement needs
   `CharacterManager.CanSwapTo` to know about the active challenge.
-- **No ability icon sprites, and only partial portrait art** — the HUD portrait
-  (`GameplayHUD.characterPortrait`, via `RefreshPortrait`) uses `CharacterData.portraitSprite`
-  (front sprite) where a character has real art (see "Art status"); Roster cards still use
-  solid-colour placeholders, and no dedicated ability icons exist anywhere.
+- **Only partial portrait art, and Horace still has no ability icon** — the HUD's on-screen
+  ability button (`GameplayHUD.characterPortrait`, via `RefreshPortrait`) now shows
+  `CharacterData.abilityIconSprite` for 7 of 8 characters (see the Gameplay HUD bullet above and
+  "Art status"), falling back to `portraitSprite` for Horace and for the portrait itself wherever
+  no real art exists. Roster cards still use solid-colour placeholders.
 
 ## UX flow
 

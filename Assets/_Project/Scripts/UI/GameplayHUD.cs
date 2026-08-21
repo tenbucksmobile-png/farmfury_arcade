@@ -307,10 +307,14 @@ namespace FarmFuryArcade.UI
             // portraitSprite got wired for every character with real art (see ArtWiringBuilder).
             // Same tint-vs-real-art convention as RobotVisual.BaseTintColor: show the real portrait
             // at full white once one exists, otherwise fall back to the gold placeholder tint.
+            // The button shows a dedicated ability-icon sprite (per-character {Name}_ability.png)
+            // rather than the character's plain portrait — falls back to portraitSprite for any
+            // character without one yet (currently just Horace).
             var data = DataManager.Instance != null ? DataManager.Instance.GetCharacterData(CharacterManager.Instance.ActiveCharacter) : null;
-            if (data != null && data.portraitSprite != null)
+            var iconSprite = data != null ? (data.abilityIconSprite != null ? data.abilityIconSprite : data.portraitSprite) : null;
+            if (iconSprite != null)
             {
-                characterPortrait.sprite = data.portraitSprite;
+                characterPortrait.sprite = iconSprite;
             }
 
             // Image.color (the tint this ability-cooldown indicator multiplies) defaults to white
