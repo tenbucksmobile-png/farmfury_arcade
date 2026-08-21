@@ -31,7 +31,6 @@ namespace FarmFuryArcade.UI
         [SerializeField] private TextMeshProUGUI timerText;
         [SerializeField] private TextMeshProUGUI coinBalanceText;
         [SerializeField] private Image characterPortrait;
-        [SerializeField] private Image abilityCooldownRing;
         [SerializeField] private Button abilityButton;
         [SerializeField] private Button pauseButton;
         [SerializeField] private GameObject powerPelletTimerBar;
@@ -349,10 +348,6 @@ namespace FarmFuryArcade.UI
             else
             {
                 characterPortrait.color = _portraitReadyColor;
-                if (abilityCooldownRing != null)
-                {
-                    abilityCooldownRing.fillAmount = 1f;
-                }
                 if (skipCooldownButton != null)
                 {
                     skipCooldownButton.gameObject.SetActive(false);
@@ -364,12 +359,13 @@ namespace FarmFuryArcade.UI
             }
         }
 
-        /// <summary>Portrait greys out the instant the ability is used and the ring drains to empty;
-        /// both fill/lighten back up in step with the cooldown (see AbilityBase.UpdateCooldown, which
-        /// fires this every frame while on cooldown). The moment the cooldown actually reaches zero,
-        /// the portrait starts a continuous flash (see StartReadyFlash) rather than just sitting at a
-        /// static "ready" colour, so the player gets a clear "you can use this now" cue instead of
-        /// having to notice the ring quietly finished filling.</summary>
+        /// <summary>Portrait greys out the instant the ability is used and lightens back up in step
+        /// with the cooldown (see AbilityBase.UpdateCooldown, which fires this every frame while on
+        /// cooldown — no separate cooldown-ring visual exists anymore, see StartReadyFlash's own doc
+        /// comment for why it was removed). The moment the cooldown actually reaches zero, the
+        /// portrait starts a continuous scale-pulsate + colour flash (see StartReadyFlash) rather
+        /// than just sitting at a static "ready" colour, so the player gets a clear "you can use
+        /// this now" cue.</summary>
         private void HandleAbilityCooldownChanged(float remaining, float total)
         {
             if (characterPortrait == null)
@@ -385,11 +381,6 @@ namespace FarmFuryArcade.UI
             else if (_readyFlashRoutine == null)
             {
                 StartReadyFlash();
-            }
-
-            if (abilityCooldownRing != null)
-            {
-                abilityCooldownRing.fillAmount = total > 0f ? Mathf.Clamp01(1f - remaining / total) : 1f;
             }
 
             // Monetisation: only worth showing while genuinely on cooldown and only tappable while
@@ -412,14 +403,24 @@ namespace FarmFuryArcade.UI
             }
         }
 
+        /// <summary>Was a colour-only flash (Lerp toward AbilityFlashColor) plus a separate radial
+        /// cooldown-ring Image behind the portrait and a solid gold circle backdrop on the portrait
+        /// button itself — per direct feedback the backdrop/ring read as visual clutter and the
+        /// colour-only flash didn't actually read as "pulsating." Both the backdrop and the ring are
+        /// gone now (see Phase5ProjectBuilder.BuildGameplayHUD — the portrait button's own Image is
+        /// transparent, raycast-target only, same "invisible root, art on a child" convention
+        /// CharacterSelectCard uses), leaving just the character's ability icon. ReadyFlashRoutine
+        /// now scales that icon in and out (via characterPortrait.rectTransform.localScale) on the
+        /// same sine wave the colour Lerp already used, so "ready" reads as an actual pulsating icon
+        /// rather than a static square changing shade.</summary>
         private void StartReadyFlash()
         {
             StopReadyFlash();
             _readyFlashRoutine = StartCoroutine(ReadyFlashRoutine());
         }
 
-        /// <summary>Also resets the portrait back to its plain ready colour — called both when the
-        /// ability is used again (cooldown restarts) and from OnDisable/RefreshActiveAbility so a
+        /// <summary>Also resets the portrait back to its plain ready colour/scale — called both when
+        /// the ability is used again (cooldown restarts) and from OnDisable/RefreshActiveAbility so a
         /// leftover flash coroutine never keeps running against a portrait that no longer belongs to
         /// the active ability (e.g. after a character swap).</summary>
         private void StopReadyFlash()
@@ -432,8 +433,11 @@ namespace FarmFuryArcade.UI
             if (characterPortrait != null)
             {
                 characterPortrait.color = _portraitReadyColor;
+                characterPortrait.rectTransform.localScale = Vector3.one;
             }
         }
+
+        private const float PulseScaleMax = 1.18f;
 
         private IEnumerator ReadyFlashRoutine()
         {
@@ -441,6 +445,7 @@ namespace FarmFuryArcade.UI
             {
                 float pulse = (Mathf.Sin(Time.unscaledTime * FlashCyclesPerSecond * Mathf.PI * 2f) + 1f) * 0.5f;
                 characterPortrait.color = Color.Lerp(_portraitReadyColor, AbilityFlashColor, pulse);
+                characterPortrait.rectTransform.localScale = Vector3.one * Mathf.Lerp(1f, PulseScaleMax, pulse);
                 yield return null;
             }
         }

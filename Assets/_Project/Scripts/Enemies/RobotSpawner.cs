@@ -24,6 +24,15 @@ namespace FarmFuryArcade.Enemies
         [SerializeField] private GameObject heavyPrefab;
         [SerializeField] private GameObject dronePrefab;
 
+        /// <summary>Applied to every robot this spawner creates from here on (SpawnRobot reads it
+        /// at spawn time, not just once) — GameManager.LoadLevel sets this right before calling
+        /// SceneController.LoadLevelContent, so it's already correct by the time SpawnLevelRobots
+        /// actually instantiates anything. 1f for a normal level; DailyChallengeManager.
+        /// RobotDifficultySpeedMultiplier for a Daily Challenge run. Left at whatever the previous
+        /// LoadLevel call set until the next one changes it — GameManager always sets it explicitly
+        /// on every LoadLevel, normal or otherwise, so it never goes stale.</summary>
+        public float DifficultyMultiplier = 1f;
+
         private readonly List<RobotBase> _activeRobots = new List<RobotBase>();
         private LevelData _level;
 
@@ -101,6 +110,7 @@ namespace FarmFuryArcade.Enemies
 
             var data = DataManager.Instance.GetRobotData(spawn.robotType);
             robot.Initialize(data, tileMap, spawn.spawnPosition, GetScatterCorner(spawn.robotType));
+            robot.SetDifficultyMultiplier(DifficultyMultiplier);
             _activeRobots.Add(robot);
             // PlayRobotRespawnSfx used to fire only from a defeated robot's mid-level walk-back to
             // the factory (RobotBase.ArriveAtFactory) — that flow no longer exists (see RobotBase's

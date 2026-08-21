@@ -477,7 +477,12 @@ namespace FarmFuryArcade.EditorTools
             // while still centred in the space between the header and the bottom of the screen.
             // Shrunk ~10% (897x950 -> 810x855, aspect preserved) per a follow-up mockup review —
             // the badges were reading as slightly oversized against the header/bottom margins.
-            goRect.sizeDelta = new Vector2(810f, 855f);
+            // Shrunk again (~28%, 810x855 -> 580x615, aspect preserved) per a gameplay-screenshot
+            // review showing the centred badge's top edge still overlapping the SELECT LEVEL/world-
+            // name header sign above it even after BuildLevelSelect's header/carousel repositioning
+            // — that repositioning alone wasn't enough; the badge itself was still too tall for the
+            // available vertical space.
+            goRect.sizeDelta = new Vector2(580f, 615f);
             var background = go.GetComponent<Image>();
             background.sprite = PlaceholderSprite.Get(new Color(0.55f, 0.4f, 0.2f));
             background.preserveAspect = true;
@@ -534,10 +539,16 @@ namespace FarmFuryArcade.EditorTools
 
             // TitleImage replaces the old TMP "SELECT LEVEL" text — SelectLevelSign.png is the
             // word-art itself, wired by ArtWiringBuilder. preserveAspect so it never distorts.
-            // Sized/positioned to match Settings' title banner (same AnchorTopCenter treatment).
-            var titleImage = CreateImage("TitleImage", root.transform, Color.clear, 860f, 320f);
+            // Shrunk (320 -> 260) and moved up slightly (-40 -> -20) from the original
+            // Settings-title-matching size per a gameplay-screenshot review: the world carousel's
+            // badges (WorldShield, 810x855 — see BuildWorldShieldPrefab) were tall enough that their
+            // top edge visibly overlapped this banner's bottom edge. Combined with the carousel's
+            // own downward shift below, this is a first-pass gap increase, not a pixel-measured
+            // fix (no visual Editor access this session) — re-check against the actual banner/badge
+            // art once seen and nudge further if any overlap remains.
+            var titleImage = CreateImage("TitleImage", root.transform, Color.clear, 860f, 260f);
             titleImage.preserveAspect = true;
-            AnchorTopCenter((RectTransform)titleImage.transform, new Vector2(860f, 320f), new Vector2(0f, -40f));
+            AnchorTopCenter((RectTransform)titleImage.transform, new Vector2(860f, 260f), new Vector2(0f, -20f));
 
             // Small persistent "which world am I in" badge, top-left of the screen (not the header
             // strip) — hidden until a world is selected (see LevelSelectController.RevealWorld),
@@ -558,15 +569,14 @@ namespace FarmFuryArcade.EditorTools
             scrollViewRect.anchorMin = new Vector2(0f, 0f);
             scrollViewRect.anchorMax = new Vector2(1f, 1f);
             scrollViewRect.offsetMin = Vector2.zero;
-            // TitleImage (above) is anchored at y=-40 with a 320px height, so its bottom edge sits
-            // at y=-360 from the top of the screen. 320px leaves a clean ~100px gap under the
-            // banner (tightened from 420px, which read as too much dead space above the tiles).
+            // TitleImage (above) is anchored at y=-20 with a 260px height, so its bottom edge sits
+            // at y=-280 from the top of the screen. -320 leaves a clean ~40px gap under the banner.
             scrollViewRect.offsetMax = new Vector2(0f, -320f);
 
-            // World-select carousel area — vertically centred on the screen (a symmetric 200px
-            // margin reserved top and bottom, matching the header's own height, so the centred
-            // badge sits at the screen's true midpoint rather than skewed toward one edge) and
-            // spanning most of the width so badges have room to fan out. An invisible-but-
+            // World-select carousel area — vertically centred on the screen, nudged down (see the
+            // sizeDelta/anchoredPosition comment below for the current top/bottom split) so the
+            // centred badge clears the header above it, and spanning most of the width so badges
+            // have room to fan out. An invisible-but-
             // raycastable Image covers the whole area (not just the badges themselves) so a flick
             // started on empty space between badges still registers as a drag; CardCarouselController
             // then positions/scales each badge every frame instead of a LayoutGroup arranging them
@@ -576,10 +586,15 @@ namespace FarmFuryArcade.EditorTools
             shieldContainerRect.anchorMin = new Vector2(0.5f, 0f);
             shieldContainerRect.anchorMax = new Vector2(0.5f, 1f);
             shieldContainerRect.pivot = new Vector2(0.5f, 0.5f);
-            shieldContainerRect.sizeDelta = new Vector2(1600f, -400f); // 200px margin top and bottom
-            // Nudged down 16px from the screen's true vertical centre, per a follow-up mockup
-            // review — the carousel read as sitting slightly too close under the SELECT LEVEL banner.
-            shieldContainerRect.anchoredPosition = new Vector2(0f, -16f);
+            // Height/position widened and shifted down further (was -400/-16) per a gameplay-
+            // screenshot review — the centred badge (810x855, see BuildWorldShieldPrefab) was tall
+            // enough that its top edge visibly overlapped TitleImage's banner above. Combined with
+            // shrinking/raising the banner itself (see TitleImage above), this trades some of the
+            // carousel's own headroom for a real gap; re-check against the actual art once seen and
+            // nudge further (or shrink WorldShield itself) if any overlap remains — first-pass,
+            // no visual Editor access this session.
+            shieldContainerRect.sizeDelta = new Vector2(1600f, -460f);
+            shieldContainerRect.anchoredPosition = new Vector2(0f, -70f);
             worldShieldContainerGO.transform.SetParent(root.transform, false);
             var shieldContainerImage = worldShieldContainerGO.GetComponent<Image>();
             shieldContainerImage.sprite = PlaceholderSprite.Get(Color.clear);
@@ -587,16 +602,17 @@ namespace FarmFuryArcade.EditorTools
             shieldContainerImage.raycastTarget = true;
             var worldCarousel = worldShieldContainerGO.AddComponent<CardCarouselController>();
             // Tightened twice per feedback that badges still read as spaced too far apart —
-            // 730 -> 600 (see CLAUDE.md for the original 730 sizing math). At 600, adjacent badges'
-            // edges overlap by roughly 97px (badge width 810 at full scale, ~583 at the 0.72
-            // side-scale falloff: 810/2 + 583/2 - 600 ~= 97px overlap), reading as a closer,
-            // tighter fan than the previous non-overlapping gap. CardCarouselController arranges
-            // items along a true circular arc (see its own arcRadius field) instead of a flat
-            // linear x-offset, so itemSpacing here is the arc-length step between adjacent items,
-            // not a straight pixel offset — arcRadius is left at the component's default (2800),
-            // which reads as a natural curve at this spacing.
+            // 730 -> 600 (see CLAUDE.md for the original 730 sizing math), then scaled down to 430
+            // (600 * 580/810, the same ~0.72 ratio BuildWorldShieldPrefab's badge size just shrunk
+            // by) so the fan's relative overlap between adjacent badges stays visually consistent
+            // now that the badges themselves are smaller — leaving itemSpacing at 600 against a
+            // smaller badge would have opened up a much wider relative gap than before.
+            // CardCarouselController arranges items along a true circular arc (see its own arcRadius
+            // field) instead of a flat linear x-offset, so itemSpacing here is the arc-length step
+            // between adjacent items, not a straight pixel offset — arcRadius is left at the
+            // component's default (2800), which reads as a natural curve at this spacing.
             var worldCarouselSO = new SerializedObject(worldCarousel);
-            worldCarouselSO.FindProperty("itemSpacing").floatValue = 600f;
+            worldCarouselSO.FindProperty("itemSpacing").floatValue = 430f;
             worldCarouselSO.ApplyModifiedPropertiesWithoutUndo();
 
             // Created after the ScrollView and WorldShieldContainer (both full-bleed raycastable
@@ -604,15 +620,11 @@ namespace FarmFuryArcade.EditorTools
             // swallowed by whichever of those two draws on top of it.
             var backButton = CreateRoundBackButton(root.transform);
 
-            // Daily Challenge — moved here from Main Menu per feedback ("must go onto the world
-            // level scene"). Challenge.png (666x392, same hanging-sign convention/aspect as
-            // Leaderboard.png) sits top-right, always visible in both world-select and tile-grid
-            // states (not toggled alongside CurrentWorldIndicator, which only occupies the opposite
-            // top-left corner in the tile-grid state) — same size/inset as Settings' Leaderboards
-            // button for visual consistency between the two relocated features.
-            var dailyChallengeButton = CreateButton("DailyChallengeButton", root.transform, string.Empty, new Color(0.55f, 0.35f, 0.65f), 28f, 224f, out _);
-            Object.DestroyImmediate(dailyChallengeButton.transform.Find("DailyChallengeButton_Label").gameObject);
-            AnchorTopRight((RectTransform)dailyChallengeButton.transform, new Vector2(380f, 224f), new Vector2(-100f, -50f));
+            // Daily Challenge no longer has its own standalone button here — it moved INTO the
+            // world carousel itself as the first shield (DailyChallengeSentinel, ahead of Corn
+            // Field), per feedback that it should live alongside the world badges rather than as a
+            // separate top-right icon. See LevelSelectController.ShowWorldSelect/PlayDailyChallenge
+            // and dailyChallengeSignSprite (wired by ArtWiringBuilder to DailyChallenge.png).
 
             var lockedHintPanel = BuildLockedHintPanel(root.transform);
 
@@ -629,8 +641,7 @@ namespace FarmFuryArcade.EditorTools
                 ("scrollRect", scrollRect),
                 ("lockedHintPanel", lockedHintPanel),
                 ("backButton", backButton),
-                ("backButtonImage", backButton.GetComponent<Image>()),
-                ("dailyChallengeButton", dailyChallengeButton));
+                ("backButtonImage", backButton.GetComponent<Image>()));
 
             return root;
         }
@@ -790,98 +801,93 @@ namespace FarmFuryArcade.EditorTools
             const float clusterInsetX = -160f;
             const float clusterInsetY = 90f;
 
-            // Character portrait sits at the bottom of the cluster (closer to the corner), enlarged
-            // to match the Pause button's own size (was a much smaller 90x90 floating above Pause —
-            // now the two read as one deliberate stack, largest/most-tappable element lowest).
-            // Doubles as the on-screen ability button (Space has no touch equivalent, so without
-            // this the ability was completely unreachable on a device with no keyboard): tapping it
-            // raises the same InputController event Space does, and GameplayHUD dims it while the
-            // active character's ability is on cooldown.
-            // Cooldown ring — a radial-filled Image sitting behind (created before, so it draws
-            // first/underneath) and slightly larger than the portrait button, so it reads as a ring
-            // peeking out around the edges. fillAmount is driven every cooldown tick by
-            // GameplayHUD.HandleAbilityCooldownChanged: empty the instant the ability is used,
-            // filling back up to full as the cooldown completes. No dedicated ring art exists yet —
-            // PlaceholderSprite's plain square still shows the radial fill/sweep correctly (Image.
-            // Type.Filled applies regardless of the sprite's shape), it just won't look like a ring
-            // until real art replaces it.
-            const float ringSize = 140f;
-            var ringImage = CreateImage("AbilityCooldownRing", root.transform, new Color(1f, 0.95f, 0.6f, 0.9f), ringSize, ringSize);
-            var ringRect = (RectTransform)ringImage.transform;
-            AnchorBottomRight(ringRect, new Vector2(ringSize, ringSize),
-                new Vector2(clusterInsetX + (ringSize - clusterButtonSize) / 2f, clusterInsetY - (ringSize - clusterButtonSize) / 2f));
-            ringImage.type = Image.Type.Filled;
-            ringImage.fillMethod = Image.FillMethod.Radial360;
-            ringImage.fillOrigin = (int)Image.Origin360.Top;
-            ringImage.fillClockwise = true;
-            ringImage.fillAmount = 1f;
+            // Ability icon enlarged (120 -> 150) and shifted further left (its own inset, not
+            // Pause's) per direct feedback — it's the on-screen ability button (see below) and the
+            // biggest/most-tapped element in this cluster, so it gets its own size distinct from
+            // Pause's rather than sharing clusterButtonSize. abilityInsetX is more negative than
+            // clusterInsetX (AnchorBottomRight: negative X moves an element further left/inward),
+            // shifting it left of where Pause's own X still sits.
+            const float abilityButtonSize = 150f;
+            const float abilityShiftLeft = 30f;
+            const float abilityInsetX = clusterInsetX - abilityShiftLeft;
 
-            var portraitButton = CreateButton("CharacterPortrait", root.transform, string.Empty, new Color(1f, 0.84f, 0f), 26f, clusterButtonSize, out _);
+            // Character portrait sits at the bottom of the cluster (closer to the corner). Doubles
+            // as the on-screen ability button (Space has no touch equivalent, so without this the
+            // ability was completely unreachable on a device with no keyboard): tapping it raises
+            // the same InputController event Space does, and GameplayHUD dims it while the active
+            // character's ability is on cooldown.
+            var portraitButton = CreateButton("CharacterPortrait", root.transform, string.Empty, Color.clear, 26f, abilityButtonSize, out _);
             Object.DestroyImmediate(portraitButton.transform.Find("CharacterPortrait_Label").gameObject);
-            AnchorBottomRight((RectTransform)portraitButton.transform, new Vector2(clusterButtonSize, clusterButtonSize),
-                new Vector2(clusterInsetX, clusterInsetY));
+            AnchorBottomRight((RectTransform)portraitButton.transform, new Vector2(abilityButtonSize, abilityButtonSize),
+                new Vector2(abilityInsetX, clusterInsetY));
             // onClick wiring happens in GameplayHUD.Awake() (via the abilityButton field below),
             // not here — a listener added directly from editor-script code doesn't survive a scene
             // save/reload (UnityEvent's non-persistent listeners aren't serialized), same pitfall
             // SimpleClosePanel exists to work around elsewhere in this builder.
             //
-            // The button's own Image is now a round background (PlaceholderSprite.GetCircle) rather
-            // than the square GameplayHUD swaps the character's actual portrait sprite onto — those
-            // were the same Image before, so showing a real (rectangular) character sprite there
-            // would have overwritten the round shape entirely. A separate non-interactive "PortraitArt"
-            // child (inset slightly so the round edge stays visible around it) holds the actual
-            // character sprite instead; GameplayHUD.characterPortrait now points at this child.
-            var portraitBg = portraitButton.GetComponent<Image>();
-            portraitBg.sprite = PlaceholderSprite.GetCircle(new Color(1f, 0.84f, 0f));
-
+            // The button's own Image is transparent (CreateButton's PlaceholderSprite.Get(Color.
+            // clear) above), raycast-target only — same "invisible root, art on a child" convention
+            // CharacterSelectCard's root Image uses. It used to be a solid gold circle
+            // (PlaceholderSprite.GetCircle) behind the character sprite; removed per direct feedback
+            // that the circle backdrop read as clutter once a real ability icon existed. A separate
+            // non-interactive "PortraitArt" child holds the actual character sprite;
+            // GameplayHUD.characterPortrait points at this child (and is what StartReadyFlash scales/
+            // tints when the ability is ready).
             var portraitArtGO = new GameObject("PortraitArt", typeof(RectTransform), typeof(Image));
             portraitArtGO.transform.SetParent(portraitButton.transform, false);
             var portraitArtRect = (RectTransform)portraitArtGO.transform;
             portraitArtRect.anchorMin = Vector2.zero;
             portraitArtRect.anchorMax = Vector2.one;
-            float portraitArtInset = clusterButtonSize * 0.12f;
+            float portraitArtInset = abilityButtonSize * 0.12f;
             portraitArtRect.offsetMin = new Vector2(portraitArtInset, portraitArtInset);
             portraitArtRect.offsetMax = new Vector2(-portraitArtInset, -portraitArtInset);
             var portrait = portraitArtGO.GetComponent<Image>();
             portrait.sprite = PlaceholderSprite.Get(new Color(1f, 0.84f, 0f));
             portrait.raycastTarget = false;
 
+            // Pause sits above the ability icon — its own X inset is unchanged (clusterInsetX, not
+            // abilityInsetX, so it doesn't shift left with the icon below it), but its Y offset now
+            // clears abilityButtonSize (the icon's real, enlarged height) rather than the old shared
+            // clusterButtonSize, so the two don't overlap now that the icon is taller than Pause.
             var pauseButton = CreateButton("PauseButton", root.transform, string.Empty, new Color(0.35f, 0.35f, 0.38f), 28f, clusterButtonSize, out _);
             Object.DestroyImmediate(pauseButton.transform.Find("PauseButton_Label").gameObject);
             AnchorBottomRight((RectTransform)pauseButton.transform, new Vector2(clusterButtonSize, clusterButtonSize),
-                new Vector2(clusterInsetX, clusterInsetY + clusterButtonSize + clusterSpacing));
+                new Vector2(clusterInsetX, clusterInsetY + abilityButtonSize + clusterSpacing));
 
-            // Monetisation: "skip cooldown for 3 coins" button — sits just left of the cooldown
-            // ring, vertically centred against it. Hidden by default; GameplayHUD.
-            // HandleAbilityCooldownChanged shows/hides and enables/disables it every tick while an
-            // ability is on cooldown (see that method's own comment for why it re-checks
-            // affordability every tick rather than once). No dedicated icon art exists yet, so the
-            // button keeps its auto-generated "-3" text label instead of the usual icon-only style.
+            // Monetisation: "skip cooldown for 3 coins" button — sits just left of the ability icon,
+            // vertically centred against it (computed from the icon's own inset/size now, not a
+            // vestigial cooldown-ring's geometry — the ring itself was removed, see the ability icon
+            // comment above). Hidden by default; GameplayHUD.HandleAbilityCooldownChanged shows/hides
+            // and enables/disables it every tick while an ability is on cooldown (see that method's
+            // own comment for why it re-checks affordability every tick rather than once). No
+            // dedicated icon art exists yet, so the button keeps its auto-generated "-3" text label
+            // instead of the usual icon-only style.
             const float skipButtonSize = 64f;
             const float skipButtonGap = 16f;
-            float ringRightOffsetX = clusterInsetX + (ringSize - clusterButtonSize) / 2f;
-            float ringBottomOffsetY = clusterInsetY - (ringSize - clusterButtonSize) / 2f;
-            float ringCenterY = ringBottomOffsetY + ringSize / 2f;
+            float abilityLeftEdgeInset = -abilityInsetX + abilityButtonSize; // distance from screen's right edge to the icon's LEFT edge
+            float abilityCenterY = clusterInsetY + abilityButtonSize / 2f;
             var skipCooldownButton = CreateButton("SkipCooldownButton", root.transform, "-3",
                 new Color(0.85f, 0.55f, 0.1f), 24f, skipButtonSize, out _);
             AnchorBottomRight((RectTransform)skipCooldownButton.transform, new Vector2(skipButtonSize, skipButtonSize),
-                new Vector2(ringRightOffsetX - ringSize - skipButtonGap, ringCenterY - skipButtonSize / 2f));
+                new Vector2(-(abilityLeftEdgeInset + skipButtonGap), abilityCenterY - skipButtonSize / 2f));
             skipCooldownButton.gameObject.SetActive(false);
 
             // Monetisation (Phase 2, "extra ability charge"/"skip cooldown via ad" — per the
             // Monetisation Build Plan doc these are literally the same button): a Watch Ad
             // alternative sitting just left of the coin-cost button above, free instead of 3 coins.
-            // GameplayHUD.HandleAbilityCooldownChanged shows/hides it every tick, gated on both
-            // "on cooldown" and AdManager.IsRewardedAdReady (never a dead button). WatchAd.png (the
-            // revive prompt's art) is a wide 512x214 banner meant for a plaque-shaped button, not
-            // this square icon slot — squeezing it in here would squash its baked-in text
-            // unreadable, so this keeps a plain "AD" text label until dedicated square icon art
-            // exists, same "text label until art lands" convention SkipCooldownButton's own "-3"
-            // used before Btn_skipcooldown.png existed.
+            // This is the "watch an ad to shorten the cooldown" button. GameplayHUD.
+            // HandleAbilityCooldownChanged shows/hides it every tick, gated on both "on cooldown" AND
+            // AdManager.IsRewardedAdReady (never a dead button) — so it's only actually visible while
+            // the active ability is on cooldown and a rewarded ad is loaded; it's invisible the rest
+            // of the time by design, not missing. WatchAd.png (the revive prompt's art) is a wide
+            // 512x214 banner meant for a plaque-shaped button, not this square icon slot — squeezing
+            // it in here would squash its baked-in text unreadable, so this keeps a plain "AD" text
+            // label until dedicated square icon art exists, same "text label until art lands"
+            // convention SkipCooldownButton's own "-3" used before Btn_skipcooldown.png existed.
             var watchAdSkipCooldownButton = CreateButton("WatchAdSkipCooldownButton", root.transform, "AD",
                 new Color(0.85f, 0.55f, 0.1f), 24f, skipButtonSize, out _);
             AnchorBottomRight((RectTransform)watchAdSkipCooldownButton.transform, new Vector2(skipButtonSize, skipButtonSize),
-                new Vector2(ringRightOffsetX - ringSize - skipButtonGap * 2f - skipButtonSize, ringCenterY - skipButtonSize / 2f));
+                new Vector2(-(abilityLeftEdgeInset + skipButtonGap * 2f + skipButtonSize), abilityCenterY - skipButtonSize / 2f));
             watchAdSkipCooldownButton.gameObject.SetActive(false);
 
             // Directional pad (left side, diamond/D-pad layout) — up.png/down.png/left.png/
@@ -1021,7 +1027,6 @@ namespace FarmFuryArcade.EditorTools
             so.FindProperty("coinBalanceText").objectReferenceValue = coinBalanceText;
             so.FindProperty("characterPortrait").objectReferenceValue = portrait;
             so.FindProperty("abilityButton").objectReferenceValue = portraitButton;
-            so.FindProperty("abilityCooldownRing").objectReferenceValue = ringImage;
             so.FindProperty("pauseButton").objectReferenceValue = pauseButton;
             so.FindProperty("powerPelletTimerBar").objectReferenceValue = powerBarGO;
             so.FindProperty("powerPelletTimerFill").objectReferenceValue = powerFillImage;
@@ -1376,45 +1381,71 @@ namespace FarmFuryArcade.EditorTools
             return root;
         }
 
-        /// <summary>Placeholder screen for "Btn_CharacterStory" — "this is where we will tell a
-        /// story about each character," per the request that added this button; no real story
-        /// content exists yet, only the roster layout. Rebuilt (2026-08-21) to match the rest of
-        /// the Settings-family redesign: dimmed landing.png backdrop (was World1_Cornfield.png),
-        /// no top-left LogoImage (removed per request — every other screen in this family still
-        /// has one, this is the one deliberate exception), and Btn_back kept at its existing
-        /// bottom-right position (CreateRoundBackButton's default). A left-hand vertical scroll
-        /// column lists all 8 characters in hierarchy order (Cluck first, same order
-        /// DataManager.GetAllCharacterData()/ChooseCharacterScreen use) using the exact same
-        /// CharacterSelectCard prefab/size (340x360) the character-swap screen uses — populated at
-        /// runtime by CharacterStoryScreen, not baked here, since DataManager isn't available in
-        /// Edit mode. "Coming Soon" stays centred on the right — the left column leaves it clear
-        /// for whenever real story content replaces it.</summary>
+        /// <summary>Real content screen for "Btn_CharacterStory" (2026-08-21 follow-up — was a
+        /// "Coming Soon" placeholder until the actual narrative/character copy was written). Matches
+        /// the rest of the Settings-family redesign: dimmed Landing_Opacity.png backdrop, no
+        /// top-left LogoImage (removed per request — every other screen in this family still has
+        /// one, this is the one deliberate exception), and Btn_back kept at its existing
+        /// bottom-right position (CreateRoundBackButton's default). A framed, centred intro box
+        /// (IntroBorder/IntroBackground/IntroText) sits at the top with the game's narrative setup;
+        /// below it, a left-anchored vertical scroll column lists one row per character — their
+        /// CharacterSelectCard (same 340x360 prefab/size ChooseCharacterScreen uses) beside a
+        /// word-wrapped story/ability blurb — in hierarchy order (Cluck first, same order
+        /// DataManager.GetAllCharacterData() returns). Both the intro copy and the per-character
+        /// blurbs are populated at runtime by CharacterStoryScreen (DataManager isn't available in
+        /// Edit mode); this method only builds the empty layout and wires the introText/
+        /// cardContainer references.</summary>
         private static GameObject BuildCharacterStoryPlaceholder(Transform canvasTransform, GameObject characterSelectCardPrefab)
         {
             var root = CreatePanel("CharacterStoryScreen", canvasTransform, Color.black);
             ApplyDimmedLandingBackground(root);
 
-            var comingSoonText = CreateText("ComingSoonText", root.transform, "Character Stories\nComing Soon", 56f, TextAlignmentOptions.Center, 200f);
-            var comingSoonRect = (RectTransform)comingSoonText.transform;
-            comingSoonRect.anchorMin = comingSoonRect.anchorMax = new Vector2(0.5f, 0.5f);
-            comingSoonRect.pivot = new Vector2(0.5f, 0.5f);
-            comingSoonRect.sizeDelta = new Vector2(900f, 200f);
-            comingSoonRect.anchoredPosition = Vector2.zero;
+            // Framed intro box — centred top of screen, text middle-aligned within it. No dedicated
+            // wood-sign art exists for a box this shape/size, so the "border" is a plain two-layer
+            // Image composition (an outer gold border colour with a slightly inset, darker
+            // semi-transparent inner panel) rather than uploaded art — same
+            // PlaceholderSprite.Get(color) convention used everywhere else in this project a visual
+            // is needed before real art exists.
+            var introBorder = CreateImage("IntroBorder", root.transform, new Color(0.70f, 0.55f, 0.20f), 1400f, 260f);
+            AnchorTopCenter((RectTransform)introBorder.transform, new Vector2(1400f, 260f), new Vector2(0f, -60f));
 
-            // Left column: a vertical ScrollRect (same helper Level Select's tile grid uses)
-            // constrained to a 420-wide strip near the left edge instead of stretching full-screen,
-            // so it sits clear of the centred "Coming Soon" text. CharacterSelectCard's root
-            // RectTransform already carries an explicit 340x360 sizeDelta (see
-            // BuildCharacterSelectCardPrefab), so it lays out correctly inside this
-            // childControlHeight=false content group with no extra LayoutElement needed — same
-            // "explicit sizeDelta, not a LayoutElement" fix Level Select's own scroll content needed.
+            var introBackground = CreateImage("IntroBackground", introBorder.transform, new Color(0.08f, 0.06f, 0.03f, 0.82f), 1388f, 248f);
+            var introBgRect = (RectTransform)introBackground.transform;
+            introBgRect.anchorMin = introBgRect.anchorMax = new Vector2(0.5f, 0.5f);
+            introBgRect.pivot = new Vector2(0.5f, 0.5f);
+            // CreateImage only sets a LayoutElement (read by an actual LayoutGroup) — IntroBorder
+            // has none, so sizeDelta needs setting explicitly here or IntroBackground stays at
+            // Unity's freshly-added-RectTransform default (100x100) regardless of the 1388x248 just
+            // requested. Same "LayoutElement is meaningless without a LayoutGroup parent" gotcha
+            // documented repeatedly elsewhere in this project (New Character Unlock's card,
+            // NewWorldUnlockScreen's badge, Level Select's tile-grid section).
+            introBgRect.sizeDelta = new Vector2(1388f, 248f);
+            introBgRect.anchoredPosition = Vector2.zero;
+
+            var introText = CreateText("IntroText", introBackground.transform, string.Empty, 26f, TextAlignmentOptions.Center, 220f, new Color(0.97f, 0.93f, 0.82f));
+            var introTextRect = (RectTransform)introText.transform;
+            introTextRect.anchorMin = introTextRect.anchorMax = new Vector2(0.5f, 0.5f);
+            introTextRect.pivot = new Vector2(0.5f, 0.5f);
+            introTextRect.sizeDelta = new Vector2(1320f, 220f);
+            introTextRect.anchoredPosition = Vector2.zero;
+
+            // Character rows — a vertical ScrollRect (same helper Level Select's tile grid uses)
+            // widened well past the old 420px card-only strip to fit each character's story text
+            // beside their card (see CharacterStoryScreen.BuildRow). Top margin (360) clears
+            // IntroBorder above (bottom edge at y=-60-260=-320, plus a 40px gap); bottom margin (140)
+            // clears the back button. CharacterSelectCard's root RectTransform already carries an
+            // explicit 340x360 sizeDelta (see BuildCharacterSelectCardPrefab), and each row sets its
+            // own explicit sizeDelta too (see BuildRow's doc comment) — cardContainer's outer
+            // VerticalLayoutGroup has childControlHeight/Width = false (CreateVerticalScrollView's
+            // convention), which silently ignores LayoutElement hints and reads each child's raw
+            // sizeDelta directly instead, so nothing here can rely on auto-sizing.
             var scrollRect = CreateVerticalScrollView("CharacterScrollView", root.transform, out var cardContainer);
             var scrollRT = (RectTransform)scrollRect.transform;
             scrollRT.anchorMin = new Vector2(0f, 0f);
             scrollRT.anchorMax = new Vector2(0f, 1f);
             scrollRT.pivot = new Vector2(0f, 0.5f);
-            scrollRT.anchoredPosition = new Vector2(100f, 0f);
-            scrollRT.sizeDelta = new Vector2(420f, -160f); // 420 wide, 80px top/bottom margin
+            scrollRT.anchoredPosition = new Vector2(100f, -110f);
+            scrollRT.sizeDelta = new Vector2(1700f, -500f); // 1700 wide, 360px top / 140px bottom margin
 
             var closeButton = CreateRoundBackButton(root.transform);
             closeButton.GetComponent<Image>().sprite = LoadUiSprite("Btn_back.png");
@@ -1423,7 +1454,8 @@ namespace FarmFuryArcade.EditorTools
             SetRefs(story,
                 ("cardContainer", cardContainer),
                 ("cardPrefab", characterSelectCardPrefab),
-                ("closeButton", closeButton));
+                ("closeButton", closeButton),
+                ("introText", introText));
 
             return root;
         }

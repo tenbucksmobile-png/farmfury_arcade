@@ -207,15 +207,17 @@ namespace FarmFuryArcade.EditorTools
             // as BuildWarpTunnelPrefab's own doc comment describes.
             BuildWarpTunnelPrefab("WarpTunnel_Orchard", new Color(0.55f, 0.27f, 0.68f));
             BuildBonusPickupPrefab("Pickup_Cherry", new Color(0.72f, 0.05f, 0.15f));
-            // Scale 0.7 here (not the usual 0.35/0.5 kernel/vegetable convention) deliberately
-            // matches BuildPowerPelletPrefab's own 0.7 — Orchard's kernel, vegetable, AND power
-            // pellet tiles are all wired to the exact same Red_Apple.png by ArtWiringBuilder (see
-            // the comment above), so every apple in an Orchard maze needs to render at the same
-            // size regardless of which tile id painted it. The 0.35/0.5 split elsewhere exists to
-            // visually distinguish two different sprites (corn vs. vegetable); it doesn't apply
-            // when both tiers share one sprite.
-            BuildCropPrefab("Crop_Kernel_Orchard", CropType.Corn, 10, new Color(0.75f, 0.12f, 0.12f), 0.7f);
-            BuildCropPrefab("Crop_Vegetable_Orchard", CropType.Vegetable, 50, new Color(0.75f, 0.12f, 0.12f), 0.7f);
+            // Was 0.7 (matching BuildPowerPelletPrefab's own 0.7, so Orchard's kernel/vegetable/
+            // power-pellet tiles — all wired to the same Red_Apple.png by ArtWiringBuilder, see the
+            // comment above — rendered at a uniform size). Halved to 0.35 per direct feedback that
+            // the crop apples still read as too big cluttering the maze; the power pellet itself
+            // stays at 0.7 (Power_Sunflower.prefab, a single shared prefab reused by every world —
+            // see BuildPowerPelletPrefab), so the pellet is now deliberately the larger, more
+            // "special" apple on the board while ordinary crop apples are smaller and less visually
+            // dominant — the same big-pellet/small-crop size relationship every other world already
+            // has, just via two different sprites there instead of one shared one here.
+            BuildCropPrefab("Crop_Kernel_Orchard", CropType.Corn, 10, new Color(0.75f, 0.12f, 0.12f), 0.35f);
+            BuildCropPrefab("Crop_Vegetable_Orchard", CropType.Vegetable, 50, new Color(0.75f, 0.12f, 0.12f), 0.35f);
             // Wheat had the identical corn-art issue Orchard did — same fix, same pattern: its own
             // crop prefabs wired to MiniLoaf.png (Wheat's existing "regular pellet" sprite, the
             // same role Red_Apple.png played for Orchard before its own crop tiles were fixed)

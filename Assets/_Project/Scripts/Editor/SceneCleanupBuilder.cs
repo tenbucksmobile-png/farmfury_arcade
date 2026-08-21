@@ -172,7 +172,7 @@ namespace FarmFuryArcade.EditorTools
         /// UnlockProgression.TotalLevels-1) via PlayerPrefs directly, so every real level (both
         /// World 1's 25 and World 2's 25, per Phase2ProjectBuilder) shows unlocked in Level Select,
         /// including the World 2 badge itself (its gate is Level 25 at 2+ stars — see
-        /// LevelSelectController.IsWorldAvailable). Slots beyond the real 50 LevelData assets are
+        /// UnlockProgression.IsWorldUnlocked). Slots beyond the real 50 LevelData assets are
         /// harmlessly starred too; UnlockProgression.IsLevelUnlocked still requires
         /// DataManager.GetLevelData(index) != null regardless of stars, so an unauthored slot stays
         /// locked either way. Doesn't touch SaveManager.ResetAllProgress or any other save state —

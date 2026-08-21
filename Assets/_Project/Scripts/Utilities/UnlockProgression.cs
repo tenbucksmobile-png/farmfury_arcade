@@ -20,7 +20,7 @@ namespace FarmFuryArcade.Utilities
     {
         public const int TotalLevels = 100;
         public const int LevelsPerWorld = 25;
-        private const int WorldGateStarRequirement = 2;
+        public const int WorldGateStarRequirement = 2;
 
         /// <summary>Level 1 (index 0) is always unlocked. Level N unlocks once Level N-1 has at
         /// least 1 star; levels 26-50/51-75/76-100 additionally require their world's gate level
@@ -113,6 +113,21 @@ namespace FarmFuryArcade.Utilities
             }
 
             return $"Complete Level {levelIndex} to unlock this level";
+        }
+
+        /// <summary>World 0 is always available. World N (N&gt;0) becomes available once the last
+        /// level of world N-1 has 2+ stars — the same gate IsLevelUnlocked already applies via
+        /// WorldGateIndexFor, exposed here as a standalone world-level check for callers (Level
+        /// Select's carousel, DailyChallengeManager's world pool) that need "is this whole world
+        /// open" rather than "is this specific level open."</summary>
+        public static bool IsWorldUnlocked(int world)
+        {
+            if (world <= 0)
+            {
+                return true;
+            }
+            int gateLevelIndex = world * LevelsPerWorld - 1;
+            return GetStarsForLevel(gateLevelIndex) >= WorldGateStarRequirement;
         }
 
         public static string GetWorldNameForLevel(int levelIndex)

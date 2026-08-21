@@ -152,6 +152,12 @@ namespace FarmFuryArcade.EditorTools
         private const string BillyLeft1 = "Assets/_Project/Sprites/Characters/Billy_left1.png";
         private const string BillyRight0 = "Assets/_Project/Sprites/Characters/Billy_right.png";
         private const string BillyRight1 = "Assets/_Project/Sprites/Characters/Billy_right1.png";
+        // Headbutt Through's charging-ram pose (HeadbuttThroughAbility.ramSpriteLeft/Right) — real
+        // dedicated art for each direction, not mirrored from one. Only Left/Right exist; an Up/Down
+        // charge leaves Billy's sprite untouched for the charge's duration (see that ability's own
+        // doc comment).
+        private const string BillyRamLeft = "Assets/_Project/Sprites/Characters/Billy_left_ram1.png";
+        private const string BillyRamRight = "Assets/_Project/Sprites/Characters/Billy_right_ram1.png";
 
         // ---- Sprite paths (this batch: Cluck 2nd-frame walk cycle + real Right art) ------------
         private const string CluckRight = "Assets/_Project/Sprites/Characters/Cluck_right.png";
@@ -322,11 +328,15 @@ namespace FarmFuryArcade.EditorTools
         // destroyed the same way every other icon button here does (destroyed, since the icon reads
         // fine on its own).
         private const string ShopButtonArt = "Assets/_Project/Sprites/UI/Shop.png";
-        // Leaderboard.png/Challenge.png (666x392, ~1.699:1 hanging wood signs, own label baked in)
-        // — Leaderboards moved from Main Menu to Settings, Daily Challenge moved from Main Menu to
-        // Level Select (see MainMenuController/SettingsPanel/LevelSelectController doc comments).
+        // Leaderboard.png (666x392, ~1.699:1 hanging wood sign, own label baked in) — Leaderboards
+        // moved from Main Menu to Settings (see SettingsPanel's doc comments).
         private const string LeaderboardSignArt = "Assets/_Project/Sprites/UI/Leaderboard.png";
-        private const string DailyChallengeSignArt = "Assets/_Project/Sprites/UI/Challenge.png";
+        // Challenge.png (the old hanging-wood-sign banner) is no longer used — the standalone
+        // top-right DailyChallengeButton it was wired to is gone (see Phase5ProjectBuilder.
+        // BuildLevelSelect). Daily Challenge now lives INSIDE the world carousel as its own shield
+        // (DailyChallengeShieldArt, DailyChallenge.png — a wood-shield matching the CornfieldSign/
+        // VegetablePatchSign/etc. world badges' own art style), wired below alongside worldSignSprites.
+        private const string DailyChallengeShieldArt = "Assets/_Project/Sprites/UI/DailyChallenge.png";
         private const string RetryButtonArt = "Assets/_Project/Sprites/UI/Retry.png";
         private const string MenuButtonArt = "Assets/_Project/Sprites/UI/Menu.png";
         private const string ResumeButtonArt = "Assets/_Project/Sprites/UI/Resume.png";
@@ -462,7 +472,7 @@ namespace FarmFuryArcade.EditorTools
             CluckCard, BessieCard, PercyCard, WoollyCard, DuckyCard, HoraceCard, GeraldCard, BillyCard,
             DPadUp, DPadDown, DPadLeft, DPadRight,
             GeraldFront, GeraldBack, GeraldLeft, GeraldLeft1, GeraldRight,
-            BillyFront, BillyBack, BillyLeft0, BillyLeft1, BillyRight0, BillyRight1,
+            BillyFront, BillyBack, BillyLeft0, BillyLeft1, BillyRight0, BillyRight1, BillyRamLeft, BillyRamRight,
             CluckRight, CluckRightWalk2, CluckLeftWalk,
             WallCornTiles, FloorTile, WarpTile, WheatfieldBackdrop, SettingsBackground, PauseBackground,
             VegTile, VeggiePatchWarp, VegetableGardenBackdrop, FilledStar, EmptyStar, CornCob, Cabbage,
@@ -472,7 +482,7 @@ namespace FarmFuryArcade.EditorTools
             WheatWallTile, WheatFloorTileSprite, MiniLoafPellet, RareGrainSackBonus,
             SelectLevelText, CornFieldText, VegetablePatchText, OrchardText, WheatfieldText, SettingsSignText,
             LogoImage, CluckEggIcon, CluckEggCracked, CluckEggBurst,
-            HatTabIcon, TrailsTabIcon, MazeThemeTabIcon, ShopButtonArt, LeaderboardSignArt, DailyChallengeSignArt,
+            HatTabIcon, TrailsTabIcon, MazeThemeTabIcon, ShopButtonArt, LeaderboardSignArt, DailyChallengeShieldArt,
             CluckAbilityIcon, BessieAbilityIcon, WoollyAbilityIcon, PercyAbilityIcon, DuckyAbilityIcon, GeraldAbilityIcon, BillyAbilityIcon
         };
 
@@ -523,7 +533,13 @@ namespace FarmFuryArcade.EditorTools
                 // character's apparent height — with width scaling proportionally per each crop's
                 // real aspect (narrower for the tight Front/Back portrait crops, full 1 unit wide
                 // for the square Left/Right art) rather than forcing a uniform bounding box.
-                if (path == BillyFront || path == BillyBack || path == BillyLeft0 || path == BillyLeft1 || path == BillyRight0 || path == BillyRight1)
+                // BillyRamLeft/Right (Headbutt Through's charging pose) get the same height-based
+                // override — BillyRamLeft is a landscape 664x500 crop (the motion-streak lines widen
+                // its own bounding box), so the standard width-PPU rule would render Billy noticeably
+                // SHORTER than 1 unit tall mid-charge (500/664 ≈ 0.75) instead of matching his normal
+                // ~1-unit height in every other pose.
+                if (path == BillyFront || path == BillyBack || path == BillyLeft0 || path == BillyLeft1
+                    || path == BillyRight0 || path == BillyRight1 || path == BillyRamLeft || path == BillyRamRight)
                 {
                     importer.spritePixelsPerUnit = height > 0 ? height : 100;
                 }
@@ -905,6 +921,46 @@ namespace FarmFuryArcade.EditorTools
             }
 
             WireCharacterPrefabSprite($"{CharacterPrefabFolder}/Billy.prefab", front);
+        }
+
+        /// <summary>Wires HeadbuttThroughAbility.ramSpriteLeft/Right (Billy_left_ram1.png /
+        /// Billy_right_ram1.png) directly onto Billy.prefab's own ability component — round-trips
+        /// through LoadPrefabContents/SaveAsPrefabAsset rather than a bare SerializedObject-on-the-
+        /// loaded-asset edit, same gotcha-safe pattern WireEgg's EggHazard field wiring already
+        /// uses (a plain SerializedObject edit against PrefabUtility.SaveAsPrefabAsset's return value
+        /// doesn't reliably persist in this Unity version — see Phase4ProjectBuilder's own doc
+        /// comment on the same issue).</summary>
+        private static void WireBillyHeadbutt()
+        {
+            var ramLeft = Load(BillyRamLeft);
+            var ramRight = Load(BillyRamRight);
+            if (ramLeft == null && ramRight == null)
+            {
+                return;
+            }
+
+            string prefabPath = $"{CharacterPrefabFolder}/Billy.prefab";
+            if (!File.Exists(prefabPath))
+            {
+                Debug.LogWarning($"[ArtWiringBuilder] Billy.prefab not found at {prefabPath} — skipping Headbutt ram art wiring.");
+                return;
+            }
+
+            var contents = PrefabUtility.LoadPrefabContents(prefabPath);
+            var ability = contents.GetComponent<HeadbuttThroughAbility>();
+            if (ability != null)
+            {
+                var so = new SerializedObject(ability);
+                if (ramLeft != null) so.FindProperty("ramSpriteLeft").objectReferenceValue = ramLeft;
+                if (ramRight != null) so.FindProperty("ramSpriteRight").objectReferenceValue = ramRight;
+                so.ApplyModifiedPropertiesWithoutUndo();
+            }
+            else
+            {
+                Debug.LogWarning("[ArtWiringBuilder] Billy.prefab has no HeadbuttThroughAbility component — skipping ram art wiring.");
+            }
+            PrefabUtility.SaveAsPrefabAsset(contents, prefabPath);
+            PrefabUtility.UnloadPrefabContents(contents);
         }
 
         private static void WireHarvester()
@@ -1361,6 +1417,7 @@ namespace FarmFuryArcade.EditorTools
             WireHorace();
             WireGerald();
             WireBilly();
+            WireBillyHeadbutt();
 
             WireAbilityIcons();
         }
@@ -1597,10 +1654,12 @@ namespace FarmFuryArcade.EditorTools
             // directly at construction time in Phase5ProjectBuilder.BuildLevelSelect — nothing to
             // wire here.
             //
-            // SettingsOverlay/LeaderboardsButton and LevelSelectScreen/DailyChallengeButton are
-            // deliberately left unwired (2026-08-20, per explicit instruction) — both buttons still
-            // exist as plain placeholder shells at their current positions, sign art and onClick
-            // navigation removed, pending being re-planned to new destinations/positions.
+            // SettingsOverlay/LeaderboardsButton is deliberately left unwired (2026-08-20, per
+            // explicit instruction) — still exists as a plain placeholder shell at its current
+            // position, sign art and onClick navigation removed, pending being re-planned to a new
+            // destination/position. LevelSelectScreen/DailyChallengeButton no longer exists at all
+            // — Daily Challenge is now the first shield in the world carousel instead (see
+            // WireLevelSelect below, which wires its DailyChallenge.png art).
 
             SetImageSprite(canvasTransform, "GameplayScreen/PauseButton", pause);
             SetImageSprite(canvasTransform, "GameplayScreen/DPadUpButton", Load(DPadUp));
@@ -1789,6 +1848,13 @@ namespace FarmFuryArcade.EditorTools
                 // Select opens into); these are the two states it can toggle between afterward.
                 lsSo.FindProperty("backButtonWorldSelectSprite").objectReferenceValue = Load(BtnHome);
                 lsSo.FindProperty("backButtonTileGridSprite").objectReferenceValue = Load(BtnBack);
+
+                // The Daily Challenge shield inserted ahead of the 4 world badges above (see
+                // LevelSelectController.ShowWorldSelect/DailyChallengeSentinel) — a separate field
+                // rather than a 5th worldSignSprites entry, since worldSignSprites is indexed by
+                // real UnlockProgression world numbers elsewhere (GetWorldSignSprite,
+                // SetWorldSignSprite) and the shield isn't a real world.
+                lsSo.FindProperty("dailyChallengeSignSprite").objectReferenceValue = Load(DailyChallengeShieldArt);
                 lsSo.ApplyModifiedPropertiesWithoutUndo();
             }
 

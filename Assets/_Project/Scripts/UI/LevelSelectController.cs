@@ -9,8 +9,12 @@ namespace FarmFuryArcade.UI
 {
     /// <summary>
     /// Level Select screen. Opens into a "world select" state showing a horizontally flickable
-    /// carousel (CardCarouselController) of all 4 world badges — Corn Field is always coloured and
-    /// tappable; Vegetable Patch/Orchard/Wheat Field render greyed out and non-interactable until
+    /// carousel (CardCarouselController) of a Daily Challenge shield followed by all 4 world
+    /// badges — the Daily Challenge shield (DailyChallengeSentinel) is always coloured and
+    /// tappable and, unlike a world badge, doesn't reveal a tile grid: tapping it loads today's
+    /// challenge level directly (see PlayDailyChallenge/DailyChallengeManager.GetTodayLevelIndex).
+    /// Corn Field is always coloured and tappable; Vegetable Patch/Orchard/Wheat Field render
+    /// greyed out and non-interactable until
     /// their gate level (per UnlockProgression) has 2+ stars, so the player can see/flick past the
     /// whole world roadmap even before it's unlocked. Flicking cycles which badge sits
     /// centred/full-scale; tapping the already-centred (unlocked) badge reveals that world's level tile grid
@@ -38,10 +42,6 @@ namespace FarmFuryArcade.UI
         [SerializeField] private Sprite backButtonTileGridSprite;
         [SerializeField] private GameObject mainMenuScreen;
         [SerializeField] private GameObject gameplayScreen;
-        // 2026-08-20: unwired per explicit instruction ("remove all text and wiring... I will be
-        // re-planning all these buttons to scenes") — sign art and onClick navigation are both
-        // gone; only the plain placeholder shell remains at its existing top-right position.
-        [SerializeField] private Button dailyChallengeButton;
 
         [Header("World Select")]
         [SerializeField] private GameObject worldShieldPrefab;
@@ -50,6 +50,12 @@ namespace FarmFuryArcade.UI
         [SerializeField] private RectTransform currentWorldIndicator;
         [SerializeField] private Image currentWorldIndicatorImage;
         [SerializeField] private Button currentWorldIndicatorButton;
+
+        /// <summary>Daily Challenge's own shield art (DailyChallenge.png) — shown as the first item
+        /// in the world carousel, ahead of Corn Field, via DailyChallengeSentinel rather than a real
+        /// world index. Always coloured/tappable regardless of save progress, unlike the 4 real
+        /// world badges. Wired by ArtWiringBuilder.</summary>
+        [SerializeField] private Sprite dailyChallengeSignSprite;
 
         /// <summary>Complete world badges (shield shape + rope + name text all baked into one
         /// sprite), indexed by world number (0=Corn Field, 1=Vegetable Patch, 2=Orchard, 3=Wheat
@@ -62,6 +68,11 @@ namespace FarmFuryArcade.UI
 
         private const float ScrollTweenSeconds = 0.5f;
         private const float ShieldRevealSeconds = 0.45f;
+
+        /// <summary>Sentinel stored in _shownWorlds/_shieldObjects at local index 0 for the Daily
+        /// Challenge shield — never a real UnlockProgression world index (those are always &gt;= 0),
+        /// so OnCarouselCenterTapped can tell the two apart with a single comparison.</summary>
+        private const int DailyChallengeSentinel = -1;
 
         /// <summary>Multiply-tint applied to a locked world's badge Image — dimmed/desaturated enough
         /// to read as "not yet playable" while still being clearly visible (not just a dark silhouette)
@@ -168,10 +179,22 @@ namespace FarmFuryArcade.UI
             _shieldObjects.Clear();
             worldShieldContainer.gameObject.SetActive(true);
 
+            // Daily Challenge shield always goes first, ahead of Corn Field — always coloured and
+            // tappable regardless of save progress (unlike the 4 real world badges below), since the
+            // challenge itself only ever picks from worlds already unlocked for this player (see
+            // DailyChallengeManager.GetTodayLevelIndex).
+            var dailyChallengeShieldGO = Instantiate(worldShieldPrefab, worldShieldContainer);
+            var dailyChallengeShieldImage = dailyChallengeShieldGO.GetComponent<Image>();
+            dailyChallengeShieldImage.sprite = dailyChallengeSignSprite;
+            dailyChallengeShieldImage.color = Color.white;
+            dailyChallengeShieldGO.GetComponent<Button>().interactable = true;
+            _shownWorlds.Add(DailyChallengeSentinel);
+            _shieldObjects.Add(dailyChallengeShieldGO);
+
             int worldCount = Mathf.CeilToInt((float)UnlockProgression.TotalLevels / UnlockProgression.LevelsPerWorld);
             for (int world = 0; world < worldCount; world++)
             {
-                bool unlocked = IsWorldAvailable(world);
+                bool unlocked = UnlockProgression.IsWorldUnlocked(world);
 
                 var shieldGO = Instantiate(worldShieldPrefab, worldShieldContainer);
                 var shieldImage = shieldGO.GetComponent<Image>();
@@ -205,24 +228,36 @@ namespace FarmFuryArcade.UI
             {
                 return;
             }
+            int world = _shownWorlds[localIndex];
+            if (world == DailyChallengeSentinel)
+            {
+                PlayDailyChallenge();
+                return;
+            }
             // A locked badge's Button.interactable is false, so its onClick (and therefore this
             // callback) never fires for it via CardCarouselController's tap-to-select path — no
             // extra guard needed here beyond the bounds check above.
-            SelectWorld(_shownWorlds[localIndex], _shieldObjects[localIndex]);
+            SelectWorld(world, _shieldObjects[localIndex]);
         }
 
-        /// <summary>World 0 is always available. World N (N>0) becomes available once the last
-        /// level of world N-1 has 2+ stars — matching UnlockProgression's own world-gate threshold
-        /// for level access, so a badge is never coloured/tappable for a world whose levels are
-        /// actually still locked.</summary>
-        private static bool IsWorldAvailable(int world)
+        /// <summary>Daily Challenge shield tap — picks today's already-determined level (a real
+        /// level from whichever unlocked world DailyChallengeManager's date-seeded RNG landed on,
+        /// see GetTodayLevelIndex) and loads it directly, same "load + show gameplay" shape as a
+        /// normal tile tap (OnTilePlayRequested). Passing isDailyChallenge: true is what makes
+        /// GameManager.LoadLevel apply the difficulty bump and flags the run so
+        /// DailyChallengeManager.CheckCompletionOnLevelEnd actually credits it — a normal replay of
+        /// the same level tapped from its own tile in the grid does NOT count as the daily
+        /// challenge, since that call goes through OnTilePlayRequested instead, which defaults to
+        /// isDailyChallenge: false.</summary>
+        private void PlayDailyChallenge()
         {
-            if (world <= 0)
+            if (DailyChallengeManager.Instance == null)
             {
-                return true;
+                return;
             }
-            int gateLevelIndex = world * UnlockProgression.LevelsPerWorld - 1;
-            return UnlockProgression.GetStarsForLevel(gateLevelIndex) >= 2;
+            int levelIndex = DailyChallengeManager.Instance.GetTodayLevelIndex();
+            GameManager.Instance.LoadLevel(levelIndex, isDailyChallenge: true);
+            SceneTransitionManager.Instance.ShowOnly(gameplayScreen);
         }
 
         private void SelectWorld(int world, GameObject shieldGO)

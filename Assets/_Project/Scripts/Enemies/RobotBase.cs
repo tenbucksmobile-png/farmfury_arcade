@@ -83,6 +83,19 @@ namespace FarmFuryArcade.Enemies
 
         protected virtual float SpeedMultiplier => 1f;
 
+        /// <summary>Runtime difficulty knob, distinct from the per-subclass SpeedMultiplier override
+        /// above (Heavy's 0.7x, Drone's 0.5x, etc.) — this one is set from the outside, once, at
+        /// spawn time (RobotSpawner.SpawnRobot, right after Initialize), so it stacks on top of
+        /// whichever per-type multiplier already applies rather than replacing it. 1f for a normal
+        /// level; DailyChallengeManager.RobotDifficultySpeedMultiplier for a Daily Challenge run —
+        /// see RobotSpawner.DifficultyMultiplier's doc comment for how it gets here.</summary>
+        private float _difficultyMultiplier = 1f;
+
+        public void SetDifficultyMultiplier(float multiplier)
+        {
+            _difficultyMultiplier = multiplier;
+        }
+
         /// <summary>Fraction of THIS ROBOT'S OWN normal (Chase/Scatter) RobotData.movementSpeed a
         /// Vulnerable robot flees at. 0.85 is a mild reduction ("slightly slower") rather than the
         /// old 0.5 (half speed) — a previous pass tried keying this off the ACTIVE CHARACTER's speed
@@ -426,7 +439,7 @@ namespace FarmFuryArcade.Enemies
                     RobotState.Returning => ReturningSpeedMultiplier,
                     _ => 1f
                 };
-                return baseSpeed * SpeedMultiplier * stateMultiplier;
+                return baseSpeed * SpeedMultiplier * stateMultiplier * _difficultyMultiplier;
             }
         }
 

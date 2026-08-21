@@ -252,8 +252,12 @@ namespace FarmFuryArcade.Core
         /// visually dominate a smaller bonus cherry landing on the same cell. Also excludes warp
         /// tunnel cells (tile id 5) — a pickup sitting on the same cell as a warp tile reads as
         /// oddly placed (visually competing with the tunnel art) and risks being collected the
-        /// instant a warp animation completes, before the player can even see it. A no-op if
-        /// prefab is null or count <= 0.</summary>
+        /// instant a warp animation completes, before the player can even see it. Also excludes
+        /// water cells (tile id 8) — IsWalkable blocks every character except Ducky from ever
+        /// entering a water tile, so a pickup landing there was only ever collectible when Ducky
+        /// happened to be the active character in that maze; caught via a gameplay review flagging
+        /// an uncollectable coin sitting on a water tile. A no-op if prefab is null or count <= 0.
+        /// </summary>
         private void SpawnScatteredPickups(GameObject prefab, int count, LevelData data)
         {
             if (prefab == null || count <= 0)
@@ -268,7 +272,7 @@ namespace FarmFuryArcade.Core
                 {
                     int tileId = data.MazeLayout[x, y];
                     if (tileId != TileWall && tileId != TileCropKernel && tileId != TileCropVegetable
-                        && tileId != TilePowerPellet && tileId != TileWarpEdge)
+                        && tileId != TilePowerPellet && tileId != TileWarpEdge && tileId != TileWater)
                     {
                         candidates.Add(new Vector2Int(x, y));
                     }
@@ -647,7 +651,9 @@ namespace FarmFuryArcade.Core
         }
 
         /// <summary>Permanently destroys the wall at a cell (visually and for walkability) — used
-        /// by HeadbuttThroughAbility and the Iron Stampede combo buff on PuffUpAbility. Spawns a
+        /// by the Iron Stampede combo buff on PuffUpAbility (Billy's own HeadbuttThroughAbility no
+        /// longer calls this; it was reworked into a robot charge, same shape as BounceRollAbility,
+        /// and doesn't touch walls at all anymore). Spawns a
         /// ground tile in the wall's place (matching the current maze's own art set) so the cell
         /// reads as a normal floor tile afterward rather than a blank hole showing the backdrop
         /// through — RenderMaze always pairs a ground tile with every non-wall cell up front, but a

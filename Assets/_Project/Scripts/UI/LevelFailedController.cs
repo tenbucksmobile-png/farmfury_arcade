@@ -35,12 +35,16 @@ namespace FarmFuryArcade.UI
 
         private void Restart()
         {
+            // Re-passes the current daily-challenge flag (rather than always defaulting to false)
+            // so failing and restarting a Daily Challenge attempt stays a Daily Challenge attempt —
+            // see GameManager.LoadLevel's isDailyChallenge doc comment.
+            bool isDailyChallenge = DailyChallengeManager.Instance != null && DailyChallengeManager.Instance.IsPlayingDailyChallenge;
             SceneTransitionManager.Instance.TransitionTo(() =>
             {
                 gameObject.SetActive(false);
                 gameplayScreen.SetActive(true);
             });
-            GameManager.Instance.LoadLevel(_levelIndex);
+            GameManager.Instance.LoadLevel(_levelIndex, isDailyChallenge);
         }
     }
 }

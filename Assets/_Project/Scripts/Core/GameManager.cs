@@ -101,7 +101,16 @@ namespace FarmFuryArcade.Core
             }
         }
 
-        public void LoadLevel(int levelIndex)
+        /// <summary>isDailyChallenge defaults to false for every normal navigation path (a level
+        /// tile tap, a Level Complete "Play", a Retry) — only LevelSelectController.
+        /// PlayDailyChallenge (and a Restart/RestartLevel call that explicitly re-passes the
+        /// current DailyChallengeManager.IsPlayingDailyChallenge value, so a retry stays a challenge
+        /// attempt) ever pass true. Sets DailyChallengeManager's flag on every call, true or false,
+        /// so it can never linger stale from an earlier challenge run into a later normal one — see
+        /// DailyChallengeManager.IsPlayingDailyChallenge's own doc comment. Also applies (or clears)
+        /// the challenge's robot-speed difficulty bump via the scene's RobotSpawner before content
+        /// spawns, so every robot the level would normally spawn comes in already boosted.</summary>
+        public void LoadLevel(int levelIndex, bool isDailyChallenge = false)
         {
             var level = DataManager.Instance.GetLevelData(levelIndex);
             if (level == null)
@@ -118,6 +127,13 @@ namespace FarmFuryArcade.Core
             CurrentState = GameState.Playing;
             AudioManager.Instance?.ResumeBackgroundMusic();
 
+            DailyChallengeManager.Instance?.SetPlayingDailyChallenge(isDailyChallenge);
+            if (_sceneController != null && _sceneController.RobotSpawner != null)
+            {
+                _sceneController.RobotSpawner.DifficultyMultiplier =
+                    isDailyChallenge ? DailyChallengeManager.RobotDifficultySpeedMultiplier : 1f;
+            }
+
             _sceneController.LoadLevelContent(level);
 
             // Between-levels interstitial trigger — deliberately called here (never mid-Playing,
@@ -128,12 +144,27 @@ namespace FarmFuryArcade.Core
             // play instead of showing as an overlay while the player/robots/timer keep running
             // behind it — _levelStartTime is already stamped above, and Time.time (what
             // GetElapsedSeconds reads) doesn't advance while frozen, so no time is lost either.
-            // When no ad is due/ready, NotifyLevelLoaded's callback fires back-to-back on the same
-            // frame and this is imperceptible.
+            // AudioListener.pause is set alongside the timeScale freeze — Time.timeScale alone only
+            // stops movement/animation (anything driven by scaled Time.deltaTime); AudioSource
+            // playback is real-time and completely unaffected by timeScale, so the background music
+            // ResumeBackgroundMusic already started above (and any 0-delay robot-spawn SFX fired
+            // synchronously by LoadLevelContent just before this block) kept playing audibly under
+            // the interstitial even though gameplay itself was correctly frozen — reported via a
+            // Daily Challenge playtest ("I can hear it playing while the ad is running") but not
+            // actually specific to that flow; every interstitial-gated LoadLevel call had this same
+            // gap. AudioListener.pause silences every AudioSource in the scene regardless of
+            // timeScale, which is exactly what's needed here. When no ad is due/ready,
+            // NotifyLevelLoaded's callback fires back-to-back on the same frame and both the freeze
+            // and the mute are imperceptible.
             if (AdManager.Instance != null)
             {
                 Time.timeScale = 0f;
-                AdManager.Instance.NotifyLevelLoaded(() => Time.timeScale = 1f);
+                AudioListener.pause = true;
+                AdManager.Instance.NotifyLevelLoaded(() =>
+                {
+                    Time.timeScale = 1f;
+                    AudioListener.pause = false;
+                });
             }
         }
 
@@ -381,8 +412,8 @@ namespace FarmFuryArcade.Core
         /// <summary>The level just completed unlocks a new world only if it's the last level of a
         /// world (its own index is a world's gate level), its stars now meet the 2-star gate
         /// threshold, and that world's unlock celebration hasn't already been shown
-        /// (SaveManager.HasSeenWorldUnlock) — matches UnlockProgression/LevelSelectController.
-        /// IsWorldAvailable's own gate for the star check, but deliberately does NOT compare against
+        /// (SaveManager.HasSeenWorldUnlock) — matches UnlockProgression.IsWorldUnlocked's own gate
+        /// for the star check, but deliberately does NOT compare against
         /// this level's stars-before-this-call: an earlier version did, which meant the celebration
         /// silently never fired for anyone who reached 2+ stars on a gate level any way other than
         /// this exact EndLevel transition (e.g. SceneCleanupBuilder's "Set 3 Stars on all levels"

@@ -47,9 +47,13 @@ namespace FarmFuryArcade.UI
         private void RestartLevel()
         {
             int levelIndex = GameManager.Instance.CurrentLevel.levelNumber;
+            // Re-passes the current daily-challenge flag so restarting from Pause mid-Daily-
+            // Challenge-attempt stays a Daily Challenge attempt — see GameManager.LoadLevel's
+            // isDailyChallenge doc comment.
+            bool isDailyChallenge = DailyChallengeManager.Instance != null && DailyChallengeManager.Instance.IsPlayingDailyChallenge;
             gameObject.SetActive(false);
             GameManager.Instance.ResumeGame(); // clears Paused/timeScale before the reload
-            GameManager.Instance.LoadLevel(levelIndex);
+            GameManager.Instance.LoadLevel(levelIndex, isDailyChallenge);
         }
 
         private void QuitToMenu()

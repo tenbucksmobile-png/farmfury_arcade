@@ -16,6 +16,11 @@ namespace FarmFuryArcade.Core
         [SerializeField] private Transform robotParent;
         [SerializeField] private RobotSpawner robotSpawner;
 
+        /// <summary>Exposed so GameManager.LoadLevel can set RobotSpawner.DifficultyMultiplier
+        /// (Daily Challenge's robot-speed bump) before calling LoadLevelContent, which is what
+        /// actually spawns the level's robots.</summary>
+        public RobotSpawner RobotSpawner => robotSpawner;
+
         private TileMapRenderer _tileMapRenderer;
 
         private void Awake()

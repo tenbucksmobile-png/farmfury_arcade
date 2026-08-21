@@ -151,12 +151,18 @@ Two other per-world behaviors live on `MazeArtSet`:
   level completion. **Separate from the coin** below — `TileMapRenderer.SpawnScatteredPickups` is
   a shared helper `RenderMaze` calls twice per maze (once for this field, once for the coin), so a
   maze can carry both independently. `SpawnScatteredPickups` excludes crop/vegetable/power-pellet
-  cells (tile ids 2-4) AND warp tunnel cells (tile id 5) from its candidate list — a bonus pickup
-  landing on the same cell as a crop/pellet tile used to visually double up (worse once Orchard's
-  crop-apple sprite was enlarged to match the power pellet's scale — see the crop/pellet scale note
-  under "Per-world art" below — since the larger apple would swallow a smaller bonus cherry sharing
-  its cell), and one on a warp tile read as oddly placed and risked being collected before the
-  player could even see it.
+  cells (tile ids 2-4), warp tunnel cells (tile id 5), AND water cells (tile id 8, added 2026-08-21)
+  from its candidate list — a bonus pickup landing on the same cell as a crop/pellet tile used to
+  visually double up (worse once Orchard's crop-apple sprite was enlarged to match the power
+  pellet's scale — see the crop/pellet scale note under "Per-world art" below — since the larger
+  apple would swallow a smaller bonus cherry sharing its cell), one on a warp tile read as oddly
+  placed and risked being collected before the player could even see it, and one on a water tile was
+  only ever collectible when Ducky (the only character `IsWalkable` lets onto water — see
+  `CharacterData.canCrossWater`) happened to be the active character in that maze — caught via
+  direct feedback ("placing a coin, pellet or the like on a water tile... cannot be collected
+  without being Ducky"). Required crops/pellets/vegetables were never at risk of this — a cell only
+  ever holds one tile id, and water tiles are carved from wall cells, never crop/pellet cells — this
+  only ever affected the optional Cherry/Grain Sack/coin scatter.
 - **`TileMapRenderer.universalCoinPrefab`/`coinsPerMaze`** — NOT part of `MazeArtSet`, a single
   scene-level field spawned on every maze regardless of world, guaranteeing a `Pickup_Coin` exists
   on every level. Used to be CornField's own `MazeArtSet.bonusPickupPrefab` entry instead (the only
@@ -463,7 +469,7 @@ ability:
 | Ducky | SkipShot | Teleports across an adjacent unused water tile pair — once per pair per maze | 10s (this is the real gate now too — see the note below on why it went from a 2s debounce to matching everyone else) |
 | Horace | RearKick | Nearest robot within 3 tiles (Manhattan) knocked back 4 tiles, instantly defeated on landing | 10s |
 | Gerald | PuffUp | Pulsates between normal size and 2x scale for 3s, instantly defeats any robot touched throughout the pulse, half speed, can't use warp tunnels | 10s |
-| Billy | HeadbuttThrough | Permanently destroys the next 3 walls he hits | 10s |
+| Billy | HeadbuttThrough | Speeds up and charges 3 tiles forward in his current facing direction, instantly defeating any robot touched (reworked 2026-08-21 from a wall-destroy ability — see below) | 10s |
 
 **All 8 cooldowns were unified to 10s** in a later gameplay pass (previously a spread from 2s
 Ducky to 45s Gerald) — `Phase4ProjectBuilder.BuildCharacterData`'s per-character cooldown literals
@@ -525,6 +531,24 @@ serialized reference was kept as-is even though it's no longer instantiated — 
 `SpriteRenderer.sprite` is read now — since renaming would drop the existing wired reference on
 Percy's prefab (Unity matches serialized fields by name).
 
+**`HeadbuttThroughAbility` (Billy) reworked from a 3-wall-destroy window to a robot charge
+(2026-08-21).** The original version armed a window that permanently destroyed the next 3 walls he
+walked into (`TileMapRenderer.DestroyWallAt`); per direct feedback ("when activated he should speed
+up and headbutt the robot in any direction") it was replaced with a charge, same shape as
+`BounceRollAbility`: on activation he speeds forward `ChargeTilesBase` (3) tiles in his current
+facing direction (`Movement.LastFacingDirection`, same "any of the 4 directions, no auto-aim"
+convention Percy's roll uses), stopping early at a wall, and `ForceDefeat()`s any `RobotBase` his
+trigger touches along the way — `TileMapRenderer.DestroyWallAt` is no longer called from this
+ability at all (Gerald's Iron Stampede combo buff is the only caller left, see "Wall mutation"
+above). Billy's own `SpriteRenderer` swaps to a real charging-ram pose for the charge's duration
+(`Billy_left_ram1.png`/`Billy_right_ram1.png` — real dedicated art per direction, not mirrored from
+one; wired via `HeadbuttThroughAbility.ramSpriteLeft`/`ramSpriteRight` and `ArtWiringBuilder.
+WireBillyHeadbutt`) — only Left/Right have dedicated ram art, so an Up/Down charge leaves his sprite
+on whatever frame it was on when activated (`CharacterAnimator` is disabled for the whole charge
+regardless of direction, same as `BounceRollAbility`, so nothing overwrites it mid-charge). See
+"Art status" for `Billy_left_ram1.png`'s own PPU import quirk (a 664x500 landscape crop from its
+motion-streak lines, needing the same height-based-PPU override Billy's other art already has).
+
 **Gerald's `PuffUpAbility` now pulsates rather than holding a flat inflated size.** Was an instant,
 fixed 3x scale held for 5s; per feedback that read as "too big." Now scales via a sine wave between
 normal size and `ScaleMultiplier` (2x) over `PuffDurationSeconds` (3s), completing
@@ -546,8 +570,11 @@ into `ForceDefeat`, so that tint is on-screen only for the slide itself now).
 overrides a single cell's walkability without touching the maze asset. Its only genuinely temporary
 caller used to be Percy's old wall-phase ability (arm a cell walkable, revert after 2s); now that
 `BounceRollAbility` has been reworked into a forward roll that never phases through walls (see
-above), `SetTemporaryWalkable` is only used as the permanent backing for `DestroyWallAt(cell)`
-(Billy, and Gerald's Iron Stampede buff — removes the spawned wall GameObject and never reverts).
+above), `SetTemporaryWalkable` is only used as the permanent backing for `DestroyWallAt(cell)` —
+Gerald's Iron Stampede buff only, as of 2026-08-21 (Billy's own `HeadbuttThroughAbility` no longer
+calls `DestroyWallAt` at all — it was reworked from a wall-destroy ability into a robot charge, same
+shape as `BounceRollAbility`; see its own ability-table row and Art status entry) — removes the
+spawned wall GameObject and never reverts.
 Kept general (still takes a `walkable` bool, not `DestroyWallAt`-specific) in case a future ability
 wants a genuinely temporary override again. `GetWallAt(cell)` returns the wall GameObject for
 tinting — currently unused (its only caller was the old wall-phase glow), kept as public API rather
@@ -739,6 +766,19 @@ interaction so gameplay code never touches `Unity.Services.LevelPlay` directly) 
   burning) — freezing time means the ad genuinely gates gameplay instead of just covering it, and
   since `Time.time` (what `GetElapsedSeconds` reads) doesn't advance while frozen, no level time is
   lost waiting on the ad either.
+
+  **`AudioListener.pause` is set alongside the `Time.timeScale` freeze (2026-08-21)** — `Time.
+  timeScale = 0f` alone only stops movement/animation (anything driven by scaled `Time.deltaTime`);
+  `AudioSource` playback is real-time and completely unaffected by timescale, so the background
+  music `ResumeBackgroundMusic()` already started earlier in `LoadLevel` (and any 0-delay robot-
+  spawn SFX fired synchronously by `LoadLevelContent` just before the freeze) kept playing audibly
+  under the interstitial even though gameplay itself was correctly frozen — reported via a Daily
+  Challenge playtest ("I can hear it playing while the ad is running") but not actually specific to
+  that flow; every interstitial-gated `LoadLevel` call had this same gap. `AudioListener.pause =
+  true` is set right alongside `Time.timeScale = 0f` and cleared (`= false`) in the same `onReady`
+  callback that restores `Time.timeScale = 1f` — it silences every `AudioSource` in the scene
+  regardless of timescale, with zero effect on the ad's own audio (rendered natively by the ad SDK,
+  entirely outside Unity's `AudioListener` pipeline).
 
 **`SaveManager` gained `AdsRemoved`** (bool, persisted — `NotifyLevelLoaded` already early-outs on
 it; `IAPManager`'s Remove Ads purchase now sets it, see "IAP plumbing" below) **and
@@ -1181,34 +1221,40 @@ from their original Phase 5 layouts:
   World Map screen" above.
 - **Gameplay HUD** (`GameplayHUD`) lost its `SwapButton` — Tab (`ChooseCharacterScreen.ToggleOpen`)
   still triggers it directly via `InputController`, so removing the button didn't remove the
-  feature. `AbilityButton` survives as the character portrait itself (see below) and does have a
-  cooldown ring again as of a later gameplay review — `AbilityCooldownRing`, a radial-filled
-  (`Image.Type.Filled`, `Radial360`) Image behind the portrait, `fillAmount` driven by
-  `GameplayHUD.HandleAbilityCooldownChanged` in lockstep with the portrait's existing grey-out-on-
-  cooldown tint (empty right after use, full once ready). No dedicated ring art exists yet —
-  `PlaceholderSprite`'s plain square still shows the radial sweep correctly, it just won't look
-  like a ring until real art replaces it. Once the cooldown reaches zero, the portrait also starts a
-  continuous flash (`GameplayHUD.StartReadyFlash`/`ReadyFlashRoutine`, pulsing toward a bright gold
-  `AbilityFlashColor` via `Mathf.Sin(Time.unscaledTime * FlashCyclesPerSecond * 2π)`) rather than
-  just sitting at a static "ready" colour, so the player gets a clear "you can use this now" cue
-  instead of having to notice the ring quietly finished filling. Stopped (`StopReadyFlash`) on
-  ability use, character swap, and `OnDisable`, so a leftover flash coroutine never runs against a
-  portrait that no longer belongs to the active ability. The character portrait's own background is
-  now a round `PlaceholderSprite.GetCircle`-generated circle (a new sibling method to `Get()`, same
-  cache-per-colour convention, transparent outside the radius) rather than a solid square — the
-  actual character art moved to a separate non-interactive `PortraitArt` child inset inside the
-  button (`GameplayHUD.characterPortrait` now points at this child, not the button's own Image),
-  since swapping the button's own Image to a real (rectangular) character sprite would have
-  overwritten the round shape entirely.
+  feature. `AbilityButton` survives as the character portrait itself (see below).
 
   **The portrait art on this button was later swapped for a dedicated ability icon** (2026-08-21):
   `CharacterData.abilityIconSprite` is a new field (falls back to `portraitSprite` when unset) that
   `GameplayHUD.RefreshPortrait` now shows instead of the plain character portrait — wired via
   `ArtWiringBuilder.WireAbilityIcons` from 7 new per-character `{Name}_ability.png` files
   (`Sprites/UI/`). Horace has no dedicated icon yet, so his button still falls back to
-  `portraitSprite`. None of the cooldown-ring/grey-out/ready-flash/skip-cooldown-coin-or-ad
-  behaviour above changed — it all still operates on the same Image, just showing different art.
-  `SoundButton`/`HomeButton` were later removed too (per playtest feedback) — both are reachable via
+  `portraitSprite`.
+
+  **Cooldown ring and gold circle backdrop removed (2026-08-21 follow-up), replaced with a scale
+  pulsate.** The button briefly had a radial-filled `AbilityCooldownRing` Image behind the portrait
+  (`fillAmount` driven by `GameplayHUD.HandleAbilityCooldownChanged`, in lockstep with the portrait's
+  grey-out-on-cooldown tint) plus a solid gold circle backdrop (`PlaceholderSprite.GetCircle`) behind
+  the character art — per direct feedback ("the yellow background of the ability is not gone") both
+  read as visual clutter once a real ability icon existed, and were removed entirely. The button's
+  own root `Image` is now fully transparent (`Color.clear`, raycast-target only — same "invisible
+  root, art on a child" convention `CharacterSelectCard`'s root `Image` uses), leaving just the
+  `PortraitArt` child's icon. `GameplayHUD.StartReadyFlash`/`ReadyFlashRoutine` (fired once the
+  cooldown reaches zero, stopped via `StopReadyFlash` on ability use/character swap/`OnDisable`) now
+  scales `characterPortrait.rectTransform.localScale` between 1x and `PulseScaleMax` (1.18x) on the
+  same sine wave the colour Lerp toward `AbilityFlashColor` already used, so "ready" reads as an
+  actual pulsating icon rather than a static square changing shade — per feedback that the colour-
+  only flash "does not pulsate." The skip-cooldown (coin)/watch-ad buttons' screen positions are now
+  computed directly off the ability icon's own inset/size rather than the old ring's geometry, since
+  the ring itself no longer exists.
+
+  **Ability icon enlarged and shifted left** (same 2026-08-21 pass, separate feedback): grew from
+  120x120 to 150x150 (`Phase5ProjectBuilder.BuildGameplayHUD`'s new `abilityButtonSize` constant,
+  distinct from `clusterButtonSize` which still governs Pause's own 120x120 size) and shifted 30px
+  further left via its own `abilityInsetX` (`clusterInsetX - abilityShiftLeft`), independent of
+  Pause's X position. Pause's own Y offset was recomputed against `abilityButtonSize` (not the old
+  shared `clusterButtonSize`) so it still clears the now-taller icon beneath it without overlapping.
+
+  `SoundButton`/`HomeButton` were removed too (per playtest feedback) — both are reachable via
   Pause instead (Settings' music/SFX toggles, Pause's own Quit button) — leaving just a single
   `160x160` `PauseButton` (originally bottom-left, matching the Main Menu's Play/Settings buttons;
   swapped to bottom-right in a later pass — see the device-frame-review bullet below for why). A
@@ -1420,6 +1466,30 @@ card column needs `BuildCharacterSelectCardPrefab`'s output, that prefab is now 
 stays centred where it was — the new column sits clear of it on the left, leaving room for real
 story content to replace that placeholder text later.
 
+**Character Story got its real content (2026-08-21 follow-up)** — GDD Section 3's narrative setup
+plus a short per-character blurb, sourced from a review of the GDD's own narrative/character
+sections but written to match each ability's *actual current* implementation rather than the GDD's
+original (now-diverged) spec. "Character Stories Coming Soon" is gone; `CharacterStoryScreen.cs`
+now holds all the copy directly (`IntroStory` constant + a `Dictionary<CharacterType, string>
+CharacterStories`) and builds the layout at runtime:
+- A **framed, centre-aligned intro box** near the top (`Phase5ProjectBuilder.
+  BuildCharacterStoryPlaceholder`'s new `IntroBorder`/`IntroBackground`/`IntroText` — no dedicated
+  wood-sign art exists for a box this shape, so the "border" is a plain two-layer `PlaceholderSprite.
+  Get(color)` composition, gold outer/dark-semi-transparent inner, same placeholder-until-real-art
+  convention used everywhere else in this project) wired to `CharacterStoryScreen.introText`.
+- The left-hand card column widened from a bare 420px card-only strip to **1650px-wide rows**
+  (`CharacterStoryScreen.BuildRow`, entirely runtime-built — no dedicated row prefab) pairing each
+  character's existing `CharacterSelectCard` with a word-wrapped story/ability blurb beside it. Each
+  row explicitly sets its own `RectTransform.sizeDelta` (same "cardContainer's outer
+  `VerticalLayoutGroup` has `childControlHeight/Width = false` and silently ignores `LayoutElement`
+  hints" gotcha documented elsewhere for Level Select's tile grid) and uses its own
+  `HorizontalLayoutGroup` with `childControlWidth/Height = false` so it only positions the card and
+  text side by side without resizing either (the card already carries its own explicit 340x360
+  `sizeDelta`).
+- `CharacterScrollView`'s own top/bottom margins were widened accordingly (360px top clearance below
+  the intro box, 140px bottom clearance above the back button; was a simple symmetric 80px margin
+  around the old narrower 420px strip).
+
 **Several other Settings-family screens got sizing/position fixes (2026-08-21), all per direct
 screenshot review, no new mockup:**
 - **Main Menu's `PlayButton`** had a 20px asymmetric inset vs. `SettingsButton` on the opposite
@@ -1496,11 +1566,13 @@ via gridline-overlay pixel analysis, not eyeballed:**
   `StandardIconButtonSize` cell, row 2's plaques rendered visibly smaller than row 1's. This was a
   pure art-content issue, not a layout bug — the grid code already sized every cell identically.
 
-**Daily Challenge button** (`LevelSelectController.dailyChallengeButton`, top-right of Level
-Select) was unwired shortly before this pass, per explicit instruction — its sign art and
-`onClick` navigation were both stripped, leaving just the plain placeholder button shell at its
-existing position, pending being re-planned to a new destination/position. Not part of this
-redesign wave's screens; flagged here since it's easy to miss why it currently does nothing.
+**Daily Challenge button** used to sit top-right of Level Select (unwired shortly before this pass,
+per explicit instruction — sign art and `onClick` navigation both stripped, leaving a dead
+placeholder shell) but no longer exists at all as of the 2026-08-21 redesign — Daily Challenge moved
+INTO the world carousel itself as its first shield instead. See the Level Select section's own
+"Badge size and header clearance" bullet and the "Daily Challenge" bullet further down for the
+current design; if you're reading older commit history or screenshots showing a top-right Daily
+Challenge button, they predate this move.
 
 **Shop icon relocation history** (worth knowing if you're chasing down a stale reference): Main
 Menu top-right → Level Select world-select page top-left → **Settings' 4x2 grid, row 1** (current).
@@ -1530,32 +1602,52 @@ without a dedicated "used" art variant uses.
 
 Reached from Main Menu's Play button. Two states on one screen (`LevelSelectScreen`):
 
-- **World select** — a horizontally flickable carousel (`CardCarouselController`, see below) of
-  world badges, one per currently-unlocked world (`LevelSelectController.IsWorldAvailable`: world
-  0/Corn Field always available, world N unlocks once the last level of world N-1 has 2+ stars —
-  the same threshold `UnlockProgression` gates level access on, so a badge is never shown for a
-  world whose levels are actually still locked). Each badge is a single self-contained sprite
-  (`CornfieldSign`/`VegetablePatchSign`/`OrchardSign`/`WheatfieldSign.png` — shield shape, rope
-  ties, and the world's name all baked into one image) set via
+- **World select** — a horizontally flickable carousel (`CardCarouselController`, see below) of a
+  **Daily Challenge shield followed by** world badges, one per currently-unlocked world
+  (`UnlockProgression.IsWorldUnlocked`: world 0/Corn Field always available, world N unlocks once
+  the last level of world N-1 has 2+ stars — the same threshold `UnlockProgression.IsLevelUnlocked`
+  gates level access on, so a badge is never shown for a world whose levels are actually still
+  locked). The Daily Challenge shield (`LevelSelectController.DailyChallengeSentinel`, a sentinel
+  value stored in `_shownWorlds`/`_shieldObjects` at local index 0, never a real world index) is
+  always coloured/tappable regardless of save progress and, unlike a world badge, doesn't reveal a
+  tile grid when tapped — it calls `PlayDailyChallenge()` directly, loading today's already-
+  determined level (see "Daily Challenge" below). Each real world badge is a single self-contained
+  sprite (`CornfieldSign`/`VegetablePatchSign`/`OrchardSign`/`WheatfieldSign.png` — shield shape,
+  rope ties, and the world's name all baked into one image) set via
   `LevelSelectController.worldSignSprites[world]` — no separate background+text-overlay
-  composition. `LevelSelectController.LockedWorldTint` (multiply-tint on a locked badge) was
-  lightened from `(0.35,0.35,0.35)` to `(0.65,0.65,0.65)` per feedback that the original read as
-  almost black — locked worlds should still be clearly visible, just dimmed. Flicking cycles which
-  badge is centred (full scale); tapping the already-centred badge shrinks-and-fades it in place
-  while a small persistent `CurrentWorldIndicator` badge (same sprite, same convention) fades in
-  top-left of the screen, then reveals that world's tile grid (`LevelSelectController.RevealWorld`).
-  Tapping the indicator again returns to world select. **`LevelSelectScreen` deliberately has no
-  top-left `LogoImage`** (unlike Settings/Pause/Choose Character/Level Complete) — one was added in
-  an earlier pass without noticing it shares the exact same anchor/inset as `CurrentWorldIndicator`
-  and clashes with it; removed again.
+  composition; the Daily Challenge shield uses its own separate `dailyChallengeSignSprite` field
+  (`DailyChallenge.png`) rather than a 5th `worldSignSprites` entry, since that array is indexed by
+  real `UnlockProgression` world numbers elsewhere (`GetWorldSignSprite`/`SetWorldSignSprite`) and
+  the shield isn't a real world. `LevelSelectController.LockedWorldTint` (multiply-tint on a locked
+  badge) was lightened from `(0.35,0.35,0.35)` to `(0.65,0.65,0.65)` per feedback that the original
+  read as almost black — locked worlds should still be clearly visible, just dimmed. Flicking cycles
+  which badge is centred (full scale); tapping the already-centred badge shrinks-and-fades it in
+  place while a small persistent `CurrentWorldIndicator` badge (same sprite, same convention) fades
+  in top-left of the screen, then reveals that world's tile grid (`LevelSelectController.
+  RevealWorld`). Tapping the indicator again returns to world select. **`LevelSelectScreen`
+  deliberately has no top-left `LogoImage`** (unlike Settings/Pause/Choose Character/Level Complete)
+  — one was added in an earlier pass without noticing it shares the exact same anchor/inset as
+  `CurrentWorldIndicator` and clashes with it; removed again.
+
+  **Badge size and header clearance (2026-08-21)**: `WorldShield.prefab`'s `sizeDelta` shrank twice
+  more — 897x950 → 810x855 (documented below) → **580x615** — per a gameplay screenshot showing the
+  centred badge's top edge still visibly overlapping the header sign above it even after
+  repositioning the carousel down. `CardCarouselController.itemSpacing` was scaled proportionally
+  alongside it (600 → 430, same ~0.72 ratio as the badge shrink) so the fan's relative overlap
+  between adjacent badges stayed visually consistent rather than opening up a much wider relative
+  gap. `TitleImage` (the header sign shared by both world-select and tile-grid states) was also
+  shrunk/raised (860x320 anchored `(0,-40)` → 860x260 anchored `(0,-20)`) and `WorldShieldContainer`
+  shifted down further (`sizeDelta` `(1600,-400)` → `(1600,-460)`, `anchoredPosition` `(0,-16)` →
+  `(0,-70)`) as part of the same pass — all first-pass estimates (no visual Editor access when
+  made), confirmed sufficient after a follow-up screenshot.
 - **Tile grid** — a 4-column `GridLayoutGroup` (cell size `128x128`, shrunk from `150x150`,
   `padding.top = 16` for clear space below the header banner; one `LevelTileController` per level in
   that world, `UnlockProgression.LevelsPerWorld` = 25 per world) inside a vertical `ScrollRect`
-  whose own top offset was later corrected from `200px` to `420px` — `TitleImage` ("SELECT LEVEL")
-  is anchored 40px down with a 320px height, so its real bottom edge sits at `360px` from the
-  screen top, 160px past where the old 200px reserve let scroll content start; the grid's first
-  row was rendering crowded right against/under the banner as a result. 420px clears it with
-  ~60px of breathing room. Auto-scrolled to centre the highest-unlocked level on open — **except**
+  whose own top offset was later corrected from `200px` to `320px` (originally described against
+  `TitleImage`'s pre-2026-08-21 320px height/`-40` offset; `TitleImage` has since shrunk to 260px
+  height/`-20` offset per the badge-clearance pass above, so this scroll offset now leaves a bit
+  more breathing room than the original ~60px estimate, not less). Auto-scrolled to centre the
+  highest-unlocked level on open — **except**
   when arriving via `OpenLevelSelectForLevel` (Level Complete's Play button, see below), which
   instead snaps to the very top of the world's grid (`ScrollToTop`, no tween) rather than centring
   the newly-unlocked level. Centring the just-unlocked level on every return from Level Complete
@@ -1619,13 +1711,41 @@ animation never visibly happens. Re-enabled at the top of the next `ShowWorldSel
 call, not inside the animation routine itself, since the screen closes/re-populates right after
 either way.
 
-**Daily Challenge** (`DailyChallengeManager`): today's `ChallengeType` is seeded from
-`DateTime.UtcNow` (`"yyyy-MM-dd").GetHashCode()`), so every player sees the same challenge on a
-given day. "Modified maze layout" per the GDD is content-authoring scope, not engineering scope —
-it reuses `LevelData` index `DailyChallengeLevelIndex` (0) and overlays a rule/objective rather
-than generating a distinct maze. `CheckCompletionOnLevelEnd` (called from `GameManager.EndLevel`)
-only actually awards anything when playing that specific level index and the objective's met —
-`CharacterLocked`'s "only certain characters allowed" is checked after the fact
+**Daily Challenge** (`DailyChallengeManager`) — redesigned (2026-08-21) from a fixed-level overlay
+into a real shield inserted as the FIRST item in Level Select's world carousel, ahead of Corn
+Field (`LevelSelectController.DailyChallengeSentinel`, always coloured/tappable regardless of save
+progress, unlike the 4 real world badges beside it — see the Level Select section below).
+`ChallengeType` is still seeded from `DateTime.UtcNow.ToString("yyyy-MM-dd").GetHashCode()`, so
+every player sees the same challenge *type* on a given day, but **today's actual level**
+(`DailyChallengeManager.GetTodayLevelIndex()`) is now also date-seeded — via a second, separately-
+seeded `System.Random` so changing `ChallengeType`'s enum never shifts which level gets picked —
+picking a real level from whichever worlds are currently unlocked for *this* player
+(`UnlockProgression.IsWorldUnlocked`, computed lazily on first call rather than in `Awake()`, since
+`SaveManager`'s Awake-order relative to this singleton isn't guaranteed that early). Because it's a
+real, already-authored `LevelData`, it automatically renders with that world's own art (walls,
+crops, backdrop) with zero extra plumbing — no distinct "daily maze" content was ever built, matching
+the GDD's original "content-authoring scope, not engineering scope" framing. Two players can land on
+different levels the same day if their unlock progress differs; the pick is cached for the app
+session once first requested (same "doesn't handle a date rollover mid-session" limitation
+`TodayChallenge` already had).
+
+Tapping the shield (`LevelSelectController.PlayDailyChallenge`) calls `GameManager.LoadLevel
+(levelIndex, isDailyChallenge: true)` directly, skipping the tile-grid reveal a normal world badge
+does. `GameManager.LoadLevel`'s new `isDailyChallenge` parameter (default `false` for every normal
+navigation path) sets `DailyChallengeManager.IsPlayingDailyChallenge` on **every** call, so it can
+never linger stale from an earlier challenge run into a later ordinary one, and applies (or clears)
+`DailyChallengeManager.RobotDifficultySpeedMultiplier` (1.25x) via a new `RobotSpawner.
+DifficultyMultiplier` field → `RobotBase.SetDifficultyMultiplier` — the "relatively difficult
+factor" every robot the level spawns comes in already boosted with. `LevelFailedController.Restart`/
+`PauseMenuController.RestartLevel` both re-pass the current `IsPlayingDailyChallenge` value on
+retry, so failing/restarting mid-challenge-attempt stays a challenge attempt rather than silently
+reverting to a normal (undifficultied, uncredited) replay.
+
+`CheckCompletionOnLevelEnd` (called from `GameManager.EndLevel`) now gates on `IsPlayingDailyChallenge`
+instead of a fixed level index — the old `DailyChallengeLevelIndex` constant is gone entirely, since
+today's level is a real, normally-reachable level in its own right and index alone can no longer
+tell a challenge run apart from an ordinary playthrough of the same level. `CharacterLocked`'s "only
+certain characters allowed" is still checked after the fact
 (`ComboSystem.DistinctCharactersUsedCount <= 1`), not enforced by blocking the swap UI during play;
 a stricter version would need `CharacterManager.CanSwapTo` to know about the active challenge.
 
@@ -2421,15 +2541,25 @@ changed. `Crop_Corn`/`Crop_Vegetable` are CornField/VegPatch-only again now. Veg
 too and was already correct (its own `Crop_Kernel_VegPatch`/`Crop_Vegetable_VegPatch` prefabs,
 carrot/cabbage art, predate this issue).
 
-**Both worlds' crop-kernel/vegetable prefabs render at scale 0.7, matching the power pellet — not
-the usual 0.35/0.5 kernel/vegetable convention every other world uses.** `Red_Apple.png`/
+**Both worlds' crop-kernel/vegetable prefabs originally rendered at scale 0.7, matching the power
+pellet — not the usual 0.35/0.5 kernel/vegetable convention every other world uses.** `Red_Apple.png`/
 `MiniLoaf.png` are each wired to THREE different tile roles at once (Orchard's kernel, vegetable,
 AND power pellet all show `Red_Apple.png`; same for Wheat's `MiniLoaf.png`), so every apple/loaf in
-a maze needs to render the same visual size regardless of which tile id painted it. The 0.35/0.5
+a maze needed to render the same visual size regardless of which tile id painted it. The 0.35/0.5
 kernel-vs-vegetable size split exists elsewhere specifically to visually distinguish two DIFFERENT
 sprites (corn vs. carrot, say); it doesn't apply when both tiers share one sprite with the pellet —
 at the old 0.35/0.5 scale, some apples/loaves in a maze visibly looked smaller than others purely
 because of which tile id happened to paint that cell, not any real difference in the art.
+
+**Orchard's crop scale was later halved again, to 0.35 (2026-08-21), per direct feedback that the
+red apples still read as cluttering the maze.** Only Orchard's `Crop_Kernel_Orchard`/
+`Crop_Vegetable_Orchard` changed (`Phase2ProjectBuilder.BuildAll`'s `BuildCropPrefab` calls) — the
+shared `Power_Sunflower.prefab` (every world's power-pellet tile) stays at 0.7, and Wheat's own crop
+prefabs are untouched, still at 0.7. This deliberately breaks the "crop and pellet render the same
+size" parity described above, on purpose: the power pellet is now the bigger, more visually special
+apple in Orchard, and the scattered crop apples are smaller — the same "big pellet, small crop"
+size relationship every other world already had via two different sprites, just achieved here via
+one shared sprite at two different prefab scales instead.
 
 **Drone now has real art** (`Drone.png` — a single symmetric hovering-quadcopter sprite with no
 directional cues, so `RobotVisual` shows it for every facing via its own null-fallback rather than
@@ -2473,6 +2603,18 @@ Right art) rather than forcing a uniform bounding box. No art recrop needed for 
 tighter crop of the Left/Right art (matching Front/Back's framing) would still be a nice-to-have —
 if that lands later, this whole per-Billy override block can be deleted and he'll fall through to
 the same standard `width > 0 ? width : 100` rule every other character already uses.
+
+**Billy's Headbutt Through charge pose (`Billy_left_ram1.png`/`Billy_right_ram1.png`, 2026-08-21)**
+got added to the same height-based-PPU override list — `Billy_left_ram1.png` is a landscape 664x500
+crop (the motion-streak lines widen its own bounding box beyond a square), so the standard width-PPU
+rule would have rendered Billy noticeably SHORTER than 1 unit tall mid-charge (500/664 ≈ 0.75)
+instead of matching his ~1-unit height in every other pose. `Billy_right_ram1.png` is a plain 500x500
+square, so the override is a no-op for it either way (same as Left0/Right0's own square art always
+was) but was added for consistency. Wired via `ArtWiringBuilder.WireBillyHeadbutt` directly onto
+`Billy.prefab`'s own `HeadbuttThroughAbility` component (round-trips through `LoadPrefabContents`/
+`SaveAsPrefabAsset`, same gotcha-safe pattern `WireEgg`'s `EggHazard` field wiring uses) rather than
+a separate effect prefab, since these are dedicated per-direction art (not mirrored from one) read
+directly off the ability component, not a shared trail-style prefab like Percy's `BounceTrail`.
 
 **Still missing / not wired:** a Vulnerable-state robot sprite and the Loading Screen background
 (uploaded, unwired — see above). Cluck's Egg Drop effect art and the branding Logo are both wired
@@ -2720,7 +2862,9 @@ and reopen the project normally to confirm nothing was corrupted.
   level complete (the fuller breakdown/coin display it originally had was simplified away in a
   later mockup pass — see "Art status"), automatic New Character Unlock celebration, `AudioManager`
   (real clips wired — see "Art status"), `DailyChallengeManager` foundation (5 challenge types,
-  date-seeded, reuses `LevelData_01` rather than a distinct maze), local `LeaderboardManager` — done.
+  date-seeded; later redesigned 2026-08-21 to pick a real per-day level from an unlocked world
+  rather than always reusing `LevelData_01` — see the Level Select "Daily Challenge" section),
+  local `LeaderboardManager` — done.
   An intermediate World Map screen existed here through much of Phase 5's history but was removed
   outright afterward — see "Removed: World Map screen".
 
@@ -2730,12 +2874,9 @@ and reopen the project normally to confirm nothing was corrupted.
   one the way Leaderboards/Daily Challenge/Shop each eventually did. The screen still exists and
   builds correctly; reaching it today requires calling `SceneTransitionManager.ShowOnly` directly,
   since nothing currently does. Leaderboards now has an entry point again (Settings overlay,
-  top-right) and Daily Challenge has one on Level Select (top-right) — see "Landing/Gameplay-HUD
-  cleanup" above — so neither is in this no-entry-point state any more; Daily Challenge additionally
-  never strictly needed a dedicated entry point in the first place, since it isn't a separate screen,
-  just an objective overlaid on `LevelData_01` (index `DailyChallengeLevelIndex`, 0) —
-  `DailyChallengeManager.CheckCompletionOnLevelEnd` fires on any ordinary playthrough of level 0
-  regardless of how that level was reached.
+  top-right) and Daily Challenge has one too — as of 2026-08-21 it's the first shield in Level
+  Select's own world carousel (see that section's "Badge size and header clearance" bullet) — so
+  neither is in this no-entry-point state any more.
 - **Store is now a minimal, real IAP purchase surface (coin packs + Remove Ads), not a placeholder**
   — see "IAP plumbing" above. The GDD's full cosmetics Store vision (hats/skins/trails/themes) is
   still unbuilt and is Phase 4 scope, not Phase 6 as this section's own heading implies — that
@@ -2779,9 +2920,10 @@ Main Menu ──Play──▶ Level Select ──tap unlocked tile──▶ Game
     │                        ──back (round icon)──▶ wherever opened from
     └──Shop─────────────▶ modal overlay (4 coin packs + Remove Ads) ──Back──▶ Main Menu
 
-Level Select also has its own top-right Daily Challenge button (loads LevelData_01 directly,
-independent of the world-select/tile-grid state) — not shown above since it doesn't branch the
-screen graph, just jumps straight into Gameplay HUD the same way an unlocked tile tap does.
+Level Select's world-select carousel also has its own Daily Challenge shield (first item, ahead of
+Corn Field — loads today's date-seeded level from an unlocked world, see the Level Select section's
+"Daily Challenge" bullet) — not shown above since it doesn't branch the screen graph, just jumps
+straight into Gameplay HUD the same way an unlocked tile tap does.
 ```
 
 (An intermediate "World Map" screen used to sit between Main Menu and Level Select, and a Matchup
