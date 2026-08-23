@@ -1727,10 +1727,12 @@ namespace FarmFuryArcade.EditorTools
             SetImageSprite(canvasTransform, "GameplayScreen/RevivePromptOverlay/PanelArt/Content/DeclineButton", Load(BtnDecline));
 
             SetImageSprite(canvasTransform, "GameplayScreen/SkipCooldownButton", Load(BtnSkipCooldown));
-            // WatchAdSkipCooldownButton (the new HUD "skip cooldown via ad" button, next to the
-            // above) has no dedicated square icon art yet — WatchAd.png is a wide 512x214 plaque
-            // banner sized for the revive prompt, not this small square slot; see
-            // BuildGameplayHUD's doc comment. Wire it here once that art exists.
+            // WatchAdSkipCooldownButton (the HUD "skip cooldown via ad" button, below the ability
+            // icon) now shows the real WatchAd.png banner instead of a plain "AD" text label — its
+            // box (Phase5ProjectBuilder.BuildGameplayHUD's watchAdButtonWidth/Height) is already
+            // sized to WatchAd.png's real 512x214 aspect, so SetImageSprite's Sliced stretch renders
+            // it uniformly instead of squashing it.
+            SetImageSprite(canvasTransform, "GameplayScreen/WatchAdSkipCooldownButton", Load(BtnWatchAd));
 
             SetImageSprite(canvasTransform, "GameplayScreen/CoinBalanceChip", Load(CoinBalanceChip));
 

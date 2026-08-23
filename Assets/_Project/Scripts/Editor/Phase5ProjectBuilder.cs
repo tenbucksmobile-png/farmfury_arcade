@@ -717,45 +717,66 @@ namespace FarmFuryArcade.EditorTools
             // the "same cartoon font" as the rest of the game's title/button art.
             // Enlarged (56->72 / 46->60) and pulled further in (140->170) so both sit clearly
             // inside the device safe-area guide instead of grazing its edge.
+            // Timer moved above Score (both top-left corner now) per feedback — it used to sit
+            // top-right where the coin balance pill now lives (see CoinBalanceChip below). Its own
+            // box sits directly above ScoreText's (same 90px height, top edge at -80 so its bottom
+            // edge lands exactly on ScoreText's top edge at -170, no gap/overlap).
+            var timerText = CreateText("TimerText", root.transform, "00:00", 60f, TextAlignmentOptions.TopLeft, 90f);
+            AnchorTopLeft((RectTransform)timerText.transform, new Vector2(240f, 90f), new Vector2(170f, -80f));
+
             var scoreText = CreateText("ScoreText", root.transform, "0", 72f, TextAlignmentOptions.TopLeft, 90f);
             AnchorTopLeft((RectTransform)scoreText.transform, new Vector2(320f, 90f), new Vector2(170f, -170f));
 
-            var timerText = CreateText("TimerText", root.transform, "00:00", 60f, TextAlignmentOptions.TopRight, 90f);
-            AnchorTopRight((RectTransform)timerText.transform, new Vector2(240f, 90f), new Vector2(-170f, -170f));
-
-            // Monetisation: coin balance chip, just below ScoreText — previously SaveManager.
-            // CoinBalance had no on-screen display anywhere at all (only surfaced indirectly via the
-            // Revive prompt's cost text / skip-cooldown button's cost label), which is bad UX once
-            // the player is actually being asked to spend coins on both of those.
+            // Monetisation: coin balance chip — previously SaveManager.CoinBalance had no on-screen
+            // display anywhere at all (only surfaced indirectly via the Revive prompt's cost text /
+            // skip-cooldown button's cost label), which is bad UX once the player is actually being
+            // asked to spend coins on both of those.
             //
-            // Coin_Balance_Chip.png is a SQUARE (500x500) wood-frame image with a horizontal pill
-            // (icon left half / blank right half) centered inside it — not a wide pill-shaped image
-            // on its own. This box used to be sized 220x70 with preserveAspect=false, assuming the
-            // art was pill-shaped; that force-squashed the square wood frame into a short banner,
-            // crushing the border and the pill inside it (caught via a gameplay screenshot review).
-            // Sized square to match the art's real aspect now, same "box aspect must match the art"
-            // fix already applied to the Revive Prompt panel and Level Complete panel.
-            // Enlarged again (110 -> 170) per feedback it still read as too small next to the rest
-            // of the HUD — confirmed clear of the D-pad below it (chip's bottom edge lands ~284px
-            // above the D-pad's top edge even at this size, plenty of margin). Font scaled up by the
-            // same ratio (28 -> 44) so the balance number keeps reading proportionally, not just the
-            // frame around it.
-            const float coinChipSize = 170f;
+            // Coin_Balance_Chip.png (SQUARE, 500x500) was reworked by the artist (2026-08-23) — the
+            // old art was a horizontal pill (coin icon left half / blank right half), which forced
+            // the balance number to squeeze into a narrow right-side strip; it kept wrapping onto
+            // two lines and spilling past the frame (caught via a gameplay screenshot review). The
+            // new art is a wood picture-frame with the coin icon centred near the TOP of the inner
+            // parchment and a wide blank parchment band below it, purpose-built for the number to
+            // sit underneath the coin instead of squeezed beside it.
+            // Sized square to match the art's real aspect, same "box aspect must match the art" fix
+            // already applied to the Revive Prompt panel and Level Complete panel.
+            // Enlarged repeatedly (110 -> 170 -> 340) per feedback it kept reading as too small to
+            // actually see — moved to the top-right corner (TimerText's old spot, now that Timer
+            // lives above ScoreText on the left — see above). 340 then turned out too large in
+            // practice (a device-frame screenshot showed it overlapping the maze's own rendered
+            // tiles), so it's pulled back down to 230 — still notably bigger than the original 170,
+            // just no longer eating into playable maze space.
+            const float coinChipSize = 230f;
             var coinChipImage = CreateImage("CoinBalanceChip", root.transform, new Color(0.85f, 0.65f, 0.2f), coinChipSize, coinChipSize);
             var coinChipRect = (RectTransform)coinChipImage.transform;
-            AnchorTopLeft(coinChipRect, new Vector2(coinChipSize, coinChipSize), new Vector2(170f, -276f));
+            // Lifted to -80 (was -170) so its top edge lines up with TimerText's own top edge
+            // (AnchorTopLeft offset y=-80, above) instead of sitting noticeably lower than it.
+            AnchorTopRight(coinChipRect, new Vector2(coinChipSize, coinChipSize), new Vector2(-170f, -80f));
             coinChipImage.preserveAspect = false;
 
-            var coinBalanceText = CreateText("CoinBalanceText", coinChipImage.transform, "0", 44f, TextAlignmentOptions.Center, coinChipSize);
+            var coinBalanceText = CreateText("CoinBalanceText", coinChipImage.transform, "0", 64f, TextAlignmentOptions.Center, coinChipSize);
             var coinBalanceTextRect = (RectTransform)coinBalanceText.transform;
-            // Positioned over the pill's blank right half within the square canvas (roughly
-            // x:50%-88%, y:33%-64% of the full 500x500 art) — the left half/rest of the square is
-            // the coin icon + wood frame baked into the art, not a spot for text.
-            coinBalanceTextRect.anchorMin = new Vector2(0.50f, 0.33f);
-            coinBalanceTextRect.anchorMax = new Vector2(0.88f, 0.64f);
+            // Positioned in the blank parchment band directly below the coin icon (roughly
+            // x:20%-80%, y:18%-55% of the full 500x500 art, measured against the new artwork) — the
+            // coin icon occupies the parchment's upper third, the wood frame border runs from about
+            // 0-15% and 85-100% on every edge, so this stays inset from both without touching either.
+            coinBalanceTextRect.anchorMin = new Vector2(0.20f, 0.18f);
+            coinBalanceTextRect.anchorMax = new Vector2(0.80f, 0.55f);
             coinBalanceTextRect.offsetMin = Vector2.zero;
             coinBalanceTextRect.offsetMax = Vector2.zero;
             coinBalanceText.color = new Color(0.3f, 0.2f, 0.1f);
+            // A flat 64pt was wrapping onto two lines for anything beyond ~3 digits ("1,2" over "7"
+            // — caught via a gameplay screenshot), since CreateText's default word-wrapping tried to
+            // fit the number within this band's width at a fixed size. Shrink-to-fit (same "keep
+            // text inside its container" convention used elsewhere, e.g. CharacterStoryScreen's row
+            // text) with wrapping off guarantees the whole balance always renders on one line,
+            // shrinking the font instead of breaking the number across rows.
+            coinBalanceText.enableWordWrapping = false;
+            coinBalanceText.enableAutoSizing = true;
+            coinBalanceText.fontSizeMin = 24f;
+            coinBalanceText.fontSizeMax = 64f;
+            coinBalanceText.overflowMode = TextOverflowModes.Truncate;
 
             // Power pellet timer bar + chain counter (upper area, under the level text)
             var powerBarGO = CreatePanel("PowerPelletTimerBar", root.transform, new Color(0.2f, 0.2f, 0.22f));
@@ -785,31 +806,50 @@ namespace FarmFuryArcade.EditorTools
             bannerSO.FindProperty("canvasGroup").objectReferenceValue = bannerGroup;
             bannerSO.ApplyModifiedPropertiesWithoutUndo();
 
-            // Pause icon (bottom-right), directly above the character portrait — moved inward and
-            // shrunk (160->120, inset 100/70->130/90) per playtest feedback that the cluster sat
-            // too close to the corner/safe-area edge. Sound and Home were removed from this
-            // cluster earlier (both are still reachable via the Pause menu itself), so a single
-            // Pause button is all this needs.
-            // Swapped from bottom-left to bottom-right (and the D-pad from bottom-right to
-            // bottom-left, below) per feedback — AnchorBottomRight needs a NEGATIVE X offset to
-            // move inward (positive pushes further right/off-screen — see CreateRoundBackButton's
-            // own doc comment for the same convention), unlike AnchorBottomLeft's positive-is-inward.
-            const float clusterButtonSize = 120f;
-            const float clusterSpacing = 20f;
+            // Character portrait / ability icon cluster (bottom-right). Pause used to sit directly
+            // above it here, forming a two-button stack — it's since moved to sit above the D-pad
+            // instead, sized to match the D-pad's own buttons rather than a cluster size of its own
+            // (see the "Pause button" block after the D-pad, below), per feedback, so this corner is
+            // now just the ability icon on its own. clusterSpacing/clusterInsetX/clusterInsetY are
+            // kept (not renamed) since the skip/watch-ad buttons below still reference them.
+            // Bumped 20 -> 30 per feedback ("make sure all spacing is equal and neat") — this one
+            // constant now drives every gap in this corner (Pause-above-D-pad, ability-icon-to-
+            // WatchAd, skip-cooldown-to-icon) so they all read as the same consistent spacing
+            // instead of several different hand-tuned values.
+            const float clusterSpacing = 30f;
             // Deepened (-90 -> -160) per a gameplay-screen review — the cluster (Pause button in
             // particular) was still crossing the yellow safe-area guide's right edge.
             const float clusterInsetX = -160f;
             const float clusterInsetY = 90f;
 
-            // Ability icon enlarged (120 -> 150) and shifted further left (its own inset, not
+            // Ability icon enlarged (120 -> 150 -> 210) and shifted further left (its own inset, not
             // Pause's) per direct feedback — it's the on-screen ability button (see below) and the
             // biggest/most-tapped element in this cluster, so it gets its own size distinct from
-            // Pause's rather than sharing clusterButtonSize. abilityInsetX is more negative than
+            // Pause's. abilityInsetX is more negative than
             // clusterInsetX (AnchorBottomRight: negative X moves an element further left/inward),
-            // shifting it left of where Pause's own X still sits.
-            const float abilityButtonSize = 150f;
+            // shifting it left of where Pause's own X still sits. The AnchorBottomRight pivot means
+            // this growth extends the box up and left from its fixed bottom-right corner, so
+            // enlarging it doesn't need any inset retuning to avoid clipping the screen edge.
+            const float abilityButtonSize = 210f;
             const float abilityShiftLeft = 30f;
             const float abilityInsetX = clusterInsetX - abilityShiftLeft;
+
+            const float skipButtonSize = 64f;
+
+            // WatchAdSkipCooldownButton now shows the real WatchAd.png art instead of a plain "AD"
+            // text label (per feedback: "enlarge and remove the ad text"). WatchAd.png is a wide
+            // 512x214 banner — sizing the box to that exact aspect (170 x ~71) means the Sliced
+            // stretch SetImageSprite always applies ends up uniform instead of squashing the art,
+            // same "box aspect must match the art" fix used throughout this project (Coin Balance
+            // Chip, Revive Prompt panel, Level Complete panel, etc.). Declared here (rather than
+            // down by its own button below) since its height feeds into how far the icon is raised.
+            const float watchAdButtonWidth = 170f;
+            const float watchAdButtonHeight = watchAdButtonWidth * 214f / 512f;
+
+            // The icon used to sit at clusterInsetY directly; it's now raised by WatchAd's own
+            // height + a gap, since WatchAd moved from beside the icon to underneath it (per
+            // feedback) and needs that space at the bottom of this corner instead.
+            float abilityBottomY = clusterInsetY + watchAdButtonHeight + clusterSpacing;
 
             // Character portrait sits at the bottom of the cluster (closer to the corner). Doubles
             // as the on-screen ability button (Space has no touch equivalent, so without this the
@@ -819,7 +859,7 @@ namespace FarmFuryArcade.EditorTools
             var portraitButton = CreateButton("CharacterPortrait", root.transform, string.Empty, Color.clear, 26f, abilityButtonSize, out _);
             Object.DestroyImmediate(portraitButton.transform.Find("CharacterPortrait_Label").gameObject);
             AnchorBottomRight((RectTransform)portraitButton.transform, new Vector2(abilityButtonSize, abilityButtonSize),
-                new Vector2(abilityInsetX, clusterInsetY));
+                new Vector2(abilityInsetX, abilityBottomY));
             // onClick wiring happens in GameplayHUD.Awake() (via the abilityButton field below),
             // not here — a listener added directly from editor-script code doesn't survive a scene
             // save/reload (UnityEvent's non-persistent listeners aren't serialized), same pitfall
@@ -845,49 +885,40 @@ namespace FarmFuryArcade.EditorTools
             portrait.sprite = PlaceholderSprite.Get(new Color(1f, 0.84f, 0f));
             portrait.raycastTarget = false;
 
-            // Pause sits above the ability icon — its own X inset is unchanged (clusterInsetX, not
-            // abilityInsetX, so it doesn't shift left with the icon below it), but its Y offset now
-            // clears abilityButtonSize (the icon's real, enlarged height) rather than the old shared
-            // clusterButtonSize, so the two don't overlap now that the icon is taller than Pause.
-            var pauseButton = CreateButton("PauseButton", root.transform, string.Empty, new Color(0.35f, 0.35f, 0.38f), 28f, clusterButtonSize, out _);
-            Object.DestroyImmediate(pauseButton.transform.Find("PauseButton_Label").gameObject);
-            AnchorBottomRight((RectTransform)pauseButton.transform, new Vector2(clusterButtonSize, clusterButtonSize),
-                new Vector2(clusterInsetX, clusterInsetY + abilityButtonSize + clusterSpacing));
-
             // Monetisation: "skip cooldown for 3 coins" button — sits just left of the ability icon,
-            // vertically centred against it (computed from the icon's own inset/size now, not a
-            // vestigial cooldown-ring's geometry — the ring itself was removed, see the ability icon
-            // comment above). Hidden by default; GameplayHUD.HandleAbilityCooldownChanged shows/hides
-            // and enables/disables it every tick while an ability is on cooldown (see that method's
-            // own comment for why it re-checks affordability every tick rather than once). No
-            // dedicated icon art exists yet, so the button keeps its auto-generated "-3" text label
-            // instead of the usual icon-only style.
-            const float skipButtonSize = 64f;
-            const float skipButtonGap = 16f;
+            // vertically centred against it (computed from the icon's own inset/size, now raised to
+            // abilityBottomY — see above). Hidden by default; GameplayHUD.HandleAbilityCooldownChanged
+            // shows/hides and enables/disables it every tick while an ability is on cooldown (see
+            // that method's own comment for why it re-checks affordability every tick rather than
+            // once). No dedicated icon art exists yet, so the button keeps its auto-generated "-3"
+            // text label instead of the usual icon-only style.
             float abilityLeftEdgeInset = -abilityInsetX + abilityButtonSize; // distance from screen's right edge to the icon's LEFT edge
-            float abilityCenterY = clusterInsetY + abilityButtonSize / 2f;
+            float abilityCenterX = -abilityInsetX + abilityButtonSize / 2f; // distance from screen's right edge to the icon's horizontal centre
+            float abilityCenterY = abilityBottomY + abilityButtonSize / 2f;
             var skipCooldownButton = CreateButton("SkipCooldownButton", root.transform, "-3",
                 new Color(0.85f, 0.55f, 0.1f), 24f, skipButtonSize, out _);
             AnchorBottomRight((RectTransform)skipCooldownButton.transform, new Vector2(skipButtonSize, skipButtonSize),
-                new Vector2(-(abilityLeftEdgeInset + skipButtonGap), abilityCenterY - skipButtonSize / 2f));
+                new Vector2(-(abilityLeftEdgeInset + clusterSpacing), abilityCenterY - skipButtonSize / 2f));
             skipCooldownButton.gameObject.SetActive(false);
 
             // Monetisation (Phase 2, "extra ability charge"/"skip cooldown via ad" — per the
             // Monetisation Build Plan doc these are literally the same button): a Watch Ad
-            // alternative sitting just left of the coin-cost button above, free instead of 3 coins.
-            // This is the "watch an ad to shorten the cooldown" button. GameplayHUD.
-            // HandleAbilityCooldownChanged shows/hides it every tick, gated on both "on cooldown" AND
-            // AdManager.IsRewardedAdReady (never a dead button) — so it's only actually visible while
-            // the active ability is on cooldown and a rewarded ad is loaded; it's invisible the rest
-            // of the time by design, not missing. WatchAd.png (the revive prompt's art) is a wide
-            // 512x214 banner meant for a plaque-shaped button, not this square icon slot — squeezing
-            // it in here would squash its baked-in text unreadable, so this keeps a plain "AD" text
-            // label until dedicated square icon art exists, same "text label until art lands"
-            // convention SkipCooldownButton's own "-3" used before Btn_skipcooldown.png existed.
-            var watchAdSkipCooldownButton = CreateButton("WatchAdSkipCooldownButton", root.transform, "AD",
-                new Color(0.85f, 0.55f, 0.1f), 24f, skipButtonSize, out _);
-            AnchorBottomRight((RectTransform)watchAdSkipCooldownButton.transform, new Vector2(skipButtonSize, skipButtonSize),
-                new Vector2(-(abilityLeftEdgeInset + skipButtonGap * 2f + skipButtonSize), abilityCenterY - skipButtonSize / 2f));
+            // alternative to spending coins, free instead of 3 coins. This is the "watch an ad to
+            // shorten the cooldown" button. GameplayHUD.HandleAbilityCooldownChanged shows/hides it
+            // every tick, gated on both "on cooldown" AND AdManager.IsRewardedAdReady (never a dead
+            // button) — so it's only actually visible while the active ability is on cooldown and a
+            // rewarded ad is loaded; it's invisible the rest of the time by design, not missing.
+            // Moved from beside the ability icon to directly BELOW it (per feedback — the icon was
+            // raised by abilityBottomY above specifically to make room here), horizontally centred
+            // under the icon rather than sharing its left edge. Enlarged (64 -> 170x71) and now
+            // shows the real WatchAd.png icon (wired in ArtWiringBuilder.WireMonetisationArt) instead
+            // of the auto-generated "AD" text label — that label is destroyed below, same "icon art
+            // replaces auto-label" convention every other icon-only button in this project uses.
+            var watchAdSkipCooldownButton = CreateButton("WatchAdSkipCooldownButton", root.transform, string.Empty,
+                new Color(0.85f, 0.55f, 0.1f), 24f, watchAdButtonHeight, out _);
+            Object.DestroyImmediate(watchAdSkipCooldownButton.transform.Find("WatchAdSkipCooldownButton_Label").gameObject);
+            AnchorBottomRight((RectTransform)watchAdSkipCooldownButton.transform, new Vector2(watchAdButtonWidth, watchAdButtonHeight),
+                new Vector2(-(abilityCenterX - watchAdButtonWidth / 2f), clusterInsetY));
             watchAdSkipCooldownButton.gameObject.SetActive(false);
 
             // Directional pad (left side, diamond/D-pad layout) — up.png/down.png/left.png/
@@ -907,10 +938,13 @@ namespace FarmFuryArcade.EditorTools
             // own rendered area fills nearly the entire device safe-area guide on some aspects, so a
             // genuinely large D-pad can't avoid overlapping SOME tiles there; shrinking the diamond's
             // footprint is the only lever available without changing camera zoom/backdrop sizing.
+            // Shifted down and to the left again (inset 260/240 -> 235/210) per feedback, while
+            // staying inside the yellow safe-area guide — this also opens up the headroom the new
+            // Pause button (below) needs to sit above the diamond without crowding it.
             const float dpadButtonSize = 90f;
             const float dpadSpacing = 70f;
-            const float dpadInsetX = 260f;
-            const float dpadInsetY = 240f;
+            const float dpadInsetX = 235f;
+            const float dpadInsetY = 210f;
             Vector2 dpadCenter = new Vector2(dpadInsetX, dpadInsetY);
 
             var upButton = CreateButton("DPadUpButton", root.transform, string.Empty, Color.clear, out _);
@@ -940,6 +974,30 @@ namespace FarmFuryArcade.EditorTools
             dpadSO.FindProperty("leftButton").objectReferenceValue = leftButton;
             dpadSO.FindProperty("rightButton").objectReferenceValue = rightButton;
             dpadSO.ApplyModifiedPropertiesWithoutUndo();
+
+            // Pause button — moved here from the right-side ability cluster (see that block's own
+            // comment above) per feedback: "move the btn_pause to above the directional buttons."
+            // Centred over the Up button specifically (not the diamond's overall centre — Left/Right
+            // pull that centre off to the side), with clusterSpacing of clear padding above it.
+            //
+            // BUG FIX: AnchorBottomLeft's offset is the button's BOTTOM-LEFT CORNER, not its centre
+            // — the first version of this code treated dpadCenter as if it were Up's own centre
+            // point and used dpadButtonSize/2 for the top-edge math, which is only correct if the
+            // offset were a centre. Since it's a corner, Up's real centre is offset by a FULL
+            // dpadButtonSize/2 further right than dpadCenter.x, and Up's real top edge is a FULL
+            // dpadButtonSize above its own anchor point, not half of one. That put Pause roughly
+            // half a button-width too far left and overlapping Up instead of sitting cleanly above
+            // it (caught via a gameplay screenshot). upButtonCenterX/upButtonTopEdge below compute
+            // Up's true centre/top edge the same way its own AnchorBottomLeft call does.
+            float upButtonCenterX = dpadCenter.x + dpadButtonSize / 2f;
+            float upButtonTopEdge = dpadCenter.y + dpadSpacing + dpadButtonSize;
+            // Sized to match the D-pad's own buttons (dpadButtonSize) rather than clusterButtonSize
+            // — per feedback, Pause should read as the same size as Up/Down/Left/Right now that it
+            // sits directly above them, not its old larger ability-cluster size.
+            var pauseButton = CreateButton("PauseButton", root.transform, string.Empty, new Color(0.35f, 0.35f, 0.38f), 28f, dpadButtonSize, out _);
+            Object.DestroyImmediate(pauseButton.transform.Find("PauseButton_Label").gameObject);
+            AnchorBottomLeft((RectTransform)pauseButton.transform, new Vector2(dpadButtonSize, dpadButtonSize),
+                new Vector2(upButtonCenterX - dpadButtonSize / 2f, upButtonTopEdge + clusterSpacing));
 
             // Monetisation: "revive for 5 coins?" overlay, shown by GameplayHUD in response to
             // GameManager.OnReviveOffered (the 4th death this maze). Dim backdrop + a hanging-sign
@@ -1355,9 +1413,28 @@ namespace FarmFuryArcade.EditorTools
             var leaderboardsButton = CreateIconButton("LeaderboardCell", gridGO.transform, LoadUiSprite("Btn_LeaderBoard.png"), StandardIconButtonSize);
             var characterStoryButton = CreateIconButton("CharacterStoryCell", gridGO.transform, LoadUiSprite("Btn_CharacterStory.png"), StandardIconButtonSize);
 
-            // Row 2 — deliberately blank, reserved for whatever gets planned into these next.
-            // Icon_bare.png replaces the old Btn_plaque.png for this blank-cell art.
-            for (int i = 0; i < 4; i++)
+            // Row 2, cell 0 — Restore Purchases (2026-08-23; was blank). Apple requires a restore
+            // entry point somewhere for non-consumable IAPs (Remove Ads, hats, trails); no dedicated
+            // icon art exists for it, so it reuses Icon_bare.png as a backing plaque with a plain
+            // text label on top (same "text label until art lands" convention SkipCooldownButton's
+            // "-3" used before Btn_skipcooldown.png existed) — the only row-2 cell that isn't just a
+            // raycast-disabled placeholder Image, since this one needs to actually be tappable.
+            var restorePurchasesButton = CreateButton("RestorePurchasesCell", gridGO.transform, "Restore",
+                Color.white, 22f, StandardIconButtonSize, out var restorePurchasesLabel);
+            var restorePurchasesImage = restorePurchasesButton.GetComponent<Image>();
+            restorePurchasesImage.sprite = LoadUiSprite("Icon_bare.png");
+            restorePurchasesImage.preserveAspect = true;
+            ((RectTransform)restorePurchasesButton.transform).sizeDelta = new Vector2(StandardIconButtonSize, StandardIconButtonSize);
+            restorePurchasesLabel.color = new Color(0.3f, 0.2f, 0.1f); // dark brown, readable against Icon_bare's light parchment tone
+            // Shrink-to-fit so "Restore" (and Icon_bare's own real aspect once wired) never spills
+            // past this small icon-sized slot — same convention used elsewhere for text-in-a-box.
+            restorePurchasesLabel.enableAutoSizing = true;
+            restorePurchasesLabel.fontSizeMin = 14f;
+            restorePurchasesLabel.fontSizeMax = 22f;
+            restorePurchasesLabel.overflowMode = TextOverflowModes.Truncate;
+
+            // Row 2, cells 1-3 — still deliberately blank, reserved for whatever gets planned next.
+            for (int i = 1; i < 4; i++)
             {
                 var blankImage = CreateImage($"BlankCell{i}", gridGO.transform, Color.white, StandardIconButtonSize, StandardIconButtonSize);
                 blankImage.sprite = LoadUiSprite("Icon_bare.png");
@@ -1365,6 +1442,12 @@ namespace FarmFuryArcade.EditorTools
                 blankImage.raycastTarget = false;
                 ((RectTransform)blankImage.transform).sizeDelta = new Vector2(StandardIconButtonSize, StandardIconButtonSize);
             }
+
+            // Small feedback row (Restoring.../Purchases restored!/Restore failed.), bottom-centre —
+            // same convention Shop/Cosmetic purchase screens' own statusText already use, positioned
+            // clear of the bottom-right back button.
+            var restoreStatusText = CreateText("RestoreStatusText", root.transform, string.Empty, 24f, TextAlignmentOptions.Center, 40f);
+            AnchorBottomCenter((RectTransform)restoreStatusText.transform, new Vector2(700f, 40f), new Vector2(0f, 40f));
 
             var controller = root.AddComponent<SettingsPanel>();
             var so = new SerializedObject(controller);
@@ -1374,6 +1457,8 @@ namespace FarmFuryArcade.EditorTools
             so.FindProperty("musicButtonIcon").objectReferenceValue = musicButton.GetComponent<Image>();
             so.FindProperty("leaderboardsButton").objectReferenceValue = leaderboardsButton;
             so.FindProperty("characterStoryButton").objectReferenceValue = characterStoryButton;
+            so.FindProperty("restorePurchasesButton").objectReferenceValue = restorePurchasesButton;
+            so.FindProperty("restoreStatusText").objectReferenceValue = restoreStatusText;
             // shopScreen/leaderboardsScreen/characterStoryScreen/mainMenuScreen are wired later in
             // BuildAll's WireCrossReferences, once those screens actually exist.
             so.ApplyModifiedPropertiesWithoutUndo();
@@ -1386,66 +1471,63 @@ namespace FarmFuryArcade.EditorTools
         /// the rest of the Settings-family redesign: dimmed Landing_Opacity.png backdrop, no
         /// top-left LogoImage (removed per request — every other screen in this family still has
         /// one, this is the one deliberate exception), and Btn_back kept at its existing
-        /// bottom-right position (CreateRoundBackButton's default). A framed, centred intro box
-        /// (IntroBorder/IntroBackground/IntroText) sits at the top with the game's narrative setup;
-        /// below it, a left-anchored vertical scroll column lists one row per character — their
-        /// CharacterSelectCard (same 340x360 prefab/size ChooseCharacterScreen uses) beside a
-        /// word-wrapped story/ability blurb — in hierarchy order (Cluck first, same order
-        /// DataManager.GetAllCharacterData() returns). Both the intro copy and the per-character
-        /// blurbs are populated at runtime by CharacterStoryScreen (DataManager isn't available in
-        /// Edit mode); this method only builds the empty layout and wires the introText/
-        /// cardContainer references.</summary>
+        /// bottom-right position (CreateRoundBackButton's default).
+        ///
+        /// The WHOLE screen scrolls as one list now (per feedback: a separate fixed-position intro
+        /// box above a fixed-height row area meant a tall intro — it grows at runtime to fit its own
+        /// copy, see CharacterStoryScreen.ResizeIntroContainerToFitText — ate directly into the space
+        /// left for character cards). The framed intro box (IntroBorder/IntroBackground/IntroText)
+        /// is now the FIRST item inside the same vertical ScrollRect/Content the character rows live
+        /// in, sized to the same RowWidth so it lines up with every row beneath it, rather than a
+        /// separate element positioned above a second, independently-sized scroll view. Both the
+        /// intro copy and the per-character blurbs are populated at runtime by CharacterStoryScreen
+        /// (DataManager isn't available in Edit mode); this method only builds the empty layout and
+        /// wires the introText/cardContainer references.</summary>
         private static GameObject BuildCharacterStoryPlaceholder(Transform canvasTransform, GameObject characterSelectCardPrefab)
         {
             var root = CreatePanel("CharacterStoryScreen", canvasTransform, Color.black);
             ApplyDimmedLandingBackground(root);
 
-            // Framed intro box — centred top of screen, text middle-aligned within it. No dedicated
-            // wood-sign art exists for a box this shape/size, so the "border" is a plain two-layer
-            // Image composition (an outer gold border colour with a slightly inset, darker
-            // semi-transparent inner panel) rather than uploaded art — same
-            // PlaceholderSprite.Get(color) convention used everywhere else in this project a visual
-            // is needed before real art exists.
-            var introBorder = CreateImage("IntroBorder", root.transform, new Color(0.70f, 0.55f, 0.20f), 1400f, 260f);
-            AnchorTopCenter((RectTransform)introBorder.transform, new Vector2(1400f, 260f), new Vector2(0f, -60f));
+            // Scroll view now spans nearly the full screen (40px top margin, 140px bottom margin for
+            // the back button) — everything below, including the intro box, lives inside its Content
+            // and scrolls together as one list.
+            var scrollRect = CreateVerticalScrollView("CharacterScrollView", root.transform, out var cardContainer);
+            var scrollRT = (RectTransform)scrollRect.transform;
+            scrollRT.anchorMin = new Vector2(0f, 0f);
+            scrollRT.anchorMax = new Vector2(0f, 1f);
+            scrollRT.pivot = new Vector2(0f, 0.5f);
+            const float scrollTopMargin = 40f;
+            const float scrollBottomMargin = 140f; // clears the back button
+            scrollRT.anchoredPosition = new Vector2(100f, (scrollBottomMargin - scrollTopMargin) / 2f);
+            scrollRT.sizeDelta = new Vector2(1700f, -(scrollTopMargin + scrollBottomMargin));
 
-            var introBackground = CreateImage("IntroBackground", introBorder.transform, new Color(0.08f, 0.06f, 0.03f, 0.82f), 1388f, 248f);
+            // Framed intro box — now the first child inside cardContainer (same list the character
+            // rows are appended to at runtime, see CharacterStoryScreen.PopulateIfNeeded), sized to
+            // CharacterStoryScreen.RowWidth so it shares the same left/right edges as every row below
+            // it. No dedicated wood-sign art exists for a box this shape/size, so the "border" is a
+            // plain two-layer Image composition (an outer gold border colour with a slightly inset,
+            // darker semi-transparent inner panel) rather than uploaded art — same
+            // PlaceholderSprite.Get(color) convention used everywhere else in this project a visual
+            // is needed before real art exists. Its own sizeDelta is set explicitly (not left to a
+            // LayoutElement) since cardContainer's VerticalLayoutGroup has childControlHeight/Width =
+            // false (CreateVerticalScrollView's convention) and reads each child's raw sizeDelta
+            // directly — same reason every character row below sets its own sizeDelta too.
+            var introBorder = CreateImage("IntroBorder", cardContainer, new Color(0.70f, 0.55f, 0.20f), CharacterStoryScreen.RowWidth, 260f);
+            ((RectTransform)introBorder.transform).sizeDelta = new Vector2(CharacterStoryScreen.RowWidth, 260f);
+
+            var introBackground = CreateImage("IntroBackground", introBorder.transform, new Color(0.08f, 0.06f, 0.03f, 0.82f), CharacterStoryScreen.RowWidth - 12f, 248f);
             var introBgRect = (RectTransform)introBackground.transform;
             introBgRect.anchorMin = introBgRect.anchorMax = new Vector2(0.5f, 0.5f);
             introBgRect.pivot = new Vector2(0.5f, 0.5f);
-            // CreateImage only sets a LayoutElement (read by an actual LayoutGroup) — IntroBorder
-            // has none, so sizeDelta needs setting explicitly here or IntroBackground stays at
-            // Unity's freshly-added-RectTransform default (100x100) regardless of the 1388x248 just
-            // requested. Same "LayoutElement is meaningless without a LayoutGroup parent" gotcha
-            // documented repeatedly elsewhere in this project (New Character Unlock's card,
-            // NewWorldUnlockScreen's badge, Level Select's tile-grid section).
-            introBgRect.sizeDelta = new Vector2(1388f, 248f);
+            introBgRect.sizeDelta = new Vector2(CharacterStoryScreen.RowWidth - 12f, 248f);
             introBgRect.anchoredPosition = Vector2.zero;
 
             var introText = CreateText("IntroText", introBackground.transform, string.Empty, 26f, TextAlignmentOptions.Center, 220f, new Color(0.97f, 0.93f, 0.82f));
             var introTextRect = (RectTransform)introText.transform;
             introTextRect.anchorMin = introTextRect.anchorMax = new Vector2(0.5f, 0.5f);
             introTextRect.pivot = new Vector2(0.5f, 0.5f);
-            introTextRect.sizeDelta = new Vector2(1320f, 220f);
+            introTextRect.sizeDelta = new Vector2(CharacterStoryScreen.RowWidth - 12f - 68f, 220f);
             introTextRect.anchoredPosition = Vector2.zero;
-
-            // Character rows — a vertical ScrollRect (same helper Level Select's tile grid uses)
-            // widened well past the old 420px card-only strip to fit each character's story text
-            // beside their card (see CharacterStoryScreen.BuildRow). Top margin (360) clears
-            // IntroBorder above (bottom edge at y=-60-260=-320, plus a 40px gap); bottom margin (140)
-            // clears the back button. CharacterSelectCard's root RectTransform already carries an
-            // explicit 340x360 sizeDelta (see BuildCharacterSelectCardPrefab), and each row sets its
-            // own explicit sizeDelta too (see BuildRow's doc comment) — cardContainer's outer
-            // VerticalLayoutGroup has childControlHeight/Width = false (CreateVerticalScrollView's
-            // convention), which silently ignores LayoutElement hints and reads each child's raw
-            // sizeDelta directly instead, so nothing here can rely on auto-sizing.
-            var scrollRect = CreateVerticalScrollView("CharacterScrollView", root.transform, out var cardContainer);
-            var scrollRT = (RectTransform)scrollRect.transform;
-            scrollRT.anchorMin = new Vector2(0f, 0f);
-            scrollRT.anchorMax = new Vector2(0f, 1f);
-            scrollRT.pivot = new Vector2(0f, 0.5f);
-            scrollRT.anchoredPosition = new Vector2(100f, -110f);
-            scrollRT.sizeDelta = new Vector2(1700f, -500f); // 1700 wide, 360px top / 140px bottom margin
 
             var closeButton = CreateRoundBackButton(root.transform);
             closeButton.GetComponent<Image>().sprite = LoadUiSprite("Btn_back.png");
@@ -1455,7 +1537,9 @@ namespace FarmFuryArcade.EditorTools
                 ("cardContainer", cardContainer),
                 ("cardPrefab", characterSelectCardPrefab),
                 ("closeButton", closeButton),
-                ("introText", introText));
+                ("introText", introText),
+                ("introBorderRect", introBorder.transform),
+                ("introBackgroundRect", introBackground.transform));
 
             return root;
         }
@@ -1674,10 +1758,34 @@ namespace FarmFuryArcade.EditorTools
             }
 
             // Btn_Cosmetics doubled in size (160 -> 320) and given more clearance off the bottom
-            // edge (70 -> 100 padding) per request.
+            // edge (70 -> 100 padding) per request. Shifted left of centre (was plain (0,100)) to
+            // make room for RemoveAdsButton beside it — see that button's own comment below for why
+            // it needed a home on this screen at all.
             float cosmeticsButtonSize = StandardIconButtonSize * 2f;
+            const float removeAdsButtonWidth = 300f;
+            const float removeAdsButtonHeight = 90f;
+            const float shopBottomRowGap = 40f;
+            float shopBottomRowPairWidth = cosmeticsButtonSize + shopBottomRowGap + removeAdsButtonWidth;
+            float cosmeticsButtonCenterX = -shopBottomRowPairWidth / 2f + cosmeticsButtonSize / 2f;
+            float removeAdsButtonCenterX = shopBottomRowPairWidth / 2f - removeAdsButtonWidth / 2f;
             var cosmeticsButton = CreateIconButton("CosmeticsButton", root.transform, LoadUiSprite("Btn_Cosmetics.png"), cosmeticsButtonSize);
-            AnchorBottomCenter((RectTransform)cosmeticsButton.transform, new Vector2(cosmeticsButtonSize, cosmeticsButtonSize), new Vector2(0f, 100f));
+            var cosmeticsButtonRect = (RectTransform)cosmeticsButton.transform;
+            AnchorBottomCenter(cosmeticsButtonRect, new Vector2(cosmeticsButtonSize, cosmeticsButtonSize), new Vector2(cosmeticsButtonCenterX, 100f));
+
+            // Remove Ads — the Shop mockup this screen was built to only showed the 4 coin packs,
+            // so this IAP product (registered in IAPManager since Phase 3) had no purchase surface
+            // at all until now. No dedicated square icon art exists for it yet, so it keeps a plain
+            // text label (same "text label until art lands" convention SkipCooldownButton's "-3"
+            // used before Btn_skipcooldown.png existed) — a rectangular plaque rather than forcing
+            // it into the same square icon shape as the coin packs/Cosmetics, since a text label
+            // needs the extra width to read clearly. Vertically centred against Cosmetics' own
+            // centre (100 + cosmeticsButtonSize/2), not sharing its bottom edge, since the two
+            // buttons are very different heights.
+            float cosmeticsButtonCenterY = 100f + cosmeticsButtonSize / 2f;
+            var removeAdsButton = CreateButton("RemoveAdsButton", root.transform, "Remove Ads",
+                new Color(0.85f, 0.55f, 0.1f), 30f, removeAdsButtonHeight, out var removeAdsLabel);
+            AnchorBottomCenter((RectTransform)removeAdsButton.transform, new Vector2(removeAdsButtonWidth, removeAdsButtonHeight),
+                new Vector2(removeAdsButtonCenterX, cosmeticsButtonCenterY - removeAdsButtonHeight / 2f));
 
             var closeButton = CreateRoundBackButton(root.transform, bottomRight: true);
             closeButton.GetComponent<Image>().sprite = LoadUiSprite("Btn_back.png");
@@ -1689,17 +1797,25 @@ namespace FarmFuryArcade.EditorTools
 
             var shop = root.AddComponent<ShopController>();
             var shopSO = new SerializedObject(shop);
-            var arrayProp = shopSO.FindProperty("coinPackButtons");
-            arrayProp.arraySize = coinButtonsData.Length;
+            var purchaseDefs = new (string id, Button button)[coinButtonsData.Length + 1];
             for (int i = 0; i < coinButtonsData.Length; i++)
             {
+                purchaseDefs[i] = coinButtonsData[i];
+            }
+            purchaseDefs[coinButtonsData.Length] = (IAPManager.RemoveAdsProductId, removeAdsButton);
+            var arrayProp = shopSO.FindProperty("purchaseButtons");
+            arrayProp.arraySize = purchaseDefs.Length;
+            for (int i = 0; i < purchaseDefs.Length; i++)
+            {
                 var element = arrayProp.GetArrayElementAtIndex(i);
-                element.FindPropertyRelative("productId").stringValue = coinButtonsData[i].id;
-                element.FindPropertyRelative("button").objectReferenceValue = coinButtonsData[i].button;
+                element.FindPropertyRelative("productId").stringValue = purchaseDefs[i].id;
+                element.FindPropertyRelative("button").objectReferenceValue = purchaseDefs[i].button;
             }
             shopSO.FindProperty("statusText").objectReferenceValue = statusText;
             shopSO.FindProperty("closeButton").objectReferenceValue = closeButton;
             shopSO.FindProperty("cosmeticsButton").objectReferenceValue = cosmeticsButton;
+            shopSO.FindProperty("removeAdsButton").objectReferenceValue = removeAdsButton;
+            shopSO.FindProperty("removeAdsLabel").objectReferenceValue = removeAdsLabel;
             // cosmeticsHubScreen is wired later in BuildAll, once BuildCosmeticsHubScreen has
             // actually created that screen (cross-screen reference, same deferred-wiring pattern
             // WireCrossReferences uses for every other screen-to-screen link).

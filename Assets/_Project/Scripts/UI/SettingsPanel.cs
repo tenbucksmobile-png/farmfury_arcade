@@ -1,5 +1,6 @@
 using UnityEngine;
 using UnityEngine.UI;
+using TMPro;
 using FarmFuryArcade.Core;
 
 namespace FarmFuryArcade.UI
@@ -7,7 +8,9 @@ namespace FarmFuryArcade.UI
     /// <summary>Rebuilt from scratch (2026-08-20) to match a new Canva mockup exactly — see
     /// Phase5ProjectBuilder.BuildSettingsPanel for the full layout rationale. Discards the entire
     /// old 2x3 toggle/dropdown/Restore-Purchases grid; this is now a 4x2 icon grid, row 1 wired
-    /// (Shop, Music mute, Leaderboards, Character Story placeholder), row 2 deliberately blank.
+    /// (Shop, Music mute, Leaderboards, Character Story placeholder). Row 2 was deliberately blank
+    /// until 2026-08-23, when its first cell became a real Restore Purchases button (Apple requires
+    /// one somewhere for non-consumable IAPs; the other 3 row-2 cells stay blank, reserved).
     ///
     /// Overlay convention, same as ShopController/CosmeticsHubScreen — shown/hidden directly via
     /// Show()/SetActive, not through SceneTransitionManager. The close button now matches the same
@@ -31,6 +34,9 @@ namespace FarmFuryArcade.UI
         // no real content yet (see Phase5ProjectBuilder.BuildCharacterStoryPlaceholder).
         [SerializeField] private Button characterStoryButton;
         [SerializeField] private GameObject characterStoryScreen;
+
+        [SerializeField] private Button restorePurchasesButton;
+        [SerializeField] private TextMeshProUGUI restoreStatusText;
 
         /// <summary>Dims the music icon when muted — same tint-based on/off feedback convention
         /// LockedTint/InactiveTabTint use elsewhere, since no dedicated "muted" art variant exists
@@ -59,12 +65,49 @@ namespace FarmFuryArcade.UI
             {
                 characterStoryButton.onClick.AddListener(() => characterStoryScreen.SetActive(true));
             }
+            if (restorePurchasesButton != null)
+            {
+                restorePurchasesButton.onClick.AddListener(HandleRestorePurchasesTapped);
+            }
         }
 
         public void Show()
         {
             RefreshMusicIcon();
+            if (restoreStatusText != null)
+            {
+                restoreStatusText.text = string.Empty;
+            }
             gameObject.SetActive(true);
+        }
+
+        /// <summary>Required by Apple for non-consumable products (Remove Ads/hats/trails); good
+        /// practice on Android too. Individual restored purchases flow through IAPManager's normal
+        /// HandlePurchasePending path (same as a fresh purchase), so their effects apply identically
+        /// either way — this button only needs to kick off the restore call and show feedback while
+        /// it runs.</summary>
+        private void HandleRestorePurchasesTapped()
+        {
+            if (IAPManager.Instance == null)
+            {
+                if (restoreStatusText != null)
+                {
+                    restoreStatusText.text = "Store unavailable.";
+                }
+                return;
+            }
+
+            if (restoreStatusText != null)
+            {
+                restoreStatusText.text = "Restoring...";
+            }
+            IAPManager.Instance.RestorePurchases(success =>
+            {
+                if (restoreStatusText != null)
+                {
+                    restoreStatusText.text = success ? "Purchases restored!" : "Restore failed.";
+                }
+            });
         }
 
         private void HandleMusicButtonTapped()

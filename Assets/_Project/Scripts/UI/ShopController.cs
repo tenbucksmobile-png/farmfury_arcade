@@ -7,14 +7,18 @@ using FarmFuryArcade.Core;
 namespace FarmFuryArcade.UI
 {
     /// <summary>
-    /// Coin-pack purchase surface (2026-08-20 redesign) — matches the new Shop mockup exactly:
-    /// landing.png background, a "Shop" wood sign, 4 self-contained coin-pack plaques (each bakes
-    /// in its own coin count + $ price, so no separate label text is needed the way the old plain
-    /// text-button version required), a "Cosmetics" button that opens
-    /// <see cref="CosmeticsHubScreen"/>, and a back button. Remove Ads is no longer sold from this
-    /// screen — the new mockup only shows the 4 coin packs + Cosmetics, so that IAP product (still
-    /// registered in IAPManager) currently has no purchase surface; revisit if Remove Ads needs a
-    /// new home.
+    /// Purchase surface — matches the 2026-08-20 Shop mockup (landing.png background, "Shop" wood
+    /// sign, 4 self-contained coin-pack plaques each baking in its own coin count + $ price) plus a
+    /// Remove Ads button (2026-08-23, see BuildShopOverlay's own comment — the mockup itself only
+    /// showed the 4 coin packs, so this product had no purchase surface at all until now), a
+    /// "Cosmetics" button that opens <see cref="CosmeticsHubScreen"/>, and a back button.
+    ///
+    /// purchaseButtons is generic (any IAP product id + its Button), not coin-pack-specific despite
+    /// the field's earlier name — Remove Ads is just another entry in the same array. The one thing
+    /// that IS special-cased is Remove Ads itself: since it's a non-consumable that can only ever be
+    /// bought once, RefreshRemoveAdsButtonState disables it (and swaps its label) once
+    /// SaveManager.AdsRemoved is already true, both on enable and right after a successful purchase
+    /// — every other entry here is a repeatable consumable with no such state to track.
     ///
     /// Overlay convention, same as SettingsPanel/RevivePromptController — shown/hidden directly via
     /// Show()/SetActive, not through SceneTransitionManager.
@@ -22,13 +26,13 @@ namespace FarmFuryArcade.UI
     public class ShopController : MonoBehaviour
     {
         [Serializable]
-        private struct CoinPackButton
+        private struct PurchaseButton
         {
             public string productId;
             public Button button;
         }
 
-        [SerializeField] private CoinPackButton[] coinPackButtons;
+        [SerializeField] private PurchaseButton[] purchaseButtons;
         [SerializeField] private TextMeshProUGUI statusText;
         [SerializeField] private Button closeButton;
 
@@ -36,6 +40,14 @@ namespace FarmFuryArcade.UI
         // overlay" convention ChooseCharacterScreen uses over Pause).
         [SerializeField] private Button cosmeticsButton;
         [SerializeField] private CosmeticsHubScreen cosmeticsHubScreen;
+
+        // Remove Ads is also wired into purchaseButtons above (for the actual purchase click), but
+        // needs its own button/label references here too — it's the only entry that can only ever
+        // be bought once, so its button (and label, since it has no dedicated icon art yet and shows
+        // a plain text label instead) needs to reflect "already owned" state that no other product
+        // in this array tracks.
+        [SerializeField] private Button removeAdsButton;
+        [SerializeField] private TextMeshProUGUI removeAdsLabel;
 
         private void Awake()
         {
@@ -49,12 +61,12 @@ namespace FarmFuryArcade.UI
                 cosmeticsButton.onClick.AddListener(() => cosmeticsHubScreen.Show());
             }
 
-            if (coinPackButtons == null)
+            if (purchaseButtons == null)
             {
                 return;
             }
 
-            foreach (var entry in coinPackButtons)
+            foreach (var entry in purchaseButtons)
             {
                 if (entry.button == null)
                 {
@@ -77,6 +89,8 @@ namespace FarmFuryArcade.UI
             {
                 statusText.text = string.Empty;
             }
+
+            RefreshRemoveAdsButtonState();
         }
 
         private void OnDisable()
@@ -117,6 +131,11 @@ namespace FarmFuryArcade.UI
             {
                 statusText.text = "Purchase complete!";
             }
+
+            if (productId == IAPManager.RemoveAdsProductId)
+            {
+                RefreshRemoveAdsButtonState();
+            }
         }
 
         private void HandlePurchaseFailed(string productId, string reason)
@@ -124,6 +143,25 @@ namespace FarmFuryArcade.UI
             if (statusText != null)
             {
                 statusText.text = "Purchase failed.";
+            }
+        }
+
+        /// <summary>Disables the Remove Ads button (and swaps its label to reflect ownership) once
+        /// SaveManager.AdsRemoved is already true — a non-consumable can't be purchased twice, and
+        /// tapping it again would just fail with a confusing error rather than obviously being a
+        /// no-op.</summary>
+        private void RefreshRemoveAdsButtonState()
+        {
+            bool owned = SaveManager.Instance != null && SaveManager.Instance.AdsRemoved;
+
+            if (removeAdsButton != null)
+            {
+                removeAdsButton.interactable = !owned;
+            }
+
+            if (removeAdsLabel != null)
+            {
+                removeAdsLabel.text = owned ? "Ads Removed" : "Remove Ads";
             }
         }
     }

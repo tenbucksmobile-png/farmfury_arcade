@@ -177,13 +177,19 @@ Two other per-world behaviors live on `MazeArtSet`:
   exact cabbage count per level regardless of how a level was hand-drawn or generated;
   `totalCropsRequired` is unaffected since it's the same total pickup count either way.
 
-Every power pellet in a maze now shows **one single sprite per world** (`MazeArtSet.pelletSprite`
-— sunflower-glow for CornField, apple for VegPatch) rather than the old 3-way Sunflower/GoldenWheat/
-Rainbow visual split. `RollPelletTier`'s random tier (and the "only 1 non-Sunflower per maze" cap)
-still drives `PowerPelletManager.GetDuration` (5s/9.5s/17s — see its own doc comment further down
-for the full tuning history) and
-`SpawnCollectEffectIfRare`/`PlayRarePelletPickupSfx` exactly as before — only the sprite stopped
-varying by tier, so the duration/effect variety is invisible up front but still felt.
+**Only ONE power pellet spawns per maze now (2026-08-23)** — a maze's `LevelData` can carry several
+tile-id-4 "power pellet spawn point" cells, but `TileMapRenderer._powerPelletsSpawned` caps actual
+spawning to the FIRST one encountered while scanning the grid; every other tile-id-4 cell renders as
+plain ground with no pickup. Reported via a gameplay screenshot showing two separate pellets on one
+Orchard maze, both granting the "kill robots" power — this used to only cap the "rare" (non-
+Sunflower) TIER to 1 while every tile-id-4 cell still spawned SOME functioning pellet (Sunflower if
+not the rare one). `ConfigurePelletTier` (called once now, not per-pellet) always treats this sole
+pellet as the special one: `RollPelletTier` still varies GoldenWheat vs. Rainbow for
+`PowerPelletManager.GetDuration` variety, but a Sunflower roll is bumped up to GoldenWheat since
+there's no "common" tier to distinguish it from anymore. Visual is `MazeArtSet.pelletSprite`
+(**one single sprite per world** — sunflower-glow for CornField, apple for VegPatch — rather than
+the old 3-way Sunflower/GoldenWheat/Rainbow visual split) unless that world has a dedicated
+`rarePelletSprite`, which now always wins since every pellet IS the rare one.
 
 Crop/vegetable/pellet/warp-tunnel positions are **not** stored as separate arrays — an earlier
 pass had `CropPlacement[]`/`PowerPelletPlacement[]` fields on `LevelData`, but these were removed
@@ -399,6 +405,22 @@ the BFS fix had already shipped. A `RecentCellWeightPenalty` constant was tried 
 picked, never remove it. Replacing the weighted roll with a hard "take the best, break ties with
 recency, randomize only among ties" rule (the current behaviour, described above) removes that risk
 entirely.
+
+**Invalid Chase targets were silently re-introducing the same bug through a different door
+(2026-08-23).** Reported again via a gameplay screenshot showing robots still looping in a straight
+row/column even after the BFS-distance fix above. Root cause: `ScoutRobot`/`PatrolRobot`'s Chase
+targets are raw, unclamped projections (`player + 4×facing`, `player + (player − Harvester)`) with
+no bounds/wall check — in a 12×9 maze these land on a wall or off-grid often. When that happens,
+`ComputeDistances(targetPos, maze)` (a BFS *from* the target) returns an empty map since its own
+`start` isn't walkable, and every candidate direction falls back to `StraightLineDistanceSqr` —
+which is exactly the original Euclidean-bias bug this section's BFS rework was meant to eliminate,
+just reintroduced via an invalid target instead of the original heuristic. Fixed with
+`RobotAI.ClampToWalkable(point, maze)` — clamps into maze bounds, then expands outward ring by ring
+if the clamped cell is still a wall, returning the nearest real walkable cell. `RobotBase.
+ComputeDesiredDirection` calls this on every `ResolveTarget()` result before handing it to
+`GetNextDirection`, centrally, so no current or future robot subclass needs to remember to validate
+its own target — the straight-line fallback inside `GetNextDirection` remains only as a defensive
+last resort now, not a routinely-hit path.
 
 **Fleeing (Vulnerable state):** `RobotBase.GetFleeTarget` used to project a target 10 tiles away
 from the player in the opposite direction — a straight-line point that could land outside the maze
@@ -725,6 +747,22 @@ small next to the rest of the HUD — confirmed clear of the D-pad below it befo
 bottom edge lands well above the D-pad's top edge even at 170). `CoinBalanceText`'s anchor fractions
 are unchanged, so the text region scales automatically with the chip.
 
+**Then went through a full rework on 2026-08-23.** Sequence, in order: (1) enlarged again 170→340 (a
+further 2x pass) since it still read as too small; (2) `TimerText` moved from top-right to sit
+directly above `ScoreText` on the top-left (both now top-left), freeing up the chip's own new home —
+top-right, in Timer's old spot; (3) a gameplay screenshot then showed 340 was too large, overlapping
+the maze's own rendered tiles, so it was pulled back to 230 (still bigger than the original 170, just
+no longer eating into playable space), lifted to align its top edge with `TimerText`'s (`y=-80`, was
+`y=-170`); (4) **the artist replaced `Coin_Balance_Chip.png` itself** — the old horizontal-pill
+layout (coin icon left half / blank right half) forced the balance number into a narrow strip that
+kept wrapping onto two lines and spilling past the frame; the new art is a wood frame with the coin
+icon centred near the TOP of the inner parchment and a wide blank band below it, purpose-built for
+the number to sit underneath the coin. `CoinBalanceText`'s anchor fractions were re-tuned to that
+new band (`(0.20, 0.18)`–`(0.80, 0.55)`, was `(0.50, 0.33)`–`(0.88, 0.64)`); (5) even with the new
+layout a long balance still wrapped, so `CoinBalanceText` now has `enableWordWrapping = false` +
+shrink-to-fit auto-sizing (24pt–64pt) + `TextOverflowModes.Truncate` — guarantees a single line that
+shrinks rather than wraps, regardless of digit count.
+
 ### Ad mediation (LevelPlay + AdMob) (`Scripts/Core/AdManager.cs`)
 
 Unity's **Ads Mediation (LevelPlay)** package (`com.unity.services.levelplay`) is installed,
@@ -840,16 +878,29 @@ DoubleCoinsButton`.
 
 **"Extra ability charge" / "skip cooldown via ad"** — per the plan doc's own text, these two listed
 placements are literally the same feature ("(d) same button, ad as the free alternative to spending
-coins"), not two separate ones. Built as one: a Watch Ad button in `GameplayHUD` sitting just left of
-the existing 3-coin skip-cooldown button, calling `AbilityBase.SkipCooldown()` via
-`AdManager.ShowRewardedAd("skip_cooldown_via_ad", ...)` only on a confirmed reward. Shown/hidden
-every tick alongside the coin button (`HandleAbilityCooldownChanged`), gated on both "on cooldown"
-and `AdManager.IsRewardedAdReady`. No dedicated square icon art exists yet — `WatchAd.png` is a wide
-512x214 plaque banner sized for the revive prompt, and would squash unreadable in this small HUD
-slot — so it keeps a plain "AD" text label for now, same convention the coin button's "-3" used
-before `Btn_skipcooldown.png` existed.
+coins"), not two separate ones. Built as one: a Watch Ad button in `GameplayHUD`, calling
+`AbilityBase.SkipCooldown()` via `AdManager.ShowRewardedAd("skip_cooldown_via_ad", ...)` only on a
+confirmed reward. Shown/hidden every tick alongside the coin button (`HandleAbilityCooldownChanged`),
+gated on both "on cooldown" and `AdManager.IsRewardedAdReady`. Originally sat left of the coin button
+as a small 64x64 square with a plain "AD" text label (`WatchAd.png` being a wide 512x214 banner would
+have squashed unreadable at that size) — **reworked 2026-08-23**: moved to sit directly BELOW the
+ability icon instead, enlarged to a 170x71 box matching `WatchAd.png`'s real aspect, and now shows
+that real art (wired in `ArtWiringBuilder.WireMonetisationArt`) instead of the text label. See the
+"Whole bottom-right/bottom-left cluster reworked again" bullet above for the full layout change.
 
 ### IAP plumbing (`Scripts/Core/IAPManager.cs`, `Scripts/UI/ShopController.cs`)
+
+**App identifiers (set 2026-08-23):** `com.farmfury.arcade` for both iOS Bundle Identifier and
+Android Package Name (`ProjectSettings.asset` → `applicationIdentifier` → `iPhone`/`Android`), under
+the `Tenbucks_Mobile` developer account. Chosen over a company-name-based ID
+(`com.tenbucksmobile.farmfuryarcade`) since the franchise's own domain (`farmfury.com`) will
+eventually host this game plus two siblings (Rush, and the main Farm Fury title) — this pattern
+gives them clean sibling IDs (`com.farmfury.rush`, `com.farmfury.main`) later. **The Android Package
+Name is permanent once published to Google Play — there is no changing it after the first upload**,
+unlike iOS's Bundle ID which can technically change later at the cost of losing review/ranking
+continuity. Registered as an App ID in Apple's Certificates/Identifiers/Profiles first, which is
+what makes it selectable in App Store Connect's own "New App" Bundle ID dropdown — that dropdown is
+not free text, a common point of confusion when it doesn't show a value you just typed elsewhere.
 
 Monetisation Build Plan Phase 3. `com.unity.purchasing` (5.4.2) uses the newer async
 `UnityIAPServices`/`StoreController` API (`Connect()`, `FetchProducts()`, `PurchaseProduct()`,
@@ -892,23 +943,24 @@ current layout and entry point (now Settings' 4x2 grid, not Main Menu — the Sh
 after this section was originally written). Remove Ads' button disables itself once
 `SaveManager.AdsRemoved` is already true (a non-consumable can't be purchased twice).
 
-**Restore Purchases is no longer wired to anything** as of the 2026-08-20 Settings redesign (see
-"Settings / Leaderboards / Level Complete redesign" further down) — the method/logic below still
-exists in `IAPManager`/`SettingsPanel`'s history, just nothing currently calls it. The paragraph
-below describes the pre-redesign Settings 2x3 grid this used to live in, kept for context:
-section under "Landing/Gameplay-HUD cleanup" below for that grid's own history) — a plain
-`CreateButtonPlaqueCell` (a new sibling to `CreateTogglePlaqueCell`, same visual convention, Button
-instead of Toggle) calling `IAPManager.RestorePurchases`, with its own label swapping
-"Restore Purchases" → "Restoring..." → "Restored!"/back to idle as the one feedback mechanism (no
-toast system exists in this project yet).
+**Restore Purchases was unwired from 2026-08-20 through 2026-08-23** (the Settings redesign that
+week dropped its 2x3-grid button entirely, and `IAPManager.RestorePurchases` sat with no caller for
+a few days). **Re-wired 2026-08-23**: `SettingsPanel`'s row-2, first grid cell (previously blank —
+see "Settings / Leaderboards / Level Complete redesign" further down for that grid's layout) is now
+a real button using `Icon_bare.png` as a backing plaque with a plain "Restore" text label on top (no
+dedicated icon art exists for it yet). Calls `IAPManager.RestorePurchases(callback)`; a new
+`RestoreStatusText` row at the screen's bottom shows "Restoring..." → "Purchases restored!"/"Restore
+failed." — same feedback-text convention Shop/Cosmetic purchase screens already use, not a toast (no
+toast system exists in this project).
 
-**Still not built** (Phase 3's own "Technical needed" list, none of it is code): the 6 products
-aren't registered in App Store Connect/Google Play Console yet, so `IAPManager.Connect()` is
-expected to fail gracefully with a logged warning in the Editor and in any build without real store
-config — same "infrastructure ready, real config later" pattern `AdManager` already established for
-its own ad unit IDs. No sandbox test accounts exist yet either. Purchase-card art and a "Thank you"
-confirmation toast (both listed as Phase 3 "Art needed," the toast marked optional in the plan doc)
-are unbuilt.
+**Store-side setup status (updated 2026-08-23):** all 12 products (the original 5 + 7 cosmetic IAPs
+added since — see "Cosmetics Store UI" below) are now **registered in App Store Connect** for iOS
+(bundle ID `com.farmfury.arcade`, under the `Tenbucks_Mobile` team, app name `FarmFury_Arcade`,
+domain `farmfury.com` will eventually host all 3 Farm Fury titles). Google Play Console / Android
+registration not started yet. No sandbox/license testers added yet either (blocked on having an
+actual build to test with — no Mac/iOS build exists yet as of this date). `IAPManager.Connect()`
+still fails gracefully with a logged warning in the Editor, expected until a real build runs against
+real store config. Purchase-card art and a "Thank you" confirmation toast remain unbuilt.
 
 ### Cosmetics system (`Scripts/Data/CosmeticData.cs`, `CosmeticType.cs`, `Scripts/Gameplay/CharacterCosmeticRenderer.cs`, `Scripts/Editor/CosmeticWiringBuilder.cs`)
 
@@ -1042,9 +1094,13 @@ for any of these 4 screens):
    coin-pack plaques (`100.png`/`500.png`/`5000.png`/`15000.png`, each already bakes in its own
    coin count + $ price, so no separate label text is built on top the way the old text-button
    version needed), a `Btn_Cosmetics.png` button opening the Cosmetics hub, and a round back
-   button. Reached from Main Menu's own Shop button, unchanged. Remove Ads is no longer sold from
-   this screen (the mockup only shows the 4 coin packs + Cosmetics) — the IAP product still exists
-   in `IAPManager` but currently has no purchase surface.
+   button. Reached from Main Menu's own Shop button, unchanged. **Remove Ads got its own purchase
+   surface back on 2026-08-23** — the original mockup only showed the 4 coin packs + Cosmetics, so
+   this IAP product went unsold for a while despite existing in `IAPManager`; a `RemoveAdsButton`
+   (plain text label, no dedicated icon art yet) now sits beside the Cosmetics button, disabling
+   itself and relabeling to "Ads Removed" once `SaveManager.AdsRemoved` is true.
+   `ShopController.purchaseButtons` (renamed from `coinPackButtons`) is generic now — any IAP
+   product id + its Button, not coin-pack-specific.
 2. **Cosmetics hub** (`CosmeticsHubScreen`, its own new controller) — a `Cosmetics.png` sign and 3
    icons: `Hat_Icon.png` → Hats screen, `Trails_Tab_Icon.png` ("comet") → Trails screen, and
    `MazeThemeTab.png` ("map") shown but **not wired to anything** — no maze-theme cosmetic content
@@ -1253,6 +1309,32 @@ from their original Phase 5 layouts:
   further left via its own `abilityInsetX` (`clusterInsetX - abilityShiftLeft`), independent of
   Pause's X position. Pause's own Y offset was recomputed against `abilityButtonSize` (not the old
   shared `clusterButtonSize`) so it still clears the now-taller icon beneath it without overlapping.
+
+  **Whole bottom-right/bottom-left cluster reworked again on 2026-08-23**, across several rounds of
+  feedback:
+  - **Pause moved to sit above the D-pad** (was stacked above the ability icon on the right) —
+    centred over the Up button specifically, `clusterSpacing` above its top edge. **Real bug found
+    and fixed**: the first version of this move miscomputed Up's own centre/top edge, since
+    `AnchorBottomLeft`'s offset is the button's bottom-left CORNER, not its centre — treating it as
+    a centre put Pause roughly half a button-width too far left/low, overlapping Up instead of
+    sitting cleanly above it (caught via a gameplay screenshot). `upButtonCenterX`/`upButtonTopEdge`
+    now compute Up's true centre/top edge the same way its own `AnchorBottomLeft` call does. Pause
+    was then also resized to match the D-pad's own button size (`dpadButtonSize`, 90x90 — was
+    `clusterButtonSize`, 120x120) per further feedback that it should read as part of the same
+    diamond, not its old larger ability-cluster size. D-pad itself shifted down/left (inset
+    260/240 → 235/210) both to stay inside the yellow safe-area guide and to open headroom for
+    Pause above it.
+  - **`clusterSpacing` bumped 20 → 30** and now drives every gap in the ability-icon corner
+    uniformly (Pause-above-D-pad, ability-icon-to-WatchAd, skip-cooldown-to-icon) per feedback to
+    "make sure all spacing is equal and neat," rather than several different hand-tuned values.
+  - **Ability icon enlarged again, 150 → 210.**
+  - **WatchAdSkipCooldownButton moved from beside the ability icon to directly BELOW it**, and the
+    icon raised by the button's own height + `clusterSpacing` to make room. Enlarged from a 64x64
+    square to a 170x71 banner (matching `WatchAd.png`'s real 512x214 aspect so the Sliced stretch
+    stays uniform, same "box aspect must match the art" fix used throughout this project) and now
+    shows that real art instead of a plain "AD" text label (wired in `ArtWiringBuilder.
+    WireMonetisationArt`) — `SkipCooldownButton` (the coin-cost "-3" one) stays to the icon's left,
+    unchanged in size, just re-centred against the icon's new, higher position.
 
   `SoundButton`/`HomeButton` were removed too (per playtest feedback) — both are reachable via
   Pause instead (Settings' music/SFX toggles, Pause's own Quit button) — leaving just a single
@@ -1489,6 +1571,43 @@ CharacterStories`) and builds the layout at runtime:
 - `CharacterScrollView`'s own top/bottom margins were widened accordingly (360px top clearance below
   the intro box, 140px bottom clearance above the back button; was a simple symmetric 80px margin
   around the old narrower 420px strip).
+
+**Character Story went through a full readability/layout pass (2026-08-23), across several rounds
+of feedback:**
+- **Story text turned black** (was white, unreadable against each row's own light background — the
+  header/intro text stays white/cream since it sits on the dark dimmed backdrop, not a row
+  background).
+- **Text now stays inside its container on both the intro box and every row** — both use TMP
+  shrink-to-fit auto-sizing with `TextOverflowModes.Truncate` instead of a fixed size that let long
+  copy overflow past its box.
+- **Each character row got a visible gold-bordered frame** (`RowBorderColor`/`RowBackgroundColor`,
+  same two-layer `PlaceholderSprite` composition the intro box already used) — previously the
+  card+text pair floated directly on the dimmed backdrop with no border at all.
+- **32px left padding added to every row**, via `cardContainer`'s `VerticalLayoutGroup` switched to
+  `childAlignment = UpperLeft` + `padding.left = 32` at runtime (scoped to this screen's own
+  container instance, not `CreateVerticalScrollView`'s shared default, so Character Roster's
+  identical helper call elsewhere is unaffected).
+- **Header/intro text enlarged and its container now grows to fit it**, rather than shrinking the
+  text to fit a fixed box. First attempt used a flat 16pt — this actually *decreased* from what
+  auto-sizing had typically been rendering (up to its 26pt ceiling), which is why it visibly failed
+  to read as "enlarged"; corrected to a flat **34pt** (`IntroFontSize`), genuinely above the old
+  ceiling. `CharacterStoryScreen.ResizeIntroContainerToFitText` measures the real wrapped height via
+  `TMP.GetPreferredValues` and grows `IntroBackground`/`IntroBorder` to match at runtime.
+- **The whole screen is now one continuous scrollable list, not a fixed intro area above a
+  separately-sized scroll region.** The intro box used to sit at a fixed screen position above
+  `CharacterScrollView`, which itself had a fixed top margin computed to clear whatever height the
+  (dynamically-growing) intro box happened to need — meaning a long intro shrank the effective space
+  left for character cards. Per feedback ("the enlarged header container is minimising the space to
+  see the character cards"), `IntroBorder`/`IntroBackground`/`IntroText` are now built as the FIRST
+  child inside `cardContainer` itself (same `VerticalLayoutGroup` the character rows live in),
+  sized to the same `RowWidth` (now `public const`, referenced directly from
+  `Phase5ProjectBuilder`) so it lines up with every row beneath it. `CharacterScrollView` itself now
+  just spans nearly the full screen (40px top / 140px bottom margin) unconditionally. Since Unity's
+  layout group always positions siblings from their actual `RectTransform.sizeDelta` (only whether
+  it OVERWRITES that size is gated by `childControlHeight` — reading it for stacking isn't), growing
+  `IntroBorder` at runtime automatically pushes every row below it down the list with zero manual
+  margin math needed — the list just gets longer and scrolls further, instead of shrinking the
+  cards' own space.
 
 **Several other Settings-family screens got sizing/position fixes (2026-08-21), all per direct
 screenshot review, no new mockup:**
@@ -1862,10 +1981,10 @@ phase made for art (solid-colour placeholders instead of real sprites).
   (0 ground, 1 wall, 2 crop, 3 vegetable, 4 pellet, 5 warp edge, 6 factory, 7 player start, 8
   water), with a live-updating export panel (a `WIDTH=`/`HEIGHT=`/`FLAT=` text block) you copy and
   hand to Claude Code to paste directly into `Phase2ProjectBuilder.Rows`/`ParseRows` — no manual
-  transcription, no risk of a wrong-cell guess. `TileMapRenderer.ConfigurePelletTier` caps the whole
-  maze to at most 1 "rare" (non-Sunflower) power pellet regardless of how many id-4 tiles are
-  painted (`_rarePelletsSpawned`, reset per `RenderMaze` call — any tier roll beyond the first rare
-  one falls back to Sunflower). `width`/`height` went 28×31 → 14×16 → 12×9 across earlier passes for
+  transcription, no risk of a wrong-cell guess. `TileMapRenderer` caps the whole maze to at most 1
+  power pellet total regardless of how many id-4 tiles are painted (`_powerPelletsSpawned`, reset
+  per `RenderMaze` call — see the Power pellet chain-scoring section above for the full history of
+  this cap). `width`/`height` went 28×31 → 14×16 → 12×9 across earlier passes for
   two different reasons: the first halving doubled tile size to keep the board's total footprint
   the same (tiles at 28×31 read as too small); the second (12×9, the current fixed size) deliberately
   did **not** compensate by enlarging tiles — the board is physically smaller on screen on purpose,
@@ -2521,10 +2640,9 @@ an intentional scarcity choice, once the actual spec called for ×10 like Cherry
 -tier pellet now has a distinct look too, each repurposing a sprite originally uploaded for a
 different role: Orchard's is `RarePellets_apple.png` (VegPatch's own regular pellet elsewhere),
 Wheat's is `RarePellets_maize.png` (previously unwired dead weight left over from the old 3-tier
-pellet visual system) — via `MazeArtSet.rarePelletSprite`, the single pellet that wins a maze's
-one-rare-slot cap (`ConfigurePelletTier`'s `_rarePelletsSpawned` guard); every other pellet still
-shows `pelletSprite`, and any world without a `rarePelletSprite` set (CornField/VegPatch) keeps the
-older "every pellet, rare or not, looks the same" behaviour unchanged. Both worlds now have their
+pellet visual system) — via `MazeArtSet.rarePelletSprite`, shown on the maze's one pellet (see the
+Power pellet section above — only 1 spawns per maze now, and it always wins this slot); any world
+without a `rarePelletSprite` set (CornField/VegPatch) falls back to `pelletSprite` instead. Both worlds now have their
 own dedicated warp-tunnel art (`WarpTunnel_Orchard`/`WarpTunnel_Wheat` prefabs, wired to
 `OrchardWarpTile.png`/`WheatWarpTile.png`) instead of reusing CornField's generic `WarpTunnel`/
 `WarpTile.png`.
@@ -2884,9 +3002,10 @@ and reopen the project normally to confirm nothing was corrupted.
 - **Settings' Restore/Reset Progress**: the original cloud-save Restore Progress and Reset Progress
   buttons were removed entirely (not just stubbed) in the 2026-07-31 mockup pass — Restore was
   Phase 6/cloud-save scope with no real action either way, and real cloud-save restore is still
-  Phase 6 scope if it comes back. The Settings grid's 6th cell that Restore Progress used to occupy
-  now hosts a *different* Restore — IAP's "Restore Purchases" (Monetisation Phase 3) — which is a
-  distinct, now-real feature that happens to reuse the same empty slot; see "IAP plumbing" above.
+  Phase 6 scope if it comes back. The Settings grid's row-2, first cell (5th of 8 overall) sat blank
+  after that removal, then briefly hosted IAP's "Restore Purchases" claim in this doc without the
+  code actually being wired (2026-08-20 to 2026-08-23 gap) — it's genuinely wired now, see "IAP
+  plumbing" above.
 - **Leaderboards has no cloud sync** — local-only, per spec.
 - **`DailyChallengeManager.CharacterLocked` isn't enforced**, only checked after the fact — a
   player can freely swap characters during a Character-Locked daily challenge; the run just won't

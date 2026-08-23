@@ -39,24 +39,18 @@ namespace FarmFuryArcade.Core
             public GameObject cropKernelPrefab;
             public GameObject cropVegetablePrefab;
 
-            /// <summary>Single sprite shown on EVERY power pellet in this world, regardless of
-            /// which tier (Sunflower/GoldenWheat/Rainbow) it rolled — replaces the old 3
-            /// tier-specific sprite fields, which were shared globally across every world and
-            /// didn't reflect any world's own theme. RollPelletTier's random duration roll (8s/15s/
-            /// 30s) and the "only 1 non-Sunflower pellet per maze" cap are untouched; only the
-            /// VISUAL got simplified to one look per world (sunflower glow for CornField, apple for
-            /// VegPatch) — SpawnCollectEffectIfRare/PlayRarePelletPickupSfx still key off the real
-            /// tier, so collecting the special pellet still feels distinct even though every pellet
-            /// in the maze looks the same up front.</summary>
+            /// <summary>Fallback sprite for the maze's one power pellet (see _powerPelletsSpawned)
+            /// when this world has no dedicated rarePelletSprite — used by every world today except
+            /// Orchard/Wheat (sunflower glow for CornField, apple for VegPatch). Originally described
+            /// as showing on every pellet in the maze, back when a maze could have several; now there
+            /// is only ever the one.</summary>
             public Sprite pelletSprite;
 
-            /// <summary>Optional distinct look for the single "rare" (non-Sunflower-tier) pellet a
-            /// maze is allowed to roll — see ConfigurePelletTier's _rarePelletsSpawned cap. Null for
-            /// any world that hasn't had dedicated rare-pellet art uploaded yet, in which case
-            /// ConfigurePelletTier falls back to pelletSprite exactly as before (every pellet, rare
-            /// or not, showing the one themed look) — this field only ever narrows that "always the
-            /// same sprite" behaviour for worlds that opt in, it never changes it for ones that
-            /// don't.</summary>
+            /// <summary>Optional distinct look for the maze's one power pellet — see
+            /// _powerPelletsSpawned's own doc comment for why there's only ever one now. Null for any
+            /// world that hasn't had dedicated rare-pellet art uploaded yet, in which case
+            /// ConfigurePelletTier falls back to pelletSprite instead (that world's one original
+            /// themed look).</summary>
             public Sprite rarePelletSprite;
 
             /// <summary>Extra pickup scattered on random walkable ground cells (not tied to any
@@ -123,10 +117,18 @@ namespace FarmFuryArcade.Core
         private readonly HashSet<Vector2Int> _temporaryWalkableCells = new HashSet<Vector2Int>();
         private LevelData _currentLevel;
 
-        /// <summary>Caps the whole maze to at most 1 "rare" (non-Sunflower) power pellet — reset per
-        /// RenderMaze call. RollPelletTier still rolls independently per pellet, but ConfigurePelletTier
-        /// forces any roll beyond the first rare one back down to Sunflower.</summary>
-        private int _rarePelletsSpawned;
+        /// <summary>Caps the whole maze to at most 1 power pellet total — reset per RenderMaze call.
+        /// A maze's LevelData can carry several tile-id-4 "power pellet spawn point" cells (left over
+        /// from the classic-Pac-Man-style multi-pellet mazes this project generated before), but only
+        /// the FIRST one encountered while scanning the grid actually spawns a real, functioning
+        /// PowerPelletPickup now — see the TilePowerPellet case in RenderMaze. Every other tile-id-4
+        /// cell renders as plain ground with no pickup at all (per feedback: a gameplay screenshot
+        /// showed two separate pellets on one maze, both granting the "kill robots" power — only the
+        /// single special pellet should exist per maze, not one on every tile id 4 cell). This used
+        /// to only cap the "rare" (non-Sunflower) TIER to 1 while still letting every tile-id-4 cell
+        /// spawn some functioning pellet (Sunflower if not the rare one) — see ConfigurePelletTier's
+        /// own comment for how that pellet's tier/visual changed to match.</summary>
+        private int _powerPelletsSpawned;
 
         /// <summary>0 when no level is loaded. Used by CameraFollow to clamp the camera to the
         /// maze bounds — GridToWorld has no offset, so world extents are simply
@@ -138,7 +140,7 @@ namespace FarmFuryArcade.Core
         {
             ClearMaze();
             _currentLevel = data;
-            _rarePelletsSpawned = 0;
+            _powerPelletsSpawned = 0;
 
             var artSet = ResolveArtSet(data.mazeType);
             var layout = data.MazeLayout;
@@ -175,9 +177,16 @@ namespace FarmFuryArcade.Core
                             _spawned.Add(Instantiate(cropPrefab, worldPos, Quaternion.identity, mazeParent));
                             break;
                         case TilePowerPellet:
-                            var pelletGO = Instantiate(powerPelletPrefab, worldPos, Quaternion.identity, mazeParent);
-                            _spawned.Add(pelletGO);
-                            ConfigurePelletTier(pelletGO, artSet);
+                            // Only the first tile-id-4 cell in the maze spawns a real power pellet
+                            // now — see _powerPelletsSpawned's own doc comment for why. Every other
+                            // one just stays plain ground (already instantiated above), no pickup.
+                            if (_powerPelletsSpawned < 1)
+                            {
+                                var pelletGO = Instantiate(powerPelletPrefab, worldPos, Quaternion.identity, mazeParent);
+                                _spawned.Add(pelletGO);
+                                ConfigurePelletTier(pelletGO, artSet);
+                                _powerPelletsSpawned++;
+                            }
                             break;
                         case TileWarpEdge:
                             var warpGO = Instantiate(artSet.warpTunnelPrefab, worldPos, Quaternion.identity, mazeParent);
@@ -421,33 +430,21 @@ namespace FarmFuryArcade.Core
             return match;
         }
 
-        /// <summary>Rolls a weighted tier (Sunflower common, GoldenWheat uncommon, Rainbow rare)
-        /// purely for PowerPelletManager.GetDuration's 8s/15s/30s variety and
-        /// SpawnCollectEffectIfRare/PlayRarePelletPickupSfx's "something extra-special" cue. Visual
-        /// is artSet.pelletSprite for every pellet EXCEPT the one that actually won the maze's
-        /// single rare-tier slot, which shows artSet.rarePelletSprite instead if that world has one
-        /// — see MazeArtSet.rarePelletSprite's doc comment. A world with no rarePelletSprite set
-        /// keeps the older "every pellet, rare or not, shows the one themed look" behaviour exactly
-        /// as before.</summary>
+        /// <summary>Configures the maze's one-and-only power pellet (see _powerPelletsSpawned — the
+        /// caller only ever invokes this once per maze now). Since there's exactly one, it's always
+        /// treated as the "special" pellet: RollPelletTier still varies its duration tier for variety
+        /// (GoldenWheat vs Rainbow — see PowerPelletManager.GetDuration), but a Sunflower roll is
+        /// bumped up to GoldenWheat rather than kept, since Sunflower was the old "common, everyday"
+        /// tier and this project no longer has a common tier to distinguish it from. Visual is
+        /// artSet.rarePelletSprite if that world has dedicated rare-pellet art, else artSet.
+        /// pelletSprite (every world's original themed look) — see MazeArtSet.rarePelletSprite's own
+        /// doc comment for which worlds have one.</summary>
         private void ConfigurePelletTier(GameObject pelletGO, MazeArtSet artSet)
         {
             var tier = RollPelletTier();
-            bool wonRareSlot = false;
-
-            // Only 1 rare (non-Sunflower) pellet is allowed per maze — any roll beyond the first
-            // falls back to Sunflower rather than being re-rolled, keeping the odds honest for
-            // whichever pellet does end up claiming the "rare" slot.
-            if (tier != PowerPelletType.Sunflower)
+            if (tier == PowerPelletType.Sunflower)
             {
-                if (_rarePelletsSpawned >= 1)
-                {
-                    tier = PowerPelletType.Sunflower;
-                }
-                else
-                {
-                    _rarePelletsSpawned++;
-                    wonRareSlot = true;
-                }
+                tier = PowerPelletType.GoldenWheat;
             }
 
             var pickup = pelletGO.GetComponent<PowerPelletPickup>();
@@ -459,7 +456,7 @@ namespace FarmFuryArcade.Core
             var sr = pelletGO.GetComponent<SpriteRenderer>();
             if (sr != null)
             {
-                Sprite chosen = wonRareSlot && artSet.rarePelletSprite != null ? artSet.rarePelletSprite : artSet.pelletSprite;
+                Sprite chosen = artSet.rarePelletSprite != null ? artSet.rarePelletSprite : artSet.pelletSprite;
                 if (chosen != null)
                 {
                     sr.sprite = chosen;

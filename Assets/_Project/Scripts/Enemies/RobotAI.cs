@@ -158,6 +158,58 @@ namespace FarmFuryArcade.Enemies
             return farthest;
         }
 
+        /// <summary>Snaps an arbitrary point (in-bounds or not, walkable or not) to the nearest real
+        /// walkable cell — clamps into the maze bounds first, then expands outward ring by ring if
+        /// the clamped cell itself is a wall. Exists because some per-robot Chase targets are raw
+        /// projections with no bounds/wall check of their own (ScoutRobot's "4 tiles ahead of the
+        /// player's facing," PatrolRobot's "player + (player - Harvester)" flanking vector) — in a
+        /// small maze these land on a wall or off-grid often enough to matter. GetNextDirection's own
+        /// per-candidate fallback to straight-line distance for an unreachable target was meant as a
+        /// last resort for exactly this case, but a straight-line heuristic is precisely what caused
+        /// the original corridor-oscillation bug this project's BFS-distance rework fixed — so an
+        /// invalid target was silently re-introducing that same bug through the back door, even
+        /// though BFS distance is correct whenever the target IS valid. RobotBase.
+        /// ComputeDesiredDirection calls this on every resolved target before handing it to
+        /// GetNextDirection, so no per-robot target ever reaches GetNextDirection unwalkable in the
+        /// first place — the straight-line fallback in GetNextDirection remains only as a defensive
+        /// last resort, not a routinely-hit path.</summary>
+        public static Vector2Int ClampToWalkable(Vector2Int point, TileMapRenderer maze)
+        {
+            int clampedX = Mathf.Clamp(point.x, 0, maze.MazeWidth - 1);
+            int clampedY = Mathf.Clamp(point.y, 0, maze.MazeHeight - 1);
+            var clamped = new Vector2Int(clampedX, clampedY);
+            if (maze.IsWalkable(clamped))
+            {
+                return clamped;
+            }
+
+            int maxRadius = Mathf.Max(maze.MazeWidth, maze.MazeHeight);
+            for (int radius = 1; radius <= maxRadius; radius++)
+            {
+                for (int dx = -radius; dx <= radius; dx++)
+                {
+                    for (int dy = -radius; dy <= radius; dy++)
+                    {
+                        if (Mathf.Max(Mathf.Abs(dx), Mathf.Abs(dy)) != radius)
+                        {
+                            continue; // only the outer ring at this radius — inner cells were already checked at smaller radii
+                        }
+                        var candidate = new Vector2Int(clampedX + dx, clampedY + dy);
+                        if (candidate.x < 0 || candidate.x >= maze.MazeWidth || candidate.y < 0 || candidate.y >= maze.MazeHeight)
+                        {
+                            continue;
+                        }
+                        if (maze.IsWalkable(candidate))
+                        {
+                            return candidate;
+                        }
+                    }
+                }
+            }
+
+            return clamped; // unreachable in practice — every real maze has at least one walkable cell
+        }
+
         /// <summary>Walkable directions from pos, excluding the reverse of the current direction
         /// (the "cannot reverse mid-corridor" rule) unless reversing is the only walkable option
         /// (dead end).</summary>

@@ -63,6 +63,12 @@ namespace FarmFuryArcade.UI
         private static readonly Color AbilityFlashColor = new Color(1f, 0.95f, 0.3f, 1f);
         private const float FlashCyclesPerSecond = 2f;
 
+        /// <summary>Separate, slower cycle rate for the ability-ready pulsate specifically (was
+        /// sharing FlashCyclesPerSecond with the unrelated timer-warning flash above) — per feedback
+        /// to "slow down the pulsate slightly" on the ability icon without touching the timer's own
+        /// flash speed.</summary>
+        private const float AbilityPulseCyclesPerSecond = 1.3f;
+
         /// <summary>Seconds remaining at which the timer starts pulsing red — per feedback that
         /// the level time limit (GameManager.LevelTimeLimitSeconds) ending a run felt "random"
         /// with nothing warning it was about to happen; the countdown text itself was the only
@@ -443,7 +449,7 @@ namespace FarmFuryArcade.UI
         {
             while (true)
             {
-                float pulse = (Mathf.Sin(Time.unscaledTime * FlashCyclesPerSecond * Mathf.PI * 2f) + 1f) * 0.5f;
+                float pulse = (Mathf.Sin(Time.unscaledTime * AbilityPulseCyclesPerSecond * Mathf.PI * 2f) + 1f) * 0.5f;
                 characterPortrait.color = Color.Lerp(_portraitReadyColor, AbilityFlashColor, pulse);
                 characterPortrait.rectTransform.localScale = Vector3.one * Mathf.Lerp(1f, PulseScaleMax, pulse);
                 yield return null;

@@ -423,7 +423,14 @@ namespace FarmFuryArcade.Enemies
                 _exitingFactory = false;
             }
 
-            return RobotAI.GetNextDirection(cell, ResolveTarget(), CurrentDirection, tileMap, _recentCells);
+            // Some per-robot Chase targets (Scout's "4 tiles ahead of the player," Patrol's flanking
+            // vector) are raw, unclamped projections that can land on a wall or off the maze grid —
+            // see RobotAI.ClampToWalkable's own doc comment for why that silently reintroduces the
+            // exact corridor-oscillation bug the BFS-distance rework was supposed to have fixed.
+            // Snapping every resolved target to a real walkable cell here, centrally, means no
+            // current or future robot subclass needs to remember to validate its own target.
+            Vector2Int target = RobotAI.ClampToWalkable(ResolveTarget(), tileMap);
+            return RobotAI.GetNextDirection(cell, target, CurrentDirection, tileMap, _recentCells);
         }
 
         protected virtual bool IsWalkableForThisRobot(Vector2Int cell) => tileMap.IsWalkable(cell);
