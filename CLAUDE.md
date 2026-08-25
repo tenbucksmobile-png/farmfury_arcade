@@ -1170,8 +1170,16 @@ rebuild required" workflow.
   8 skins, 12 maze-theme assets, 3 more hat styles × 8 characters) was drafted separately — ask for
   it if it's not already at hand (also saved as a cross-session memory pointer to the published
   prompt list).
-- No Trail rendering hook — `CharacterCosmeticRenderer` only handles Hat/Skin. Equipping a Trail
-  persists correctly (`SaveManager.GetEquippedTrail`) but has no visible in-game effect.
+- ~~No Trail rendering hook~~ — **added 2026-08-25.** `CharacterCosmeticRenderer` now also reads
+  `SaveManager.GetEquippedTrail()` in `Refresh()` and renders it: if the equipped `CosmeticData.
+  trailEffectPrefab` is set, it's instantiated as a child (real VFX art path, unused so far — none
+  of the 4 trail assets has one yet); otherwise it falls back to a built-in `TrailRenderer`
+  (`EquippedTrail` child, `Sprites/Default` material, sorted one order behind the character) tinted
+  per `cosmeticId` — tan for Corn Husk, orange for Ember, pale cyan for Sparkle Dust, and a
+  continuously cycling hue for Rainbow Ribbon — same "procedural placeholder until dedicated VFX
+  art lands" convention `PelletCollectBurst` already used for rare power pellets. `IAPManager.
+  GrantAndEquipTrail` now calls `Refresh()` after equipping, same as the Hat purchase path, so a
+  freshly bought trail shows immediately without needing a character swap.
 - `TileMapRenderer` doesn't yet consume `CosmeticData.themeWallSprite`/`themeGroundSprite`/
   `themeBackdropSprite` — MazeTheme equip state would persist in `SaveManager` but nothing reads it
   at render time yet, moot until MazeTheme assets exist anyway.

@@ -329,6 +329,7 @@ namespace FarmFuryArcade.Core
 
             SaveManager.Instance.SetCosmeticOwned(cosmeticId);
             SaveManager.Instance.SetEquippedTrail(cosmeticId);
+            CharacterManager.Instance?.ActiveCharacterObject?.GetComponent<CharacterCosmeticRenderer>()?.Refresh();
         }
 
         private void HandlePurchaseFailed(FailedOrder order)
