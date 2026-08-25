@@ -953,14 +953,26 @@ dedicated icon art exists for it yet). Calls `IAPManager.RestorePurchases(callba
 failed." — same feedback-text convention Shop/Cosmetic purchase screens already use, not a toast (no
 toast system exists in this project).
 
-**Store-side setup status (updated 2026-08-23):** all 12 products (the original 5 + 7 cosmetic IAPs
+**Store-side setup status (updated 2026-08-25):** all 12 products (the original 5 + 7 cosmetic IAPs
 added since — see "Cosmetics Store UI" below) are now **registered in App Store Connect** for iOS
 (bundle ID `com.farmfury.arcade`, under the `Tenbucks_Mobile` team, app name `FarmFury_Arcade`,
-domain `farmfury.com` will eventually host all 3 Farm Fury titles). Google Play Console / Android
-registration not started yet. No sandbox/license testers added yet either (blocked on having an
-actual build to test with — no Mac/iOS build exists yet as of this date). `IAPManager.Connect()`
-still fails gracefully with a logged warning in the Editor, expected until a real build runs against
-real store config. Purchase-card art and a "Thank you" confirmation toast remain unbuilt.
+domain `farmfury.com` will eventually host all 3 Farm Fury titles). **Google Play Console / Android
+registration is in progress** — the app itself is already created in Play Console
+(`com.farmfury.arcade`), but the 12 products, signing keystore, internal-testing build, and license
+testers still need to be set up there the same way they were for iOS; follow the same product
+ID/name/price table as the iOS setup (see the table two paragraphs up) when creating each one, since
+Play doesn't distinguish Consumable/Non-Consumable at creation the way App Store Connect does — that
+split lives entirely in `IAPManager.cs`'s own `ProductDefinition` list. No sandbox/license testers
+added yet on either platform (blocked on having an actual build to test with — no Mac/iOS build
+exists yet as of this date). `IAPManager.Connect()` still fails gracefully with a logged warning in
+the Editor, expected until a real build runs against real store config. Purchase-card art and a
+"Thank you" confirmation toast remain unbuilt.
+
+Separately, on the **ad** side (not IAP): the ironSource Ads network (mediated via LevelPlay, see
+"Ad mediation" above) was approved 2026-08-25 — the app is live and receiving inventory on iOS;
+Android-side ironSource setup is still in progress on their end. This is a dashboard/network status,
+not a code change — no action needed here unless Android ad unit IDs need updating later via
+`SceneCleanupBuilder.WireAdManagerConfig` once that side completes.
 
 ### Cosmetics system (`Scripts/Data/CosmeticData.cs`, `CosmeticType.cs`, `Scripts/Gameplay/CharacterCosmeticRenderer.cs`, `Scripts/Editor/CosmeticWiringBuilder.cs`)
 
