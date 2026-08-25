@@ -968,6 +968,11 @@ exists yet as of this date). `IAPManager.Connect()` still fails gracefully with 
 the Editor, expected until a real build runs against real store config. Purchase-card art and a
 "Thank you" confirmation toast remain unbuilt.
 
+**3 more products exist in code since this status was last updated** — the World Purchase IAPs
+(`world_frostbitegarden`/`world_goldensunset`/`world_harvestmoon`, $3.99 each, see "World Purchase"
+above) aren't registered in App Store Connect or Play Console yet; same registration steps as the
+other 12 apply once ready.
+
 Separately, on the **ad** side (not IAP): the ironSource Ads network (mediated via LevelPlay, see
 "Ad mediation" above) was approved 2026-08-25 — the app is live and receiving inventory on iOS;
 Android-side ironSource setup is still in progress on their end. This is a dashboard/network status,
@@ -976,11 +981,18 @@ not a code change — no action needed here unless Android ad unit IDs need upda
 
 ### Cosmetics system (`Scripts/Data/CosmeticData.cs`, `CosmeticType.cs`, `Scripts/Gameplay/CharacterCosmeticRenderer.cs`, `Scripts/Editor/CosmeticWiringBuilder.cs`)
 
-Monetisation Build Plan Phase 4 (hats/skins/trails/maze themes — GDD Section 11's "Cosmetic Store,"
+Monetisation Build Plan Phase 4 (hats/skins/trails — GDD Section 11's "Cosmetic Store,"
 non-gameplay-affecting). The data model + persistence + rendering hook are built, and one real test
 batch — 8 baseball caps, one per character, all Kling AI-generated — is wired end to end (see
-"First real cosmetic batch" below). No Store UI, no other hat/accessory/skin/trail/theme art exists
-yet.
+"First real cosmetic batch" below). No Store UI, no other hat/accessory/skin art exists yet.
+
+**"MazeTheme" (a 4th cosmetic type — buy art that reskins an existing world) was built, then fully
+removed on 2026-08-25** in favor of "World Purchase" instead — buying a whole new, independently
+levelled world rather than a skin for one you already have. `CosmeticType` is Hat/Skin/Trail only
+now; `CosmeticData` no longer has `themeWallSprite`/`themeGroundSprite`/`themeBackdropSprite`, and
+`SaveManager` no longer has `GetEquippedMazeTheme`/`SetEquippedMazeTheme`. See "World Purchase"
+below for what replaced it — the mentions of MazeTheme in the historical prose immediately below
+describe the original (now-removed) design, kept for context rather than rewritten.
 
 **`CosmeticData`** (ScriptableObject) covers all 4 GDD cosmetic categories in one asset shape
 (`CosmeticType`: Hat, Skin, Trail, MazeTheme) rather than one class per category, since they share
@@ -1113,10 +1125,11 @@ for any of these 4 screens):
    itself and relabeling to "Ads Removed" once `SaveManager.AdsRemoved` is true.
    `ShopController.purchaseButtons` (renamed from `coinPackButtons`) is generic now — any IAP
    product id + its Button, not coin-pack-specific.
-2. **Cosmetics hub** (`CosmeticsHubScreen`, its own new controller) — a `Cosmetics.png` sign and 3
-   icons: `Hat_Icon.png` → Hats screen, `Trails_Tab_Icon.png` ("comet") → Trails screen, and
-   `MazeThemeTab.png` ("map") shown but **not wired to anything** — no maze-theme cosmetic content
-   exists yet, per explicit instruction not to build that destination. Reached via Shop's
+2. **Cosmetics hub** (`CosmeticsHubScreen`, its own new controller) — a `Cosmetics.png` sign and 2
+   icons: `Hat_Icon.png` → Hats screen, `Trails_Tab_Icon.png` ("comet") → Trails screen. A 3rd
+   `MazeThemeTab.png` ("map") icon used to sit here (first not-wired-to-anything, then briefly
+   wired to a maze-reskin cosmetic screen) but was removed entirely on 2026-08-25 review — see
+   "World Purchase" above for what replaced the idea it was pointing at. Reached via Shop's
    Cosmetics button, layered on top of it (same "overlay on top of overlay" convention
    `ChooseCharacterScreen` uses over Pause).
 3. **Hats** (`HatPurchaseScreen`, `CosmeticPurchaseScreen`) — 3 framed items (`FrameBaseballCap.png`
@@ -1190,6 +1203,109 @@ rebuild required" workflow.
 - No owned/equipped visual state on the new purchase screens (no "Equipped" badge, no disabling an
   already-owned item) — the old `CosmeticCardController` had this via `EquippedBadge_Icon.png`; the
   new flat mockups don't show it, and a `NonConsumable` re-purchase is a store-side no-op regardless.
+
+### World Purchase (`Scripts/Data/MazeType.cs`, `Scripts/Utilities/UnlockProgression.cs`, `Scripts/Core/IAPManager.cs`/`SaveManager.cs`/`GameManager.cs`, `Scripts/UI/LevelSelectController.cs`/`SettingsPanel.cs`)
+
+2026-08-25: a whole new $3.99-IAP-gated 25-level world, not a cosmetic — replaced an earlier
+"MazeTheme" idea (buy art that reskins a world you already have, see the removal note under
+"Cosmetics system" above) once it became clear buying new content is a much stronger pitch than
+buying paint for content already owned for free. Three worlds shipped this way so far —
+**FrostbiteGarden** (in-game shield art says "Frozen Garden" — see the naming note below),
+**GoldenSunset**, **HarvestMoon** — each built identically, end to end, in the same session.
+
+**Data model.** `MazeType` gained 3 new values, appended after `Endless` (not inserted earlier in
+the list) so no existing `LevelData`/`MazeArtSet` asset's serialized enum ordinal shifts.
+`UnlockProgression.PurchasedWorldMazeTypes` (`{FrostbiteGarden, GoldenSunset, HarvestMoon}`) maps
+world index 4/5/6 to these — `IsPurchaseGatedWorld(world)`/`MazeTypeForPurchasedWorld(world)` are
+the only two places that mapping lives. `UnlockProgression.TotalLevels` is `175` now (100 for the
+4 free worlds + 25 per purchased world) — bump by 25 and append to `PurchasedWorldMazeTypes` for
+any future purchased world (world index 7 next).
+
+**Unlock gating is structurally different from the 4 free worlds**, not just a different check
+value: a purchased world isn't part of the CornField→Wheat sequential star-progress chain at all.
+`UnlockProgression.IsLevelUnlocked` branches on `IsPurchaseGatedWorld(world)` — if true, the
+world's own first level unlocks purely on `SaveManager.IsWorldPurchased(mazeType)` (no predecessor-
+star requirement, no cross-world gate check); every level after that world's first still needs its
+own predecessor's star, same chain rule as any other world, just scoped to within that one
+purchased world. `IsWorldUnlocked(world)` and `GetUnlockHint(levelIndex)` branch the same way.
+`GameManager.ComputeJustUnlockedWorld` explicitly early-returns for a purchase-gated `nextWorld` —
+without this, finishing Wheat with 2+ stars would fire the free-world "New World Unlocked!"
+celebration for a world the player hasn't bought (since its LevelData now genuinely exists at the
+next levelNumber slot).
+
+**Purchase → unlock → persistence**, one straight line: `IAPManager` registers one $3.99
+NonConsumable product per world (`world_frostbitegarden`/`world_goldensunset`/`world_harvestmoon`)
+→ `HandlePurchasePending` calls `GrantWorldPurchase(MazeType)` → `SaveManager.SetWorldPurchased`
+writes a `PlayerPrefs` flag and calls `PlayerPrefs.Save()` immediately. No equip step (unlike Hat/
+Trail cosmetics) — ownership alone is what `UnlockProgression` reads, so the purchase is visible in
+Level Select the very next time it's opened, and survives an app restart since it's a persisted
+flag, not session state. `SaveManager.ResetAllProgressKeys` (the "Reset Progress" testing tool)
+sweeps these flags too, same as every other per-`MazeType` key.
+
+**Levels: generated + offline-verified, same recipe as Orchard/Wheat.** 25 mazes per world (75
+total, `LevelData_101`-`175`), each via a one-off, not-committed generator script — same odd-odd-
+room / never-carved-pillar scheme documented under "Development status" below (interior room cells
+at odd x∈{1,3,5,7,9}/odd y∈{1,3,5,7}, pillars at both-even coordinates never carved, recursive-
+backtracker spanning tree + 5-8 extra loop edges, one warp pair per level at a random room column,
+one power pellet + a roughly-even kernel/vegetable split on the remaining room cells). Verified
+before baking in: full connectivity (BFS from player start reaches every floor cell) and no open-
+2x2-block anywhere — 0 failures across all 75 on generation. Baked into `Phase2ProjectBuilder.cs`
+as `RowsFG01..25`/`BuildLevelDataFG01..25` (FrostbiteGarden), `RowsGS01..25`/`BuildLevelDataGS01..25`
+(GoldenSunset), `RowsHM01..25`/`BuildLevelDataHM01..25` (HarvestMoon) — same permanent, rebuildable-
+via-`BuildAll` shape every other world's levels use; only the *generator* was thrown away after
+running, not its output. `Phase3ProjectBuilder.AssignRobotSpawnsToRemainingLevels`'s loop bound
+went from 100→125→175 across this work so all 3 worlds get the same per-world-position robot
+difficulty curve every free world already has.
+
+**Art: real wall/ground/backdrop + shield badge, placeholder crop/pellet/warp/bonus.** Each world
+has real dedicated wall/ground/backdrop art (dropped in under `Sprites/Cosmetics/
+CosmeticType_MazeTheme/` — originally authored for the abandoned MazeTheme reskin idea, reused
+here since the art itself is exactly what a `MazeArtSet` needs) wired via `ArtWiringBuilder.
+WireFrostbiteGarden`/`WireGoldenSunset`/`WireHarvestMoon`, each following the same shape: set the
+wall/ground prefab's sprite (prefabs themselves built as placeholder-colored in
+`Phase2ProjectBuilder.BuildAll`, same two-phase convention Orchard/Wheat's wall/ground prefabs
+used), set `backdropSprite`, and — since none of the 3 has its own dedicated crop/vegetable/pellet/
+warp-tunnel/bonus-pickup art yet — reuse CornField's own prefabs/sprites for those roles by direct
+reference (`tileMapRenderer.GetOrAddArtSet(MazeType.CornField)`, read once, assigned onto the new
+world's `MazeArtSet`). Swap in dedicated art for those roles later; the wiring method's shape won't
+need to change, just which prefab/sprite each field points at. Note: `ForstbiteGarden_Walltile.png`
+(missing an 'r') is a real on-disk typo — the Backdrop/Floortile files for the same world are
+spelled `FrostbiteGarden_*` correctly.
+
+Real per-world Level Select badge art also landed the same session — `FrozenGarden_shield.png`/
+`GoldenSunset_shield.png`/`HarvestMoon_shield.png` (same folder), wired into
+`LevelSelectController.worldSignSprites[4..6]`, same "shield + rope + name baked into one image"
+convention the 4 free worlds' own `CornfieldSign.png`/etc. use. **Naming mismatch, worth knowing**:
+the shipped shield art reads "FROZEN GARDEN", not "Frostbite Garden" — internal ids/`MazeType`/
+`UnlockProgression.GetWorldNameForLevel` all still say `FrostbiteGarden` (renaming would have been
+a bigger, save-data-relevant change for a cosmetic-only mismatch), so only the player-facing badge
+label differs from the code name. Grep for both if searching by name.
+
+**Entry points — one purchase screen, several doors in:** Shop's own map-icon entry point was
+removed (2026-08-25 review, see "Screens & scene flow" below); the World Purchase screen (the
+`CosmeticPurchaseScreen` instance built by `Phase5ProjectBuilder.BuildWorldPurchaseScreen`) is now
+reached from Settings' row-2 `WorldsCell` (`WorldMaze.png` icon) and from tapping a locked-but-
+purchase-gated world's shield directly in Level Select's carousel (`LevelSelectController` keeps a
+purchase-gated badge `Button.interactable = true` even while locked — unlike a star-locked free-
+world badge, which stays genuinely inert — and routes the tap to `worldPurchaseScreen.Show()`
+instead of revealing a tile grid the player hasn't earned).
+
+**World Purchase screen's own visual history is worth knowing if debugging it.** First built
+around a single supplied design-mockup image, stretched full-screen as the whole background with 3
+invisible `Button` hotspots positioned on top of where its baked-in shields happened to render —
+workable when only a flat mockup existed, but the shields were then baked pixels in one picture:
+impossible to "tighten" or reposition, and it visibly spilled past the safe-area guide on a real
+device aspect (caught via a screenshot review). Once real individual shield art landed, the screen
+was rebuilt (`BuildWorldPurchaseScreen`) around `landing.png` (full brightness, not the dimmed-
+poster convention other overlays use) as the background, `WorldMaze.png` as a top-center badge, and
+the 3 shields as real, independently-sized/positioned `CreateIconButton`s (380px each, 30px
+spacing) — genuinely tunable now, not baked into one image.
+
+**`CosmeticPurchaseScreen` gained a `comingSoonButtons` array** (wired in `Awake`, same "must wire
+listeners in a real `MonoBehaviour.Awake`, never directly from editor-script code" gotcha this
+project has hit before) for a shield shown before its own world's content is ready — tapping one
+sets `statusText` to "Coming Soon!" instead of attempting a purchase. Currently empty/unused (all 3
+shipped worlds have real products), kept for the next purchased world added this way.
 
 ### Screens & scene flow (`Scripts/UI`, Phase 5)
 
@@ -2901,10 +3017,13 @@ and reopen the project normally to confirm nothing was corrupted.
   singletons — done.
 - **Phase 2** (movement & maze): tile-id-driven maze rendering, grid movement with intersection/
   reversal rules, crop/vegetable/power-pellet pickup, warp tunnels, scoring, level completion —
-  done. **All 100 real levels now exist**, filling out `UnlockProgression.TotalLevels` completely
-  across all 4 worlds: `LevelData_01`-`25` (World 1, Corn Field, `levelNumber` 0-24), `LevelData_26`-
+  done. **All 100 free-world levels exist**, filling out the original 4-world scope:
+  `LevelData_01`-`25` (World 1, Corn Field, `levelNumber` 0-24), `LevelData_26`-
   `50` (World 2, Veg Patch, `levelNumber` 25-49), `LevelData_51`-`75` (World 3, Orchard, `levelNumber`
-  50-74), and `LevelData_76`-`100` (World 4, Wheat Field, `levelNumber` 75-99 — the last world).
+  50-74), and `LevelData_76`-`100` (World 4, Wheat Field, `levelNumber` 75-99 — the last free
+  world). `UnlockProgression.TotalLevels` is `175`, not `100`, as of 2026-08-25 — 3 more,
+  purchase-gated worlds (`LevelData_101`-`175`, 25 levels each) were added on top; see "World
+  Purchase" above for how those are generated/gated differently from the 4 described here.
   World 3 and World 4's 25-level sets are each entirely algorithmically generated (no hand-authored
   ones, unlike World 1's `01`-`04`/`06`-`08`), each by its own one-shot offline generator
   (`OrchardMazeGeneratorTemp`/`WheatMazeGeneratorTemp` — not kept in the repo, same "generator not
