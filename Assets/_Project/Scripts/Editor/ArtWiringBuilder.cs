@@ -386,6 +386,37 @@ namespace FarmFuryArcade.EditorTools
         private const string CropKernelWheatPrefabPath = BlockPrefabFolder + "/Crop_Kernel_Wheat.prefab";
         private const string CropVegetableWheatPrefabPath = BlockPrefabFolder + "/Crop_Vegetable_Wheat.prefab";
 
+        // ---- World Purchase: FrostbiteGarden (5th world, $3.99 IAP — see IAPManager.
+        // WorldFrostbiteGardenProductId / UnlockProgression.IsPurchaseGatedWorld) --------------------
+        // Note the "ForstbiteGarden" (missing 'r') spelling on the wall-tile file only — the
+        // Backdrop/Floortile files for the same drop are spelled "FrostbiteGarden" correctly.
+        private const string FrostbiteGardenWallTile = "Assets/_Project/Sprites/Cosmetics/CosmeticType_MazeTheme/ForstbiteGarden_Walltile.png";
+        private const string FrostbiteGardenFloorTile = "Assets/_Project/Sprites/Cosmetics/CosmeticType_MazeTheme/FrostbiteGarden_Floortile.png";
+        private const string FrostbiteGardenBackdropSprite = "Assets/_Project/Sprites/Cosmetics/CosmeticType_MazeTheme/FrostbiteGarden_Backdrop.png";
+        private const string WallFrostbiteGardenPrefabPath = BlockPrefabFolder + "/Wall_FrostbiteGarden.prefab";
+        private const string GroundFrostbiteGardenPrefabPath = BlockPrefabFolder + "/Ground_FrostbiteGarden.prefab";
+
+        private const string GoldenSunsetWallTile = "Assets/_Project/Sprites/Cosmetics/CosmeticType_MazeTheme/GoldenSunset_Walltile.png";
+        private const string GoldenSunsetFloorTile = "Assets/_Project/Sprites/Cosmetics/CosmeticType_MazeTheme/GoldenSunset_Floortile.png";
+        private const string GoldenSunsetBackdropSprite = "Assets/_Project/Sprites/Cosmetics/CosmeticType_MazeTheme/GoldenSunset_backdrop.png";
+        private const string WallGoldenSunsetPrefabPath = BlockPrefabFolder + "/Wall_GoldenSunset.prefab";
+        private const string GroundGoldenSunsetPrefabPath = BlockPrefabFolder + "/Ground_GoldenSunset.prefab";
+
+        private const string HarvestMoonWallTile = "Assets/_Project/Sprites/Cosmetics/CosmeticType_MazeTheme/HarvestMoon_Walltile.png";
+        private const string HarvestMoonFloorTile = "Assets/_Project/Sprites/Cosmetics/CosmeticType_MazeTheme/HarvestMoon_Floortile.png";
+        // Note: this world's backdrop file is "Harvest_Backdrop.png", not "HarvestMoon_Backdrop.png".
+        private const string HarvestMoonBackdropSprite = "Assets/_Project/Sprites/Cosmetics/CosmeticType_MazeTheme/Harvest_Backdrop.png";
+        private const string WallHarvestMoonPrefabPath = BlockPrefabFolder + "/Wall_HarvestMoon.prefab";
+        private const string GroundHarvestMoonPrefabPath = BlockPrefabFolder + "/Ground_HarvestMoon.prefab";
+
+        // Real dedicated Level Select world-badge art for all 3 purchased worlds (dropped in
+        // 2026-08-25 — before this, FrostbiteGarden's badge fell back to its own backdrop sprite as
+        // a placeholder; these are genuine "shield + rope + name" badges matching the 4 free
+        // worlds' own CornfieldSign.png/etc. style).
+        private const string FrozenGardenShield = "Assets/_Project/Sprites/Cosmetics/CosmeticType_MazeTheme/FrozenGarden_shield.png";
+        private const string GoldenSunsetShield = "Assets/_Project/Sprites/Cosmetics/CosmeticType_MazeTheme/GoldenSunset_shield.png";
+        private const string HarvestMoonShield = "Assets/_Project/Sprites/Cosmetics/CosmeticType_MazeTheme/HarvestMoon_shield.png";
+
         // ---- ChooseCharacterScreen card art (framed "animal card" portraits) -------------------
         private const string CluckCard = "Assets/_Project/Sprites/UI/Cluck_Chicken.png";
         private const string BessieCard = "Assets/_Project/Sprites/UI/Bessie_Cow.png";
@@ -424,6 +455,9 @@ namespace FarmFuryArcade.EditorTools
             WireCropsAndPellets();
             WireMazeTiles();
             WireOrchardAndWheat();
+            WireFrostbiteGarden();
+            WireGoldenSunset();
+            WireHarvestMoon();
             WireGameplayBackdrop();
             WireBackgrounds();
             WireLevelCompleteStars();
@@ -480,6 +514,10 @@ namespace FarmFuryArcade.EditorTools
             BgLevelSelect, DividerWorldBanner, WaterTileSprite, UnlockedBannerSprite, WorldUnlockedBannerSprite,
             OrchardWallTile, OrchardFloorTileSprite, OrchardBackgroundSprite, OrchardWarpTile, WheatWarpTile, RedApplePellet, CherryBonus,
             WheatWallTile, WheatFloorTileSprite, MiniLoafPellet, RareGrainSackBonus,
+            FrostbiteGardenWallTile, FrostbiteGardenFloorTile, FrostbiteGardenBackdropSprite,
+            GoldenSunsetWallTile, GoldenSunsetFloorTile, GoldenSunsetBackdropSprite,
+            HarvestMoonWallTile, HarvestMoonFloorTile, HarvestMoonBackdropSprite,
+            FrozenGardenShield, GoldenSunsetShield, HarvestMoonShield,
             SelectLevelText, CornFieldText, VegetablePatchText, OrchardText, WheatfieldText, SettingsSignText,
             LogoImage, CluckEggIcon, CluckEggCracked, CluckEggBurst,
             HatTabIcon, TrailsTabIcon, MazeThemeTabIcon, ShopButtonArt, LeaderboardSignArt, DailyChallengeShieldArt,
@@ -1135,6 +1173,117 @@ namespace FarmFuryArcade.EditorTools
             wheat.rarePelletSprite = Load(GoldenWheatPellet);
             wheat.bonusPickupPrefab = AssetDatabase.LoadAssetAtPath<GameObject>(PickupGrainSackPrefabPath);
             wheat.bonusPickupCount = 10;
+
+            EditorUtility.SetDirty(tileMapRenderer);
+            EditorSceneManager.SaveScene(EditorSceneManager.GetActiveScene());
+        }
+
+        /// <summary>World Purchase's FrostbiteGarden — real dedicated wall/ground/backdrop art
+        /// (dropped in under Sprites/Cosmetics/CosmeticType_MazeTheme/, originally authored for a
+        /// maze-reskin cosmetic idea that was tried and dropped in favor of this whole-new-world
+        /// purchase instead — see CosmeticsHubScreen's doc comment), but NO dedicated crop/
+        /// vegetable/pellet/warp-tunnel/bonus-pickup art yet. Per an explicit decision to pilot this
+        /// one world before authoring more art, those slots deliberately reuse CornField's own
+        /// prefabs by direct reference (same placeholder-until-dedicated-art convention every other
+        /// "not built yet" gap in this project uses) rather than left null — a null cropKernelPrefab/
+        /// cropVegetablePrefab would throw when RenderMaze tries to Instantiate it. Swap these to
+        /// FrostbiteGarden's own dedicated prefabs (built the same way Orchard/Wheat's
+        /// Crop_Kernel_Orchard etc. were) once that art exists — this method's shape won't need to
+        /// change, just which prefab each field points at.
+        ///
+        /// Wall_FrostbiteGarden/Ground_FrostbiteGarden prefabs themselves are built as placeholder-
+        /// colored prefabs in Phase2ProjectBuilder.BuildAll (same two-phase "build placeholder, then
+        /// swap in real sprite" convention Orchard/Wheat's own wall/ground prefabs used) — this
+        /// method only sets their sprite once real art is available, via SetPrefabSprite.</summary>
+        private static void WireFrostbiteGarden()
+        {
+            SetPrefabSprite(WallFrostbiteGardenPrefabPath, Load(FrostbiteGardenWallTile));
+            SetPrefabSprite(GroundFrostbiteGardenPrefabPath, Load(FrostbiteGardenFloorTile));
+
+            EditorSceneManager.OpenScene(ScenePath);
+            var tileMapRenderer = GameObject.Find("GameManagers")?.GetComponent<TileMapRenderer>();
+            if (tileMapRenderer == null)
+            {
+                Debug.LogWarning("[ArtWiringBuilder] Could not find TileMapRenderer on GameManagers to wire FrostbiteGarden art.");
+                return;
+            }
+
+            var cornField = tileMapRenderer.GetOrAddArtSet(MazeType.CornField);
+
+            var frostbiteGarden = tileMapRenderer.GetOrAddArtSet(MazeType.FrostbiteGarden);
+            frostbiteGarden.wallPrefab = AssetDatabase.LoadAssetAtPath<GameObject>(WallFrostbiteGardenPrefabPath);
+            frostbiteGarden.groundPrefab = AssetDatabase.LoadAssetAtPath<GameObject>(GroundFrostbiteGardenPrefabPath);
+            frostbiteGarden.backdropSprite = Load(FrostbiteGardenBackdropSprite);
+            // Reused from CornField (placeholder until FrostbiteGarden gets its own dedicated art —
+            // see this method's own doc comment):
+            frostbiteGarden.warpTunnelPrefab = cornField.warpTunnelPrefab;
+            frostbiteGarden.cropKernelPrefab = cornField.cropKernelPrefab;
+            frostbiteGarden.cropVegetablePrefab = cornField.cropVegetablePrefab;
+            frostbiteGarden.pelletSprite = cornField.pelletSprite;
+            frostbiteGarden.rarePelletSprite = cornField.rarePelletSprite;
+
+            EditorUtility.SetDirty(tileMapRenderer);
+            EditorSceneManager.SaveScene(EditorSceneManager.GetActiveScene());
+        }
+
+        /// <summary>World Purchase's GoldenSunset — same shape as WireFrostbiteGarden (real wall/
+        /// ground/backdrop art, crop/pellet/warp-tunnel/bonus-pickup reused from CornField as a
+        /// placeholder pending dedicated art). See that method's own doc comment for the reasoning.</summary>
+        private static void WireGoldenSunset()
+        {
+            SetPrefabSprite(WallGoldenSunsetPrefabPath, Load(GoldenSunsetWallTile));
+            SetPrefabSprite(GroundGoldenSunsetPrefabPath, Load(GoldenSunsetFloorTile));
+
+            EditorSceneManager.OpenScene(ScenePath);
+            var tileMapRenderer = GameObject.Find("GameManagers")?.GetComponent<TileMapRenderer>();
+            if (tileMapRenderer == null)
+            {
+                Debug.LogWarning("[ArtWiringBuilder] Could not find TileMapRenderer on GameManagers to wire GoldenSunset art.");
+                return;
+            }
+
+            var cornField = tileMapRenderer.GetOrAddArtSet(MazeType.CornField);
+
+            var goldenSunset = tileMapRenderer.GetOrAddArtSet(MazeType.GoldenSunset);
+            goldenSunset.wallPrefab = AssetDatabase.LoadAssetAtPath<GameObject>(WallGoldenSunsetPrefabPath);
+            goldenSunset.groundPrefab = AssetDatabase.LoadAssetAtPath<GameObject>(GroundGoldenSunsetPrefabPath);
+            goldenSunset.backdropSprite = Load(GoldenSunsetBackdropSprite);
+            goldenSunset.warpTunnelPrefab = cornField.warpTunnelPrefab;
+            goldenSunset.cropKernelPrefab = cornField.cropKernelPrefab;
+            goldenSunset.cropVegetablePrefab = cornField.cropVegetablePrefab;
+            goldenSunset.pelletSprite = cornField.pelletSprite;
+            goldenSunset.rarePelletSprite = cornField.rarePelletSprite;
+
+            EditorUtility.SetDirty(tileMapRenderer);
+            EditorSceneManager.SaveScene(EditorSceneManager.GetActiveScene());
+        }
+
+        /// <summary>World Purchase's HarvestMoon — same shape as WireFrostbiteGarden/
+        /// WireGoldenSunset.</summary>
+        private static void WireHarvestMoon()
+        {
+            SetPrefabSprite(WallHarvestMoonPrefabPath, Load(HarvestMoonWallTile));
+            SetPrefabSprite(GroundHarvestMoonPrefabPath, Load(HarvestMoonFloorTile));
+
+            EditorSceneManager.OpenScene(ScenePath);
+            var tileMapRenderer = GameObject.Find("GameManagers")?.GetComponent<TileMapRenderer>();
+            if (tileMapRenderer == null)
+            {
+                Debug.LogWarning("[ArtWiringBuilder] Could not find TileMapRenderer on GameManagers to wire HarvestMoon art.");
+                return;
+            }
+
+            var cornField = tileMapRenderer.GetOrAddArtSet(MazeType.CornField);
+
+            var harvestMoon = tileMapRenderer.GetOrAddArtSet(MazeType.HarvestMoon);
+            harvestMoon.wallPrefab = AssetDatabase.LoadAssetAtPath<GameObject>(WallHarvestMoonPrefabPath);
+            harvestMoon.groundPrefab = AssetDatabase.LoadAssetAtPath<GameObject>(GroundHarvestMoonPrefabPath);
+            harvestMoon.backdropSprite = Load(HarvestMoonBackdropSprite);
+            harvestMoon.warpTunnelPrefab = cornField.warpTunnelPrefab;
+            harvestMoon.cropKernelPrefab = cornField.cropKernelPrefab;
+            harvestMoon.cropVegetablePrefab = cornField.cropVegetablePrefab;
+            harvestMoon.pelletSprite = cornField.pelletSprite;
+            harvestMoon.rarePelletSprite = cornField.rarePelletSprite;
 
             EditorUtility.SetDirty(tileMapRenderer);
             EditorSceneManager.SaveScene(EditorSceneManager.GetActiveScene());
@@ -1835,7 +1984,19 @@ namespace FarmFuryArcade.EditorTools
             var levelSelectController = canvasTransform.Find("LevelSelectScreen")?.GetComponent<LevelSelectController>();
             if (levelSelectController != null)
             {
-                var worldSigns = new[] { Load(CornFieldText), Load(VegetablePatchText), Load(OrchardText), Load(WheatfieldText) };
+                // Indices 4-6 (FrostbiteGarden/GoldenSunset/HarvestMoon) now have real dedicated
+                // shield/sign art too (FrozenGarden_shield.png/GoldenSunset_shield.png/
+                // HarvestMoon_shield.png, dropped in 2026-08-25) — same "shield shape + rope + name
+                // text baked into one image" convention the 4 free worlds' own CornfieldSign.png/
+                // etc. already use. Note the in-game display name for FrostbiteGarden is "Frozen
+                // Garden" (UnlockProgression.GetWorldNameForLevel still says "Frostbite Garden" for
+                // logging/hints — only the shield ART says "Frozen Garden", matching the shipped
+                // asset's own baked text).
+                var worldSigns = new[]
+                {
+                    Load(CornFieldText), Load(VegetablePatchText), Load(OrchardText), Load(WheatfieldText),
+                    Load(FrozenGardenShield), Load(GoldenSunsetShield), Load(HarvestMoonShield),
+                };
                 var lsSo = new SerializedObject(levelSelectController);
                 var arrayProp = lsSo.FindProperty("worldSignSprites");
                 arrayProp.arraySize = worldSigns.Length;

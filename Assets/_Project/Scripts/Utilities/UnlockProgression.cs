@@ -1,4 +1,5 @@
 using FarmFuryArcade.Core;
+using FarmFuryArcade.Data;
 
 namespace FarmFuryArcade.Utilities
 {
@@ -18,13 +19,37 @@ namespace FarmFuryArcade.Utilities
     /// </summary>
     public static class UnlockProgression
     {
-        public const int TotalLevels = 100;
+        /// <summary>100 (worlds 0-3, the free star-progress worlds) + 25 per purchased world (see
+        /// PurchasedWorldMazeTypes). Grows by 25 for every purchased world added.</summary>
+        public const int TotalLevels = 175;
         public const int LevelsPerWorld = 25;
         public const int WorldGateStarRequirement = 2;
 
+        /// <summary>Worlds 4+ (Monetisation "World Purchase") — owned-or-not via SaveManager.
+        /// IsWorldPurchased, completely independent of the free worlds' sequential star-progress
+        /// chain below. World index = 4 + array index (world 4 = FrostbiteGarden, 5 = GoldenSunset,
+        /// 6 = HarvestMoon). Add future purchased worlds here, in order, and bump TotalLevels by 25
+        /// for each.</summary>
+        private static readonly MazeType[] PurchasedWorldMazeTypes = { MazeType.FrostbiteGarden, MazeType.GoldenSunset, MazeType.HarvestMoon };
+
+        private const int FirstPurchasedWorldIndex = 4;
+
+        public static bool IsPurchaseGatedWorld(int world)
+        {
+            return world >= FirstPurchasedWorldIndex && (world - FirstPurchasedWorldIndex) < PurchasedWorldMazeTypes.Length;
+        }
+
+        private static MazeType MazeTypeForPurchasedWorld(int world)
+        {
+            return PurchasedWorldMazeTypes[world - FirstPurchasedWorldIndex];
+        }
+
         /// <summary>Level 1 (index 0) is always unlocked. Level N unlocks once Level N-1 has at
         /// least 1 star; levels 26-50/51-75/76-100 additionally require their world's gate level
-        /// (25/50/75) at 2+ stars.</summary>
+        /// (25/50/75) at 2+ stars. A purchase-gated world's own first level instead requires only
+        /// that world's purchase (no star chain from the previous world at all — these worlds
+        /// aren't part of the sequential CornField-&gt;Wheat chain); every level after that world's
+        /// first still needs its own predecessor's star, same as any other world.</summary>
         public static bool IsLevelUnlocked(int levelIndex)
         {
             // Only 2 LevelData assets exist right now (levelNumber 0 and 4) against this 100-slot
@@ -36,26 +61,44 @@ namespace FarmFuryArcade.Utilities
             {
                 return false;
             }
-            if (levelIndex <= 0)
+
+            int world = levelIndex / LevelsPerWorld;
+            int indexWithinWorld = levelIndex % LevelsPerWorld;
+
+            if (IsPurchaseGatedWorld(world))
             {
-                return true;
+                if (SaveManager.Instance == null || !SaveManager.Instance.IsWorldPurchased(MazeTypeForPurchasedWorld(world)))
+                {
+                    return false;
+                }
+                if (indexWithinWorld == 0)
+                {
+                    return true;
+                }
             }
+            else
+            {
+                if (levelIndex <= 0)
+                {
+                    return true;
+                }
+                if (SaveManager.Instance == null)
+                {
+                    return false;
+                }
+
+                int worldGateIndex = WorldGateIndexFor(levelIndex);
+                if (worldGateIndex >= 0 && SaveManager.Instance.GetLevelStars(worldGateIndex) < WorldGateStarRequirement)
+                {
+                    return false;
+                }
+            }
+
             if (SaveManager.Instance == null)
             {
                 return false;
             }
-            if (SaveManager.Instance.GetLevelStars(levelIndex - 1) < 1)
-            {
-                return false;
-            }
-
-            int worldGateIndex = WorldGateIndexFor(levelIndex);
-            if (worldGateIndex >= 0 && SaveManager.Instance.GetLevelStars(worldGateIndex) < WorldGateStarRequirement)
-            {
-                return false;
-            }
-
-            return true;
+            return SaveManager.Instance.GetLevelStars(levelIndex - 1) >= 1;
         }
 
         /// <summary>0-indexed gate level (24, 49, or 74) for a level index that falls inside worlds
@@ -106,6 +149,12 @@ namespace FarmFuryArcade.Utilities
                 return "This level isn't available yet";
             }
 
+            int world = levelIndex / LevelsPerWorld;
+            if (IsPurchaseGatedWorld(world))
+            {
+                return $"Purchase {GetWorldNameForLevel(levelIndex)} to unlock this level";
+            }
+
             int worldGateIndex = WorldGateIndexFor(levelIndex);
             if (worldGateIndex >= 0 && GetStarsForLevel(worldGateIndex) < WorldGateStarRequirement)
             {
@@ -115,13 +164,19 @@ namespace FarmFuryArcade.Utilities
             return $"Complete Level {levelIndex} to unlock this level";
         }
 
-        /// <summary>World 0 is always available. World N (N&gt;0) becomes available once the last
-        /// level of world N-1 has 2+ stars — the same gate IsLevelUnlocked already applies via
-        /// WorldGateIndexFor, exposed here as a standalone world-level check for callers (Level
-        /// Select's carousel, DailyChallengeManager's world pool) that need "is this whole world
-        /// open" rather than "is this specific level open."</summary>
+        /// <summary>World 0 is always available. World N (N&gt;0, and not purchase-gated) becomes
+        /// available once the last level of world N-1 has 2+ stars — the same gate IsLevelUnlocked
+        /// already applies via WorldGateIndexFor. A purchase-gated world (see
+        /// PurchasedWorldMazeTypes) ignores all of that and is simply owned-or-not. Exposed here as
+        /// a standalone world-level check for callers (Level Select's carousel,
+        /// DailyChallengeManager's world pool) that need "is this whole world open" rather than "is
+        /// this specific level open."</summary>
         public static bool IsWorldUnlocked(int world)
         {
+            if (IsPurchaseGatedWorld(world))
+            {
+                return SaveManager.Instance != null && SaveManager.Instance.IsWorldPurchased(MazeTypeForPurchasedWorld(world));
+            }
             if (world <= 0)
             {
                 return true;
@@ -137,6 +192,10 @@ namespace FarmFuryArcade.Utilities
                 0 => "Corn Field",
                 1 => "Vegetable Patch",
                 2 => "Orchard",
+                3 => "Wheat Field",
+                4 => "Frostbite Garden",
+                5 => "Golden Sunset",
+                6 => "Harvest Moon",
                 _ => "Wheat Field"
             };
         }

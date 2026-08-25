@@ -50,6 +50,13 @@ namespace FarmFuryArcade.Core
         public const string TrailSparkleDustProductId = "trail_sparkledust";
         public const string TrailRainbowRibbonProductId = "trail_rainbowribbon";
 
+        // World Purchase (new content world, not a cosmetic) — $3.99 NonConsumable that unlocks a
+        // full 25-level world independent of star progress. See UnlockProgression's purchase-gated
+        // world handling and SaveManager.IsWorldPurchased/SetWorldPurchased.
+        public const string WorldFrostbiteGardenProductId = "world_frostbitegarden";
+        public const string WorldGoldenSunsetProductId = "world_goldensunset";
+        public const string WorldHarvestMoonProductId = "world_harvestmoon";
+
         /// <summary>Universal (character-agnostic) cosmeticId for the two new single-art hat
         /// styles — unlike the 8 per-character "baseball_cap_&lt;character&gt;" assets, Cowboy Hat
         /// and Sombrero only have one piece of art (not fitted per character), so one CosmeticData
@@ -73,6 +80,7 @@ namespace FarmFuryArcade.Core
             TrailCornHuskProductId, TrailEmberProductId, TrailSparkleDustProductId, TrailRainbowRibbonProductId,
         };
 
+
         /// <summary>Fallback price strings shown before the store connection resolves real
         /// localized prices (or if it never does, e.g. no store configured yet during
         /// development) — GDD Section 11's own price table, not live pricing.</summary>
@@ -90,6 +98,9 @@ namespace FarmFuryArcade.Core
             { TrailEmberProductId, "$3.99" },
             { TrailSparkleDustProductId, "$3.99" },
             { TrailRainbowRibbonProductId, "$3.99" },
+            { WorldFrostbiteGardenProductId, "$3.99" },
+            { WorldGoldenSunsetProductId, "$3.99" },
+            { WorldHarvestMoonProductId, "$3.99" },
         };
 
         public bool IsInitialized { get; private set; }
@@ -142,6 +153,9 @@ namespace FarmFuryArcade.Core
                 new ProductDefinition(TrailEmberProductId, ProductType.NonConsumable),
                 new ProductDefinition(TrailSparkleDustProductId, ProductType.NonConsumable),
                 new ProductDefinition(TrailRainbowRibbonProductId, ProductType.NonConsumable),
+                new ProductDefinition(WorldFrostbiteGardenProductId, ProductType.NonConsumable),
+                new ProductDefinition(WorldGoldenSunsetProductId, ProductType.NonConsumable),
+                new ProductDefinition(WorldHarvestMoonProductId, ProductType.NonConsumable),
             };
             _storeController.FetchProducts(definitions);
         }
@@ -268,6 +282,18 @@ namespace FarmFuryArcade.Core
             {
                 GrantAndEquipTrail(productId);
             }
+            else if (productId == WorldFrostbiteGardenProductId)
+            {
+                GrantWorldPurchase(MazeType.FrostbiteGarden);
+            }
+            else if (productId == WorldGoldenSunsetProductId)
+            {
+                GrantWorldPurchase(MazeType.GoldenSunset);
+            }
+            else if (productId == WorldHarvestMoonProductId)
+            {
+                GrantWorldPurchase(MazeType.HarvestMoon);
+            }
             else
             {
                 Debug.LogWarning($"[IAPManager] Unrecognized product id in pending order: {productId}");
@@ -330,6 +356,21 @@ namespace FarmFuryArcade.Core
             SaveManager.Instance.SetCosmeticOwned(cosmeticId);
             SaveManager.Instance.SetEquippedTrail(cosmeticId);
             CharacterManager.Instance?.ActiveCharacterObject?.GetComponent<CharacterCosmeticRenderer>()?.Refresh();
+        }
+
+        /// <summary>World Purchase — unlocks a whole 25-level world permanently, independent of
+        /// star progress (see UnlockProgression's purchase-gated world handling). Not a cosmetic
+        /// grant (no equip step) — SaveManager.IsWorldPurchased is the single source of truth
+        /// LevelSelect/UnlockProgression read to decide whether the world's badge/levels are
+        /// tappable.</summary>
+        private void GrantWorldPurchase(MazeType world)
+        {
+            if (SaveManager.Instance == null)
+            {
+                return;
+            }
+
+            SaveManager.Instance.SetWorldPurchased(world);
         }
 
         private void HandlePurchaseFailed(FailedOrder order)

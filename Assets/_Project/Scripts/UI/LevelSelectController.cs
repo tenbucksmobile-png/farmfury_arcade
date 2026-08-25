@@ -66,6 +66,12 @@ namespace FarmFuryArcade.UI
         /// ArtWiringBuilder.</summary>
         [SerializeField] private Sprite[] worldSignSprites;
 
+        /// <summary>World Purchase screen (see ShopController's own "New Worlds" entry point,
+        /// which opens the same screen instance) — a purchase-gated world's badge stays
+        /// interactable even while locked (see ShowWorldSelect) so tapping it opens this instead of
+        /// silently no-opping the way a star-locked badge does.</summary>
+        [SerializeField] private CosmeticPurchaseScreen worldPurchaseScreen;
+
         private const float ScrollTweenSeconds = 0.5f;
         private const float ShieldRevealSeconds = 0.45f;
 
@@ -195,12 +201,16 @@ namespace FarmFuryArcade.UI
             for (int world = 0; world < worldCount; world++)
             {
                 bool unlocked = UnlockProgression.IsWorldUnlocked(world);
+                // A purchase-gated world's badge stays tappable even while locked, so the player
+                // can reach the purchase screen from it (see OnCarouselCenterTapped) — unlike a
+                // star-locked free-world badge, which is genuinely inert until earned.
+                bool tappable = unlocked || UnlockProgression.IsPurchaseGatedWorld(world);
 
                 var shieldGO = Instantiate(worldShieldPrefab, worldShieldContainer);
                 var shieldImage = shieldGO.GetComponent<Image>();
                 SetWorldSignSprite(shieldImage, world);
                 shieldImage.color = unlocked ? Color.white : LockedWorldTint;
-                shieldGO.GetComponent<Button>().interactable = unlocked;
+                shieldGO.GetComponent<Button>().interactable = tappable;
 
                 _shownWorlds.Add(world);
                 _shieldObjects.Add(shieldGO);
@@ -234,9 +244,16 @@ namespace FarmFuryArcade.UI
                 PlayDailyChallenge();
                 return;
             }
-            // A locked badge's Button.interactable is false, so its onClick (and therefore this
-            // callback) never fires for it via CardCarouselController's tap-to-select path — no
-            // extra guard needed here beyond the bounds check above.
+            // A locked FREE-world badge's Button.interactable is false, so its onClick (and
+            // therefore this callback) never fires for it via CardCarouselController's
+            // tap-to-select path — no extra guard needed for that case. A locked but
+            // purchase-gated badge IS interactable (see ShowWorldSelect), so it reaches here and
+            // needs to open the purchase screen instead of revealing a grid it hasn't earned yet.
+            if (!UnlockProgression.IsWorldUnlocked(world) && UnlockProgression.IsPurchaseGatedWorld(world))
+            {
+                worldPurchaseScreen?.Show();
+                return;
+            }
             SelectWorld(world, _shieldObjects[localIndex]);
         }
 

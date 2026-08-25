@@ -13,8 +13,7 @@ namespace FarmFuryArcade.Data
     /// covers exactly one (style, character) pair for those two types — e.g. "Cowboy Hat, Cluck"
     /// and "Cowboy Hat, Bessie" are two separate assets sharing setId "cowboy_hat" so the Store can
     /// group/price them together while SaveManager still tracks ownership per exact asset.
-    /// Trails are character-agnostic (equippable on whichever character is active). MazeThemes are
-    /// per-world, keyed by mazeType instead of character.
+    /// Trails are character-agnostic (equippable on whichever character is active).
     /// </summary>
     [CreateAssetMenu(fileName = "CosmeticData_XX", menuName = "Farm Fury Arcade/Cosmetic Data")]
     public class CosmeticData : ScriptableObject
@@ -33,11 +32,8 @@ namespace FarmFuryArcade.Data
         public CosmeticType cosmeticType;
 
         [Tooltip("Hat/Skin only — which character this variant's art was made for. Ignored for " +
-                 "Trail and MazeTheme.")]
+                 "Trail.")]
         public CharacterType character;
-
-        [Tooltip("MazeTheme only — which world this reskins. Ignored for every other type.")]
-        public MazeType mazeType;
 
         [Tooltip("Coin price. 0 = free/starter cosmetic, not purchasable via IAP-priced real money " +
                  "(the coin economy is the only cosmetic currency for now — see the Phase 4 plan " +
@@ -77,11 +73,5 @@ namespace FarmFuryArcade.Data
                  "equipped. Leave null to fall back to a procedural placeholder effect (same " +
                  "\"dedicated art with a procedural fallback\" convention PelletCollectBurst uses).")]
         public GameObject trailEffectPrefab;
-
-        [Tooltip("MazeTheme only, minimum viable reskin set. Null entries fall back to the world's " +
-                 "own canonical MazeArtSet sprite (see TileMapRenderer) rather than rendering blank.")]
-        public Sprite themeWallSprite;
-        public Sprite themeGroundSprite;
-        public Sprite themeBackdropSprite;
     }
 }

@@ -4,7 +4,6 @@ namespace FarmFuryArcade.Data
     {
         Hat,
         Skin,
-        Trail,
-        MazeTheme
+        Trail
     }
 }

@@ -359,7 +359,11 @@ namespace FarmFuryArcade.EditorTools
         /// real LevelData.</summary>
         private static void AssignRobotSpawnsToRemainingLevels()
         {
-            for (int n = 1; n <= 100; n++)
+            // 175, not 100 — covers World Purchase's FrostbiteGarden/GoldenSunset/HarvestMoon
+            // (LevelData_101-175, levelNumber 100-174) with the exact same per-world-position curve
+            // every other world already uses (position-in-world = levelNumber % 25 resets cleanly
+            // for each of them too).
+            for (int n = 1; n <= 175; n++)
             {
                 // LevelData_01 is hand-tuned separately by UpdateLevelData01Robots. LevelData_05
                 // used to be skipped here too (it held the reserved robot-test maze, not a real

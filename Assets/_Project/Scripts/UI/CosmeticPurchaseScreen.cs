@@ -34,6 +34,14 @@ namespace FarmFuryArcade.UI
         }
 
         [SerializeField] private ItemButton[] itemButtons;
+
+        /// <summary>Items shown on this screen with no real IAP product behind them yet (e.g. a
+        /// purchasable world whose 25 levels haven't been built/verified out yet) — tapping shows
+        /// statusText's "Coming Soon!" feedback instead of a purchase attempt, rather than either
+        /// silently doing nothing (reads as broken) or letting the player buy something with no
+        /// content behind it.</summary>
+        [SerializeField] private Button[] comingSoonButtons;
+
         [SerializeField] private TextMeshProUGUI statusText;
         [SerializeField] private Button closeButton;
 
@@ -42,6 +50,24 @@ namespace FarmFuryArcade.UI
             if (closeButton != null)
             {
                 closeButton.onClick.AddListener(() => gameObject.SetActive(false));
+            }
+
+            if (comingSoonButtons != null)
+            {
+                foreach (var button in comingSoonButtons)
+                {
+                    if (button == null)
+                    {
+                        continue;
+                    }
+                    button.onClick.AddListener(() =>
+                    {
+                        if (statusText != null)
+                        {
+                            statusText.text = "Coming Soon!";
+                        }
+                    });
+                }
             }
 
             if (itemButtons == null)

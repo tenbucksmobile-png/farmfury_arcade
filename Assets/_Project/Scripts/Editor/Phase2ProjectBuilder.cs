@@ -149,6 +149,97 @@ namespace FarmFuryArcade.EditorTools
         private const string LevelData98Path = "Assets/_Project/ScriptableObjects/Resources/Levels/LevelData_98.asset";
         private const string LevelData99Path = "Assets/_Project/ScriptableObjects/Resources/Levels/LevelData_99.asset";
         private const string LevelData100Path = "Assets/_Project/ScriptableObjects/Resources/Levels/LevelData_100.asset";
+        // World Purchase's FrostbiteGarden — continues levelNumber sequentially after World 4's
+        // 100 (75-99), so FrostbiteGarden occupies levelNumber 100-124 / LevelData_101 through
+        // LevelData_125, matching UnlockProgression.LevelsPerWorld's 25-per-world convention.
+        // Algorithmically generated the same odd-odd-room/never-carved-pillar scheme as World 3/4
+        // (see BuildLevel's doc comment) via a one-off, not-committed generator script — verified
+        // offline (full connectivity, no open-2x2 block) before being baked in here, same
+        // convention as every other generated world. Unlike the 4 free worlds, this world is
+        // purchase-gated (see UnlockProgression.IsPurchaseGatedWorld) rather than star-progress
+        // gated — see SaveManager.IsWorldPurchased/IAPManager.WorldFrostbiteGardenProductId.
+        private const string LevelDataFG01Path = "Assets/_Project/ScriptableObjects/Resources/Levels/LevelData_101.asset";
+        private const string LevelDataFG02Path = "Assets/_Project/ScriptableObjects/Resources/Levels/LevelData_102.asset";
+        private const string LevelDataFG03Path = "Assets/_Project/ScriptableObjects/Resources/Levels/LevelData_103.asset";
+        private const string LevelDataFG04Path = "Assets/_Project/ScriptableObjects/Resources/Levels/LevelData_104.asset";
+        private const string LevelDataFG05Path = "Assets/_Project/ScriptableObjects/Resources/Levels/LevelData_105.asset";
+        private const string LevelDataFG06Path = "Assets/_Project/ScriptableObjects/Resources/Levels/LevelData_106.asset";
+        private const string LevelDataFG07Path = "Assets/_Project/ScriptableObjects/Resources/Levels/LevelData_107.asset";
+        private const string LevelDataFG08Path = "Assets/_Project/ScriptableObjects/Resources/Levels/LevelData_108.asset";
+        private const string LevelDataFG09Path = "Assets/_Project/ScriptableObjects/Resources/Levels/LevelData_109.asset";
+        private const string LevelDataFG10Path = "Assets/_Project/ScriptableObjects/Resources/Levels/LevelData_110.asset";
+        private const string LevelDataFG11Path = "Assets/_Project/ScriptableObjects/Resources/Levels/LevelData_111.asset";
+        private const string LevelDataFG12Path = "Assets/_Project/ScriptableObjects/Resources/Levels/LevelData_112.asset";
+        private const string LevelDataFG13Path = "Assets/_Project/ScriptableObjects/Resources/Levels/LevelData_113.asset";
+        private const string LevelDataFG14Path = "Assets/_Project/ScriptableObjects/Resources/Levels/LevelData_114.asset";
+        private const string LevelDataFG15Path = "Assets/_Project/ScriptableObjects/Resources/Levels/LevelData_115.asset";
+        private const string LevelDataFG16Path = "Assets/_Project/ScriptableObjects/Resources/Levels/LevelData_116.asset";
+        private const string LevelDataFG17Path = "Assets/_Project/ScriptableObjects/Resources/Levels/LevelData_117.asset";
+        private const string LevelDataFG18Path = "Assets/_Project/ScriptableObjects/Resources/Levels/LevelData_118.asset";
+        private const string LevelDataFG19Path = "Assets/_Project/ScriptableObjects/Resources/Levels/LevelData_119.asset";
+        private const string LevelDataFG20Path = "Assets/_Project/ScriptableObjects/Resources/Levels/LevelData_120.asset";
+        private const string LevelDataFG21Path = "Assets/_Project/ScriptableObjects/Resources/Levels/LevelData_121.asset";
+        private const string LevelDataFG22Path = "Assets/_Project/ScriptableObjects/Resources/Levels/LevelData_122.asset";
+        private const string LevelDataFG23Path = "Assets/_Project/ScriptableObjects/Resources/Levels/LevelData_123.asset";
+        private const string LevelDataFG24Path = "Assets/_Project/ScriptableObjects/Resources/Levels/LevelData_124.asset";
+        private const string LevelDataFG25Path = "Assets/_Project/ScriptableObjects/Resources/Levels/LevelData_125.asset";
+        // World Purchase's GoldenSunset — continues levelNumber sequentially after
+        // FrostbiteGarden's 125 (100-124), so GoldenSunset occupies levelNumber 125-149 /
+        // LevelData_126 through LevelData_150. Same generation/verification convention as
+        // FrostbiteGarden above.
+        private const string LevelDataGS01Path = "Assets/_Project/ScriptableObjects/Resources/Levels/LevelData_126.asset";
+        private const string LevelDataGS02Path = "Assets/_Project/ScriptableObjects/Resources/Levels/LevelData_127.asset";
+        private const string LevelDataGS03Path = "Assets/_Project/ScriptableObjects/Resources/Levels/LevelData_128.asset";
+        private const string LevelDataGS04Path = "Assets/_Project/ScriptableObjects/Resources/Levels/LevelData_129.asset";
+        private const string LevelDataGS05Path = "Assets/_Project/ScriptableObjects/Resources/Levels/LevelData_130.asset";
+        private const string LevelDataGS06Path = "Assets/_Project/ScriptableObjects/Resources/Levels/LevelData_131.asset";
+        private const string LevelDataGS07Path = "Assets/_Project/ScriptableObjects/Resources/Levels/LevelData_132.asset";
+        private const string LevelDataGS08Path = "Assets/_Project/ScriptableObjects/Resources/Levels/LevelData_133.asset";
+        private const string LevelDataGS09Path = "Assets/_Project/ScriptableObjects/Resources/Levels/LevelData_134.asset";
+        private const string LevelDataGS10Path = "Assets/_Project/ScriptableObjects/Resources/Levels/LevelData_135.asset";
+        private const string LevelDataGS11Path = "Assets/_Project/ScriptableObjects/Resources/Levels/LevelData_136.asset";
+        private const string LevelDataGS12Path = "Assets/_Project/ScriptableObjects/Resources/Levels/LevelData_137.asset";
+        private const string LevelDataGS13Path = "Assets/_Project/ScriptableObjects/Resources/Levels/LevelData_138.asset";
+        private const string LevelDataGS14Path = "Assets/_Project/ScriptableObjects/Resources/Levels/LevelData_139.asset";
+        private const string LevelDataGS15Path = "Assets/_Project/ScriptableObjects/Resources/Levels/LevelData_140.asset";
+        private const string LevelDataGS16Path = "Assets/_Project/ScriptableObjects/Resources/Levels/LevelData_141.asset";
+        private const string LevelDataGS17Path = "Assets/_Project/ScriptableObjects/Resources/Levels/LevelData_142.asset";
+        private const string LevelDataGS18Path = "Assets/_Project/ScriptableObjects/Resources/Levels/LevelData_143.asset";
+        private const string LevelDataGS19Path = "Assets/_Project/ScriptableObjects/Resources/Levels/LevelData_144.asset";
+        private const string LevelDataGS20Path = "Assets/_Project/ScriptableObjects/Resources/Levels/LevelData_145.asset";
+        private const string LevelDataGS21Path = "Assets/_Project/ScriptableObjects/Resources/Levels/LevelData_146.asset";
+        private const string LevelDataGS22Path = "Assets/_Project/ScriptableObjects/Resources/Levels/LevelData_147.asset";
+        private const string LevelDataGS23Path = "Assets/_Project/ScriptableObjects/Resources/Levels/LevelData_148.asset";
+        private const string LevelDataGS24Path = "Assets/_Project/ScriptableObjects/Resources/Levels/LevelData_149.asset";
+        private const string LevelDataGS25Path = "Assets/_Project/ScriptableObjects/Resources/Levels/LevelData_150.asset";
+        // World Purchase's HarvestMoon — continues levelNumber sequentially after
+        // GoldenSunset's 150 (125-149), so HarvestMoon occupies levelNumber 150-174 /
+        // LevelData_151 through LevelData_175 — the last world for now.
+        private const string LevelDataHM01Path = "Assets/_Project/ScriptableObjects/Resources/Levels/LevelData_151.asset";
+        private const string LevelDataHM02Path = "Assets/_Project/ScriptableObjects/Resources/Levels/LevelData_152.asset";
+        private const string LevelDataHM03Path = "Assets/_Project/ScriptableObjects/Resources/Levels/LevelData_153.asset";
+        private const string LevelDataHM04Path = "Assets/_Project/ScriptableObjects/Resources/Levels/LevelData_154.asset";
+        private const string LevelDataHM05Path = "Assets/_Project/ScriptableObjects/Resources/Levels/LevelData_155.asset";
+        private const string LevelDataHM06Path = "Assets/_Project/ScriptableObjects/Resources/Levels/LevelData_156.asset";
+        private const string LevelDataHM07Path = "Assets/_Project/ScriptableObjects/Resources/Levels/LevelData_157.asset";
+        private const string LevelDataHM08Path = "Assets/_Project/ScriptableObjects/Resources/Levels/LevelData_158.asset";
+        private const string LevelDataHM09Path = "Assets/_Project/ScriptableObjects/Resources/Levels/LevelData_159.asset";
+        private const string LevelDataHM10Path = "Assets/_Project/ScriptableObjects/Resources/Levels/LevelData_160.asset";
+        private const string LevelDataHM11Path = "Assets/_Project/ScriptableObjects/Resources/Levels/LevelData_161.asset";
+        private const string LevelDataHM12Path = "Assets/_Project/ScriptableObjects/Resources/Levels/LevelData_162.asset";
+        private const string LevelDataHM13Path = "Assets/_Project/ScriptableObjects/Resources/Levels/LevelData_163.asset";
+        private const string LevelDataHM14Path = "Assets/_Project/ScriptableObjects/Resources/Levels/LevelData_164.asset";
+        private const string LevelDataHM15Path = "Assets/_Project/ScriptableObjects/Resources/Levels/LevelData_165.asset";
+        private const string LevelDataHM16Path = "Assets/_Project/ScriptableObjects/Resources/Levels/LevelData_166.asset";
+        private const string LevelDataHM17Path = "Assets/_Project/ScriptableObjects/Resources/Levels/LevelData_167.asset";
+        private const string LevelDataHM18Path = "Assets/_Project/ScriptableObjects/Resources/Levels/LevelData_168.asset";
+        private const string LevelDataHM19Path = "Assets/_Project/ScriptableObjects/Resources/Levels/LevelData_169.asset";
+        private const string LevelDataHM20Path = "Assets/_Project/ScriptableObjects/Resources/Levels/LevelData_170.asset";
+        private const string LevelDataHM21Path = "Assets/_Project/ScriptableObjects/Resources/Levels/LevelData_171.asset";
+        private const string LevelDataHM22Path = "Assets/_Project/ScriptableObjects/Resources/Levels/LevelData_172.asset";
+        private const string LevelDataHM23Path = "Assets/_Project/ScriptableObjects/Resources/Levels/LevelData_173.asset";
+        private const string LevelDataHM24Path = "Assets/_Project/ScriptableObjects/Resources/Levels/LevelData_174.asset";
+        private const string LevelDataHM25Path = "Assets/_Project/ScriptableObjects/Resources/Levels/LevelData_175.asset";
         private const string CharacterDataPath = "Assets/_Project/ScriptableObjects/Resources/Characters/CharacterData_Cluck.asset";
         private const string CharacterPrefabFolder = "Assets/_Project/Prefabs/Characters";
         private const string BlockPrefabFolder = "Assets/_Project/Prefabs/Blocks";
@@ -234,6 +325,23 @@ namespace FarmFuryArcade.EditorTools
             // BuildPowerPelletPrefab's 0.7 scale rather than the usual 0.35/0.5 split.
             BuildCropPrefab("Crop_Kernel_Wheat", CropType.Corn, 10, new Color(0.85f, 0.65f, 0.20f), 0.7f);
             BuildCropPrefab("Crop_Vegetable_Wheat", CropType.Vegetable, 50, new Color(0.85f, 0.65f, 0.20f), 0.7f);
+
+            // World Purchase's FrostbiteGarden (5th world, $3.99 IAP) — wall/ground prefabs only;
+            // no dedicated crop/pellet/warp-tunnel/bonus art exists yet, so ArtWiringBuilder.
+            // WireFrostbiteGarden reuses CornField's own prefabs for those roles as a placeholder
+            // (see that method's doc comment). Placeholder colors here too, until
+            // WireFrostbiteGarden sets the real wall/ground sprites.
+            BuildWallPrefab("Wall_FrostbiteGarden", new Color(0.55f, 0.68f, 0.78f));
+            BuildGroundPrefab("Ground_FrostbiteGarden", new Color(0.75f, 0.85f, 0.90f));
+
+            // World Purchase's GoldenSunset and HarvestMoon (6th/7th worlds) — same shape as
+            // FrostbiteGarden above: placeholder-colored wall/ground prefabs only, real sprites set
+            // by ArtWiringBuilder.WireGoldenSunset/WireHarvestMoon, crop/pellet/warp-tunnel/bonus
+            // reused from CornField as a placeholder.
+            BuildWallPrefab("Wall_GoldenSunset", new Color(0.70f, 0.55f, 0.30f));
+            BuildGroundPrefab("Ground_GoldenSunset", new Color(0.85f, 0.70f, 0.45f));
+            BuildWallPrefab("Wall_HarvestMoon", new Color(0.45f, 0.35f, 0.20f));
+            BuildGroundPrefab("Ground_HarvestMoon", new Color(0.60f, 0.50f, 0.30f));
 
             BuildCharacterData();
             BuildLevelData01();
@@ -336,6 +444,86 @@ namespace FarmFuryArcade.EditorTools
             BuildLevelData98();
             BuildLevelData99();
             BuildLevelData100();
+
+            // World Purchase — FrostbiteGarden (LevelData_101-125, levelNumber 100-124).
+            BuildLevelDataFG01();
+            BuildLevelDataFG02();
+            BuildLevelDataFG03();
+            BuildLevelDataFG04();
+            BuildLevelDataFG05();
+            BuildLevelDataFG06();
+            BuildLevelDataFG07();
+            BuildLevelDataFG08();
+            BuildLevelDataFG09();
+            BuildLevelDataFG10();
+            BuildLevelDataFG11();
+            BuildLevelDataFG12();
+            BuildLevelDataFG13();
+            BuildLevelDataFG14();
+            BuildLevelDataFG15();
+            BuildLevelDataFG16();
+            BuildLevelDataFG17();
+            BuildLevelDataFG18();
+            BuildLevelDataFG19();
+            BuildLevelDataFG20();
+            BuildLevelDataFG21();
+            BuildLevelDataFG22();
+            BuildLevelDataFG23();
+            BuildLevelDataFG24();
+            BuildLevelDataFG25();
+
+            // World Purchase — GoldenSunset (LevelData_126-150, levelNumber 125-149).
+            BuildLevelDataGS01();
+            BuildLevelDataGS02();
+            BuildLevelDataGS03();
+            BuildLevelDataGS04();
+            BuildLevelDataGS05();
+            BuildLevelDataGS06();
+            BuildLevelDataGS07();
+            BuildLevelDataGS08();
+            BuildLevelDataGS09();
+            BuildLevelDataGS10();
+            BuildLevelDataGS11();
+            BuildLevelDataGS12();
+            BuildLevelDataGS13();
+            BuildLevelDataGS14();
+            BuildLevelDataGS15();
+            BuildLevelDataGS16();
+            BuildLevelDataGS17();
+            BuildLevelDataGS18();
+            BuildLevelDataGS19();
+            BuildLevelDataGS20();
+            BuildLevelDataGS21();
+            BuildLevelDataGS22();
+            BuildLevelDataGS23();
+            BuildLevelDataGS24();
+            BuildLevelDataGS25();
+            // World Purchase — HarvestMoon (LevelData_151-175, levelNumber 150-174).
+            BuildLevelDataHM01();
+            BuildLevelDataHM02();
+            BuildLevelDataHM03();
+            BuildLevelDataHM04();
+            BuildLevelDataHM05();
+            BuildLevelDataHM06();
+            BuildLevelDataHM07();
+            BuildLevelDataHM08();
+            BuildLevelDataHM09();
+            BuildLevelDataHM10();
+            BuildLevelDataHM11();
+            BuildLevelDataHM12();
+            BuildLevelDataHM13();
+            BuildLevelDataHM14();
+            BuildLevelDataHM15();
+            BuildLevelDataHM16();
+            BuildLevelDataHM17();
+            BuildLevelDataHM18();
+            BuildLevelDataHM19();
+            BuildLevelDataHM20();
+            BuildLevelDataHM21();
+            BuildLevelDataHM22();
+            BuildLevelDataHM23();
+            BuildLevelDataHM24();
+            BuildLevelDataHM25();
 
             WireScene(wallPrefab, groundPrefab, cropKernelPrefab, cropVegetablePrefab, powerPelletPrefab, warpTunnelPrefab, cluckPrefab,
                 wallPrefabVegPatch, warpTunnelPrefabVegPatch, cropKernelPrefabVegPatch, cropVegetablePrefabVegPatch, coinPrefab);
@@ -2423,6 +2611,1133 @@ namespace FarmFuryArcade.EditorTools
         };
 
         private static void BuildLevelData100() => BuildLevel(LevelData100Path, Rows100, 99, "The Wheat Field - 25", MazeType.Wheat);
+
+        // FrostbiteGarden 01, seed 9000
+        private static readonly string[] RowsFG01 =
+        {
+            "111511111111", // y=8 (top)
+            "130202020311", // y=7
+            "101010101011", // y=6
+            "120306130211", // y=5
+            "101010101011", // y=4
+            "121313031411", // y=3
+            "101010101011", // y=2
+            "120302120711", // y=1
+            "111511111111", // y=0 (bottom)
+        };
+        private static void BuildLevelDataFG01() => BuildLevel(LevelDataFG01Path, RowsFG01, 100, "Frostbite Garden - 01", MazeType.FrostbiteGarden);
+
+        // FrostbiteGarden 02, seed 9001
+        private static readonly string[] RowsFG02 =
+        {
+            "111115111111", // y=8 (top)
+            "170203020311", // y=7
+            "101010101011", // y=6
+            "120216020211", // y=5
+            "101111101111", // y=4
+            "120303120311", // y=3
+            "101010101011", // y=2
+            "140303020311", // y=1
+            "111115111111", // y=0 (bottom)
+        };
+        private static void BuildLevelDataFG02() => BuildLevel(LevelDataFG02Path, RowsFG02, 101, "Frostbite Garden - 02", MazeType.FrostbiteGarden);
+
+        // FrostbiteGarden 03, seed 9002
+        private static readonly string[] RowsFG03 =
+        {
+            "111111151111", // y=8 (top)
+            "120204030711", // y=7
+            "101110101011", // y=6
+            "130306021311", // y=5
+            "101110101011", // y=4
+            "120303020311", // y=3
+            "101011111011", // y=2
+            "120203020211", // y=1
+            "111111151111", // y=0 (bottom)
+        };
+        private static void BuildLevelDataFG03() => BuildLevel(LevelDataFG03Path, RowsFG03, 102, "Frostbite Garden - 03", MazeType.FrostbiteGarden);
+
+        // FrostbiteGarden 04, seed 9003
+        private static readonly string[] RowsFG04 =
+        {
+            "111111111511", // y=8 (top)
+            "120203021311", // y=7
+            "101010101011", // y=6
+            "130306021211", // y=5
+            "101010111011", // y=4
+            "130202030311", // y=3
+            "111010111011", // y=2
+            "120403020711", // y=1
+            "111111111511", // y=0 (bottom)
+        };
+        private static void BuildLevelDataFG04() => BuildLevel(LevelDataFG04Path, RowsFG04, 103, "Frostbite Garden - 04", MazeType.FrostbiteGarden);
+
+        // FrostbiteGarden 05, seed 9004
+        private static readonly string[] RowsFG05 =
+        {
+            "151111111111", // y=8 (top)
+            "170204130211", // y=7
+            "101011101011", // y=6
+            "121206030311", // y=5
+            "101010101011", // y=4
+            "121302030211", // y=3
+            "101010101011", // y=2
+            "130203130211", // y=1
+            "151111111111", // y=0 (bottom)
+        };
+        private static void BuildLevelDataFG05() => BuildLevel(LevelDataFG05Path, RowsFG05, 104, "Frostbite Garden - 05", MazeType.FrostbiteGarden);
+
+        // FrostbiteGarden 06, seed 9005
+        private static readonly string[] RowsFG06 =
+        {
+            "111511111111", // y=8 (top)
+            "140202020711", // y=7
+            "101010101011", // y=6
+            "130302120311", // y=5
+            "101010101011", // y=4
+            "121206031211", // y=3
+            "101010111011", // y=2
+            "130312030311", // y=1
+            "111511111111", // y=0 (bottom)
+        };
+        private static void BuildLevelDataFG06() => BuildLevel(LevelDataFG06Path, RowsFG06, 105, "Frostbite Garden - 06", MazeType.FrostbiteGarden);
+
+        // FrostbiteGarden 07, seed 9006
+        private static readonly string[] RowsFG07 =
+        {
+            "111115111111", // y=8 (top)
+            "130202031311", // y=7
+            "101010101011", // y=6
+            "120203031211", // y=5
+            "101011101011", // y=4
+            "130306120211", // y=3
+            "101010101011", // y=2
+            "140302020711", // y=1
+            "111115111111", // y=0 (bottom)
+        };
+        private static void BuildLevelDataFG07() => BuildLevel(LevelDataFG07Path, RowsFG07, 106, "Frostbite Garden - 07", MazeType.FrostbiteGarden);
+
+        // FrostbiteGarden 08, seed 9007
+        private static readonly string[] RowsFG08 =
+        {
+            "111111151111", // y=8 (top)
+            "170202020311", // y=7
+            "101110101011", // y=6
+            "120213041211", // y=5
+            "101010101011", // y=4
+            "130306020311", // y=3
+            "101010111011", // y=2
+            "120203030311", // y=1
+            "111111151111", // y=0 (bottom)
+        };
+        private static void BuildLevelDataFG08() => BuildLevel(LevelDataFG08Path, RowsFG08, 107, "Frostbite Garden - 08", MazeType.FrostbiteGarden);
+
+        // FrostbiteGarden 09, seed 9008
+        private static readonly string[] RowsFG09 =
+        {
+            "111111111511", // y=8 (top)
+            "120403030211", // y=7
+            "101010101011", // y=6
+            "120302030311", // y=5
+            "101010111011", // y=4
+            "121206021211", // y=3
+            "101110101011", // y=2
+            "170303020311", // y=1
+            "111111111511", // y=0 (bottom)
+        };
+        private static void BuildLevelDataFG09() => BuildLevel(LevelDataFG09Path, RowsFG09, 108, "Frostbite Garden - 09", MazeType.FrostbiteGarden);
+
+        // FrostbiteGarden 10, seed 9009
+        private static readonly string[] RowsFG10 =
+        {
+            "151111111111", // y=8 (top)
+            "120203020211", // y=7
+            "101110101011", // y=6
+            "120302130211", // y=5
+            "101111101011", // y=4
+            "140206030311", // y=3
+            "101010101011", // y=2
+            "130303020711", // y=1
+            "151111111111", // y=0 (bottom)
+        };
+        private static void BuildLevelDataFG10() => BuildLevel(LevelDataFG10Path, RowsFG10, 109, "Frostbite Garden - 10", MazeType.FrostbiteGarden);
+
+        // FrostbiteGarden 11, seed 9010
+        private static readonly string[] RowsFG11 =
+        {
+            "111511111111", // y=8 (top)
+            "171303040211", // y=7
+            "101010101011", // y=6
+            "120203021211", // y=5
+            "101110101011", // y=4
+            "131306020311", // y=3
+            "101010101011", // y=2
+            "120203030211", // y=1
+            "111511111111", // y=0 (bottom)
+        };
+        private static void BuildLevelDataFG11() => BuildLevel(LevelDataFG11Path, RowsFG11, 110, "Frostbite Garden - 11", MazeType.FrostbiteGarden);
+
+        // FrostbiteGarden 12, seed 9011
+        private static readonly string[] RowsFG12 =
+        {
+            "111115111111", // y=8 (top)
+            "130303030211", // y=7
+            "101010101011", // y=6
+            "130202020311", // y=5
+            "101010111011", // y=4
+            "130206120311", // y=3
+            "101110101011", // y=2
+            "170212040211", // y=1
+            "111115111111", // y=0 (bottom)
+        };
+        private static void BuildLevelDataFG12() => BuildLevel(LevelDataFG12Path, RowsFG12, 111, "Frostbite Garden - 12", MazeType.FrostbiteGarden);
+
+        // FrostbiteGarden 13, seed 9012
+        private static readonly string[] RowsFG13 =
+        {
+            "111111151111", // y=8 (top)
+            "120203020311", // y=7
+            "101110101011", // y=6
+            "120202030311", // y=5
+            "101010101011", // y=4
+            "141206020311", // y=3
+            "101110111011", // y=2
+            "130302030711", // y=1
+            "111111151111", // y=0 (bottom)
+        };
+        private static void BuildLevelDataFG13() => BuildLevel(LevelDataFG13Path, RowsFG13, 112, "Frostbite Garden - 13", MazeType.FrostbiteGarden);
+
+        // FrostbiteGarden 14, seed 9013
+        private static readonly string[] RowsFG14 =
+        {
+            "111111111511", // y=8 (top)
+            "130202020711", // y=7
+            "101111101011", // y=6
+            "130204031211", // y=5
+            "101010101011", // y=4
+            "130206030311", // y=3
+            "101010101011", // y=2
+            "120312020311", // y=1
+            "111111111511", // y=0 (bottom)
+        };
+        private static void BuildLevelDataFG14() => BuildLevel(LevelDataFG14Path, RowsFG14, 113, "Frostbite Garden - 14", MazeType.FrostbiteGarden);
+
+        // FrostbiteGarden 15, seed 9014
+        private static readonly string[] RowsFG15 =
+        {
+            "151111111111", // y=8 (top)
+            "140302030311", // y=7
+            "101010101011", // y=6
+            "130202031211", // y=5
+            "101010101011", // y=4
+            "120206121311", // y=3
+            "101011101011", // y=2
+            "170202030311", // y=1
+            "151111111111", // y=0 (bottom)
+        };
+        private static void BuildLevelDataFG15() => BuildLevel(LevelDataFG15Path, RowsFG15, 114, "Frostbite Garden - 15", MazeType.FrostbiteGarden);
+
+        // FrostbiteGarden 16, seed 9015
+        private static readonly string[] RowsFG16 =
+        {
+            "111511111111", // y=8 (top)
+            "120312030211", // y=7
+            "101110111011", // y=6
+            "120402030311", // y=5
+            "111010101011", // y=4
+            "130206130211", // y=3
+            "101110101011", // y=2
+            "120302130711", // y=1
+            "111511111111", // y=0 (bottom)
+        };
+        private static void BuildLevelDataFG16() => BuildLevel(LevelDataFG16Path, RowsFG16, 115, "Frostbite Garden - 16", MazeType.FrostbiteGarden);
+
+        // FrostbiteGarden 17, seed 9016
+        private static readonly string[] RowsFG17 =
+        {
+            "111115111111", // y=8 (top)
+            "120302030711", // y=7
+            "101011101011", // y=6
+            "121302020311", // y=5
+            "101010101011", // y=4
+            "131206121211", // y=3
+            "101010101111", // y=2
+            "130412030311", // y=1
+            "111115111111", // y=0 (bottom)
+        };
+        private static void BuildLevelDataFG17() => BuildLevel(LevelDataFG17Path, RowsFG17, 116, "Frostbite Garden - 17", MazeType.FrostbiteGarden);
+
+        // FrostbiteGarden 18, seed 9017
+        private static readonly string[] RowsFG18 =
+        {
+            "111111151111", // y=8 (top)
+            "131302020211", // y=7
+            "101010101011", // y=6
+            "130306141211", // y=5
+            "101110101111", // y=4
+            "120303130211", // y=3
+            "101011101011", // y=2
+            "170203020211", // y=1
+            "111111151111", // y=0 (bottom)
+        };
+        private static void BuildLevelDataFG18() => BuildLevel(LevelDataFG18Path, RowsFG18, 117, "Frostbite Garden - 18", MazeType.FrostbiteGarden);
+
+        // FrostbiteGarden 19, seed 9018
+        private static readonly string[] RowsFG19 =
+        {
+            "111111111511", // y=8 (top)
+            "170303030311", // y=7
+            "101010111111", // y=6
+            "120216030311", // y=5
+            "101110101011", // y=4
+            "120302021311", // y=3
+            "101110111011", // y=2
+            "140202020211", // y=1
+            "111111111511", // y=0 (bottom)
+        };
+        private static void BuildLevelDataFG19() => BuildLevel(LevelDataFG19Path, RowsFG19, 118, "Frostbite Garden - 19", MazeType.FrostbiteGarden);
+
+        // FrostbiteGarden 20, seed 9019
+        private static readonly string[] RowsFG20 =
+        {
+            "151111111111", // y=8 (top)
+            "120302120711", // y=7
+            "101010101011", // y=6
+            "120306030211", // y=5
+            "101011101011", // y=4
+            "131312020311", // y=3
+            "101010111011", // y=2
+            "130214130211", // y=1
+            "151111111111", // y=0 (bottom)
+        };
+        private static void BuildLevelDataFG20() => BuildLevel(LevelDataFG20Path, RowsFG20, 119, "Frostbite Garden - 20", MazeType.FrostbiteGarden);
+
+        // FrostbiteGarden 21, seed 9020
+        private static readonly string[] RowsFG21 =
+        {
+            "111511111111", // y=8 (top)
+            "120303020211", // y=7
+            "101010111011", // y=6
+            "130206020211", // y=5
+            "111011101011", // y=4
+            "131303120311", // y=3
+            "101010101011", // y=2
+            "170214021311", // y=1
+            "111511111111", // y=0 (bottom)
+        };
+        private static void BuildLevelDataFG21() => BuildLevel(LevelDataFG21Path, RowsFG21, 120, "Frostbite Garden - 21", MazeType.FrostbiteGarden);
+
+        // FrostbiteGarden 22, seed 9021
+        private static readonly string[] RowsFG22 =
+        {
+            "111115111111", // y=8 (top)
+            "170304030311", // y=7
+            "111010111111", // y=6
+            "120216020311", // y=5
+            "101011111011", // y=4
+            "130302020211", // y=3
+            "101011101011", // y=2
+            "120302030211", // y=1
+            "111115111111", // y=0 (bottom)
+        };
+        private static void BuildLevelDataFG22() => BuildLevel(LevelDataFG22Path, RowsFG22, 121, "Frostbite Garden - 22", MazeType.FrostbiteGarden);
+
+        // FrostbiteGarden 23, seed 9022
+        private static readonly string[] RowsFG23 =
+        {
+            "111111151111", // y=8 (top)
+            "130203030711", // y=7
+            "101010111011", // y=6
+            "121406030311", // y=5
+            "101010101011", // y=4
+            "120313121211", // y=3
+            "101110101011", // y=2
+            "130202120211", // y=1
+            "111111151111", // y=0 (bottom)
+        };
+        private static void BuildLevelDataFG23() => BuildLevel(LevelDataFG23Path, RowsFG23, 122, "Frostbite Garden - 23", MazeType.FrostbiteGarden);
+
+        // FrostbiteGarden 24, seed 9023
+        private static readonly string[] RowsFG24 =
+        {
+            "111111111511", // y=8 (top)
+            "130202120311", // y=7
+            "101010101011", // y=6
+            "130216021411", // y=5
+            "101011101011", // y=4
+            "121303030311", // y=3
+            "101010101011", // y=2
+            "121203120711", // y=1
+            "111111111511", // y=0 (bottom)
+        };
+        private static void BuildLevelDataFG24() => BuildLevel(LevelDataFG24Path, RowsFG24, 123, "Frostbite Garden - 24", MazeType.FrostbiteGarden);
+
+        // FrostbiteGarden 25, seed 9024
+        private static readonly string[] RowsFG25 =
+        {
+            "151111111111", // y=8 (top)
+            "170212030211", // y=7
+            "111010101011", // y=6
+            "130306120211", // y=5
+            "101110101011", // y=4
+            "121303021311", // y=3
+            "101010101011", // y=2
+            "140203021311", // y=1
+            "151111111111", // y=0 (bottom)
+        };
+        private static void BuildLevelDataFG25() => BuildLevel(LevelDataFG25Path, RowsFG25, 124, "Frostbite Garden - 25", MazeType.FrostbiteGarden);
+
+        // GoldenSunset 01, seed 9300
+        private static readonly string[] RowsGS01 =
+        {
+            "111511111111", // y=8 (top)
+            "120202030311", // y=7
+            "101011101011", // y=6
+            "131306120211", // y=5
+            "101010101011", // y=4
+            "131403020211", // y=3
+            "101011101011", // y=2
+            "171203021311", // y=1
+            "111511111111", // y=0 (bottom)
+        };
+        private static void BuildLevelDataGS01() => BuildLevel(LevelDataGS01Path, RowsGS01, 125, "Golden Sunset - 01", MazeType.GoldenSunset);
+
+        // GoldenSunset 02, seed 9301
+        private static readonly string[] RowsGS02 =
+        {
+            "111115111111", // y=8 (top)
+            "120203120211", // y=7
+            "101110101011", // y=6
+            "131216020311", // y=5
+            "101010111011", // y=4
+            "141203130311", // y=3
+            "101010101011", // y=2
+            "130302020711", // y=1
+            "111115111111", // y=0 (bottom)
+        };
+        private static void BuildLevelDataGS02() => BuildLevel(LevelDataGS02Path, RowsGS02, 126, "Golden Sunset - 02", MazeType.GoldenSunset);
+
+        // GoldenSunset 03, seed 9302
+        private static readonly string[] RowsGS03 =
+        {
+            "111111151111", // y=8 (top)
+            "170202130311", // y=7
+            "101110111011", // y=6
+            "120406021311", // y=5
+            "101011101011", // y=4
+            "130203030211", // y=3
+            "101010101011", // y=2
+            "131212020311", // y=1
+            "111111151111", // y=0 (bottom)
+        };
+        private static void BuildLevelDataGS03() => BuildLevel(LevelDataGS03Path, RowsGS03, 127, "Golden Sunset - 03", MazeType.GoldenSunset);
+
+        // GoldenSunset 04, seed 9303
+        private static readonly string[] RowsGS04 =
+        {
+            "111111111511", // y=8 (top)
+            "130303020211", // y=7
+            "101010101011", // y=6
+            "130216021311", // y=5
+            "101011101011", // y=4
+            "120203031211", // y=3
+            "101111111011", // y=2
+            "170304020211", // y=1
+            "111111111511", // y=0 (bottom)
+        };
+        private static void BuildLevelDataGS04() => BuildLevel(LevelDataGS04Path, RowsGS04, 128, "Golden Sunset - 04", MazeType.GoldenSunset);
+
+        // GoldenSunset 05, seed 9304
+        private static readonly string[] RowsGS05 =
+        {
+            "151111111111", // y=8 (top)
+            "130302031311", // y=7
+            "101110101011", // y=6
+            "131206120311", // y=5
+            "101110101011", // y=4
+            "120203030411", // y=3
+            "111011101011", // y=2
+            "120202020711", // y=1
+            "151111111111", // y=0 (bottom)
+        };
+        private static void BuildLevelDataGS05() => BuildLevel(LevelDataGS05Path, RowsGS05, 129, "Golden Sunset - 05", MazeType.GoldenSunset);
+
+        // GoldenSunset 06, seed 9305
+        private static readonly string[] RowsGS06 =
+        {
+            "111511111111", // y=8 (top)
+            "170202040311", // y=7
+            "101110101011", // y=6
+            "131202020311", // y=5
+            "101010101011", // y=4
+            "120316031311", // y=3
+            "101110101011", // y=2
+            "130302021211", // y=1
+            "111511111111", // y=0 (bottom)
+        };
+        private static void BuildLevelDataGS06() => BuildLevel(LevelDataGS06Path, RowsGS06, 130, "Golden Sunset - 06", MazeType.GoldenSunset);
+
+        // GoldenSunset 07, seed 9306
+        private static readonly string[] RowsGS07 =
+        {
+            "111115111111", // y=8 (top)
+            "140202020211", // y=7
+            "101010101011", // y=6
+            "120313020211", // y=5
+            "101111101011", // y=4
+            "121306130211", // y=3
+            "101010101011", // y=2
+            "170303031311", // y=1
+            "111115111111", // y=0 (bottom)
+        };
+        private static void BuildLevelDataGS07() => BuildLevel(LevelDataGS07Path, RowsGS07, 131, "Golden Sunset - 07", MazeType.GoldenSunset);
+
+        // GoldenSunset 08, seed 9307
+        private static readonly string[] RowsGS08 =
+        {
+            "111111151111", // y=8 (top)
+            "120302030211", // y=7
+            "101010101111", // y=6
+            "131402030311", // y=5
+            "101111101111", // y=4
+            "120206020311", // y=3
+            "101011101011", // y=2
+            "120303020711", // y=1
+            "111111151111", // y=0 (bottom)
+        };
+        private static void BuildLevelDataGS08() => BuildLevel(LevelDataGS08Path, RowsGS08, 132, "Golden Sunset - 08", MazeType.GoldenSunset);
+
+        // GoldenSunset 09, seed 9308
+        private static readonly string[] RowsGS09 =
+        {
+            "111111111511", // y=8 (top)
+            "140302030711", // y=7
+            "101110101011", // y=6
+            "130202130311", // y=5
+            "101011101011", // y=4
+            "120316020311", // y=3
+            "101011111011", // y=2
+            "120302020211", // y=1
+            "111111111511", // y=0 (bottom)
+        };
+        private static void BuildLevelDataGS09() => BuildLevel(LevelDataGS09Path, RowsGS09, 133, "Golden Sunset - 09", MazeType.GoldenSunset);
+
+        // GoldenSunset 10, seed 9309
+        private static readonly string[] RowsGS10 =
+        {
+            "151111111111", // y=8 (top)
+            "120302020311", // y=7
+            "101011101011", // y=6
+            "120213030411", // y=5
+            "101010101111", // y=4
+            "121206131211", // y=3
+            "101010101011", // y=2
+            "170303030211", // y=1
+            "151111111111", // y=0 (bottom)
+        };
+        private static void BuildLevelDataGS10() => BuildLevel(LevelDataGS10Path, RowsGS10, 134, "Golden Sunset - 10", MazeType.GoldenSunset);
+
+        // GoldenSunset 11, seed 9310
+        private static readonly string[] RowsGS11 =
+        {
+            "111511111111", // y=8 (top)
+            "120303140311", // y=7
+            "101010101011", // y=6
+            "120212031211", // y=5
+            "101010101011", // y=4
+            "121306030311", // y=3
+            "101011101011", // y=2
+            "121203020711", // y=1
+            "111511111111", // y=0 (bottom)
+        };
+        private static void BuildLevelDataGS11() => BuildLevel(LevelDataGS11Path, RowsGS11, 135, "Golden Sunset - 11", MazeType.GoldenSunset);
+
+        // GoldenSunset 12, seed 9311
+        private static readonly string[] RowsGS12 =
+        {
+            "111115111111", // y=8 (top)
+            "120202031711", // y=7
+            "111010101011", // y=6
+            "131202120311", // y=5
+            "101010101011", // y=4
+            "130306031311", // y=3
+            "101011101011", // y=2
+            "120204030211", // y=1
+            "111115111111", // y=0 (bottom)
+        };
+        private static void BuildLevelDataGS12() => BuildLevel(LevelDataGS12Path, RowsGS12, 136, "Golden Sunset - 12", MazeType.GoldenSunset);
+
+        // GoldenSunset 13, seed 9312
+        private static readonly string[] RowsGS13 =
+        {
+            "111111151111", // y=8 (top)
+            "140302020211", // y=7
+            "111110101011", // y=6
+            "120303120311", // y=5
+            "101011101111", // y=4
+            "130306031211", // y=3
+            "101010101011", // y=2
+            "170202030211", // y=1
+            "111111151111", // y=0 (bottom)
+        };
+        private static void BuildLevelDataGS13() => BuildLevel(LevelDataGS13Path, RowsGS13, 137, "Golden Sunset - 13", MazeType.GoldenSunset);
+
+        // GoldenSunset 14, seed 9313
+        private static readonly string[] RowsGS14 =
+        {
+            "111111111511", // y=8 (top)
+            "170312030211", // y=7
+            "101010101011", // y=6
+            "131304021311", // y=5
+            "111011101011", // y=4
+            "131206020211", // y=3
+            "101010101011", // y=2
+            "120202030311", // y=1
+            "111111111511", // y=0 (bottom)
+        };
+        private static void BuildLevelDataGS14() => BuildLevel(LevelDataGS14Path, RowsGS14, 138, "Golden Sunset - 14", MazeType.GoldenSunset);
+
+        // GoldenSunset 15, seed 9314
+        private static readonly string[] RowsGS15 =
+        {
+            "151111111111", // y=8 (top)
+            "120203031711", // y=7
+            "101010101011", // y=6
+            "130203120411", // y=5
+            "101011111011", // y=4
+            "121306020211", // y=3
+            "101110101011", // y=2
+            "130303020211", // y=1
+            "151111111111", // y=0 (bottom)
+        };
+        private static void BuildLevelDataGS15() => BuildLevel(LevelDataGS15Path, RowsGS15, 139, "Golden Sunset - 15", MazeType.GoldenSunset);
+
+        // GoldenSunset 16, seed 9315
+        private static readonly string[] RowsGS16 =
+        {
+            "111511111111", // y=8 (top)
+            "120213030311", // y=7
+            "101010101011", // y=6
+            "130313020211", // y=5
+            "101011101011", // y=4
+            "120306020211", // y=3
+            "101111101011", // y=2
+            "170403020211", // y=1
+            "111511111111", // y=0 (bottom)
+        };
+        private static void BuildLevelDataGS16() => BuildLevel(LevelDataGS16Path, RowsGS16, 140, "Golden Sunset - 16", MazeType.GoldenSunset);
+
+        // GoldenSunset 17, seed 9316
+        private static readonly string[] RowsGS17 =
+        {
+            "111115111111", // y=8 (top)
+            "170303020311", // y=7
+            "101011101011", // y=6
+            "130312020411", // y=5
+            "101010101011", // y=4
+            "120316121211", // y=3
+            "101010101011", // y=2
+            "120303020211", // y=1
+            "111115111111", // y=0 (bottom)
+        };
+        private static void BuildLevelDataGS17() => BuildLevel(LevelDataGS17Path, RowsGS17, 141, "Golden Sunset - 17", MazeType.GoldenSunset);
+
+        // GoldenSunset 18, seed 9317
+        private static readonly string[] RowsGS18 =
+        {
+            "111111151111", // y=8 (top)
+            "130302030711", // y=7
+            "101010111011", // y=6
+            "130306020211", // y=5
+            "111010101011", // y=4
+            "120303021211", // y=3
+            "101110101011", // y=2
+            "120412030211", // y=1
+            "111111151111", // y=0 (bottom)
+        };
+        private static void BuildLevelDataGS18() => BuildLevel(LevelDataGS18Path, RowsGS18, 142, "Golden Sunset - 18", MazeType.GoldenSunset);
+
+        // GoldenSunset 19, seed 9318
+        private static readonly string[] RowsGS19 =
+        {
+            "111111111511", // y=8 (top)
+            "120303020211", // y=7
+            "111110101011", // y=6
+            "140306030211", // y=5
+            "101110111011", // y=4
+            "130203030211", // y=3
+            "101010101011", // y=2
+            "120312020711", // y=1
+            "111111111511", // y=0 (bottom)
+        };
+        private static void BuildLevelDataGS19() => BuildLevel(LevelDataGS19Path, RowsGS19, 143, "Golden Sunset - 19", MazeType.GoldenSunset);
+
+        // GoldenSunset 20, seed 9319
+        private static readonly string[] RowsGS20 =
+        {
+            "151111111111", // y=8 (top)
+            "171202030411", // y=7
+            "101010101011", // y=6
+            "120306031211", // y=5
+            "101011101011", // y=4
+            "130203030211", // y=3
+            "101110101011", // y=2
+            "120303120211", // y=1
+            "151111111111", // y=0 (bottom)
+        };
+        private static void BuildLevelDataGS20() => BuildLevel(LevelDataGS20Path, RowsGS20, 144, "Golden Sunset - 20", MazeType.GoldenSunset);
+
+        // GoldenSunset 21, seed 9320
+        private static readonly string[] RowsGS21 =
+        {
+            "111511111111", // y=8 (top)
+            "130303020711", // y=7
+            "101110111011", // y=6
+            "130206020311", // y=5
+            "101010101011", // y=4
+            "120402130211", // y=3
+            "101110111011", // y=2
+            "120202030311", // y=1
+            "111511111111", // y=0 (bottom)
+        };
+        private static void BuildLevelDataGS21() => BuildLevel(LevelDataGS21Path, RowsGS21, 145, "Golden Sunset - 21", MazeType.GoldenSunset);
+
+        // GoldenSunset 22, seed 9321
+        private static readonly string[] RowsGS22 =
+        {
+            "111115111111", // y=8 (top)
+            "130213030211", // y=7
+            "101110111011", // y=6
+            "120306020311", // y=5
+            "101010101011", // y=4
+            "130202020211", // y=3
+            "111010101011", // y=2
+            "140303021711", // y=1
+            "111115111111", // y=0 (bottom)
+        };
+        private static void BuildLevelDataGS22() => BuildLevel(LevelDataGS22Path, RowsGS22, 146, "Golden Sunset - 22", MazeType.GoldenSunset);
+
+        // GoldenSunset 23, seed 9322
+        private static readonly string[] RowsGS23 =
+        {
+            "111111151111", // y=8 (top)
+            "170202030311", // y=7
+            "101010111011", // y=6
+            "130206130211", // y=5
+            "101010111011", // y=4
+            "120202030311", // y=3
+            "111011101011", // y=2
+            "130402020311", // y=1
+            "111111151111", // y=0 (bottom)
+        };
+        private static void BuildLevelDataGS23() => BuildLevel(LevelDataGS23Path, RowsGS23, 147, "Golden Sunset - 23", MazeType.GoldenSunset);
+
+        // GoldenSunset 24, seed 9323
+        private static readonly string[] RowsGS24 =
+        {
+            "111111111511", // y=8 (top)
+            "120204030211", // y=7
+            "111110101011", // y=6
+            "120306030211", // y=5
+            "101011101011", // y=4
+            "120302020311", // y=3
+            "101110101011", // y=2
+            "170203130311", // y=1
+            "111111111511", // y=0 (bottom)
+        };
+        private static void BuildLevelDataGS24() => BuildLevel(LevelDataGS24Path, RowsGS24, 148, "Golden Sunset - 24", MazeType.GoldenSunset);
+
+        // GoldenSunset 25, seed 9324
+        private static readonly string[] RowsGS25 =
+        {
+            "151111111111", // y=8 (top)
+            "120313030411", // y=7
+            "101010101111", // y=6
+            "121306120211", // y=5
+            "101011101011", // y=4
+            "120303020311", // y=3
+            "101010101011", // y=2
+            "120202030711", // y=1
+            "151111111111", // y=0 (bottom)
+        };
+        private static void BuildLevelDataGS25() => BuildLevel(LevelDataGS25Path, RowsGS25, 149, "Golden Sunset - 25", MazeType.GoldenSunset);
+
+        // HarvestMoon 01, seed 9400
+        private static readonly string[] RowsHM01 =
+        {
+            "111511111111", // y=8 (top)
+            "131402030711", // y=7
+            "101011101011", // y=6
+            "120302020311", // y=5
+            "101110101011", // y=4
+            "120206130311", // y=3
+            "101010101011", // y=2
+            "120312030211", // y=1
+            "111511111111", // y=0 (bottom)
+        };
+        private static void BuildLevelDataHM01() => BuildLevel(LevelDataHM01Path, RowsHM01, 150, "Harvest Moon - 01", MazeType.HarvestMoon);
+
+        // HarvestMoon 02, seed 9401
+        private static readonly string[] RowsHM02 =
+        {
+            "111115111111", // y=8 (top)
+            "120403021311", // y=7
+            "101010101011", // y=6
+            "130302130211", // y=5
+            "111010111011", // y=4
+            "120206031211", // y=3
+            "101010101011", // y=2
+            "120303020711", // y=1
+            "111115111111", // y=0 (bottom)
+        };
+        private static void BuildLevelDataHM02() => BuildLevel(LevelDataHM02Path, RowsHM02, 151, "Harvest Moon - 02", MazeType.HarvestMoon);
+
+        // HarvestMoon 03, seed 9402
+        private static readonly string[] RowsHM03 =
+        {
+            "111111151111", // y=8 (top)
+            "170303020311", // y=7
+            "101111101011", // y=6
+            "120202030211", // y=5
+            "111010101011", // y=4
+            "130316030311", // y=3
+            "101110101011", // y=2
+            "120202040211", // y=1
+            "111111151111", // y=0 (bottom)
+        };
+        private static void BuildLevelDataHM03() => BuildLevel(LevelDataHM03Path, RowsHM03, 152, "Harvest Moon - 03", MazeType.HarvestMoon);
+
+        // HarvestMoon 04, seed 9403
+        private static readonly string[] RowsHM04 =
+        {
+            "111111111511", // y=8 (top)
+            "140203030711", // y=7
+            "101010101011", // y=6
+            "131302120311", // y=5
+            "101011101011", // y=4
+            "120206030311", // y=3
+            "101010111011", // y=2
+            "120213020211", // y=1
+            "111111111511", // y=0 (bottom)
+        };
+        private static void BuildLevelDataHM04() => BuildLevel(LevelDataHM04Path, RowsHM04, 153, "Harvest Moon - 04", MazeType.HarvestMoon);
+
+        // HarvestMoon 05, seed 9404
+        private static readonly string[] RowsHM05 =
+        {
+            "151111111111", // y=8 (top)
+            "120302020311", // y=7
+            "101010101011", // y=6
+            "120302020211", // y=5
+            "111010101111", // y=4
+            "130206020311", // y=3
+            "101010111011", // y=2
+            "130304031711", // y=1
+            "151111111111", // y=0 (bottom)
+        };
+        private static void BuildLevelDataHM05() => BuildLevel(LevelDataHM05Path, RowsHM05, 154, "Harvest Moon - 05", MazeType.HarvestMoon);
+
+        // HarvestMoon 06, seed 9405
+        private static readonly string[] RowsHM06 =
+        {
+            "111511111111", // y=8 (top)
+            "170203020311", // y=7
+            "101010111011", // y=6
+            "121313030211", // y=5
+            "101010101011", // y=4
+            "120306030211", // y=3
+            "101010111011", // y=2
+            "120302020411", // y=1
+            "111511111111", // y=0 (bottom)
+        };
+        private static void BuildLevelDataHM06() => BuildLevel(LevelDataHM06Path, RowsHM06, 155, "Harvest Moon - 06", MazeType.HarvestMoon);
+
+        // HarvestMoon 07, seed 9406
+        private static readonly string[] RowsHM07 =
+        {
+            "111115111111", // y=8 (top)
+            "130302030211", // y=7
+            "101010101111", // y=6
+            "121203120311", // y=5
+            "101010101011", // y=4
+            "120206030411", // y=3
+            "101011101011", // y=2
+            "170203030211", // y=1
+            "111115111111", // y=0 (bottom)
+        };
+        private static void BuildLevelDataHM07() => BuildLevel(LevelDataHM07Path, RowsHM07, 156, "Harvest Moon - 07", MazeType.HarvestMoon);
+
+        // HarvestMoon 08, seed 9407
+        private static readonly string[] RowsHM08 =
+        {
+            "111111151111", // y=8 (top)
+            "120302020311", // y=7
+            "101110101011", // y=6
+            "130312120211", // y=5
+            "111010101011", // y=4
+            "130206040311", // y=3
+            "101010101011", // y=2
+            "120303020711", // y=1
+            "111111151111", // y=0 (bottom)
+        };
+        private static void BuildLevelDataHM08() => BuildLevel(LevelDataHM08Path, RowsHM08, 157, "Harvest Moon - 08", MazeType.HarvestMoon);
+
+        // HarvestMoon 09, seed 9408
+        private static readonly string[] RowsHM09 =
+        {
+            "111111111511", // y=8 (top)
+            "171302030211", // y=7
+            "101010101011", // y=6
+            "131203130311", // y=5
+            "101010101011", // y=4
+            "120206020211", // y=3
+            "101010111011", // y=2
+            "120303040211", // y=1
+            "111111111511", // y=0 (bottom)
+        };
+        private static void BuildLevelDataHM09() => BuildLevel(LevelDataHM09Path, RowsHM09, 158, "Harvest Moon - 09", MazeType.HarvestMoon);
+
+        // HarvestMoon 10, seed 9409
+        private static readonly string[] RowsHM10 =
+        {
+            "151111111111", // y=8 (top)
+            "120203020311", // y=7
+            "101010111011", // y=6
+            "130306021211", // y=5
+            "101010101011", // y=4
+            "120213030211", // y=3
+            "101010101111", // y=2
+            "170304030211", // y=1
+            "151111111111", // y=0 (bottom)
+        };
+        private static void BuildLevelDataHM10() => BuildLevel(LevelDataHM10Path, RowsHM10, 159, "Harvest Moon - 10", MazeType.HarvestMoon);
+
+        // HarvestMoon 11, seed 9410
+        private static readonly string[] RowsHM11 =
+        {
+            "111511111111", // y=8 (top)
+            "120302030311", // y=7
+            "101011101011", // y=6
+            "130416030211", // y=5
+            "101010111011", // y=4
+            "130212030311", // y=3
+            "101010101011", // y=2
+            "120202020711", // y=1
+            "111511111111", // y=0 (bottom)
+        };
+        private static void BuildLevelDataHM11() => BuildLevel(LevelDataHM11Path, RowsHM11, 160, "Harvest Moon - 11", MazeType.HarvestMoon);
+
+        // HarvestMoon 12, seed 9411
+        private static readonly string[] RowsHM12 =
+        {
+            "111115111111", // y=8 (top)
+            "120203030711", // y=7
+            "101010101011", // y=6
+            "120306040211", // y=5
+            "101011101011", // y=4
+            "130302130211", // y=3
+            "101010101011", // y=2
+            "121213020311", // y=1
+            "111115111111", // y=0 (bottom)
+        };
+        private static void BuildLevelDataHM12() => BuildLevel(LevelDataHM12Path, RowsHM12, 161, "Harvest Moon - 12", MazeType.HarvestMoon);
+
+        // HarvestMoon 13, seed 9412
+        private static readonly string[] RowsHM13 =
+        {
+            "111111151111", // y=8 (top)
+            "120302030211", // y=7
+            "101010101011", // y=6
+            "130306020311", // y=5
+            "101010111011", // y=4
+            "131402031211", // y=3
+            "101010101011", // y=2
+            "170213020211", // y=1
+            "111111151111", // y=0 (bottom)
+        };
+        private static void BuildLevelDataHM13() => BuildLevel(LevelDataHM13Path, RowsHM13, 162, "Harvest Moon - 13", MazeType.HarvestMoon);
+
+        // HarvestMoon 14, seed 9413
+        private static readonly string[] RowsHM14 =
+        {
+            "111111111511", // y=8 (top)
+            "130302140311", // y=7
+            "101010101011", // y=6
+            "121206031211", // y=5
+            "101010101011", // y=4
+            "120302130211", // y=3
+            "101010101011", // y=2
+            "130302020711", // y=1
+            "111111111511", // y=0 (bottom)
+        };
+        private static void BuildLevelDataHM14() => BuildLevel(LevelDataHM14Path, RowsHM14, 163, "Harvest Moon - 14", MazeType.HarvestMoon);
+
+        // HarvestMoon 15, seed 9414
+        private static readonly string[] RowsHM15 =
+        {
+            "151111111111", // y=8 (top)
+            "130302130711", // y=7
+            "101010101011", // y=6
+            "130306020311", // y=5
+            "101011111011", // y=4
+            "140302130211", // y=3
+            "101110101111", // y=2
+            "120202120211", // y=1
+            "151111111111", // y=0 (bottom)
+        };
+        private static void BuildLevelDataHM15() => BuildLevel(LevelDataHM15Path, RowsHM15, 164, "Harvest Moon - 15", MazeType.HarvestMoon);
+
+        // HarvestMoon 16, seed 9415
+        private static readonly string[] RowsHM16 =
+        {
+            "111511111111", // y=8 (top)
+            "120304030211", // y=7
+            "101011101011", // y=6
+            "130216021211", // y=5
+            "101010101011", // y=4
+            "131312121311", // y=3
+            "101010101011", // y=2
+            "170302030211", // y=1
+            "111511111111", // y=0 (bottom)
+        };
+        private static void BuildLevelDataHM16() => BuildLevel(LevelDataHM16Path, RowsHM16, 165, "Harvest Moon - 16", MazeType.HarvestMoon);
+
+        // HarvestMoon 17, seed 9416
+        private static readonly string[] RowsHM17 =
+        {
+            "111115111111", // y=8 (top)
+            "170303020311", // y=7
+            "101110101111", // y=6
+            "130306040211", // y=5
+            "101011101011", // y=4
+            "131202120211", // y=3
+            "101110101111", // y=2
+            "130202020311", // y=1
+            "111115111111", // y=0 (bottom)
+        };
+        private static void BuildLevelDataHM17() => BuildLevel(LevelDataHM17Path, RowsHM17, 166, "Harvest Moon - 17", MazeType.HarvestMoon);
+
+        // HarvestMoon 18, seed 9417
+        private static readonly string[] RowsHM18 =
+        {
+            "111111151111", // y=8 (top)
+            "121303020711", // y=7
+            "101011101011", // y=6
+            "140206020211", // y=5
+            "101011111011", // y=4
+            "130313021311", // y=3
+            "101110101011", // y=2
+            "120203020311", // y=1
+            "111111151111", // y=0 (bottom)
+        };
+        private static void BuildLevelDataHM18() => BuildLevel(LevelDataHM18Path, RowsHM18, 167, "Harvest Moon - 18", MazeType.HarvestMoon);
+
+        // HarvestMoon 19, seed 9418
+        private static readonly string[] RowsHM19 =
+        {
+            "111111111511", // y=8 (top)
+            "130302030211", // y=7
+            "101111101111", // y=6
+            "120206030211", // y=5
+            "111010111011", // y=4
+            "131303020211", // y=3
+            "101010101011", // y=2
+            "170204031211", // y=1
+            "111111111511", // y=0 (bottom)
+        };
+        private static void BuildLevelDataHM19() => BuildLevel(LevelDataHM19Path, RowsHM19, 168, "Harvest Moon - 19", MazeType.HarvestMoon);
+
+        // HarvestMoon 20, seed 9419
+        private static readonly string[] RowsHM20 =
+        {
+            "151111111111", // y=8 (top)
+            "171303030311", // y=7
+            "101011101111", // y=6
+            "120206030211", // y=5
+            "101110101011", // y=4
+            "120313140311", // y=3
+            "111010101011", // y=2
+            "120202020211", // y=1
+            "151111111111", // y=0 (bottom)
+        };
+        private static void BuildLevelDataHM20() => BuildLevel(LevelDataHM20Path, RowsHM20, 169, "Harvest Moon - 20", MazeType.HarvestMoon);
+
+        // HarvestMoon 21, seed 9420
+        private static readonly string[] RowsHM21 =
+        {
+            "111511111111", // y=8 (top)
+            "121303020711", // y=7
+            "101010111011", // y=6
+            "120202020311", // y=5
+            "101110111011", // y=4
+            "130306130311", // y=3
+            "101010101111", // y=2
+            "121203040211", // y=1
+            "111511111111", // y=0 (bottom)
+        };
+        private static void BuildLevelDataHM21() => BuildLevel(LevelDataHM21Path, RowsHM21, 170, "Harvest Moon - 21", MazeType.HarvestMoon);
+
+        // HarvestMoon 22, seed 9421
+        private static readonly string[] RowsHM22 =
+        {
+            "111115111111", // y=8 (top)
+            "130312020211", // y=7
+            "101010111011", // y=6
+            "130302020211", // y=5
+            "101111111011", // y=4
+            "130206031211", // y=3
+            "101010101011", // y=2
+            "130312040711", // y=1
+            "111115111111", // y=0 (bottom)
+        };
+        private static void BuildLevelDataHM22() => BuildLevel(LevelDataHM22Path, RowsHM22, 171, "Harvest Moon - 22", MazeType.HarvestMoon);
+
+        // HarvestMoon 23, seed 9422
+        private static readonly string[] RowsHM23 =
+        {
+            "111111151111", // y=8 (top)
+            "170313020411", // y=7
+            "101010101011", // y=6
+            "120303020211", // y=5
+            "111011101011", // y=4
+            "121306031211", // y=3
+            "101111101011", // y=2
+            "120303020211", // y=1
+            "111111151111", // y=0 (bottom)
+        };
+        private static void BuildLevelDataHM23() => BuildLevel(LevelDataHM23Path, RowsHM23, 172, "Harvest Moon - 23", MazeType.HarvestMoon);
+
+        // HarvestMoon 24, seed 9423
+        private static readonly string[] RowsHM24 =
+        {
+            "111111111511", // y=8 (top)
+            "130302020711", // y=7
+            "101010101011", // y=6
+            "141203031311", // y=5
+            "101010111011", // y=4
+            "131206031211", // y=3
+            "101010111011", // y=2
+            "120312020211", // y=1
+            "111111111511", // y=0 (bottom)
+        };
+        private static void BuildLevelDataHM24() => BuildLevel(LevelDataHM24Path, RowsHM24, 173, "Harvest Moon - 24", MazeType.HarvestMoon);
+
+        // HarvestMoon 25, seed 9424
+        private static readonly string[] RowsHM25 =
+        {
+            "151111111111", // y=8 (top)
+            "130203020211", // y=7
+            "101111111011", // y=6
+            "120402030211", // y=5
+            "101010101111", // y=4
+            "130206120311", // y=3
+            "101010101011", // y=2
+            "131303020711", // y=1
+            "151111111111", // y=0 (bottom)
+        };
+        private static void BuildLevelDataHM25() => BuildLevel(LevelDataHM25Path, RowsHM25, 174, "Harvest Moon - 25", MazeType.HarvestMoon);
+
+
 
         private static void WireScene(GameObject wallPrefab, GameObject groundPrefab, GameObject cropKernelPrefab,
             GameObject cropVegetablePrefab, GameObject powerPelletPrefab, GameObject warpTunnelPrefab, GameObject cluckPrefab,

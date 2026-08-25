@@ -5,13 +5,14 @@ namespace FarmFuryArcade.UI
 {
     /// <summary>
     /// Cosmetics category picker (2026-08-20 redesign) — matches the new Cosmetics mockup: a
-    /// "Cosmetics" wood sign and 3 icons (Hat, Trail/"Comet", MazeTheme). Reached via
+    /// "Cosmetics" wood sign and 2 icons (Hat, Trail/"Comet"). Reached via
     /// <see cref="ShopController"/>'s own Cosmetics button, layered on top of it the same way
     /// ChooseCharacterScreen layers on top of Pause.
     ///
-    /// The MazeTheme icon is shown (matching the mockup) but deliberately non-interactive — no
-    /// maze-theme cosmetic content exists yet (per explicit instruction: "for mapicon - dont
-    /// create, I have not done this"), so it has no destination screen to open.
+    /// A 3rd "MazeTheme" (map) icon used to sit here — first non-interactive display-only, then
+    /// briefly wired to a maze-reskin cosmetic purchase screen — but that idea was dropped in
+    /// favor of purchasable whole new worlds instead (see the World Purchase screen, reached from
+    /// Settings/Level Select). Removed entirely (2026-08-25 review), not just left unwired.
     /// </summary>
     public class CosmeticsHubScreen : MonoBehaviour
     {

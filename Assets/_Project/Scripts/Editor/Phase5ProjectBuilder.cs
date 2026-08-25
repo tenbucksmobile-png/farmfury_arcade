@@ -85,6 +85,12 @@ namespace FarmFuryArcade.EditorTools
                     (IAPManager.TrailEmberProductId, LoadTrailArtSprite("FrameEmberTrail.png")),
                 },
                 LoadUiSprite("3.99.png"));
+            // World Purchase — a whole new 25-level world ($3.99), not a cosmetic, so it's a
+            // sibling to Cosmetics on the Shop screen rather than living under CosmeticsHubScreen.
+            // Built to a real design mockup (WorldPurchaseBackground.png, a single baked composite
+            // — background, logo, 3 shields, price plaque all one image) rather than assembled
+            // from primitives — see BuildWorldPurchaseScreen's own doc comment.
+            var worldPurchase = BuildWorldPurchaseScreen(canvas.transform);
             SetRefs(storeComingSoon.GetComponent<ShopController>(),
                 ("cosmeticsHubScreen", cosmeticsHub.GetComponent<CosmeticsHubScreen>()));
             SetRefs(cosmeticsHub.GetComponent<CosmeticsHubScreen>(),
@@ -103,7 +109,7 @@ namespace FarmFuryArcade.EditorTools
             var levelSelect = BuildLevelSelect(canvas.transform, levelTilePrefab, worldShieldPrefab);
 
             WireCrossReferences(mainMenu, gameplay, pause, settings,
-                levelComplete, unlockScreen, levelFailed, roster, leaderboards, chooseCharacter, comboBanner, levelSelect, storeComingSoon, characterStory);
+                levelComplete, unlockScreen, levelFailed, roster, leaderboards, chooseCharacter, comboBanner, levelSelect, storeComingSoon, characterStory, worldPurchase);
 
             var transitionManager = managersGO.GetComponent<SceneTransitionManager>();
             var transitionSO = new SerializedObject(transitionManager);
@@ -129,6 +135,7 @@ namespace FarmFuryArcade.EditorTools
             cosmeticsHub.SetActive(false);
             hatPurchase.SetActive(false);
             trailPurchase.SetActive(false);
+            worldPurchase.SetActive(false);
             chooseCharacter.gameObject.SetActive(false);
             unlockScreen.gameObject.SetActive(false); // BuildLevelComplete already does this too; explicit for clarity
 
@@ -1433,8 +1440,11 @@ namespace FarmFuryArcade.EditorTools
             restorePurchasesLabel.fontSizeMax = 22f;
             restorePurchasesLabel.overflowMode = TextOverflowModes.Truncate;
 
-            // Row 2, cells 1-3 — still deliberately blank, reserved for whatever gets planned next.
-            for (int i = 1; i < 4; i++)
+            // Row 2, cell 1 (2026-08-25) — "New Worlds" (WorldMaze.png), opens the World Purchase
+            // screen; was blank. Cells 2-3 still deliberately blank, reserved for whatever's next.
+            var worldsButton = CreateIconButton("WorldsCell", gridGO.transform, LoadUiSprite("WorldMaze.png"), StandardIconButtonSize);
+
+            for (int i = 2; i < 4; i++)
             {
                 var blankImage = CreateImage($"BlankCell{i}", gridGO.transform, Color.white, StandardIconButtonSize, StandardIconButtonSize);
                 blankImage.sprite = LoadUiSprite("Icon_bare.png");
@@ -1459,8 +1469,9 @@ namespace FarmFuryArcade.EditorTools
             so.FindProperty("characterStoryButton").objectReferenceValue = characterStoryButton;
             so.FindProperty("restorePurchasesButton").objectReferenceValue = restorePurchasesButton;
             so.FindProperty("restoreStatusText").objectReferenceValue = restoreStatusText;
-            // shopScreen/leaderboardsScreen/characterStoryScreen/mainMenuScreen are wired later in
-            // BuildAll's WireCrossReferences, once those screens actually exist.
+            so.FindProperty("worldsButton").objectReferenceValue = worldsButton;
+            // shopScreen/leaderboardsScreen/characterStoryScreen/mainMenuScreen/worldPurchaseScreen
+            // are wired later in BuildAll's WireCrossReferences, once those screens actually exist.
             so.ApplyModifiedPropertiesWithoutUndo();
 
             return root;
@@ -1552,6 +1563,7 @@ namespace FarmFuryArcade.EditorTools
         private const string CosmeticsChromeFolder = "Assets/_Project/Sprites/Cosmetics";
         private const string HatArtFolder = "Assets/_Project/Sprites/Cosmetics/Cosmetics_Type_Hat";
         private const string TrailArtFolder = "Assets/_Project/Sprites/Cosmetics/CosmeticType.Trail";
+        private const string MazeThemeArtFolder = "Assets/_Project/Sprites/Cosmetics/CosmeticType_MazeTheme";
 
         /// <summary>Configures a texture as a Sprite (PPU = its own width, same convention every
         /// other sprite-importer pass in this project uses) and loads it. Self-contained rather
@@ -1684,6 +1696,7 @@ namespace FarmFuryArcade.EditorTools
         private static Sprite LoadCosmeticsSprite(string fileName) => ConfigureAndLoadCosmeticChromeSprite($"{CosmeticsChromeFolder}/{fileName}");
         private static Sprite LoadHatArtSprite(string fileName) => ConfigureAndLoadCosmeticChromeSprite($"{HatArtFolder}/{fileName}");
         private static Sprite LoadTrailArtSprite(string fileName) => ConfigureAndLoadCosmeticChromeSprite($"{TrailArtFolder}/{fileName}");
+        private static Sprite LoadMazeThemeArtSprite(string fileName) => ConfigureAndLoadCosmeticChromeSprite($"{MazeThemeArtFolder}/{fileName}");
 
         /// <summary>Icon-only button — no label, art's own aspect preserved, explicit sizeDelta set
         /// directly rather than relying on LayoutElement (the parent HorizontalLayoutGroup rows this
@@ -1787,6 +1800,9 @@ namespace FarmFuryArcade.EditorTools
             AnchorBottomCenter((RectTransform)removeAdsButton.transform, new Vector2(removeAdsButtonWidth, removeAdsButtonHeight),
                 new Vector2(removeAdsButtonCenterX, cosmeticsButtonCenterY - removeAdsButtonHeight / 2f));
 
+            // New Worlds' top-right icon was removed from this screen (2026-08-25 review) — the
+            // World Purchase screen is still reachable from Settings (row-2 WorldsCell) and from
+            // tapping a locked shield directly in Level Select, so the feature itself is unaffected.
             var closeButton = CreateRoundBackButton(root.transform, bottomRight: true);
             closeButton.GetComponent<Image>().sprite = LoadUiSprite("Btn_back.png");
 
@@ -1816,9 +1832,9 @@ namespace FarmFuryArcade.EditorTools
             shopSO.FindProperty("cosmeticsButton").objectReferenceValue = cosmeticsButton;
             shopSO.FindProperty("removeAdsButton").objectReferenceValue = removeAdsButton;
             shopSO.FindProperty("removeAdsLabel").objectReferenceValue = removeAdsLabel;
-            // cosmeticsHubScreen is wired later in BuildAll, once BuildCosmeticsHubScreen has
-            // actually created that screen (cross-screen reference, same deferred-wiring pattern
-            // WireCrossReferences uses for every other screen-to-screen link).
+            // cosmeticsHubScreen is wired later in BuildAll, once that screen has actually been
+            // created (cross-screen reference, same deferred-wiring
+            // pattern WireCrossReferences uses for every other screen-to-screen link).
             shopSO.ApplyModifiedPropertiesWithoutUndo();
 
             return root;
@@ -1826,8 +1842,10 @@ namespace FarmFuryArcade.EditorTools
 
         /// <summary>Cosmetics category hub — landing.png background, Cosmetics.png "Cosmetics"
         /// sign, and 3 icons (Hat_Icon.png / Trails_Tab_Icon.png "comet" / MazeThemeTab.png "map").
-        /// The map icon is shown (matching the mockup) but has no click handler — no maze-theme
-        /// cosmetic content exists yet, per explicit instruction not to build that destination.</summary>
+        /// The map icon is shown (matching the mockup) but deliberately non-interactive — maze
+        /// reskinning as a cosmetic was tried and dropped in favor of purchasable whole new worlds
+        /// instead (see BuildShopOverlay's "New Worlds" section), so this icon has no destination
+        /// screen to open.</summary>
         private static GameObject BuildCosmeticsHubScreen(Transform canvasTransform)
         {
             var root = CreatePanel("CosmeticsHubScreen", canvasTransform, Color.black);
@@ -1839,7 +1857,7 @@ namespace FarmFuryArcade.EditorTools
             var iconRowRect = (RectTransform)iconRow.transform;
             iconRowRect.anchorMin = iconRowRect.anchorMax = new Vector2(0.5f, 0.5f);
             iconRowRect.pivot = new Vector2(0.5f, 0.5f);
-            iconRowRect.sizeDelta = new Vector2(3 * StandardIconButtonSize + 2 * 50f + 60f, StandardIconButtonSize + 20f);
+            iconRowRect.sizeDelta = new Vector2(2 * StandardIconButtonSize + 50f + 60f, StandardIconButtonSize + 20f);
             iconRowRect.anchoredPosition = Vector2.zero;
             iconRow.GetComponent<LayoutElement>().preferredHeight = StandardIconButtonSize;
             var iconRowHlg = iconRow.GetComponent<HorizontalLayoutGroup>();
@@ -1851,13 +1869,6 @@ namespace FarmFuryArcade.EditorTools
 
             var hatButton = CreateIconButton("HatButton", iconRow.transform, LoadCosmeticsSprite("Hat_Icon.png"), StandardIconButtonSize);
             var trailButton = CreateIconButton("TrailButton", iconRow.transform, LoadCosmeticsSprite("Trails_Tab_Icon.png"), StandardIconButtonSize);
-
-            // Map/MazeTheme icon — display-only, matches the mockup, no navigation wired (no
-            // MazeTheme cosmetic content exists yet).
-            var mapImage = CreateImage("MapIcon", iconRow.transform, Color.white, StandardIconButtonSize, StandardIconButtonSize);
-            mapImage.sprite = LoadCosmeticsSprite("MazeThemeTab.png");
-            mapImage.preserveAspect = true;
-            ((RectTransform)mapImage.transform).sizeDelta = new Vector2(StandardIconButtonSize, StandardIconButtonSize);
 
             var closeButton = CreateRoundBackButton(root.transform, bottomRight: true);
             closeButton.GetComponent<Image>().sprite = LoadUiSprite("Btn_back.png");
@@ -1957,6 +1968,94 @@ namespace FarmFuryArcade.EditorTools
             return root;
         }
 
+        /// <summary>World Purchase screen — rebuilt (2026-08-25 review) to use real per-world
+        /// shield art (FrozenGarden_shield.png/GoldenSunset_shield.png/HarvestMoon_shield.png,
+        /// dropped in the same session) as actual positioned/sized Buttons, replacing an earlier
+        /// version that stretched the raw supplied mockup image full-screen as one flat background
+        /// with invisible hotspots on top — that approach couldn't be tightened (the shields were
+        /// baked pixels in one picture) and visibly spilled past the safe-area guide on a real
+        /// device aspect. landing.png (full brightness, not the dimmed-poster convention other
+        /// overlays use — matches the mockup's own vivid look) is the background now instead.
+        ///
+        /// All 3 worlds have real IAP products and real, verified 25-level sets behind them
+        /// (IAPManager.WorldFrostbiteGardenProductId/WorldGoldenSunsetProductId/
+        /// WorldHarvestMoonProductId — see UnlockProgression's purchase-gated world handling), so
+        /// all 3 shields are wired into itemButtons. comingSoonButtons stays empty for now but is
+        /// left wired on the component (empty array, harmless) in case a future 4th shield needs
+        /// the same "shown but not purchasable yet" treatment before its own content is ready.</summary>
+        private static GameObject BuildWorldPurchaseScreen(Transform canvasTransform)
+        {
+            var root = CreatePanel("WorldPurchaseScreen", canvasTransform, Color.black);
+            var backgroundImage = root.GetComponent<Image>();
+            backgroundImage.sprite = LoadUiSprite("landing.png");
+            backgroundImage.color = Color.white;
+
+            var badgeGO = new GameObject("WorldMazeBadge", typeof(RectTransform), typeof(Image));
+            badgeGO.transform.SetParent(root.transform, false);
+            var badgeImage = badgeGO.GetComponent<Image>();
+            badgeImage.sprite = LoadUiSprite("WorldMaze.png");
+            badgeImage.preserveAspect = true;
+            AnchorTopCenter((RectTransform)badgeGO.transform, new Vector2(220f, 220f), new Vector2(0f, -70f));
+
+            // Tighter than a normal CreateIconButton row elsewhere in this project (per feedback:
+            // "bring the shields slightly closer together"), and sized to comfortably clear the
+            // safe-area guide on every side — total row width (3*380 + 2*30 + 40 = 1240) leaves a
+            // generous ~340px margin on each side of the 1920-wide canvas.
+            const float shieldSize = 380f;
+            const float shieldSpacing = 30f;
+            var shieldRow = CreateHorizontalGroup("ShieldRow", root.transform, shieldSpacing);
+            var shieldRowRect = (RectTransform)shieldRow.transform;
+            shieldRowRect.anchorMin = shieldRowRect.anchorMax = new Vector2(0.5f, 0.5f);
+            shieldRowRect.pivot = new Vector2(0.5f, 0.5f);
+            shieldRowRect.sizeDelta = new Vector2(3 * shieldSize + 2 * shieldSpacing + 40f, shieldSize + 20f);
+            shieldRowRect.anchoredPosition = new Vector2(0f, -30f);
+            shieldRow.GetComponent<LayoutElement>().preferredHeight = shieldSize;
+            var shieldRowHlg = shieldRow.GetComponent<HorizontalLayoutGroup>();
+            shieldRowHlg.childControlWidth = false;
+            shieldRowHlg.childForceExpandWidth = false;
+            shieldRowHlg.childControlHeight = false;
+            shieldRowHlg.childForceExpandHeight = false;
+            shieldRowHlg.childAlignment = TextAnchor.MiddleCenter;
+
+            var goldenSunsetButton = CreateIconButton("GoldenSunsetButton", shieldRow.transform, LoadMazeThemeArtSprite("GoldenSunset_shield.png"), shieldSize);
+            var frozenGardenButton = CreateIconButton("FrozenGardenButton", shieldRow.transform, LoadMazeThemeArtSprite("FrozenGarden_shield.png"), shieldSize);
+            var harvestMoonButton = CreateIconButton("HarvestMoonButton", shieldRow.transform, LoadMazeThemeArtSprite("HarvestMoon_shield.png"), shieldSize);
+
+            var priceGO = new GameObject("PriceSign", typeof(RectTransform), typeof(Image));
+            priceGO.transform.SetParent(root.transform, false);
+            var priceImage = priceGO.GetComponent<Image>();
+            priceImage.sprite = LoadUiSprite("3.99.png");
+            priceImage.preserveAspect = true;
+            AnchorBottomCenter((RectTransform)priceGO.transform, new Vector2(340f, 180f), new Vector2(0f, 130f));
+
+            var closeButton = CreateRoundBackButton(root.transform, bottomRight: true);
+            closeButton.GetComponent<Image>().sprite = LoadUiSprite("Btn_back.png");
+
+            var statusText = CreateText("StatusText", root.transform, string.Empty, 26f, TextAlignmentOptions.Center, 40f);
+            AnchorBottomCenter((RectTransform)statusText.transform, new Vector2(860f, 40f), new Vector2(0f, 60f));
+
+            var screen = root.AddComponent<CosmeticPurchaseScreen>();
+            var so = new SerializedObject(screen);
+            var items = new (string productId, Button button)[]
+            {
+                (IAPManager.WorldGoldenSunsetProductId, goldenSunsetButton),
+                (IAPManager.WorldFrostbiteGardenProductId, frozenGardenButton),
+                (IAPManager.WorldHarvestMoonProductId, harvestMoonButton),
+            };
+            var arrayProp = so.FindProperty("itemButtons");
+            arrayProp.arraySize = items.Length;
+            for (int i = 0; i < items.Length; i++)
+            {
+                arrayProp.GetArrayElementAtIndex(i).FindPropertyRelative("productId").stringValue = items[i].productId;
+                arrayProp.GetArrayElementAtIndex(i).FindPropertyRelative("button").objectReferenceValue = items[i].button;
+            }
+
+            so.FindProperty("statusText").objectReferenceValue = statusText;
+            so.FindProperty("closeButton").objectReferenceValue = closeButton;
+            so.ApplyModifiedPropertiesWithoutUndo();
+
+            return root;
+        }
 
         // ---- Level Complete + New Character Unlock ---------------------------------------------
 
@@ -2422,18 +2521,20 @@ namespace FarmFuryArcade.EditorTools
             GameObject gameplay, GameObject pause, GameObject settings,
             GameObject levelComplete, NewCharacterUnlockScreen unlockScreen, GameObject levelFailed,
             GameObject roster, GameObject leaderboards, ChooseCharacterScreen chooseCharacterScreen,
-            ComboNotificationBanner comboBanner, GameObject levelSelect, GameObject shop, GameObject characterStory)
+            ComboNotificationBanner comboBanner, GameObject levelSelect, GameObject shop, GameObject characterStory, GameObject worldPurchase)
         {
             var settingsPanel = settings.GetComponent<SettingsPanel>();
             SetRefs(settingsPanel,
                 ("leaderboardsScreen", leaderboards),
-                ("shopScreen", shop.GetComponent<ShopController>()), ("characterStoryScreen", characterStory));
+                ("shopScreen", shop.GetComponent<ShopController>()), ("characterStoryScreen", characterStory),
+                ("worldPurchaseScreen", worldPurchase.GetComponent<CosmeticPurchaseScreen>()));
 
             SetRefs(mainMenu.GetComponent<MainMenuController>(),
                 ("levelSelectScreen", levelSelect), ("settingsPanel", settingsPanel));
 
             SetRefs(levelSelect.GetComponent<LevelSelectController>(),
-                ("mainMenuScreen", mainMenu), ("gameplayScreen", gameplay));
+                ("mainMenuScreen", mainMenu), ("gameplayScreen", gameplay),
+                ("worldPurchaseScreen", worldPurchase.GetComponent<CosmeticPurchaseScreen>()));
 
             var hud = gameplay.GetComponent<GameplayHUD>();
             SetRefs(hud,

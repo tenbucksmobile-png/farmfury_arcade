@@ -436,6 +436,14 @@ namespace FarmFuryArcade.Core
             }
 
             int nextWorld = (levelNumber + 1) / UnlockProgression.LevelsPerWorld;
+            // Purchase-gated worlds (e.g. FrostbiteGarden) aren't unlocked by star progress at
+            // all — finishing Wheat with 2+ stars should never trigger this celebration for a
+            // world the player hasn't bought. Its own "just became available" moment is the
+            // purchase itself, not a level-complete transition.
+            if (UnlockProgression.IsPurchaseGatedWorld(nextWorld))
+            {
+                return null;
+            }
             int nextWorldFirstLevel = nextWorld * UnlockProgression.LevelsPerWorld;
             if (nextWorldFirstLevel >= UnlockProgression.TotalLevels ||
                 DataManager.Instance == null || DataManager.Instance.GetLevelData(nextWorldFirstLevel) == null)

@@ -32,7 +32,13 @@ namespace FarmFuryArcade.Core
         private const string EquippedHatKeyPrefix = "FFA_EquippedHat_";
         private const string EquippedSkinKeyPrefix = "FFA_EquippedSkin_";
         private const string EquippedTrailKeyPrefix = "FFA_EquippedTrail_";
-        private const string EquippedMazeThemeKeyPrefix = "FFA_EquippedMazeTheme_";
+
+        /// <summary>Monetisation "World Purchase" — a purchased world's MazeType (e.g.
+        /// FrostbiteGarden), $3.99 IAP, grants the whole 25-level world permanently (NonConsumable
+        /// — see IAPManager.GrantWorldPurchase). Distinct from the 4 free worlds' star-progress
+        /// unlock (UnlockProgression.IsWorldUnlocked) — a purchased world is owned-or-not, with no
+        /// star requirement at all.</summary>
+        private const string WorldPurchasedKeyPrefix = "FFA_WorldPurchased_";
 
         /// <summary>Bound used only by ResetAllProgress's per-level key sweep — matches the GDD's
         /// 100-level World 1-6 scope even though only a handful of LevelData assets exist so far;
@@ -309,8 +315,8 @@ namespace FarmFuryArcade.Core
         }
 
         /// <summary>Equipped Hat/Skin cosmetic id for one character ("" = none equipped). Trail
-        /// isn't per-character (equips on whichever character is currently active) and MazeTheme is
-        /// per-world, not per-character — use GetEquippedTrail/GetEquippedMazeTheme for those.</summary>
+        /// isn't per-character (equips on whichever character is currently active) — use
+        /// GetEquippedTrail for that.</summary>
         public string GetEquippedCosmetic(CosmeticType type, CharacterType character)
         {
             return PlayerPrefs.GetString(EquippedKeyPrefix(type) + character, string.Empty);
@@ -334,14 +340,18 @@ namespace FarmFuryArcade.Core
             PlayerPrefs.SetString(EquippedTrailKeyPrefix + "global", cosmeticId ?? string.Empty);
         }
 
-        public string GetEquippedMazeTheme(MazeType world)
+        /// <summary>Has this purchased world (World Purchase IAP — see IAPManager.
+        /// GrantWorldPurchase) been bought? Only meaningful for MazeTypes UnlockProgression treats
+        /// as purchase-gated (e.g. FrostbiteGarden) — the 4 free worlds never call this.</summary>
+        public bool IsWorldPurchased(MazeType world)
         {
-            return PlayerPrefs.GetString(EquippedMazeThemeKeyPrefix + world, string.Empty);
+            return PlayerPrefs.GetInt(WorldPurchasedKeyPrefix + world, 0) == 1;
         }
 
-        public void SetEquippedMazeTheme(MazeType world, string cosmeticId)
+        public void SetWorldPurchased(MazeType world)
         {
-            PlayerPrefs.SetString(EquippedMazeThemeKeyPrefix + world, cosmeticId ?? string.Empty);
+            PlayerPrefs.SetInt(WorldPurchasedKeyPrefix + world, 1);
+            PlayerPrefs.Save();
         }
 
         private static string EquippedKeyPrefix(CosmeticType type)
@@ -403,7 +413,7 @@ namespace FarmFuryArcade.Core
             PlayerPrefs.DeleteKey(EquippedTrailKeyPrefix + "global");
             foreach (MazeType world in System.Enum.GetValues(typeof(MazeType)))
             {
-                PlayerPrefs.DeleteKey(EquippedMazeThemeKeyPrefix + world);
+                PlayerPrefs.DeleteKey(WorldPurchasedKeyPrefix + world);
             }
             // NOTE: cosmetic OWNERSHIP keys (CosmeticOwnedKeyPrefix + cosmeticId) are NOT swept
             // here — cosmeticId is an arbitrary string with no enumerable range like CharacterType/

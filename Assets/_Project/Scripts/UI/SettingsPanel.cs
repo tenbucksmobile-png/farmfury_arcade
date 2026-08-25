@@ -38,6 +38,12 @@ namespace FarmFuryArcade.UI
         [SerializeField] private Button restorePurchasesButton;
         [SerializeField] private TextMeshProUGUI restoreStatusText;
 
+        // Row 2, cell 1 (2026-08-25) — opens the World Purchase screen (WorldMaze.png icon), same
+        // entry point Shop's own "New Worlds" button and a locked Level Select world badge already
+        // open.
+        [SerializeField] private Button worldsButton;
+        [SerializeField] private CosmeticPurchaseScreen worldPurchaseScreen;
+
         /// <summary>Dims the music icon when muted — same tint-based on/off feedback convention
         /// LockedTint/InactiveTabTint use elsewhere, since no dedicated "muted" art variant exists
         /// for this icon.</summary>
@@ -68,6 +74,10 @@ namespace FarmFuryArcade.UI
             if (restorePurchasesButton != null)
             {
                 restorePurchasesButton.onClick.AddListener(HandleRestorePurchasesTapped);
+            }
+            if (worldsButton != null && worldPurchaseScreen != null)
+            {
+                worldsButton.onClick.AddListener(() => worldPurchaseScreen.Show());
             }
         }
 
