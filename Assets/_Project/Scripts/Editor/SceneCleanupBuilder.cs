@@ -227,6 +227,40 @@ namespace FarmFuryArcade.EditorTools
             Debug.Log("[SceneCleanupBuilder] Cleared equipped Hat slot for all characters — baseball caps (and any other hat) will no longer render until re-equipped.");
         }
 
+        /// <summary>Force-equips one Trail cosmetic for testing, bypassing IAPManager.PurchaseProduct
+        /// (no real store connection exists in the Editor — see CLAUDE.md's IAP plumbing notes).
+        /// Trail is character-agnostic/global (CharacterType passed is irrelevant, kept only because
+        /// SaveManager.DebugForceEquipForTesting's signature is shared with Hat/Skin), so this equips
+        /// for whichever character is currently active in Play mode. Run one of these, then press
+        /// Play and walk around — CharacterCosmeticRenderer.Refresh reads the equipped trail on
+        /// every character spawn/swap.</summary>
+        private static void DebugEquipTrail(string cosmeticId, string displayName)
+        {
+            SaveManager.DebugForceEquipForTesting(CosmeticType.Trail, CharacterType.Cluck, cosmeticId);
+            Debug.Log($"[SceneCleanupBuilder] Equipped Trail '{displayName}' ({cosmeticId}). Press Play — every character now trails it until changed.");
+        }
+
+        [MenuItem("Farm Fury Arcade/Debug/Equip Trail (Testing)/Corn Husk")]
+        public static void EquipTrailCornHusk() => DebugEquipTrail("trail_cornhusk", "Corn Husk");
+
+        [MenuItem("Farm Fury Arcade/Debug/Equip Trail (Testing)/Ember")]
+        public static void EquipTrailEmber() => DebugEquipTrail("trail_ember", "Ember");
+
+        [MenuItem("Farm Fury Arcade/Debug/Equip Trail (Testing)/Sparkle Dust")]
+        public static void EquipTrailSparkleDust() => DebugEquipTrail("trail_sparkledust", "Sparkle Dust");
+
+        [MenuItem("Farm Fury Arcade/Debug/Equip Trail (Testing)/Rainbow Ribbon")]
+        public static void EquipTrailRainbowRibbon() => DebugEquipTrail("trail_rainbowribbon", "Rainbow Ribbon");
+
+        /// <summary>Clears the equipped Trail slot — same "no trail" state a fresh save has.</summary>
+        [MenuItem("Farm Fury Arcade/Debug/Equip Trail (Testing)/None (Clear)")]
+        public static void ClearEquippedTrailForTesting()
+        {
+            PlayerPrefs.DeleteKey("FFA_EquippedTrail_global");
+            PlayerPrefs.Save();
+            Debug.Log("[SceneCleanupBuilder] Cleared equipped Trail — no character will render a trail until re-equipped.");
+        }
+
         private static int _sfxDiagFrame;
 
         /// <summary>Minimal, self-contained Play Mode check for "SFX doesn't play" reports — opens

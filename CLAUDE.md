@@ -6,8 +6,17 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 A Pac-Man-style maze arcade game set in the Farm Fury universe. Farm animals navigate
 farm-themed mazes at night, collecting crops while evading (or chasing) Harvest Robots. See
-`FarmFury_Arcade_GDD_v1.docx` (kept alongside this project, not in this repo) for the full game
-design document — this file only covers what's needed to work in the Unity project itself.
+`FarmFury_Arcade_GDD_v2.docx` (kept alongside this project at `C:\Users\Personel\Desktop\`, not in
+this repo) for the full game design document — this file only covers what's needed to work in the
+Unity project itself. **v2 (2026-08-26) supersedes v1** — v1 (2026-07-26) had drifted significantly
+from the shipped build (wrong maze dimensions, wrong ability cooldowns/effects, wrong coin economy,
+cosmetics pricing, HUD layout, tech stack, and was missing the 3 purchase-gated worlds and their
+monetisation entirely); v2 was rewritten section-by-section against actual current behaviour, added
+a Post-Launch Roadmap (never-built items, explicitly not implied as coming soon) and a Marketing
+Plan section, and notes the original Farm Fury project (physics-destruction, separate repo,
+`farmfury.git`, own CLAUDE.md at `Desktop/FarmFury/`) as shelved. Don't confuse that project's own
+GDD (`FarmFury_GDD_v2.docx`, describing a launcher/physics game) with this project's
+`FarmFury_Arcade_GDD_v2.docx` — same "v2" suffix, unrelated documents.
 
 ## Stack
 
@@ -1193,6 +1202,18 @@ rebuild required" workflow.
   art lands" convention `PelletCollectBurst` already used for rare power pellets. `IAPManager.
   GrantAndEquipTrail` now calls `Refresh()` after equipping, same as the Hat purchase path, so a
   freshly bought trail shows immediately without needing a character swap.
+
+**`SaveManager.DebugForceEquipForTesting` had a real bug for `CosmeticType.Trail` (found and fixed
+2026-08-26).** It routed every cosmetic type through `EquippedKeyPrefix(type)`, which only
+distinguishes Skin vs. Hat and silently defaults anything else — including Trail — to the Hat
+PlayerPrefs key. Since Trail is character-agnostic/global (`FFA_EquippedTrail_global`, not
+per-character like Hat/Skin), calling this helper with `CosmeticType.Trail` wrote to the wrong key
+entirely and `GetEquippedTrail()` never saw it — the trail silently never equipped. Fixed by
+special-casing `CosmeticType.Trail` to write `EquippedTrailKeyPrefix + "global"` directly.
+**Trail testing tooling**: `Farm Fury Arcade > Debug > Equip Trail (Testing) > Corn Husk / Ember /
+Sparkle Dust / Rainbow Ribbon / None (Clear)` (`SceneCleanupBuilder`) force-equips one trail via the
+now-fixed helper, bypassing `IAPManager.PurchaseProduct` — no real store connection exists in the
+Editor, so this is the only way to visually test trails without a real device build.
 - `TileMapRenderer` doesn't yet consume `CosmeticData.themeWallSprite`/`themeGroundSprite`/
   `themeBackdropSprite` — MazeTheme equip state would persist in `SaveManager` but nothing reads it
   at render time yet, moot until MazeTheme assets exist anyway.
@@ -1300,6 +1321,16 @@ was rebuilt (`BuildWorldPurchaseScreen`) around `landing.png` (full brightness, 
 poster convention other overlays use) as the background, `WorldMaze.png` as a top-center badge, and
 the 3 shields as real, independently-sized/positioned `CreateIconButton`s (380px each, 30px
 spacing) — genuinely tunable now, not baked into one image.
+
+**Backdrop switched to the standard dimmed convention, and the price badge repositioned
+(2026-08-26).** `BuildWorldPurchaseScreen`'s root background was still the one holdout using
+full-brightness `landing.png` directly (per the note above) instead of `ApplyDimmedLandingBackground`
+— every other screen in this family (Settings/Shop/Cosmetics hub/Hat-Trail purchase/Leaderboards)
+already used the dimmed `Landing_Opacity.png` convention. Switched to match. Separately, a gameplay
+screenshot showed the `3.99.png` price plaque's top edge touching/overlapping the shield row's
+bottom edge (both anchored close enough that their bounding boxes met exactly at y=310 in the 1920
+reference canvas) — `priceGO`'s `AnchorBottomCenter` offset was pulled in from `(0, 130)` to
+`(0, 60)` to open a clear gap.
 
 **`CosmeticPurchaseScreen` gained a `comingSoonButtons` array** (wired in `Awake`, same "must wire
 listeners in a real `MonoBehaviour.Awake`, never directly from editor-script code" gotcha this
@@ -2195,7 +2226,9 @@ phase made for art (solid-colour placeholders instead of real sprites).
 - **`SceneCleanupBuilder`** (`Farm Fury Arcade > Disable Debug Test Overlays` /
   `Farm Fury Arcade > Fit Gameplay Camera To Maze` / `Farm Fury Arcade > Debug > Reset All
   Progress (Testing)` / `Farm Fury Arcade > Wire AdManager Config` / `Farm Fury Arcade > Debug >
-  Diagnose Level Select Scroll Range` / `Farm Fury Arcade > Debug > Diagnose Dimmed Backdrops`) —
+  Diagnose Level Select Scroll Range` / `Farm Fury Arcade > Debug > Diagnose Dimmed Backdrops` /
+  `Farm Fury Arcade > Debug > Unequip All Hats (Testing)` / `Farm Fury Arcade > Debug > Equip
+  Trail (Testing) > ...`) —
   small targeted scene-hygiene
   fixes that are neither "wire art" nor "rebuild a phase's content." `DisableDebugTestOverlays`
   deactivates (and de-duplicates) the 5 `Phase*Test` GameObjects; `FitGameplayCameraToMaze` (renamed

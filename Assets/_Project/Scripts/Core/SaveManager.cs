@@ -371,7 +371,17 @@ namespace FarmFuryArcade.Core
                 return;
             }
             PlayerPrefs.SetInt(CosmeticOwnedKeyPrefix + cosmeticId, 1);
-            PlayerPrefs.SetString(EquippedKeyPrefix(type) + character, cosmeticId);
+            if (type == CosmeticType.Trail)
+            {
+                // Trail is character-agnostic (global), unlike Hat/Skin — see GetEquippedTrail/
+                // SetEquippedTrail. EquippedKeyPrefix only distinguishes Skin vs Hat, so routing
+                // Trail through it would silently write to the Hat slot instead.
+                PlayerPrefs.SetString(EquippedTrailKeyPrefix + "global", cosmeticId);
+            }
+            else
+            {
+                PlayerPrefs.SetString(EquippedKeyPrefix(type) + character, cosmeticId);
+            }
             PlayerPrefs.Save();
         }
 

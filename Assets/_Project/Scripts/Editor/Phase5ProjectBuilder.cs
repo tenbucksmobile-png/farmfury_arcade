@@ -1986,9 +1986,7 @@ namespace FarmFuryArcade.EditorTools
         private static GameObject BuildWorldPurchaseScreen(Transform canvasTransform)
         {
             var root = CreatePanel("WorldPurchaseScreen", canvasTransform, Color.black);
-            var backgroundImage = root.GetComponent<Image>();
-            backgroundImage.sprite = LoadUiSprite("landing.png");
-            backgroundImage.color = Color.white;
+            ApplyDimmedLandingBackground(root);
 
             var badgeGO = new GameObject("WorldMazeBadge", typeof(RectTransform), typeof(Image));
             badgeGO.transform.SetParent(root.transform, false);
@@ -2026,7 +2024,7 @@ namespace FarmFuryArcade.EditorTools
             var priceImage = priceGO.GetComponent<Image>();
             priceImage.sprite = LoadUiSprite("3.99.png");
             priceImage.preserveAspect = true;
-            AnchorBottomCenter((RectTransform)priceGO.transform, new Vector2(340f, 180f), new Vector2(0f, 130f));
+            AnchorBottomCenter((RectTransform)priceGO.transform, new Vector2(340f, 180f), new Vector2(0f, 60f));
 
             var closeButton = CreateRoundBackButton(root.transform, bottomRight: true);
             closeButton.GetComponent<Image>().sprite = LoadUiSprite("Btn_back.png");
