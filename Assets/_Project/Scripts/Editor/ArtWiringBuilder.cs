@@ -1963,11 +1963,15 @@ namespace FarmFuryArcade.EditorTools
                 PrefabUtility.UnloadPrefabContents(tileContents);
             }
 
-            // "SELECT LEVEL" word-art replacing the old TMP title text. TitleImage moved out of
-            // Header onto LevelSelectScreen's root directly (to match Settings' title sizing/
-            // position) — this path must track that or the sprite silently fails to wire.
+            // Header swapped from "SELECT LEVEL" (SelectLevelText) to WorldUnlocked.png's "World
+            // Unlocked" sign (2026-08-27, per direct feedback/mockup) — same sign World Purchase's
+            // own header and the New World Unlock celebration banner already use. SelectLevelText
+            // stays wired to nothing now; SelectLevelSign.png itself is left on disk unreferenced.
+            // TitleImage moved out of Header onto LevelSelectScreen's root directly (to match
+            // Settings' title sizing/position) — this path must track that or the sprite silently
+            // fails to wire.
             var titleImage = canvasTransform.Find("LevelSelectScreen/TitleImage")?.GetComponent<Image>();
-            var titleSprite = Load(SelectLevelText);
+            var titleSprite = Load(WorldUnlockedBannerSprite);
             if (titleImage != null && titleSprite != null)
             {
                 titleImage.sprite = titleSprite;

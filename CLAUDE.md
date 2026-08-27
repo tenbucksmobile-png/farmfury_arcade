@@ -947,20 +947,23 @@ own "Cosmetics Store UI" subsection. No purchase-card art exists yet for the 5 I
 the plan doc's own "Art needed" list — zero art exists here), so every button is a plain text label
 (`"{displayName}\n{price}"`), same "text label until art lands" convention every other unart'd
 placeholder button in this project uses. This screen itself has since been rebuilt to match a real
-mockup (2026-08-20) — see "Settings / Leaderboards / Level Complete redesign" further down for its
-current layout and entry point (now Settings' 4x2 grid, not Main Menu — the Shop icon moved twice
-after this section was originally written). Remove Ads' button disables itself once
-`SaveManager.AdsRemoved` is already true (a non-consumable can't be purchased twice).
+mockup (2026-08-20) — see "Settings / Leaderboards / Level Complete redesign" further down for that
+pass's layout. **Both this "Shop" screen and "Remove Ads"' button have since moved again** — see
+"Settings/Shop/Legal navigation reorg (2026-08-27)": Shop is now a navigation hub (Cash/Worlds/Ads/
+Cosmetics icons) reached only via `MenuHubScreen`, the coin packs described in this paragraph live
+on the new `CoinPurchaseScreen`, and Remove Ads is a direct-purchase icon on the Shop hub itself
+(`ShopController.removeAdsButton`) rather than a labelled button on the coin-pack screen. The
+owned/dim-once-purchased behaviour this paragraph describes is unchanged, just relocated.
 
 **Restore Purchases was unwired from 2026-08-20 through 2026-08-23** (the Settings redesign that
 week dropped its 2x3-grid button entirely, and `IAPManager.RestorePurchases` sat with no caller for
-a few days). **Re-wired 2026-08-23**: `SettingsPanel`'s row-2, first grid cell (previously blank —
-see "Settings / Leaderboards / Level Complete redesign" further down for that grid's layout) is now
-a real button using `Icon_bare.png` as a backing plaque with a plain "Restore" text label on top (no
-dedicated icon art exists for it yet). Calls `IAPManager.RestorePurchases(callback)`; a new
-`RestoreStatusText` row at the screen's bottom shows "Restoring..." → "Purchases restored!"/"Restore
-failed." — same feedback-text convention Shop/Cosmetic purchase screens already use, not a toast (no
-toast system exists in this project).
+a few days), **re-wired 2026-08-23** onto Settings' then-4x2 grid, and **moved again 2026-08-27** to
+`CoinPurchaseScreen` (see "Settings/Shop/Legal navigation reorg" above) — the actual IAP purchase
+surface, and Apple's natural expected location for it. Still a plain text button (`"Restore
+Purchases"`, no dedicated icon art) calling `IAPManager.RestorePurchases(callback)`, with a
+`RestoreStatusText` row showing "Restoring..." → "Purchases restored!"/"Restore failed." — same
+feedback-text convention Shop/Cosmetic purchase screens already use, not a toast (no toast system
+exists in this project).
 
 **Store-side setup status (updated 2026-08-25):** all 12 products (the original 5 + 7 cosmetic IAPs
 added since — see "Cosmetics Store UI" below) are now **registered in App Store Connect** for iOS
@@ -1305,11 +1308,13 @@ label differs from the code name. Grep for both if searching by name.
 **Entry points — one purchase screen, several doors in:** Shop's own map-icon entry point was
 removed (2026-08-25 review, see "Screens & scene flow" below); the World Purchase screen (the
 `CosmeticPurchaseScreen` instance built by `Phase5ProjectBuilder.BuildWorldPurchaseScreen`) is now
-reached from Settings' row-2 `WorldsCell` (`WorldMaze.png` icon) and from tapping a locked-but-
-purchase-gated world's shield directly in Level Select's carousel (`LevelSelectController` keeps a
-purchase-gated badge `Button.interactable = true` even while locked — unlike a star-locked free-
-world badge, which stays genuinely inert — and routes the tap to `worldPurchaseScreen.Show()`
-instead of revealing a tile grid the player hasn't earned).
+reached from the Shop hub's Worlds icon (`WorldMaze.png` — moved off Settings entirely in the
+2026-08-27 navigation reorg, see "Settings/Shop/Legal navigation reorg" above; `ShopController.
+worldsButton`, not a Settings cell anymore) and from tapping a locked-but-purchase-gated world's
+shield directly in Level Select's carousel (`LevelSelectController` keeps a purchase-gated badge
+`Button.interactable = true` even while locked — unlike a star-locked free-world badge, which stays
+genuinely inert — and routes the tap to `worldPurchaseScreen.Show()` instead of revealing a tile
+grid the player hasn't earned).
 
 **World Purchase screen's own visual history is worth knowing if debugging it.** First built
 around a single supplied design-mockup image, stretched full-screen as the whole background with 3
@@ -1320,7 +1325,9 @@ device aspect (caught via a screenshot review). Once real individual shield art 
 was rebuilt (`BuildWorldPurchaseScreen`) around `landing.png` (full brightness, not the dimmed-
 poster convention other overlays use) as the background, `WorldMaze.png` as a top-center badge, and
 the 3 shields as real, independently-sized/positioned `CreateIconButton`s (380px each, 30px
-spacing) — genuinely tunable now, not baked into one image.
+spacing) — genuinely tunable now, not baked into one image. (The badge and shield size are both
+since superseded — see the two follow-up bullets below and "Settings/Shop/Legal navigation reorg
+(2026-08-27)" above for the current `WorldUnlocked.png` header and 350px shields.)
 
 **Backdrop switched to the standard dimmed convention, and the price badge repositioned
 (2026-08-26).** `BuildWorldPurchaseScreen`'s root background was still the one holdout using
@@ -1330,7 +1337,9 @@ already used the dimmed `Landing_Opacity.png` convention. Switched to match. Sep
 screenshot showed the `3.99.png` price plaque's top edge touching/overlapping the shield row's
 bottom edge (both anchored close enough that their bounding boxes met exactly at y=310 in the 1920
 reference canvas) — `priceGO`'s `AnchorBottomCenter` offset was pulled in from `(0, 130)` to
-`(0, 60)` to open a clear gap.
+`(0, 60)` to open a clear gap. (This still wasn't enough once the header grew again the next day —
+see "Settings/Shop/Legal navigation reorg (2026-08-27)" above for the full re-derivation that
+replaced these numbers, including shrinking the shields themselves.)
 
 **`CosmeticPurchaseScreen` gained a `comingSoonButtons` array** (wired in `Awake`, same "must wire
 listeners in a real `MonoBehaviour.Awake`, never directly from editor-script code" gotcha this
@@ -1683,20 +1692,17 @@ Story):
 
 **Settings** was rebuilt from scratch to match a new mockup, discarding the entire old 2x3 toggle/
 dropdown/Restore-Purchases grid — Music/SFX volume, Vibration, Left-Handed, Language, and IAP
-Restore Purchases are **no longer wired to anything** (the underlying `SaveManager` state and
-`IAPManager.RestorePurchases` still exist, just nothing calls them). The new layout: dimmed poster
+Restore Purchases are **no longer wired to anything** (the underlying `SaveManager` state still
+exists, just nothing calls it). The new layout: dimmed poster
 backdrop (**no `LogoImage` on this screen** — removed per explicit request once the backdrop dim
 made the poster's own baked-in "FARM FURY ARCADE" wordmark read clearly enough on its own; every
-other screen in this family still has one), `SettingsSign.png` header, and a 4x2
-`GridLayoutGroup` of plaque cells — row 1 wired (**Shop** — see its relocation history below,
-**Music** mute toggle via `Btn_music-remove.png`, dimming to a grey tint when muted since no
-dedicated "off" art variant exists, **Leaderboards** via `Btn_LeaderBoard.png`, **Character Story**
-via `Btn_CharacterStory.png` — opens a new placeholder screen, "this is where we will tell a story
-about each character," no real content yet), row 2 deliberately blank (`Icon_bare.png`, swapped in
-for the old `Btn_plaque.png` per an explicit art-swap request — reserved for whatever gets planned
-into these cells next). The round close button (`Btn_back.png`, matching the Shop/Cosmetics suite's
-icon rather than the old distinct "go home" `Btn_home.png`) now just closes the overlay instead of
-always forcing navigation to Main Menu, since it no longer reads as a "go home" action.
+other screen in this family still has one), `SettingsSign.png` header, and originally a 4x2
+`GridLayoutGroup` of plaque cells (row 1 Shop/Music/Leaderboards/Character Story, row 2 initially
+blank). **This 4x2 grid no longer exists** — see "Settings/Shop/Legal navigation reorg (2026-08-27)"
+further down for the single-row-of-4 layout that replaced it, and where Shop/Restore Purchases/
+Remove Ads/Policies each ended up. The round close button (`Btn_back.png`, matching the Shop/
+Cosmetics suite's icon rather than the old distinct "go home" `Btn_home.png`) still just closes the
+overlay rather than forcing navigation anywhere.
 
 **Character Story was rebuilt (2026-08-21)** to match the rest of this redesign family, per a
 screenshot review — `Phase5ProjectBuilder.BuildCharacterStoryPlaceholder` no longer shows
@@ -1786,10 +1792,11 @@ screenshot review, no new mockup:**
   icons doubled 160→320 with spacing scaled 50→100 to match; the row itself nudged to keep a
   tightened gap to the breadcrumb above it; the price plaque enlarged ~1.4x (360x190→500x266, same
   aspect) to read against the now much bigger icons.
-- **Shop screen** (`BuildShopOverlay`): coin-pack plaque boxes enlarged 160→200 — the coin-pack art
-  bakes in more of its own transparent margin than Settings' tightly-cropped icons, so it rendered
-  visibly smaller at the identical box size; `Btn_Cosmetics` doubled 160→320 with its bottom padding
-  increased 70→100; `StatusText` repositioned to clear the taller Cosmetics button beneath it.
+- **Shop screen** (`BuildShopOverlay`, historical — 2026-08-20): coin-pack plaque boxes enlarged
+  160→200, `Btn_Cosmetics` doubled 160→320, `StatusText` repositioned to clear it. **All since
+  superseded** — `BuildShopOverlay` no longer shows coin packs or a Cosmetics banner button at all;
+  see "Settings/Shop/Legal navigation reorg (2026-08-27)" above for its current 4-icon-hub shape and
+  where the coin packs (now `CoinPurchaseScreen`, 240px icons) and Cosmetics entry point moved to.
 - **Leaderboards' back button** moved bottom-left→bottom-right (`CreateRoundBackButton(...,
   bottomRight: true)`) — it was the one screen left still sitting on the left in this redesign
   wave; every other screen (Settings, Shop, Cosmetics hub, Hat/Trail purchase) already used
@@ -1861,9 +1868,12 @@ current design; if you're reading older commit history or screenshots showing a 
 Challenge button, they predate this move.
 
 **Shop icon relocation history** (worth knowing if you're chasing down a stale reference): Main
-Menu top-right → Level Select world-select page top-left → **Settings' 4x2 grid, row 1** (current).
-Only the last move stuck; if you find old code/docs mentioning either earlier position, they
-predate this settling point.
+Menu top-right → (a "Level Select world-select page top-left" move was documented here at one
+point but never actually landed in code — `LevelSelectController` has no Shop field/button) →
+Settings' 4x2 grid, row 1 → **removed from Settings entirely (2026-08-27)**, now reached only via
+`MenuHubScreen`'s "Shop" sign — see "Settings/Shop/Legal navigation reorg (2026-08-27)" below for
+the current shape. If you find old code/docs mentioning any earlier position, they predate this
+settling point.
 
 **Leaderboards** was rebuilt to match the same visual language as the rest of this wave — dimmed
 `landing.png` backdrop, `Leaderboard.png` reused as the big header sign (previously only a small
@@ -1883,6 +1893,76 @@ before (Coin Balance Chip, Revive Prompt panel, Level Complete panel). Fixed by 
 `LevelCompleteController` no longer references a `doubleCoinsLabel` field at all, and "claimed"
 feedback is just `button.interactable = false`, same convention every other icon-only button
 without a dedicated "used" art variant uses.
+
+### Settings/Shop/Legal navigation reorg (2026-08-27, `MenuHubScreen.cs`, `SettingsPanel.cs`, `ShopController.cs`, `CoinPurchaseScreen.cs`, `LegalScreen.cs`)
+
+A full mockup-driven rework of Main Menu's Settings entry point, splitting what used to be one
+4x2-grid `SettingsPanel` into a small hub plus two focused single-row screens, and moving IAP
+purchase surfaces to line up with where players would actually expect them. Supersedes the
+"Settings" paragraph earlier in this section (the 4x2 grid it describes no longer exists) and the
+"Shop icon relocation history" bullet above.
+
+**`MenuHubScreen`** (new) — Main Menu's `SettingsButton` (gear icon) no longer opens `SettingsPanel`
+directly; it now opens this overlay first. Dimmed `Landing_Opacity.png` backdrop (matching every
+other overlay in this family — an earlier full-brightness version was tried first, then dimmed
+after a device screenshot review) with two stacked wood-sign buttons reusing the exact header art
+each destination screen already shows: `SettingsSign.png` ("SETTINGS") and `ShopBanner.png`
+("Shop"). Each sign is an independent tap target with its own listener (`settingsScreen.Show()` /
+`shopScreen.Show()`) — neither routes through the back button. A round `Btn_back.png` closes the
+overlay, revealing Main Menu (the landing page) underneath, since this is a plain `SetActive`
+overlay layered on top of it, not a `SceneTransitionManager` screen swap. This is also Shop's only
+entry point now — Main Menu had no separate Shop button before this (see the corrected "Shop icon
+relocation history" bullet above), so this closes that gap.
+
+**`SettingsPanel`** was cut down from the 4x2 grid to a single row of 4 icons: Music mute
+(`Btn_music-remove.png`), Leaderboards (`Btn_LeaderBoard.png`), Character Story
+(`Btn_CharacterStory.png`), and Policies (`Policies.png`, new — opens `LegalScreen`, below). Shop,
+New Worlds, and Remove Ads all moved off this screen onto the new Shop hub; Restore Purchases moved
+to `CoinPurchaseScreen`. Icons enlarged 1.5x (`StandardIconButtonSize` 160 → a local 240px `iconSize`
+used only by this row, not the shared constant — that constant still backs many unrelated screens
+at 160 and shouldn't change) per direct feedback that the original size read as too small. Reached
+from `MenuHubScreen`'s "SETTINGS" sign, or still directly from Pause's own Settings button
+(`PauseMenuController.settingsPanel` — unchanged, Pause never routes through the hub).
+
+**`ShopController`** was repurposed from "the actual coin-pack purchase screen" into a navigation
+hub — `ShopBanner.png` header, a single row of 4 icons matching the same enlarged `iconSize` as
+Settings: Cash (`Shop.png`, opens `CoinPurchaseScreen`), Worlds (`WorldMaze.png`, opens the World
+Purchase screen), Ads (`Ads.png`, new — a **direct** Remove Ads purchase, no sub-screen; ported the
+owned/dim `RefreshRemoveAdsButtonState` logic that used to live on `SettingsPanel`), and Cosmetics
+(`Cosmetics_Icon.png`, new — opens `CosmeticsHubScreen`, replacing the old large `Btn_Cosmetics.png`
+banner button). The 4 coin-pack icons and that Cosmetics banner button that used to live directly
+on this screen are gone — see `CoinPurchaseScreen` below for where the coin packs went.
+
+**`CoinPurchaseScreen`** (new) — the actual coin-pack IAP surface, extracted wholesale from the old
+`ShopController`: `ShopBanner.png` header, the 4 coin-pack plaques (100/500/5000/15000, unchanged),
+and a small "Restore Purchases" text button + status text (moved here from Settings — Apple
+requires a restore entry point somewhere for non-consumables, and this is the actual store surface,
+the natural place for it). Coin icon size also bumped to the same 240px `iconSize` other rows in
+this family use (was `StandardIconButtonSize * 1.25` = 200). Reached by tapping the Cash icon on
+the Shop hub.
+
+**`LegalScreen`** (new) — Settings' Policies icon opens this: a Privacy Policy button that opens the
+published draft policy page via `Application.OpenURL` (this project has no in-app web view — see
+the `privacy-policy-link` memory for the URL and its "pending legal review" caveat), and a Terms of
+Use button left non-interactable/"Coming Soon" until that copy actually exists (same placeholder
+convention Character Story used before it had real content).
+
+**World Purchase screen** (`BuildWorldPurchaseScreen`) header swapped from the small `WorldMaze.png`
+map badge to `WorldUnlocked.png` (the same "World Unlocked" sign the New World Unlock celebration
+screen uses) to match a mockup, and shield order changed to Harvest Moon → Frozen Garden → Golden
+Sunset (left to right; was Golden Sunset → Frozen Garden → Harvest Moon). The larger header sign
+left no vertical room to spare against the old 380px shield size — the shield row and the `$3.99`
+price plaque were found to literally touch (a shield's pointed-bottom art visibly overlapping the
+price sign) via a device screenshot. Fixed by shrinking shields to 350px and recomputing every
+vertical offset top-down from the header's own fixed bottom edge (a verified 50px gap header→
+shields, 50px shields→price, 65px price→screen bottom) rather than eyeballing new numbers — see the
+method's own doc comment for the exact math if these ever need retuning again. The status text
+below the price sign was also silently overlapping it (same offset as the price sign itself) and
+was moved to sit cleanly underneath.
+
+**Level Select's header** swapped from `SelectLevelSign.png` ("SELECT LEVEL") to `WorldUnlocked.png`
+("World Unlocked") per the same mockup pass, wired in `ArtWiringBuilder.WireLevelSelect` — the
+`SelectLevelText` constant/`SelectLevelSign.png` file are both still present but now unreferenced.
 
 ### Level Select (`Scripts/UI/LevelSelectController.cs`, `CardCarouselController.cs`, `LevelTileController.cs`, `LockedHintPanel.cs`, `Scripts/Utilities/UnlockProgression.cs`)
 
@@ -2502,8 +2582,10 @@ values from the GDD's color palette where one exists (e.g. walls = Wall Brown `#
   `Header` has no background art at all (`Color.clear`) — it's just a layout strip for
   `TitleImage`/`StarCounter`, so the night sky shows straight through; `Header_LevelSelect.png`
   (a constant that used to point at a file which was never actually uploaded) was removed rather
-  than kept as a dead reference. `SelectLevelSign.png` is `TitleImage`'s word-art (replacing old
-  TMP "SELECT LEVEL" text). The 4 world badges (`CornfieldSign`/`VegetablePatchSign`/`OrchardSign`/
+  than kept as a dead reference. `TitleImage`'s word-art was originally `SelectLevelSign.png`
+  (replacing old TMP "SELECT LEVEL" text), then swapped to `WorldUnlocked.png` ("World Unlocked")
+  in the 2026-08-27 navigation reorg — see that section above; `SelectLevelSign.png` is now
+  unreferenced. The 4 world badges (`CornfieldSign`/`VegetablePatchSign`/`OrchardSign`/
   `WheatfieldSign.png` — note `CornfieldSign.png`'s on-disk filename has a lowercase "f", unlike
   the other three, since `AssetDatabase.LoadAssetAtPath` is case-sensitive regardless of the OS
   filesystem) are wired straight onto `LevelSelectController.worldSignSprites` — see the "Level
@@ -2709,9 +2791,9 @@ values from the GDD's color palette where one exists (e.g. walls = Wall Brown `#
   SetIconsForTargetGroup`, Standalone + the default/`Unknown` group) — a project-settings change,
   not a scene/prefab one.
 - **Shop icon** — `Shop.png`, historically a Main Menu button (as this bullet originally described)
-  — since relocated twice; as of the 2026-08-20 redesign it lives in Settings' 4x2 grid, baked
-  directly at construction time rather than wired here. See "Settings / Leaderboards / Level
-  Complete redesign" further down.
+  — relocated several times since; as of the 2026-08-27 navigation reorg it's the "Cash" icon on
+  the Shop hub (`ShopController`, reached via `MenuHubScreen`), baked directly at construction time
+  rather than wired here. See "Settings/Shop/Legal navigation reorg (2026-08-27)" further up.
 - **Cosmetics Store chrome** — `CosmeticStoreScreen`/`CosmeticCardController` (the tab-based screen
   this bullet originally described) no longer exist — replaced by `CosmeticsHubScreen`/
   `CosmeticPurchaseScreen`, which bake all their own art directly at construction time instead of
@@ -3174,10 +3256,9 @@ and reopen the project normally to confirm nothing was corrupted.
 - **Settings' Restore/Reset Progress**: the original cloud-save Restore Progress and Reset Progress
   buttons were removed entirely (not just stubbed) in the 2026-07-31 mockup pass — Restore was
   Phase 6/cloud-save scope with no real action either way, and real cloud-save restore is still
-  Phase 6 scope if it comes back. The Settings grid's row-2, first cell (5th of 8 overall) sat blank
-  after that removal, then briefly hosted IAP's "Restore Purchases" claim in this doc without the
-  code actually being wired (2026-08-20 to 2026-08-23 gap) — it's genuinely wired now, see "IAP
-  plumbing" above.
+  Phase 6 scope if it comes back. IAP's own "Restore Purchases" (unrelated — non-consumable IAP
+  restore, not cloud-save) lived briefly on Settings' then-4x2 grid (2026-08-23) and has since moved
+  again, to `CoinPurchaseScreen` — see "Settings/Shop/Legal navigation reorg (2026-08-27)" above.
 - **Leaderboards has no cloud sync** — local-only, per spec.
 - **`DailyChallengeManager.CharacterLocked` isn't enforced**, only checked after the fact — a
   player can freely swap characters during a Character-Locked daily challenge; the run just won't
@@ -3206,10 +3287,19 @@ Main Menu ──Play──▶ Level Select ──tap unlocked tile──▶ Game
     │                                          (Retry loops back to Gameplay,
     │                                           or Pause ▸ Quit to Level Select)
     │
-    ├──Settings (gear)────▶ modal overlay (2x3 plaque grid: music/sfx/vibration/left-handed/
-    │                        language/restore purchases, + top-right Leaderboards button)
-    │                        ──back (round icon)──▶ wherever opened from
-    └──Shop─────────────▶ modal overlay (4 coin packs + Remove Ads) ──Back──▶ Main Menu
+    └──Settings (gear)────▶ MenuHubScreen (SETTINGS sign / Shop sign) ──back──▶ Main Menu
+                             ├──SETTINGS──▶ Settings (music/leaderboards/character story/policies)
+                             │              ──back──▶ MenuHubScreen
+                             └──Shop──────▶ Shop hub (cash/worlds/ads/cosmetics)
+                                            ├──Cash───▶ CoinPurchaseScreen (4 coin packs + restore)
+                                            ├──Worlds─▶ World Purchase screen ($3.99 x3 worlds)
+                                            ├──Ads────▶ direct Remove Ads purchase (no sub-screen)
+                                            └──Cosmetics▶ CosmeticsHubScreen (hats/trails)
+                                            ──back──▶ MenuHubScreen
+
+Pause also opens Settings directly (its own Settings button), bypassing MenuHubScreen entirely —
+see "Settings/Shop/Legal navigation reorg (2026-08-27)" above for the full breakdown of this
+screen family.
 
 Level Select's world-select carousel also has its own Daily Challenge shield (first item, ahead of
 Corn Field — loads today's date-seeded level from an unlocked world, see the Level Select section's

@@ -4,30 +4,34 @@ using FarmFuryArcade.Core;
 
 namespace FarmFuryArcade.UI
 {
-    /// <summary>Top-level menu — Play/Settings only. Shop moved to Level Select's world-select page
-    /// (top-left icon there); Leaderboards moved to Settings (its own top-right button there); and
-    /// Daily Challenge moved to Level Select (its own top-right button there) per feedback that the
-    /// landing page should stay minimal; all three had briefly lived here as top-corner buttons
-    /// before those moves. Character Roster still has no entry point anywhere (see CLAUDE.md's
-    /// "Known gaps").
+    /// <summary>Top-level menu — Play/Settings only. Leaderboards live on Settings (its own button
+    /// there) and Daily Challenge lives on Level Select (the first shield in its world carousel)
+    /// per feedback that the landing page should stay minimal — both briefly lived here as
+    /// top-corner buttons before those moves. Character Roster still has no entry point anywhere
+    /// (see CLAUDE.md's "Known gaps").
     ///
     /// Play opens Level Select directly. An intermediate "World Map" screen (Map.png background,
     /// Play/Home nav buttons — `WorldMapController`) used to sit here; it was removed outright
     /// (deleted, not just unlinked — see CLAUDE.md's "Removed: World Map screen") once Level
     /// Select's scrollable tile grid (grouped into world sections with CORN FIELD/VEGETABLE
-    /// PATCH/ORCHARD/WHEAT FIELD dividers) made it fully redundant.</summary>
+    /// PATCH/ORCHARD/WHEAT FIELD dividers) made it fully redundant.
+    ///
+    /// Settings (2026-08-27) no longer opens SettingsPanel directly — it opens MenuHubScreen
+    /// first, a new intermediate overlay with two sign buttons ("SETTINGS"/"Shop") matching a new
+    /// mockup, giving Shop a discoverable entry point from Main Menu it didn't have before (Shop
+    /// had no entry point on this screen at all prior to this change).</summary>
     public class MainMenuController : MonoBehaviour
     {
         [SerializeField] private Button playButton;
         [SerializeField] private Button settingsButton;
 
         [SerializeField] private GameObject levelSelectScreen;
-        [SerializeField] private SettingsPanel settingsPanel;
+        [SerializeField] private MenuHubScreen menuHubScreen;
 
         private void Awake()
         {
             playButton.onClick.AddListener(() => SceneTransitionManager.Instance.ShowOnly(levelSelectScreen));
-            settingsButton.onClick.AddListener(() => settingsPanel.Show());
+            settingsButton.onClick.AddListener(() => menuHubScreen.Show());
         }
 
         // Fires both at app launch (Main Menu starts active) and every time the player navigates
