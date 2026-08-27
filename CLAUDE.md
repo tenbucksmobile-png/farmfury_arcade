@@ -200,6 +200,21 @@ there's no "common" tier to distinguish it from anymore. Visual is `MazeArtSet.p
 the old 3-way Sunflower/GoldenWheat/Rainbow visual split) unless that world has a dedicated
 `rarePelletSprite`, which now always wins since every pellet IS the rare one.
 
+**Real bug found and fixed (2026-08-27): a level with more than one power-pellet spawn point in
+its grid could never be completed.** `Phase2ProjectBuilder.BuildLevel` computed
+`LevelData.totalCropsRequired = kernels + vegetables + pellets`, counting every tile-id-4 cell in
+the grid uncapped — but per the paragraph above, only the FIRST one ever actually spawns a real,
+collectible `PowerPelletPickup`. `GameManager._cropsRemaining` (seeded from `totalCropsRequired`)
+could therefore never reach zero on any maze with 2+ pellet cells, so `NotifyCropCollected` never
+fired `EndLevel(true)` no matter how much of the board was cleared — reported via a playtest on
+`LevelData_51` ("The Orchard - 01"), which does have two. `BuildLevel` now caps the count to
+`kernels + vegetables + Mathf.Min(pellets, 1)`, matching what actually spawns at runtime. Fixing
+the 175 already-baked `LevelData` assets didn't need a full `Phase2ProjectBuilder.BuildAll` rerun
+(which would also reset `robotSpawns` back to empty, per the gotcha below) — `SceneCleanupBuilder`
+gained a one-off, non-destructive tool for this instead: `Farm Fury Arcade > Debug > Fix Level Crop
+Counts (Power Pellet Cap)` recomputes only `totalCropsRequired` on every `LevelData` asset directly
+from its own grid, leaving `robotSpawns`/art/`mazeLayoutFlat` untouched. Safe to re-run.
+
 Crop/vegetable/pellet/warp-tunnel positions are **not** stored as separate arrays — an earlier
 pass had `CropPlacement[]`/`PowerPelletPlacement[]` fields on `LevelData`, but these were removed
 in favor of scanning the grid for tile ids 2–5, since the GDD's own convention table already
@@ -650,7 +665,8 @@ top of its `Execute()`.
 **`ChooseCharacterScreen`** (`Scripts/UI`) is the real uGUI character-swap panel — see "Screens &
 scene flow" below for its full description. The original Phase 4 `CharacterSwapUI` (`OnGUI`,
 "functional even if not polished" per spec) was retired once this replaced it. Toggled by Tab
-(via the same `InputController.OnSwapMenuToggleInput` event) or Pause's Swap Character button.
+(via the same `InputController.OnSwapMenuToggleInput` event) or a dedicated Gameplay HUD button
+(moved there from Pause 2026-08-27 — see "Screens & scene flow" below).
 
 ### Monetisation (`Scripts/Core/GameManager.cs`, `AdManager.cs`, `Scripts/UI/RevivePromptController.cs`)
 
@@ -1451,9 +1467,11 @@ from their original Phase 5 layouts:
   `CreateHorizontalScrollView`) in favour of the same bottom-left/right icon-button convention as
   Main Menu. The screen itself, and this marker-strip infrastructure, are gone now — see "Removed:
   World Map screen" above.
-- **Gameplay HUD** (`GameplayHUD`) lost its `SwapButton` — Tab (`ChooseCharacterScreen.ToggleOpen`)
-  still triggers it directly via `InputController`, so removing the button didn't remove the
-  feature. `AbilityButton` survives as the character portrait itself (see below).
+- **Gameplay HUD** (`GameplayHUD`) lost its `SwapButton` in this original cleanup — Tab
+  (`ChooseCharacterScreen.ToggleOpen`) still triggered it directly via `InputController`, so
+  removing the button didn't remove the feature. `AbilityButton` survives as the character portrait
+  itself (see below). **A swap button returned to this screen 2026-08-27** (moved here from Pause,
+  above the ability icon) — see the "Swap Character button added" bullet further down.
 
   **The portrait art on this button was later swapped for a dedicated ability icon** (2026-08-21):
   `CharacterData.abilityIconSprite` is a new field (falls back to `portraitSprite` when unset) that
@@ -1511,6 +1529,20 @@ from their original Phase 5 layouts:
     shows that real art instead of a plain "AD" text label (wired in `ArtWiringBuilder.
     WireMonetisationArt`) — `SkipCooldownButton` (the coin-cost "-3" one) stays to the icon's left,
     unchanged in size, just re-centred against the icon's new, higher position.
+
+  **Swap Character button added (2026-08-27)**, directly above the ability icon — same X inset and
+  same size (`abilityButtonSize`, per explicit direction), raised by the icon's own height +
+  `clusterSpacing`. Moved here from Pause, which dropped it entirely in its own 2026-08-27 mockup
+  redesign (see the Level Failed/Pause bullet under "Art status" below) — the ask was specifically
+  so a mobile player can reach character swap with a thumb mid-run without opening Pause first.
+  Uses a new icon (`SwapCharacterIcon.png`, a circular wood badge with a double-headed arrow — not
+  the same file as the older `SwapCharacter.png` rectangular text-label button, which is now
+  unused). `GameplayHUD` gained `swapCharacterButton`/`chooseCharacterScreen` fields; tapping it
+  just calls `chooseCharacterScreen.Show()`, same convention Pause's old button used. Tab
+  (`InputController.OnSwapMenuToggleInput`) still works as an independent shortcut, unchanged —
+  `ChooseCharacterScreen.Show()`/`Close()` already handled being opened directly from gameplay
+  (`Close()` only reactivates Pause if `GameManager.CurrentState == GameState.Paused`), so no
+  changes were needed there.
 
   `SoundButton`/`HomeButton` were removed too (per playtest feedback) — both are reachable via
   Pause instead (Settings' music/SFX toggles, Pause's own Quit button) — leaving just a single
@@ -2308,7 +2340,7 @@ phase made for art (solid-colour placeholders instead of real sprites).
   Progress (Testing)` / `Farm Fury Arcade > Wire AdManager Config` / `Farm Fury Arcade > Debug >
   Diagnose Level Select Scroll Range` / `Farm Fury Arcade > Debug > Diagnose Dimmed Backdrops` /
   `Farm Fury Arcade > Debug > Unequip All Hats (Testing)` / `Farm Fury Arcade > Debug > Equip
-  Trail (Testing) > ...`) —
+  Trail (Testing) > ...` / `Farm Fury Arcade > Debug > Fix Level Crop Counts (Power Pellet Cap)`) —
   small targeted scene-hygiene
   fixes that are neither "wire art" nor "rebuild a phase's content." `DisableDebugTestOverlays`
   deactivates (and de-duplicates) the 5 `Phase*Test` GameObjects; `FitGameplayCameraToMaze` (renamed
@@ -2324,7 +2356,10 @@ phase made for art (solid-colour placeholders instead of real sprites).
   non-empty value is passed in, so it's safe to re-run as new platform values arrive piecemeal
   without clobbering ones already set. `DiagnoseLevelSelectScrollRange`/`DiagnoseDimmedBackdrops`
   are read-only Edit-mode diagnostics — see "Level Select" and "Settings backdrop/header gotchas"
-  above for what each answers. All entry points here are safe to re-run.
+  above for what each answers. `FixLevelCropCounts` recomputes `LevelData.totalCropsRequired`
+  directly from each level's own grid (capping power pellets to 1, matching what
+  `TileMapRenderer` actually spawns) across all 175 levels — see the power-pellet section above for
+  the bug this fixes. All entry points here are safe to re-run.
 
 `Phase1Test.cs`/`Phase2Test.cs`/`Phase3Test.cs`/`Phase4Test.cs`/`Phase5Test.cs` (`Scripts/Core`) are verification
 harnesses, not gameplay — each auto-runs a battery of checks on `Start()` and logs `PASS`/`FAIL`/
@@ -2547,6 +2582,48 @@ values from the GDD's color palette where one exists (e.g. walls = Wall Brown `#
   size/inset as every other mockup-driven screen) was added to match. Choose Character and Level
   Complete got the same `World1_Cornfield.png` root + `LogoImage` treatment per their own mockups
   (same session) — see their bullets below.
+- **Level Failed and Pause were both fully rebuilt again (2026-08-27), discarding everything the
+  two bullets above describe** — `Paused.png`/`LevelFailed.png`'s baked-in button rows, the
+  Restart/Quit and Resume/SwapCharacter/Restart/Settings/Quit button sets, all of it. Both screens
+  now match new mockups exactly and share the same shape: `Bg_LevelSelect.png` background,
+  `Logo.png` top-left, a small hanging wood-sign header (`LevelFailed.png`'s "TRY AGAIN!" card for
+  one, the new `Pause.png` banner for the other — `Paused.png` itself is no longer referenced
+  anywhere), and an identical 4-icon Play/Skip/Settings/Quit row (`Btn_play`/`Btn_skip`/
+  `Btn_settings`/`Btn_quit.png`, `StandardIconButtonSize`) at the same bottom-corner positions on
+  both screens. `Phase5ProjectBuilder.BuildLevelFailed`/`BuildPauseMenu` bake all of this directly
+  at construction time (self-contained, same convention `MenuHubScreen`/`ShopController` use) —
+  `ArtWiringBuilder` no longer wires anything for either screen.
+
+  Skip/Settings/Quit are wired identically on both (`LevelFailedController`/`PauseMenuController`):
+  Skip returns to Level Select (same "one step back" as the old single Quit button), Settings opens
+  the shared `SettingsPanel` overlay, Quit returns to Level Select's **world-select** state
+  specifically (`LevelSelectController.ShowWorldSelect()`) — a bigger step back than Skip. Play is
+  the one deliberate difference between the two: Level Failed's Play restarts the level (there's
+  nothing to resume — the run already ended), Pause's Play resumes gameplay instead (confirmed via
+  direct question — the universal play/resume meaning of that icon, and, since the old standalone
+  Resume button is gone, the only way left to simply un-pause).
+
+  Level Failed also gained a real `StarDisplay` + score readout in `LevelFailed.png`'s blank
+  parchment interior (always 0 filled stars — a failed run earns none — with the score earned so
+  far directly BELOW the star row, the mirror of `LevelCompleteController`'s own score-above-stars
+  order) — the score is read live from `ScoreManager.CurrentMazeScore` since `GameManager.
+  LastLevelResult` isn't populated on a failure.
+
+  Pause's Swap Character button is gone (no room in the 4-button mockup) — moved to Gameplay HUD
+  instead (see "Screens & scene flow" below), not deleted; `ChooseCharacterScreen` itself and its
+  Tab shortcut are untouched.
+
+  **Real bug found and fixed in the same pass**: `MenuHubScreen` never deactivated itself when
+  opening Settings/Shop, and — since it happened to be added to the scene after both in
+  `Phase5ProjectBuilder.BuildAll`'s call order — it sat at a HIGHER sibling index under `Canvas`,
+  meaning it drew (and raycast-intercepted) on top of them even once they were active. Tapping the
+  SETTINGS sign visibly did nothing. Fixed generally rather than by reordering the build: every
+  overlay's own `Show()` (`SettingsPanel`, `ShopController`, `CoinPurchaseScreen`,
+  `CosmeticsHubScreen`, `CosmeticPurchaseScreen`, `MenuHubScreen` itself, plus two raw
+  `GameObject.SetActive` call sites in `SettingsPanel` for Character Story/Policies) now calls
+  `transform.SetAsLastSibling()` before activating, so each always draws above whatever's currently
+  showing regardless of build/sibling order. Check this pattern first if a future overlay's tap
+  silently "does nothing" while its wiring checks out.
 - **Settings is a 2x3 grid of whole-plaque toggle cells, not a vertical stack of rows.** Rebuilt to
   a 2026-07-31 Canva mockup: root background is `Bg_LevelSelect.png` (moon/windmill/barn — see the
   Level Select bullet below for where else this art is used), `Logo.png` top-left, `SettingsSign.png`
@@ -3276,7 +3353,7 @@ and reopen the project normally to confirm nothing was corrupted.
 Main Menu ──Play──▶ Level Select ──tap unlocked tile──▶ Gameplay HUD
     │▲                   │▲                                       │▲  │
     ││                    │└─ tap CurrentWorldIndicator (world select) │
-    │└───────────────────┘                              Pause(P)──▶│└──┼─▶ Resume
+    │└───────────────────┘                              Pause(P)──▶│└──┼─▶ Play (resume)
     │                                                                  │
     │◀──────────────────── back (round icon) ─────────────────────────┘
     │
@@ -3284,8 +3361,9 @@ Main Menu ──Play──▶ Level Select ──tap unlocked tile──▶ Game
     │◀──────────────────── Skip ──────────────────────────────▲  (all crops
     │                                                          │   collected)
     │                                          Level Failed◀───┘
-    │                                          (Retry loops back to Gameplay,
-    │                                           or Pause ▸ Quit to Level Select)
+    │                                          (Play restarts, or Skip/Quit back to
+    │                                           Level Select — same for Pause, whose
+    │                                           own Play resumes instead of restarting)
     │
     └──Settings (gear)────▶ MenuHubScreen (SETTINGS sign / Shop sign) ──back──▶ Main Menu
                              ├──SETTINGS──▶ Settings (music/leaderboards/character story/policies)
@@ -3297,9 +3375,13 @@ Main Menu ──Play──▶ Level Select ──tap unlocked tile──▶ Game
                                             └──Cosmetics▶ CosmeticsHubScreen (hats/trails)
                                             ──back──▶ MenuHubScreen
 
-Pause also opens Settings directly (its own Settings button), bypassing MenuHubScreen entirely —
-see "Settings/Shop/Legal navigation reorg (2026-08-27)" above for the full breakdown of this
-screen family.
+Pause and Level Failed also both open Settings directly (their own Settings button), bypassing
+MenuHubScreen entirely — see "Settings/Shop/Legal navigation reorg (2026-08-27)" above for the full
+breakdown of this screen family. Both screens' own Quit button goes specifically to Level Select's
+world-select state (`LevelSelectController.ShowWorldSelect()`), a bigger step back than Skip.
+
+The Swap Character button lives on Gameplay HUD itself now (above the ability icon), not on Pause
+— see the Gameplay HUD bullet under "Screens & scene flow" above.
 
 Level Select's world-select carousel also has its own Daily Challenge shield (first item, ahead of
 Corn Field — loads today's date-seeded level from an unlocked world, see the Level Select section's
