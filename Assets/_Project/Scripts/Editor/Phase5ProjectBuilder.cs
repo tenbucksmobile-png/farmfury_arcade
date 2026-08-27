@@ -903,6 +903,15 @@ namespace FarmFuryArcade.EditorTools
             portrait.sprite = PlaceholderSprite.Get(new Color(1f, 0.84f, 0f));
             portrait.raycastTarget = false;
 
+            // Swap Character button (2026-08-27) — moved here from Pause (see GameplayHUD's own doc
+            // comment) so it's reachable with a thumb mid-run on mobile without opening Pause first.
+            // Directly above the ability icon, same X inset and same size (per explicit direction),
+            // just raised by the icon's own height + clusterSpacing.
+            var swapCharacterButton = CreateIconButton("SwapCharacterButton", root.transform,
+                LoadUiSprite("SwapCharacterIcon.png"), abilityButtonSize);
+            AnchorBottomRight((RectTransform)swapCharacterButton.transform, new Vector2(abilityButtonSize, abilityButtonSize),
+                new Vector2(abilityInsetX, abilityBottomY + abilityButtonSize + clusterSpacing));
+
             // Monetisation: "skip cooldown for 3 coins" button — sits just left of the ability icon,
             // vertically centred against it (computed from the icon's own inset/size, now raised to
             // abilityBottomY — see above). Hidden by default; GameplayHUD.HandleAbilityCooldownChanged
@@ -1103,6 +1112,7 @@ namespace FarmFuryArcade.EditorTools
             so.FindProperty("coinBalanceText").objectReferenceValue = coinBalanceText;
             so.FindProperty("characterPortrait").objectReferenceValue = portrait;
             so.FindProperty("abilityButton").objectReferenceValue = portraitButton;
+            so.FindProperty("swapCharacterButton").objectReferenceValue = swapCharacterButton;
             so.FindProperty("pauseButton").objectReferenceValue = pauseButton;
             so.FindProperty("powerPelletTimerBar").objectReferenceValue = powerBarGO;
             so.FindProperty("powerPelletTimerFill").objectReferenceValue = powerFillImage;
@@ -1118,87 +1128,59 @@ namespace FarmFuryArcade.EditorTools
 
         // ---- Pause Menu -------------------------------------------------------------------------
 
-        /// <summary>Paused.png bakes in the "PAUSED" title and all 5 button-row backgrounds at
-        /// fixed positions — Resume/SwapCharacter/Restart/Settings/Quit.png (real button art wired
-        /// by ArtWiringBuilder) sit exactly on top of those five baked-in rows instead of generic
-        /// CreateButton rectangles + a redundant "PAUSED" text. Anchor fractions below were
-        /// measured directly off Paused.png (a 2048x2048 square image, stretched to fill this
-        /// full-screen overlay) — same reasoning as BuildLevelFailed's SetAnchorRect comment.
-        /// Rebuilt to a Canva mockup (2026-07-31): the root's own Image is now World1_Cornfield.png
-        /// (an opaque farm backdrop, wired by ArtWiringBuilder), not the previous plain black dim —
-        /// Pause now fully replaces the view rather than dimming the gameplay maze behind it, same
-        /// "own dedicated background" treatment the mockup already gave Settings/Level Select.
-        /// LogoImage (top-left, same as Settings/Level Select) was added to match.</summary>
+        /// <summary>Rebuilt (2026-08-27) to match a new mockup exactly — same self-contained,
+        /// bake-everything-at-construction-time convention BuildLevelFailed uses (nothing left for
+        /// ArtWiringBuilder to wire), and in fact an almost identical layout: Bg_LevelSelect.png
+        /// background, Logo.png top-left, a wood-sign banner (Pause.png — not the old square
+        /// Paused.png card, which is no longer referenced anywhere in this project), and the exact
+        /// same 4-button Play/Skip/Settings/Quit row BuildLevelFailed uses, at the exact same
+        /// positions. See PauseMenuController's own doc comment for what each button does and how
+        /// it differs from Level Failed's Play (resume, not restart) — Skip/Settings/Quit are wired
+        /// identically. The old 5-button Resume/SwapCharacter/Restart/Settings/Quit design (built on
+        /// Paused.png's baked-in rows) is discarded entirely, not patched.</summary>
         private static GameObject BuildPauseMenu(Transform canvasTransform)
         {
             var root = CreatePanel("PauseOverlay", canvasTransform, Color.black);
+            root.GetComponent<Image>().sprite = LoadUiSprite("Bg_LevelSelect.png");
 
             var logoImageGO = new GameObject("LogoImage", typeof(RectTransform), typeof(Image));
             logoImageGO.transform.SetParent(root.transform, false);
             var logoImage = logoImageGO.GetComponent<Image>();
-            logoImage.sprite = PlaceholderSprite.Get(Color.clear);
+            logoImage.sprite = LoadUiSprite("Logo.png");
             logoImage.preserveAspect = true;
-            // Inset further than the other 3 screens sharing this logo convention (40 -> 100) —
-            // it was close enough to the corner to read as clipped by the yellow safe-area guide.
-            AnchorTopLeft((RectTransform)logoImageGO.transform, new Vector2(300f, 170f), new Vector2(100f, -50f));
+            AnchorTopLeft((RectTransform)logoImageGO.transform, new Vector2(300f, 170f), new Vector2(100f, -40f));
 
-            // Paused.png is a SQUARE (2048x2048) parchment/frame card with its 5 button rows baked
-            // into the art. Its old wiring set it directly as the root panel's own Image — the root
-            // stretches full-screen (StretchFull), so on a real landscape device aspect the square
-            // art got non-uniformly stretched, squashing the baked-in button rows together and
-            // making the separately-wired button art (Resume.png etc, positioned by the fractions
-            // below) drift out of alignment with them / off the visible card entirely. "PanelArt" is
-            // a child that stays centred and square via AspectRatioFitter (FitInParent), so it never
-            // exceeds the overlay's bounds regardless of device aspect. The 5 buttons move under
-            // PanelArt so their fractions — tuned against the art's own baked button positions —
-            // line up with it at any aspect.
-            var panelArtGO = new GameObject("PanelArt", typeof(RectTransform), typeof(Image), typeof(AspectRatioFitter));
-            panelArtGO.transform.SetParent(root.transform, false);
-            var panelArtRect = (RectTransform)panelArtGO.transform;
-            panelArtRect.anchorMin = Vector2.zero;
-            panelArtRect.anchorMax = Vector2.one;
-            panelArtRect.offsetMin = Vector2.zero;
-            panelArtRect.offsetMax = Vector2.zero;
-            panelArtGO.GetComponent<Image>().sprite = PlaceholderSprite.Get(Color.clear);
-            var panelArtFitter = panelArtGO.GetComponent<AspectRatioFitter>();
-            panelArtFitter.aspectMode = AspectRatioFitter.AspectMode.FitInParent;
-            panelArtFitter.aspectRatio = 1f;
+            // Pause.png is a 666x375 hanging wood sign (rope-tied corners, "Pause" on parchment) —
+            // sized to its own real aspect (~1.78:1) rather than a generic header-sign box, first
+            // pass eyeballed against the mockup (no visual Editor/Play mode access this session).
+            var signGO = new GameObject("TitleImage", typeof(RectTransform), typeof(Image));
+            signGO.transform.SetParent(root.transform, false);
+            var signImage = signGO.GetComponent<Image>();
+            signImage.sprite = LoadUiSprite("Pause.png");
+            signImage.preserveAspect = true;
+            AnchorTopCenter((RectTransform)signGO.transform, new Vector2(560f, 315f), new Vector2(0f, -300f));
 
-            // Fractions widened slightly (~0.015 horizontally, ~0.004 vertically) from the values
-            // originally measured off Paused.png — the button art was sitting a hair inside its
-            // row's baked-in outline, leaving a thin sliver of the parchment's own button shape
-            // visible around each one instead of being fully covered. Nudged down another ~0.012
-            // (all 5, uniformly) per a follow-up review — "almost perfectly aligned" but sitting a
-            // touch high of the baked-in rows.
-            var resumeButton = CreateButton("ResumeButton", panelArtGO.transform, string.Empty, Color.clear, out _);
-            Object.DestroyImmediate(resumeButton.transform.Find("ResumeButton_Label").gameObject);
-            SetAnchorRect((RectTransform)resumeButton.transform, 0.31f, 0.584f, 0.69f, 0.6745f);
+            // Same 4-button layout as LevelFailedController — Play/Skip bottom-left pair, Settings/
+            // Quit bottom-right pair, identical StandardIconButtonSize + insets (see
+            // BuildLevelFailed's own doc comment for the exact mirroring rationale).
+            var playButton = CreateIconButton("PlayButton", root.transform, LoadUiSprite("Btn_play.png"), StandardIconButtonSize);
+            AnchorBottomLeft((RectTransform)playButton.transform, new Vector2(StandardIconButtonSize, StandardIconButtonSize), new Vector2(150f, 110f));
 
-            var swapButton = CreateButton("SwapButton", panelArtGO.transform, string.Empty, Color.clear, out _);
-            Object.DestroyImmediate(swapButton.transform.Find("SwapButton_Label").gameObject);
-            SetAnchorRect((RectTransform)swapButton.transform, 0.2475f, 0.479f, 0.75f, 0.5695f);
+            var skipButton = CreateIconButton("SkipButton", root.transform, LoadUiSprite("Btn_skip.png"), StandardIconButtonSize);
+            AnchorBottomLeft((RectTransform)skipButton.transform, new Vector2(StandardIconButtonSize, StandardIconButtonSize), new Vector2(150f + StandardIconButtonSize + 30f, 110f));
 
-            var restartButton = CreateButton("RestartButton", panelArtGO.transform, string.Empty, Color.clear, out _);
-            Object.DestroyImmediate(restartButton.transform.Find("RestartButton_Label").gameObject);
-            SetAnchorRect((RectTransform)restartButton.transform, 0.31f, 0.3765f, 0.69f, 0.4645f);
+            var quitButton = CreateIconButton("QuitButton", root.transform, LoadUiSprite("Btn_quit.png"), StandardIconButtonSize);
+            AnchorBottomRight((RectTransform)quitButton.transform, new Vector2(StandardIconButtonSize, StandardIconButtonSize), new Vector2(-150f, 110f));
 
-            var settingsButton = CreateButton("SettingsButton", panelArtGO.transform, string.Empty, Color.clear, out _);
-            Object.DestroyImmediate(settingsButton.transform.Find("SettingsButton_Label").gameObject);
-            SetAnchorRect((RectTransform)settingsButton.transform, 0.31f, 0.274f, 0.69f, 0.362f);
-
-            var quitButton = CreateButton("QuitButton", panelArtGO.transform, string.Empty, Color.clear, out _);
-            Object.DestroyImmediate(quitButton.transform.Find("QuitButton_Label").gameObject);
-            // Quit alone nudged down another ~0.01 per feedback — the other 4 buttons are confirmed
-            // correctly aligned now and were left untouched.
-            SetAnchorRect((RectTransform)quitButton.transform, 0.3525f, 0.169f, 0.65f, 0.252f);
+            var settingsButton = CreateIconButton("SettingsButton", root.transform, LoadUiSprite("Btn_settings.png"), StandardIconButtonSize);
+            AnchorBottomRight((RectTransform)settingsButton.transform, new Vector2(StandardIconButtonSize, StandardIconButtonSize), new Vector2(-150f - StandardIconButtonSize - 30f, 110f));
 
             var controller = root.AddComponent<PauseMenuController>();
             var so = new SerializedObject(controller);
-            so.FindProperty("resumeButton").objectReferenceValue = resumeButton;
-            so.FindProperty("swapButton").objectReferenceValue = swapButton;
-            so.FindProperty("restartButton").objectReferenceValue = restartButton;
+            so.FindProperty("playButton").objectReferenceValue = playButton;
+            so.FindProperty("skipButton").objectReferenceValue = skipButton;
             so.FindProperty("settingsButton").objectReferenceValue = settingsButton;
-            so.FindProperty("quitToMenuButton").objectReferenceValue = quitButton;
+            so.FindProperty("quitButton").objectReferenceValue = quitButton;
             so.ApplyModifiedPropertiesWithoutUndo();
 
             return root;
@@ -2314,17 +2296,38 @@ namespace FarmFuryArcade.EditorTools
 
         // ---- Level Failed -----------------------------------------------------------------------
 
-        /// <summary>Rebuilt to a 2026-08-01 Canva mockup: Bg_LevelSelect.png (night farm) root
-        /// background instead of LevelFailed.png stretched full-screen — that stretch used to
-        /// non-uniformly distort the square "TRY AGAIN!" card art on a landscape aspect (the same
-        /// square-art-on-landscape-overlay problem Pause/Level Complete already had fixed). PanelArt
-        /// is now a child locked to a 1:1 aspect via AspectRatioFitter, carrying LevelFailed.png,
-        /// with Restart.png/Quit.png positioned inside its own parchment area (LevelFailed.png has
-        /// no baked-in button rows to align to, unlike Paused.png, so these fractions are a fresh
-        /// centred vertical stack rather than measured off pre-existing art positions).</summary>
+        /// <summary>Rebuilt (2026-08-27) to match a new mockup exactly — self-contained, all art
+        /// baked directly at construction time (same convention MenuHubScreen/ShopController/
+        /// CosmeticsHubScreen use), nothing left for ArtWiringBuilder to wire. Bg_LevelSelect.png
+        /// root background (unchanged from the previous pass), Logo.png top-left (new — the old
+        /// version had none), and the "TRY AGAIN!" card (LevelFailed.png) as an aspect-locked
+        /// PanelArt child (same square-art-on-landscape-overlay fix Pause/Level Complete already
+        /// have; 40/80 inset unchanged from the previous pass, still clears the safe-area guide).
+        ///
+        /// The card's own blank parchment interior now carries a real StarDisplay + score readout
+        /// (LevelFailedController always shows 0 filled stars — a failed run never earns any — with
+        /// the score earned so far directly BELOW the star row, the mirror image of
+        /// LevelCompleteController's own ShelfContent order, per the mockup and explicit direction).
+        ///
+        /// 4 real buttons replace the old Restart/Quit pair, all StandardIconButtonSize icon
+        /// buttons positioned exactly like LevelCompleteController's PlayButton/DoubleCoinsButton
+        /// (root-level, bottom corners, not inside PanelArt — this mockup's buttons sit on the night
+        /// backdrop below the card, unlike the old version which nested them inside the blank
+        /// parchment): Play + Skip as a bottom-left pair (Play outermost, matching Level Complete's
+        /// own Play position exactly), Settings + Quit as a bottom-right pair (Quit outermost,
+        /// mirroring Play — Settings sits inward next to it, matching the mockup's gear-then-X
+        /// left-to-right order).</summary>
         private static GameObject BuildLevelFailed(Transform canvasTransform)
         {
             var root = CreatePanel("LevelFailedScreen", canvasTransform, Color.black);
+            root.GetComponent<Image>().sprite = LoadUiSprite("Bg_LevelSelect.png");
+
+            var logoImageGO = new GameObject("LogoImage", typeof(RectTransform), typeof(Image));
+            logoImageGO.transform.SetParent(root.transform, false);
+            var logoImage = logoImageGO.GetComponent<Image>();
+            logoImage.sprite = LoadUiSprite("Logo.png");
+            logoImage.preserveAspect = true;
+            AnchorTopLeft((RectTransform)logoImageGO.transform, new Vector2(300f, 170f), new Vector2(100f, -40f));
 
             var panelArtGO = new GameObject("PanelArt", typeof(RectTransform), typeof(Image), typeof(AspectRatioFitter));
             panelArtGO.transform.SetParent(root.transform, false);
@@ -2338,22 +2341,44 @@ namespace FarmFuryArcade.EditorTools
             // left/right shrinks the box AspectRatioFitter fits into, not just the visible art.
             panelArtRect.offsetMin = new Vector2(40f, 80f);
             panelArtRect.offsetMax = new Vector2(-40f, -80f);
-            panelArtGO.GetComponent<Image>().sprite = PlaceholderSprite.Get(Color.clear);
+            panelArtGO.GetComponent<Image>().sprite = LoadUiSprite("LevelFailed.png");
             var panelArtFitter = panelArtGO.GetComponent<AspectRatioFitter>();
             panelArtFitter.aspectMode = AspectRatioFitter.AspectMode.FitInParent;
             panelArtFitter.aspectRatio = 1f;
 
-            var restartButton = CreateButton("RestartButton", panelArtGO.transform, string.Empty, Color.clear, out _);
-            Object.DestroyImmediate(restartButton.transform.Find("RestartButton_Label").gameObject);
-            SetAnchorRect((RectTransform)restartButton.transform, 0.28f, 0.44f, 0.72f, 0.54f);
+            // Stars-then-score, in the card's blank interior below the "TRY AGAIN!" banner — first
+            // pass, eyeballed against the mockup (no visual Editor/Play mode access this session);
+            // expect to nudge this band like every other card layout in this project has needed.
+            var shelfGO = CreateVerticalGroup("ShelfContent", panelArtGO.transform, 20f, 0);
+            SetAnchorRect((RectTransform)shelfGO.transform, 0.27f, 0.30f, 0.73f, 0.62f);
+            var starDisplayGO = CreateStarDisplay("Stars", shelfGO.transform, 60);
+            var scoreText = CreateText("ScoreText", shelfGO.transform, "0", 52f, TextAlignmentOptions.Center, 70f, new Color(0.3f, 0.2f, 0.1f));
 
-            var quitButton = CreateButton("QuitButton", panelArtGO.transform, string.Empty, Color.clear, out _);
-            Object.DestroyImmediate(quitButton.transform.Find("QuitButton_Label").gameObject);
-            SetAnchorRect((RectTransform)quitButton.transform, 0.28f, 0.28f, 0.72f, 0.38f);
+            var starDisplay = starDisplayGO.GetComponent<StarDisplay>();
+            var starSo = new SerializedObject(starDisplay);
+            starSo.FindProperty("filledStarSprite").objectReferenceValue = LoadUiSprite("ScoreStar.png");
+            starSo.FindProperty("emptyStarSprite").objectReferenceValue = LoadUiSprite("ClearStar.png");
+            starSo.ApplyModifiedPropertiesWithoutUndo();
+
+            var playButton = CreateIconButton("PlayButton", root.transform, LoadUiSprite("Btn_play.png"), StandardIconButtonSize);
+            AnchorBottomLeft((RectTransform)playButton.transform, new Vector2(StandardIconButtonSize, StandardIconButtonSize), new Vector2(150f, 110f));
+
+            var skipButton = CreateIconButton("SkipButton", root.transform, LoadUiSprite("Btn_skip.png"), StandardIconButtonSize);
+            AnchorBottomLeft((RectTransform)skipButton.transform, new Vector2(StandardIconButtonSize, StandardIconButtonSize), new Vector2(150f + StandardIconButtonSize + 30f, 110f));
+
+            var quitButton = CreateIconButton("QuitButton", root.transform, LoadUiSprite("Btn_quit.png"), StandardIconButtonSize);
+            AnchorBottomRight((RectTransform)quitButton.transform, new Vector2(StandardIconButtonSize, StandardIconButtonSize), new Vector2(-150f, 110f));
+
+            var settingsButton = CreateIconButton("SettingsButton", root.transform, LoadUiSprite("Btn_settings.png"), StandardIconButtonSize);
+            AnchorBottomRight((RectTransform)settingsButton.transform, new Vector2(StandardIconButtonSize, StandardIconButtonSize), new Vector2(-150f - StandardIconButtonSize - 30f, 110f));
 
             var controller = root.AddComponent<LevelFailedController>();
             var so = new SerializedObject(controller);
-            so.FindProperty("restartButton").objectReferenceValue = restartButton;
+            so.FindProperty("starDisplay").objectReferenceValue = starDisplay;
+            so.FindProperty("scoreText").objectReferenceValue = scoreText;
+            so.FindProperty("playButton").objectReferenceValue = playButton;
+            so.FindProperty("skipButton").objectReferenceValue = skipButton;
+            so.FindProperty("settingsButton").objectReferenceValue = settingsButton;
             so.FindProperty("quitButton").objectReferenceValue = quitButton;
             so.ApplyModifiedPropertiesWithoutUndo();
 
@@ -2590,10 +2615,12 @@ namespace FarmFuryArcade.EditorTools
             var hud = gameplay.GetComponent<GameplayHUD>();
             SetRefs(hud,
                 ("pauseMenu", pause.GetComponent<PauseMenuController>()),
-                ("levelCompleteScreen", levelComplete), ("levelFailedScreen", levelFailed));
+                ("levelCompleteScreen", levelComplete), ("levelFailedScreen", levelFailed),
+                ("chooseCharacterScreen", chooseCharacterScreen));
 
             SetRefs(pause.GetComponent<PauseMenuController>(),
-                ("chooseCharacterScreen", chooseCharacterScreen), ("settingsPanel", settingsPanel), ("levelSelectScreen", levelSelect));
+                ("settingsPanel", settingsPanel), ("levelSelectScreen", levelSelect),
+                ("levelSelectController", levelSelect.GetComponent<LevelSelectController>()));
 
             SetRefs(chooseCharacterScreen, ("pauseMenuScreen", pause));
 
@@ -2602,7 +2629,9 @@ namespace FarmFuryArcade.EditorTools
                 ("unlockScreen", unlockScreen));
 
             SetRefs(levelFailed.GetComponent<LevelFailedController>(),
-                ("gameplayScreen", gameplay), ("levelSelectScreen", levelSelect));
+                ("gameplayScreen", gameplay), ("levelSelectScreen", levelSelect),
+                ("levelSelectController", levelSelect.GetComponent<LevelSelectController>()),
+                ("settingsPanel", settingsPanel));
 
             SetRefs(roster.GetComponent<CharacterRosterScreen>(),
                 ("mainMenuScreen", mainMenu));

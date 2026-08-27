@@ -159,14 +159,18 @@ namespace FarmFuryArcade.Core
                 ? "[Phase5Test] PASS: Pause button freezes Time.timeScale and shows the pause overlay."
                 : $"[Phase5Test] FAIL: state={GameManager.Instance.CurrentState}, timeScale={Time.timeScale}, overlayActive={pauseGO.activeSelf}.");
 
-            var resumeButton = pauseGO.transform.Find("Content/ResumeButton")?.GetComponent<UnityEngine.UI.Button>();
-            resumeButton?.onClick.Invoke();
+            // PauseOverlay's 2026-08-27 redesign (BuildPauseMenu) puts PlayButton directly under
+            // the root, not nested under a "Content" group — and Play now resumes gameplay (Level
+            // Failed's own Play button is the one that restarts a level; see PauseMenuController's
+            // doc comment for why Pause's differs).
+            var playButton = pauseGO.transform.Find("PlayButton")?.GetComponent<UnityEngine.UI.Button>();
+            playButton?.onClick.Invoke();
             yield return null;
 
             bool resumed = GameManager.Instance.CurrentState == GameState.Playing && Time.timeScale == 1f && !pauseGO.activeSelf;
             Debug.Log(resumed
-                ? "[Phase5Test] PASS: Resume restores Playing state and Time.timeScale."
-                : "[Phase5Test] FAIL: Resume did not restore Playing/timeScale/hide the overlay.");
+                ? "[Phase5Test] PASS: Play resumes Playing state and Time.timeScale."
+                : "[Phase5Test] FAIL: Play did not restore Playing/timeScale/hide the overlay.");
         }
 
         private IEnumerator TestLevelCompleteFlow()

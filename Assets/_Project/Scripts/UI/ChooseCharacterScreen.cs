@@ -10,10 +10,12 @@ namespace FarmFuryArcade.UI
 {
     /// <summary>
     /// Real uGUI "Choose Character" panel — replaces the old debug-style OnGUI CharacterSwapUI.
-    /// Opened from PauseMenuController's Swap Character button, and still from Tab (via
-    /// InputController.OnSwapMenuToggleInput, same event CharacterSwapUI used) for parity with
-    /// the original shortcut. Not a SceneTransitionManager screen — like Pause/Settings, it's an
-    /// overlay that temporarily takes Pause's place on top of Gameplay, then hands back to it.
+    /// Opened via Tab (InputController.OnSwapMenuToggleInput, same event CharacterSwapUI used) —
+    /// PauseMenuController's own Swap Character button is gone as of its 2026-08-27 mockup redesign
+    /// (this screen, its Tab shortcut, and its pauseMenuScreen back-reference below are all still
+    /// fully intact; only that one entry point went away, pending a move onto Gameplay HUD itself).
+    /// Not a SceneTransitionManager screen — like Pause/Settings, it's an overlay that temporarily
+    /// takes Pause's place on top of Gameplay, then hands back to it.
     /// Rebuilt to a Canva mockup (2026-07-31): cards sit in a CardCarouselController (the same
     /// component Level Select's world picker uses) instead of a static GridLayoutGroup — flick to
     /// cycle which card is centred/full-scale, tap the centred card to swap into it.

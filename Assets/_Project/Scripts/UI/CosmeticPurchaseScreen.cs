@@ -111,6 +111,7 @@ namespace FarmFuryArcade.UI
 
         public void Show()
         {
+            transform.SetAsLastSibling();
             gameObject.SetActive(true);
         }
 

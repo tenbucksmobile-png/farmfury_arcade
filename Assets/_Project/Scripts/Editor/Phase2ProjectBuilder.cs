@@ -868,7 +868,15 @@ namespace FarmFuryArcade.EditorTools
             level.robotSpawns = new RobotSpawnData[0]; // No robots yet — Phase 3
             level.warpTunnelRows = warpRows.ToArray();
             level.waterTeleportRows = new int[0];
-            level.totalCropsRequired = kernels + vegetables + pellets;
+            // TileMapRenderer._powerPelletsSpawned caps the maze to at most ONE real spawned
+            // PowerPelletPickup — every tile-id-4 cell after the first renders as plain ground with
+            // no pickup at all (see its own doc comment). Counting every id-4 cell here (the old
+            // "kernels + vegetables + pellets" line) required collecting pickups that were never
+            // actually spawned whenever a maze had more than one pellet spawn point in its data —
+            // GameManager._cropsRemaining could then never reach zero, so the level never completed
+            // no matter how much of the board was cleared. Cap pellets to 1 here to match what
+            // actually spawns at runtime.
+            level.totalCropsRequired = kernels + vegetables + Mathf.Min(pellets, 1);
 
             EditorUtility.SetDirty(level);
         }

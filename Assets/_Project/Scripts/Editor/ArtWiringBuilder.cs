@@ -1732,20 +1732,14 @@ namespace FarmFuryArcade.EditorTools
             SetImageSprite(canvasTransform, "LevelCompleteScreen/NewCharacterUnlockOverlay/LogoImage", Load(LogoImage));
             SetImageSprite(canvasTransform, "LevelCompleteScreen/NewCharacterUnlockOverlay/UnlockedBanner", Load(UnlockedBannerSprite));
             SetImageSprite(canvasTransform, "LevelCompleteScreen/NewWorldUnlockOverlay/WorldUnlockedBanner", Load(WorldUnlockedBannerSprite));
-            // Rebuilt to a 2026-08-01 mockup — Bg_LevelSelect.png (night farm) root background, with
-            // LevelFailed.png moved onto an aspect-locked PanelArt child (see BuildLevelFailed's own
-            // doc comment for why the old full-screen stretch distorted the square card art).
-            SetScreenBackground(canvasTransform, "LevelFailedScreen", Load(BgLevelSelect));
-            SetImageSprite(canvasTransform, "LevelFailedScreen/PanelArt", Load(LevelFailedPanel));
-            // Root Image is now World1_Cornfield.png (opaque backdrop), not a plain black dim — see
-            // BuildPauseMenu's doc comment on the 2026-07-31 mockup dropping "dim gameplay behind
-            // it" in favour of a dedicated background, same as Settings/Level Select got.
-            SetScreenBackground(canvasTransform, "PauseOverlay", Load(PauseBackground));
-            // PanelArt (a child of the root, not the root itself) carries Paused.png — see
-            // BuildPauseMenu's comment on why the square art needs its own aspect-locked child
-            // instead of stretching to fill the full-screen overlay.
-            SetImageSprite(canvasTransform, "PauseOverlay/PanelArt", Load(PausedPanel));
-            SetImageSprite(canvasTransform, "PauseOverlay/LogoImage", Load(LogoImage));
+            // LevelFailedScreen (2026-08-27 redesign) bakes its own background/logo/panel/star/
+            // button art directly at construction time in Phase5ProjectBuilder.BuildLevelFailed
+            // (self-contained, same convention MenuHubScreen/ShopController/CosmeticsHubScreen
+            // use) — nothing to wire here anymore.
+            // PauseOverlay (2026-08-27 redesign) bakes its own background/logo/sign/button art
+            // directly at construction time in Phase5ProjectBuilder.BuildPauseMenu (self-contained,
+            // same convention LevelFailedScreen/MenuHubScreen/ShopController use) — nothing to wire
+            // here anymore. Paused.png (the old square card) is no longer referenced anywhere.
             // SettingsOverlay (2026-08-20 redesign) now bakes its own background/logo/title/grid
             // art directly at construction time in Phase5ProjectBuilder.BuildSettingsPanel (self-
             // contained, same convention Shop/Cosmetics use) — nothing to wire here anymore.
@@ -1816,11 +1810,8 @@ namespace FarmFuryArcade.EditorTools
             SetImageSprite(canvasTransform, "GameplayScreen/DPadLeftButton", Load(DPadLeft));
             SetImageSprite(canvasTransform, "GameplayScreen/DPadRightButton", Load(DPadRight));
 
-            SetImageSprite(canvasTransform, "PauseOverlay/PanelArt/ResumeButton", Load(ResumeButtonArt));
-            SetImageSprite(canvasTransform, "PauseOverlay/PanelArt/SwapButton", Load(SwapCharacterButtonArt));
-            SetImageSprite(canvasTransform, "PauseOverlay/PanelArt/RestartButton", Load(RestartButtonArt));
-            SetImageSprite(canvasTransform, "PauseOverlay/PanelArt/SettingsButton", Load(SettingsButtonArt));
-            SetImageSprite(canvasTransform, "PauseOverlay/PanelArt/QuitButton", Load(QuitButtonArt));
+            // PauseOverlay's Play/Skip/Settings/Quit buttons are baked directly at construction
+            // time in Phase5ProjectBuilder.BuildPauseMenu — nothing to wire here.
 
             // SettingsOverlay (2026-08-20 redesign) — round back button, 4x2 icon grid, and the
             // relocated Shop icon are all baked directly at construction time in
@@ -1838,8 +1829,8 @@ namespace FarmFuryArcade.EditorTools
             SetImageSprite(canvasTransform, "LevelCompleteScreen/PlayButton", play);
             SetImageSprite(canvasTransform, "LevelCompleteScreen/NewCharacterUnlockOverlay/UnlockContent/ContinueButton", play);
 
-            SetImageSprite(canvasTransform, "LevelFailedScreen/PanelArt/RestartButton", Load(RestartButtonArt));
-            SetImageSprite(canvasTransform, "LevelFailedScreen/PanelArt/QuitButton", Load(QuitButtonArt));
+            // LevelFailedScreen's Play/Skip/Settings/Quit buttons are baked directly at
+            // construction time in Phase5ProjectBuilder.BuildLevelFailed — nothing to wire here.
 
             SetImageSprite(canvasTransform, "CharacterRosterScreen/BackButton", back);
             // LeaderboardsScreen (2026-08-20 redesign) bakes its own background/header/back button

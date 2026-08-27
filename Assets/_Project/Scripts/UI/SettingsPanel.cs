@@ -57,17 +57,26 @@ namespace FarmFuryArcade.UI
             }
             if (characterStoryButton != null && characterStoryScreen != null)
             {
-                characterStoryButton.onClick.AddListener(() => characterStoryScreen.SetActive(true));
+                characterStoryButton.onClick.AddListener(() =>
+                {
+                    characterStoryScreen.transform.SetAsLastSibling();
+                    characterStoryScreen.SetActive(true);
+                });
             }
             if (policiesButton != null && policiesScreen != null)
             {
-                policiesButton.onClick.AddListener(() => policiesScreen.SetActive(true));
+                policiesButton.onClick.AddListener(() =>
+                {
+                    policiesScreen.transform.SetAsLastSibling();
+                    policiesScreen.SetActive(true);
+                });
             }
         }
 
         public void Show()
         {
             RefreshMusicIcon();
+            transform.SetAsLastSibling();
             gameObject.SetActive(true);
         }
 

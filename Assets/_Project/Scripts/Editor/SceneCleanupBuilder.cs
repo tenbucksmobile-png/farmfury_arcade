@@ -65,6 +65,77 @@ namespace FarmFuryArcade.EditorTools
             so.FindProperty(propertyName).stringValue = value;
         }
 
+        /// <summary>Fixes a real, confirmed bug found via a 2026-08-27 playtest report ("game
+        /// didn't end when all pellets consumed") on an Orchard level: TileMapRenderer caps every
+        /// maze to at most ONE real spawned PowerPelletPickup (_powerPelletsSpawned) — any tile-id-4
+        /// cell after the first renders as plain ground with no pickup at all. Phase2ProjectBuilder.
+        /// BuildLevel's totalCropsRequired used to count every id-4 cell in a level's grid
+        /// uncapped, so any maze authored/generated with more than one power-pellet spawn point
+        /// (confirmed present on LevelData_51 "The Orchard - 01" itself, and likely scattered across
+        /// every world — the generators never guaranteed exactly one) required collecting a pickup
+        /// that was never actually spawned. GameManager._cropsRemaining could then never reach zero,
+        /// so NotifyCropCollected's EndLevel(true) call never fired no matter how much of the board
+        /// was actually cleared.
+        ///
+        /// BuildLevel itself is fixed to cap pellets at 1 going forward (see its own comment), but
+        /// re-running Phase2ProjectBuilder.BuildAll to apply that fix to the 175 already-baked
+        /// LevelData assets would also wipe robotSpawns/etc. back to empty on every one of them (a
+        /// separately documented gotcha — BuildAll rebuilds every LevelData from scratch). This
+        /// method instead walks every LevelData asset directly and recomputes ONLY
+        /// totalCropsRequired from its own already-baked grid (kernels + vegetables +
+        /// Mathf.Min(pellets, 1)), leaving every other field — robotSpawns, warpTunnelRows, art,
+        /// mazeLayoutFlat itself — untouched. Safe to re-run; a level whose count was already
+        /// correct is simply left alone (SetDirty/logging only fire for assets that actually
+        /// changed).</summary>
+        [MenuItem("Farm Fury Arcade/Debug/Fix Level Crop Counts (Power Pellet Cap)")]
+        public static void FixLevelCropCounts()
+        {
+            const int tileCropKernel = 2;
+            const int tileCropVegetable = 3;
+            const int tilePowerPellet = 4;
+
+            string[] guids = AssetDatabase.FindAssets("t:LevelData", new[] { "Assets/_Project/ScriptableObjects" });
+            int fixedCount = 0;
+
+            foreach (string guid in guids)
+            {
+                string path = AssetDatabase.GUIDToAssetPath(guid);
+                var level = AssetDatabase.LoadAssetAtPath<LevelData>(path);
+                if (level == null)
+                {
+                    continue;
+                }
+
+                var layout = level.MazeLayout;
+                int kernels = 0, vegetables = 0, pellets = 0;
+                for (int x = 0; x < level.mazeWidth; x++)
+                {
+                    for (int y = 0; y < level.mazeHeight; y++)
+                    {
+                        switch (layout[x, y])
+                        {
+                            case tileCropKernel: kernels++; break;
+                            case tileCropVegetable: vegetables++; break;
+                            case tilePowerPellet: pellets++; break;
+                        }
+                    }
+                }
+
+                int correctTotal = kernels + vegetables + Mathf.Min(pellets, 1);
+                if (level.totalCropsRequired != correctTotal)
+                {
+                    Debug.Log($"[SceneCleanupBuilder] {level.name}: totalCropsRequired {level.totalCropsRequired} -> {correctTotal} " +
+                              $"(grid has {pellets} power-pellet spawn point(s), only 1 ever actually spawns).");
+                    level.totalCropsRequired = correctTotal;
+                    EditorUtility.SetDirty(level);
+                    fixedCount++;
+                }
+            }
+
+            AssetDatabase.SaveAssets();
+            Debug.Log($"[SceneCleanupBuilder] Fixed totalCropsRequired on {fixedCount} of {guids.Length} LevelData assets.");
+        }
+
         /// <summary>Phase1Test/Phase2Test/Phase3Test/Phase4Test each draw an always-on OnGUI debug
         /// overlay (manual test buttons) in the top-left/top area of the screen — independent of
         /// their runOnStart flag, since OnGUI doesn't check it. Every PhaseNProjectBuilder leaves

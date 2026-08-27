@@ -18,12 +18,18 @@ namespace FarmFuryArcade.UI
     ///
     /// Swap/Ability buttons were removed from the HUD in the gameplay-screen cleanup — Tab
     /// (ChooseCharacterScreen.ToggleOpen) and Space (AbilityBase.OnAbilityActivateInput) still work
-    /// directly via InputController, so neither feature is actually gone, just no longer duplicated as on-screen
-    /// buttons here. Sound and Home were removed from the HUD's icon cluster too (per playtest
+    /// directly via InputController, so neither feature was actually gone, just not duplicated as
+    /// on-screen buttons. Sound and Home were removed from the HUD's icon cluster too (per playtest
     /// feedback) — both are still reachable via the Pause menu (Settings' music/SFX toggles, and
-    /// Pause's own Quit button), so only PauseButton remains here now. The vacant Btn_plaque
-    /// backdrop that used to run down the right side ("SideBackdrop") was removed entirely — it had
-    /// no behaviour and read as an oversized, unexplained button.
+    /// Pause's own Quit button), so only PauseButton remains from that original cleanup. The vacant
+    /// Btn_plaque backdrop that used to run down the right side ("SideBackdrop") was removed
+    /// entirely — it had no behaviour and read as an oversized, unexplained button.
+    ///
+    /// Swap Character got its on-screen button back (2026-08-27) — moved here from Pause (which
+    /// dropped it in its own mockup redesign; see PauseMenuController's doc comment), specifically
+    /// so a mobile player can reach it with a thumb mid-run without opening Pause first. Sits
+    /// directly above the ability icon, same size, same tap-to-Show() convention Pause's old button
+    /// used — Tab still works as an independent shortcut, unchanged.
     /// </summary>
     public class GameplayHUD : MonoBehaviour
     {
@@ -32,6 +38,8 @@ namespace FarmFuryArcade.UI
         [SerializeField] private TextMeshProUGUI coinBalanceText;
         [SerializeField] private Image characterPortrait;
         [SerializeField] private Button abilityButton;
+        [SerializeField] private Button swapCharacterButton;
+        [SerializeField] private ChooseCharacterScreen chooseCharacterScreen;
         [SerializeField] private Button pauseButton;
         [SerializeField] private GameObject powerPelletTimerBar;
         [SerializeField] private Image powerPelletTimerFill;
@@ -92,6 +100,10 @@ namespace FarmFuryArcade.UI
             // equivalent) — wired here, not in the editor-script builder, since a listener added
             // directly from editor-script code doesn't survive a scene save/reload.
             abilityButton.onClick.AddListener(InputController.RaiseAbilityActivateInput);
+            if (swapCharacterButton != null && chooseCharacterScreen != null)
+            {
+                swapCharacterButton.onClick.AddListener(() => chooseCharacterScreen.Show());
+            }
             if (skipCooldownButton != null)
             {
                 skipCooldownButton.onClick.AddListener(HandleSkipCooldownClicked);
