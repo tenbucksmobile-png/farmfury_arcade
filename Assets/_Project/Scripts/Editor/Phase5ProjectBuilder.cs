@@ -67,6 +67,7 @@ namespace FarmFuryArcade.EditorTools
             var settings = BuildSettingsPanel(canvas.transform);
             var characterStory = BuildCharacterStoryPlaceholder(canvas.transform, characterSelectCardPrefab);
             var legal = BuildLegalScreen(canvas.transform);
+            var parentalGate = BuildParentalGate(canvas.transform);
             var storeComingSoon = BuildShopOverlay(canvas.transform);
             var coinPurchase = BuildCoinPurchaseScreen(canvas.transform);
             var menuHub = BuildMenuHubScreen(canvas.transform);
@@ -119,6 +120,26 @@ namespace FarmFuryArcade.EditorTools
             WireCrossReferences(mainMenu, gameplay, pause, settings,
                 levelComplete, unlockScreen, levelFailed, roster, leaderboards, chooseCharacter, comboBanner, levelSelect, storeComingSoon, characterStory, worldPurchase, legal, menuHub);
 
+            // Audit finding C3.2 — one centralized Android back-button handler, wired against
+            // every screen it can close, in the same pass every other cross-reference already
+            // resolves here.
+            var backButtonHandler = managersGO.AddComponent<AndroidBackButtonHandler>();
+            SetRefs(backButtonHandler,
+                ("parentalGate", parentalGate.GetComponent<ParentalGateController>()),
+                ("hatPurchaseScreen", hatPurchase.GetComponent<CosmeticPurchaseScreen>()),
+                ("trailPurchaseScreen", trailPurchase.GetComponent<CosmeticPurchaseScreen>()),
+                ("worldPurchaseScreen", worldPurchase.GetComponent<CosmeticPurchaseScreen>()),
+                ("coinPurchaseScreen", coinPurchase.GetComponent<CoinPurchaseScreen>()),
+                ("cosmeticsHubScreen", cosmeticsHub.GetComponent<CosmeticsHubScreen>()),
+                ("legalScreen", legal.GetComponent<LegalScreen>()),
+                ("settingsPanel", settings.GetComponent<SettingsPanel>()),
+                ("shopController", storeComingSoon.GetComponent<ShopController>()),
+                ("menuHubScreen", menuHub.GetComponent<MenuHubScreen>()),
+                ("chooseCharacterScreen", chooseCharacter),
+                ("pauseMenuScreen", pause.GetComponent<PauseMenuController>()),
+                ("levelSelectController", levelSelect.GetComponent<LevelSelectController>()),
+                ("gameplayHud", gameplay.GetComponent<GameplayHUD>()));
+
             var transitionManager = managersGO.GetComponent<SceneTransitionManager>();
             var transitionSO = new SerializedObject(transitionManager);
             transitionSO.FindProperty("fadeGroup").objectReferenceValue = fadeGroup;
@@ -140,6 +161,7 @@ namespace FarmFuryArcade.EditorTools
             settings.SetActive(false);
             characterStory.SetActive(false);
             legal.SetActive(false);
+            parentalGate.SetActive(false);
             storeComingSoon.SetActive(false);
             coinPurchase.SetActive(false);
             menuHub.SetActive(false);
@@ -725,6 +747,22 @@ namespace FarmFuryArcade.EditorTools
             var root = CreateEmpty("GameplayScreen", canvasTransform);
             StretchFull((RectTransform)root.transform);
 
+            // Audit finding C3.3: every HUD element below used to parent directly onto `root`,
+            // which spans the raw physical screen edge to edge — every corner inset (Pause button,
+            // ability icon, coin chip, score/timer) was tuned against one static reference overlay
+            // an artist eyeballed once, never against the runtime Screen.safeArea API. On a device
+            // with a notch/Dynamic Island/punch-hole camera/gesture bar that doesn't match that one
+            // reference frame, those elements could be clipped or obscured — and Android's real-
+            // world cutout shapes are far more varied than iOS's handful of known ones. `SafeArea`
+            // (Utilities/SafeArea.cs) shrinks its own RectTransform's anchors to Screen.safeArea
+            // live, every frame it changes; parenting every HUD element under it instead of `root`
+            // means every existing AnchorTopLeft/AnchorBottomRight/etc. call below needs zero
+            // changes — their insets are already relative to their immediate parent's edges, which
+            // are now the safe-area edges instead of the raw screen edges automatically.
+            var safeArea = CreateEmpty("SafeArea", root.transform);
+            StretchFull((RectTransform)safeArea.transform);
+            safeArea.AddComponent<SafeArea>();
+
             // Score (top-left) and Timer (top-right) — no more "LevelText" header (the level name
             // duplicated what the World Map marker the player just tapped already established, and
             // read as a redundant white text banner over the maze art). Pulled further in from an
@@ -743,10 +781,10 @@ namespace FarmFuryArcade.EditorTools
             // instead of CreateText's plain-white default — white was unreadable against the
             // bright sky/backdrop art behind it, per a gameplay screenshot review.
             var hudTextColor = new Color(0.25f, 0.15f, 0.06f);
-            var timerText = CreateText("TimerText", root.transform, "00:00", 60f, TextAlignmentOptions.TopLeft, 90f, hudTextColor);
+            var timerText = CreateText("TimerText", safeArea.transform, "00:00", 60f, TextAlignmentOptions.TopLeft, 90f, hudTextColor);
             AnchorTopLeft((RectTransform)timerText.transform, new Vector2(240f, 90f), new Vector2(170f, -80f));
 
-            var scoreText = CreateText("ScoreText", root.transform, "0", 72f, TextAlignmentOptions.TopLeft, 90f, hudTextColor);
+            var scoreText = CreateText("ScoreText", safeArea.transform, "0", 72f, TextAlignmentOptions.TopLeft, 90f, hudTextColor);
             AnchorTopLeft((RectTransform)scoreText.transform, new Vector2(320f, 90f), new Vector2(170f, -170f));
 
             // Monetisation: coin balance display — previously SaveManager.CoinBalance had no
@@ -763,7 +801,7 @@ namespace FarmFuryArcade.EditorTools
             // outgrow) anchored by its own top-right corner, so it grows LEFTWARD as the balance
             // gains digits instead of running off the right edge of the screen.
             var coinDisplayGO = new GameObject("CoinBalanceDisplay", typeof(RectTransform), typeof(HorizontalLayoutGroup), typeof(ContentSizeFitter));
-            coinDisplayGO.transform.SetParent(root.transform, false);
+            coinDisplayGO.transform.SetParent(safeArea.transform, false);
             var coinDisplayRect = (RectTransform)coinDisplayGO.transform;
             coinDisplayRect.anchorMin = coinDisplayRect.anchorMax = new Vector2(1f, 1f);
             coinDisplayRect.pivot = new Vector2(1f, 1f);
@@ -801,7 +839,7 @@ namespace FarmFuryArcade.EditorTools
             coinBalanceText.overflowMode = TextOverflowModes.Overflow;
 
             // Power pellet timer bar + chain counter (upper area, under the level text)
-            var powerBarGO = CreatePanel("PowerPelletTimerBar", root.transform, new Color(0.2f, 0.2f, 0.22f));
+            var powerBarGO = CreatePanel("PowerPelletTimerBar", safeArea.transform, new Color(0.2f, 0.2f, 0.22f));
             var powerBarRect = (RectTransform)powerBarGO.transform;
             AnchorTopCenter(powerBarRect, new Vector2(400f, 24f), new Vector2(0f, -80f));
             var powerFillGO = CreatePanel("Fill", powerBarGO.transform, new Color(0.85f, 0.2f, 0.85f));
@@ -810,13 +848,13 @@ namespace FarmFuryArcade.EditorTools
             powerFillImage.fillMethod = Image.FillMethod.Horizontal;
             powerFillImage.fillAmount = 1f;
 
-            var chainRoot = CreateEmpty("ChainCounterRoot", root.transform);
+            var chainRoot = CreateEmpty("ChainCounterRoot", safeArea.transform);
             var chainText = CreateText("ChainCounterText", chainRoot.transform, string.Empty, 26f, TextAlignmentOptions.Center, 34f);
             StretchFull((RectTransform)chainText.transform);
             AnchorTopCenter((RectTransform)chainRoot.transform, new Vector2(200f, 34f), new Vector2(0f, -112f));
 
             // Combo notification banner
-            var bannerGO = CreatePanel("ComboBanner", root.transform, new Color(0.75f, 0.55f, 0.15f));
+            var bannerGO = CreatePanel("ComboBanner", safeArea.transform, new Color(0.75f, 0.55f, 0.15f));
             var bannerRect = (RectTransform)bannerGO.transform;
             AnchorTopCenter(bannerRect, new Vector2(600f, 60f), new Vector2(0f, -150f));
             var bannerGroup = bannerGO.AddComponent<CanvasGroup>();
@@ -882,7 +920,7 @@ namespace FarmFuryArcade.EditorTools
             // ability was completely unreachable on a device with no keyboard): tapping it raises
             // the same InputController event Space does, and GameplayHUD dims it while the active
             // character's ability is on cooldown.
-            var portraitButton = CreateButton("CharacterPortrait", root.transform, string.Empty, Color.clear, 26f, abilityButtonSize, out _);
+            var portraitButton = CreateButton("CharacterPortrait", safeArea.transform, string.Empty, Color.clear, 26f, abilityButtonSize, out _);
             Object.DestroyImmediate(portraitButton.transform.Find("CharacterPortrait_Label").gameObject);
             AnchorBottomRight((RectTransform)portraitButton.transform, new Vector2(abilityButtonSize, abilityButtonSize),
                 new Vector2(abilityInsetX, abilityBottomY));
@@ -934,7 +972,7 @@ namespace FarmFuryArcade.EditorTools
             // comment) so it's reachable with a thumb mid-run on mobile without opening Pause first.
             // Directly above the ability icon, same X inset and same size (per explicit direction),
             // just raised by the icon's own height + clusterSpacing.
-            var swapCharacterButton = CreateIconButton("SwapCharacterButton", root.transform,
+            var swapCharacterButton = CreateIconButton("SwapCharacterButton", safeArea.transform,
                 LoadUiSprite("SwapCharacterIcon.png"), abilityButtonSize);
             AnchorBottomRight((RectTransform)swapCharacterButton.transform, new Vector2(abilityButtonSize, abilityButtonSize),
                 new Vector2(abilityInsetX, abilityBottomY + abilityButtonSize + clusterSpacing));
@@ -957,7 +995,7 @@ namespace FarmFuryArcade.EditorTools
             // shows the real WatchAd.png icon (wired in ArtWiringBuilder.WireMonetisationArt) instead
             // of the auto-generated "AD" text label — that label is destroyed below, same "icon art
             // replaces auto-label" convention every other icon-only button in this project uses.
-            var watchAdSkipCooldownButton = CreateButton("WatchAdSkipCooldownButton", root.transform, string.Empty,
+            var watchAdSkipCooldownButton = CreateButton("WatchAdSkipCooldownButton", safeArea.transform, string.Empty,
                 new Color(0.85f, 0.55f, 0.1f), 24f, watchAdButtonHeight, out _);
             Object.DestroyImmediate(watchAdSkipCooldownButton.transform.Find("WatchAdSkipCooldownButton_Label").gameObject);
             AnchorBottomRight((RectTransform)watchAdSkipCooldownButton.transform, new Vector2(watchAdButtonWidth, watchAdButtonHeight),
@@ -990,22 +1028,22 @@ namespace FarmFuryArcade.EditorTools
             const float dpadInsetY = 210f;
             Vector2 dpadCenter = new Vector2(dpadInsetX, dpadInsetY);
 
-            var upButton = CreateButton("DPadUpButton", root.transform, string.Empty, Color.clear, out _);
+            var upButton = CreateButton("DPadUpButton", safeArea.transform, string.Empty, Color.clear, out _);
             Object.DestroyImmediate(upButton.transform.Find("DPadUpButton_Label").gameObject);
             AnchorBottomLeft((RectTransform)upButton.transform, new Vector2(dpadButtonSize, dpadButtonSize),
                 dpadCenter + new Vector2(0f, dpadSpacing));
 
-            var downButton = CreateButton("DPadDownButton", root.transform, string.Empty, Color.clear, out _);
+            var downButton = CreateButton("DPadDownButton", safeArea.transform, string.Empty, Color.clear, out _);
             Object.DestroyImmediate(downButton.transform.Find("DPadDownButton_Label").gameObject);
             AnchorBottomLeft((RectTransform)downButton.transform, new Vector2(dpadButtonSize, dpadButtonSize),
                 dpadCenter + new Vector2(0f, -dpadSpacing));
 
-            var leftButton = CreateButton("DPadLeftButton", root.transform, string.Empty, Color.clear, out _);
+            var leftButton = CreateButton("DPadLeftButton", safeArea.transform, string.Empty, Color.clear, out _);
             Object.DestroyImmediate(leftButton.transform.Find("DPadLeftButton_Label").gameObject);
             AnchorBottomLeft((RectTransform)leftButton.transform, new Vector2(dpadButtonSize, dpadButtonSize),
                 dpadCenter + new Vector2(-dpadSpacing, 0f));
 
-            var rightButton = CreateButton("DPadRightButton", root.transform, string.Empty, Color.clear, out _);
+            var rightButton = CreateButton("DPadRightButton", safeArea.transform, string.Empty, Color.clear, out _);
             Object.DestroyImmediate(rightButton.transform.Find("DPadRightButton_Label").gameObject);
             AnchorBottomLeft((RectTransform)rightButton.transform, new Vector2(dpadButtonSize, dpadButtonSize),
                 dpadCenter + new Vector2(dpadSpacing, 0f));
@@ -1037,7 +1075,7 @@ namespace FarmFuryArcade.EditorTools
             // Sized to match the D-pad's own buttons (dpadButtonSize) rather than clusterButtonSize
             // — per feedback, Pause should read as the same size as Up/Down/Left/Right now that it
             // sits directly above them, not its old larger ability-cluster size.
-            var pauseButton = CreateButton("PauseButton", root.transform, string.Empty, new Color(0.35f, 0.35f, 0.38f), 28f, dpadButtonSize, out _);
+            var pauseButton = CreateButton("PauseButton", safeArea.transform, string.Empty, new Color(0.35f, 0.35f, 0.38f), 28f, dpadButtonSize, out _);
             Object.DestroyImmediate(pauseButton.transform.Find("PauseButton_Label").gameObject);
             AnchorBottomLeft((RectTransform)pauseButton.transform, new Vector2(dpadButtonSize, dpadButtonSize),
                 new Vector2(upButtonCenterX - dpadButtonSize / 2f, upButtonTopEdge + clusterSpacing));
@@ -1058,7 +1096,7 @@ namespace FarmFuryArcade.EditorTools
             // edges. Getting the box's own aspect right makes the forced stretch uniform (so it's
             // exactly as if preserveAspect worked correctly) regardless of that Sliced quirk. Also
             // enlarged overall (was 900 wide) per feedback that the backdrop read as too small.
-            var reviveRoot = CreatePanel("RevivePromptOverlay", root.transform, new Color(0f, 0f, 0f, 0.85f));
+            var reviveRoot = CreatePanel("RevivePromptOverlay", safeArea.transform, new Color(0f, 0f, 0f, 0.85f));
 
             var revivePanelArtGO = new GameObject("PanelArt", typeof(RectTransform), typeof(Image));
             revivePanelArtGO.transform.SetParent(reviveRoot.transform, false);
@@ -1524,9 +1562,10 @@ namespace FarmFuryArcade.EditorTools
             var privacyPolicyButton = CreateButton("PrivacyPolicyButton", buttonGroup.transform, "Privacy Policy",
                 new Color(0.55f, 0.4f, 0.2f), 30f, 90f, out _);
 
-            var termsOfUseButton = CreateButton("TermsOfUseButton", buttonGroup.transform, "Terms of Use (Coming Soon)",
-                new Color(0.35f, 0.3f, 0.25f), 26f, 90f, out _);
-            termsOfUseButton.interactable = false;
+            // Audit finding F9.6: Terms of Use now has real drafted content — no longer left
+            // non-interactable behind a "Coming Soon" label.
+            var termsOfUseButton = CreateButton("TermsOfUseButton", buttonGroup.transform, "Terms of Use",
+                new Color(0.55f, 0.4f, 0.2f), 30f, 90f, out _);
 
             var closeButton = CreateRoundBackButton(root.transform);
             closeButton.GetComponent<Image>().sprite = LoadUiSprite("Btn_back.png");
@@ -1536,6 +1575,58 @@ namespace FarmFuryArcade.EditorTools
                 ("privacyPolicyButton", privacyPolicyButton),
                 ("termsOfUseButton", termsOfUseButton),
                 ("closeButton", closeButton));
+
+            return root;
+        }
+
+        /// <summary>Audit findings F3.5/F4.4 — a reusable arithmetic parental gate shown in front of
+        /// every real-money purchase surface (Shop's direct Remove Ads purchase, Coin Purchase's 4
+        /// packs + Restore Purchases, and the Hat/Trail/World Purchase screens sharing
+        /// CosmeticPurchaseScreen). See ParentalGateController's own doc comment for why this is a
+        /// Singleton rather than a per-screen serialized reference. Built as a plain full-screen
+        /// dark backdrop (not the dimmed-landing-poster convention other overlays use — this is a
+        /// blocking modal, not a themed screen) with a centred question + 3 answer buttons.</summary>
+        private static GameObject BuildParentalGate(Transform canvasTransform)
+        {
+            var root = CreatePanel("ParentalGateScreen", canvasTransform, new Color(0.05f, 0.05f, 0.05f, 0.92f));
+
+            var content = CreateVerticalGroup("Content", root.transform, 24f, 32);
+
+            CreateText("Title", content.transform, "Parental Gate", 40f, TextAlignmentOptions.Center, 56f,
+                new Color(0.97f, 0.93f, 0.82f));
+            CreateText("Subtitle", content.transform,
+                "Ask a parent or guardian to answer before continuing.", 22f, TextAlignmentOptions.Center, 60f,
+                new Color(0.85f, 0.82f, 0.75f));
+            var question = CreateText("QuestionText", content.transform, "What is 4 + 5?", 32f,
+                TextAlignmentOptions.Center, 60f, Color.white);
+
+            var answerRow = CreateHorizontalGroup("AnswerRow", content.transform, 20f);
+            answerRow.GetComponent<LayoutElement>().preferredHeight = 90f;
+
+            var answerButtons = new Button[3];
+            var answerLabels = new TextMeshProUGUI[3];
+            for (int i = 0; i < 3; i++)
+            {
+                answerButtons[i] = CreateButton($"AnswerButton{i}", answerRow.transform, "0",
+                    new Color(0.55f, 0.4f, 0.2f), 30f, 90f, out answerLabels[i]);
+            }
+
+            var cancelButton = CreateButton("CancelButton", content.transform, "Cancel",
+                new Color(0.3f, 0.25f, 0.2f), 22f, 60f, out _);
+
+            var gate = root.AddComponent<ParentalGateController>();
+            SetRefs(gate, ("questionText", question), ("cancelButton", cancelButton));
+            var so = new SerializedObject(gate);
+            var buttonsProp = so.FindProperty("answerButtons");
+            var labelsProp = so.FindProperty("answerLabels");
+            buttonsProp.arraySize = 3;
+            labelsProp.arraySize = 3;
+            for (int i = 0; i < 3; i++)
+            {
+                buttonsProp.GetArrayElementAtIndex(i).objectReferenceValue = answerButtons[i];
+                labelsProp.GetArrayElementAtIndex(i).objectReferenceValue = answerLabels[i];
+            }
+            so.ApplyModifiedPropertiesWithoutUndo();
 
             return root;
         }

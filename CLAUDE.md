@@ -3310,7 +3310,13 @@ distance, dominant axis wins for diagonals. Tunable parameters if movement doesn
   character's speed instead (4.0 × 0.85 = 3.4), which backfired — since robots chase at a much
   lower base speed than any character, that made a fleeing robot move FASTER than it does while
   hunting, the opposite of "so the character can catch them.")
-- `GridMovement.AlignmentEpsilon` (0.02) — grid-center snap tolerance
+- `WoollyClone.AlignmentEpsilon` (0.02) — grid-center snap tolerance for Woolly's AI-driven clone
+  movement. **Not** `GridMovement` (the player's own movement) — this list previously said
+  `GridMovement.AlignmentEpsilon`, which doesn't exist there and never has (cross-platform code
+  audit finding C7.2). `GridMovement` itself has no epsilon at all: every full-tile arrival and
+  every direction reversal hard-assigns position from a freshly-computed grid-to-world conversion
+  rather than snapping toward one, so there's no long-session float drift and nothing to tune here
+  for the player specifically — only WoollyClone's separate AI movement implementation uses this.
 - `InputController.minSwipeDistancePixels` (50)
 - `CharacterAnimator.frameInterval` (0.15s baseline, scaled by speed)
 - `WarpTunnel.reWarpCooldown` (0.1s)
@@ -3356,6 +3362,50 @@ The play-mode run occasionally hangs *after* logging all results (something in E
 not a project bug) — if the log already shows the expected `PASS`/`FAIL` lines and the process
 doesn't exit within a minute or so, it's safe to kill (`taskkill /F /IM Unity.exe /T` on Windows)
 and reopen the project normally to confirm nothing was corrupted.
+
+## Android multi-window — deliberately deferred, not fixed (cross-platform audit finding C3.8)
+
+No `Assets/Plugins/Android/AndroidManifest.xml` exists in this project — Unity generates the
+manifest programmatically at build time with no static template file to copy/adapt in this
+Unity 6000.5.0f1 install. The cross-platform code audit's fix for C3.8 (multi-window/split-screen
+on Android has no explicit opt-out and has never been tested) recommended either testing it on a
+real device or adding `android:resizeableActivity="false"` to opt out — the second option was
+**not applied**, deliberately: authoring a custom manifest from scratch, with no Android SDK/
+Gradle build possible in this environment to verify it merges and builds correctly, risks breaking
+the Android build outright (a missing required Unity activity intent-filter or meta-data tag is a
+common way a hand-authored manifest silently breaks launch) — a strictly worse outcome than the
+current untested-but-architecturally-plausible gap. `CanvasScaler`/`CameraFollow`'s per-frame
+aspect recompute are already architecturally built to handle a resize event gracefully (see
+`CameraFollow.ApplyOrthographicSizeForAspect`), so this is genuinely "probably fine, unverified,"
+not "probably broken."
+
+**Do this on the real Android build machine, not here:** either (a) add
+`android:resizeableActivity="false"` to a real `AndroidManifest.xml` built from that machine's own
+Unity-generated manifest as the base (so it definitely has every tag Unity's activity needs) and
+verify the build still launches, or (b) just test Split View/multi-window on a real Android device
+once one exists for testing and skip the manifest change entirely if it already behaves correctly.
+
+## iOS build toolchain — known Xcode 26 gotcha (2026-08-29, researched, not yet hit in practice)
+
+No archive has ever been produced for this project (iOS Submission Audit finding F1.3) and this
+environment has no Mac/Xcode, so nothing in this section has been verified against this project's
+own build — it's flagged here so whoever does the first real archive attempt (the literal gate to
+every downstream phase per that audit) doesn't lose an afternoon to a documented, already-solved
+issue. **Confirm current status against Unity's own 6000.5.x release notes before the build
+session** — this was current as of a 2026-08-29 web search, not read from Unity's changelog
+directly.
+
+Xcode 26 shipped a linker bug that a broad range of Unity 6 projects hit on first iOS archive
+attempt, not specific to AR (despite most reports mentioning AR projects): Unity's iOS export
+still adds `-ld64` to the generated Xcode project's Other Linker Flags, which forces Xcode's old
+linker — Xcode 26 asserts on it (`Assertion failed: (it != _dylibToOrdinal.end()), function
+dylibToOrdinal, file OutputFile.cpp, line 5196`) and the archive fails outright. **Fix, if hit**:
+remove `-ld64` from Other Linker Flags on *both* the main app target and the `UnityFramework`
+target in the generated Xcode project, then re-archive. A second, separate issue some reports pair
+with this fix (rebuilding without `-ld64`) is IPA-load crashes on any `AssetBundle` — moot for this
+project specifically, since it loads all data via `Resources.LoadAll` (see F2.2) and has no
+AssetBundle usage anywhere, but worth knowing the symptom doesn't apply here if it's ever seen
+during troubleshooting.
 
 ## Development status
 

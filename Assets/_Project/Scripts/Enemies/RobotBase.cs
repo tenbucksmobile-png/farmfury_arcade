@@ -71,15 +71,37 @@ namespace FarmFuryArcade.Enemies
         /// character respawns now, robots stay wherever they are.</summary>
         public bool IsPermanentlyDefeated { get; private set; }
 
-        /// <summary>Live lookup of whichever character is currently active, via CharacterManager
-        /// (Phase 4) — NOT cached, because character-swapping destroys and recreates the player
-        /// GameObject, which would leave a cached reference stale. Same identifier as the old
-        /// Phase 3 field so every subclass's existing `playerMovement.CurrentGridPosition`-style
-        /// code keeps compiling unchanged.</summary>
-        protected GridMovement playerMovement =>
-            CharacterManager.Instance != null && CharacterManager.Instance.ActiveCharacterObject != null
-                ? CharacterManager.Instance.ActiveCharacterObject.GetComponent<GridMovement>()
-                : null;
+        /// <summary>Audit finding C4.2: this used to be a genuinely live GetComponent lookup on
+        /// every single access — read from GetTargetPosition on the same hot path RobotAI's own
+        /// per-frame pathing lives on, up to 8x/frame per robot while blocked (RobotBase.
+        /// UpdateMovement's own guard), times up to 5 robots. Cached now, but self-healing rather
+        /// than relying on an event: CharacterManager.OnCharacterChanged only fires on an explicit
+        /// SwapCharacter call, NOT on SpawnInitialCharacter (which is what actually runs on every
+        /// level load/reload per SceneController.LoadLevelContent) — an event-only cache would have
+        /// gone stale after the first level and silently never refreshed again. Comparing against
+        /// CharacterManager's own live ActiveCharacterObject reference on every access instead (a
+        /// cheap reference check, not a GetComponent call) means GetComponent only actually runs
+        /// again when that reference genuinely changed — correct on every path that changes it, not
+        /// just the swap one. Static/shared across all robot instances since there's only ever one
+        /// active character for all of them to reference. Same identifier as the old Phase 3 field
+        /// so every subclass's existing `playerMovement.CurrentGridPosition`-style code keeps
+        /// compiling unchanged.</summary>
+        private static GameObject _cachedForCharacterObject;
+        private static GridMovement _cachedPlayerMovement;
+
+        protected GridMovement playerMovement
+        {
+            get
+            {
+                var current = CharacterManager.Instance != null ? CharacterManager.Instance.ActiveCharacterObject : null;
+                if (current != _cachedForCharacterObject)
+                {
+                    _cachedForCharacterObject = current;
+                    _cachedPlayerMovement = current != null ? current.GetComponent<GridMovement>() : null;
+                }
+                return _cachedPlayerMovement;
+            }
+        }
 
         protected virtual float SpeedMultiplier => 1f;
 

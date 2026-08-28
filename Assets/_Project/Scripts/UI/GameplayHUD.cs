@@ -128,6 +128,7 @@ namespace FarmFuryArcade.UI
             if (GameManager.Instance != null)
             {
                 GameManager.Instance.OnReviveOffered += HandleReviveOffered;
+                GameManager.Instance.OnGamePausedExternally += HandleGamePausedExternally;
             }
 
             _lastObservedState = GameState.Playing;
@@ -149,6 +150,7 @@ namespace FarmFuryArcade.UI
             if (GameManager.Instance != null)
             {
                 GameManager.Instance.OnReviveOffered -= HandleReviveOffered;
+                GameManager.Instance.OnGamePausedExternally -= HandleGamePausedExternally;
             }
             if (_activeAbility != null)
             {
@@ -160,6 +162,13 @@ namespace FarmFuryArcade.UI
         private void HandleScoreChanged(int newScore) => _targetScore = newScore;
         private void HandleCharacterChanged(CharacterType previous, CharacterType next) => RefreshPortrait();
         private void HandleReviveOffered() => revivePrompt?.Show();
+
+        /// <summary>Audit finding F2.5 — GameManager.OnApplicationPause auto-pauses on backgrounding
+        /// but has no UI knowledge of its own, so it raises OnGamePausedExternally for this to react
+        /// to. Shows the same Pause overlay a manual tap on the Pause button would, rather than
+        /// leaving the player return to foreground with a silently frozen maze and nothing visible
+        /// to resume from.</summary>
+        private void HandleGamePausedExternally() => pauseMenu?.Show();
 
         /// <summary>Monetisation: spends SkipCooldownCoinsCost coins to zero the active ability's
         /// cooldown early — triggered by tapping the coin badge overlaid on the ability icon while
@@ -192,19 +201,19 @@ namespace FarmFuryArcade.UI
                 return;
             }
 
-            watchAdSkipCooldownButton.interactable = false;
+            // Audit finding F5.6: this used to set .interactable = false here, only ever restoring
+            // it inside the result callback — if AdManager's callback hung (rare SDK/network edge
+            // case), the button stayed disabled not just for this cooldown window but every future
+            // one too, since HandleAbilityCooldownChanged's own per-frame refresh only ever touches
+            // .gameObject.SetActive, never .interactable. AdManager.ShowRewardedAd now guarantees
+            // onResult always fires (a timeout fallback), but this button no longer needs to gamble
+            // on that either — match RevivePromptController's own Watch Ad button, which never
+            // pre-disables itself, so a hung callback simply leaves it exactly as tappable as before.
             AdManager.Instance.ShowRewardedAd("skip_cooldown_via_ad", rewarded =>
             {
                 if (rewarded && _activeAbility != null && !_activeAbility.IsReady)
                 {
                     _activeAbility.SkipCooldown();
-                }
-                else if (watchAdSkipCooldownButton != null)
-                {
-                    // Ad closed early/failed, or nothing left to skip — re-check readiness rather
-                    // than leaving a stuck-disabled button, same re-check convention
-                    // RevivePromptController's own Watch Ad button uses.
-                    watchAdSkipCooldownButton.interactable = AdManager.Instance != null && AdManager.Instance.IsRewardedAdReady;
                 }
             });
         }
@@ -496,7 +505,11 @@ namespace FarmFuryArcade.UI
             }
         }
 
-        private void OpenPauseMenu()
+        // Public — audit finding C3.2's AndroidBackButtonHandler calls this directly so pressing
+        // Android's back button mid-maze (with no overlay already open) opens Pause instead of
+        // falling through to Android's default "finish the Activity" behaviour, the single
+        // highest-impact case that finding named.
+        public void OpenPauseMenu()
         {
             GameManager.Instance.PauseGame();
             pauseMenu.Show();

@@ -97,6 +97,13 @@ namespace FarmFuryArcade.Core
             var go = Instantiate(prefab, worldPos, Quaternion.identity, characterParent);
 
             var data = DataManager.Instance.GetCharacterData(type);
+            if (data == null)
+            {
+                // Audit finding C8.1 — CharacterBase.Initialize already early-outs gracefully on a
+                // null CharacterData, so this isn't a crash risk; without this log it was a silent
+                // degrade (no speed/animation/ability setup applied) with zero signal to notice.
+                Debug.LogWarning($"[CharacterManager] No CharacterData found for {type} — spawning uninitialized.");
+            }
             go.GetComponent<CharacterBase>()?.Initialize(data);
 
             var movement = go.GetComponent<GridMovement>();

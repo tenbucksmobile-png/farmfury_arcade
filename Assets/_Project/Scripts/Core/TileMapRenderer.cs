@@ -523,17 +523,40 @@ namespace FarmFuryArcade.Core
 
             foreach (var kvp in groups)
             {
-                if (kvp.Value.Count != 2)
+                var group = kvp.Value;
+                if (group.Count < 2)
                 {
                     continue;
                 }
 
-                var a = kvp.Value[0];
-                var b = kvp.Value[1];
-                a.warp.PairedWarp = b.warp;
-                b.warp.PairedWarp = a.warp;
-                remaining.Remove(a);
-                remaining.Remove(b);
+                // Audit finding C7.3: this used to skip any group whose count wasn't exactly 2 — a
+                // group of 3+ tunnels sharing a row (or column) was left ENTIRELY unpaired, even
+                // though a valid 2-tile pairing exists within it, and fell through to the next pass
+                // stranding all of them unless 2 happened to also share the other axis. Pair off
+                // consecutive tunnels two at a time instead, sorted by the OTHER axis for a
+                // deterministic, sensible pairing (nearest positions paired together) — this leaves
+                // at most one genuinely unpaired leftover per group (only when the group's count is
+                // odd) for the next pass/final warning, never a whole group lost to a "not exactly
+                // 2" check.
+                var sorted = new List<(int x, int y, WarpTunnel warp)>(group);
+                if (axisLabel == "row")
+                {
+                    sorted.Sort((p, q) => p.x.CompareTo(q.x));
+                }
+                else
+                {
+                    sorted.Sort((p, q) => p.y.CompareTo(q.y));
+                }
+
+                for (int i = 0; i + 1 < sorted.Count; i += 2)
+                {
+                    var a = sorted[i];
+                    var b = sorted[i + 1];
+                    a.warp.PairedWarp = b.warp;
+                    b.warp.PairedWarp = a.warp;
+                    remaining.Remove(a);
+                    remaining.Remove(b);
+                }
             }
         }
 

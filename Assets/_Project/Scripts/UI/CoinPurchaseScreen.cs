@@ -95,6 +95,9 @@ namespace FarmFuryArcade.UI
             gameObject.SetActive(true);
         }
 
+        /// <summary>Audit findings F3.5/F4.4: every purchase surface used to call straight through
+        /// to IAPManager with no age-gate at all, despite AdManager treating every player as
+        /// child-directed. Gated behind ParentalGateController now — see its own doc comment.</summary>
         private void HandlePurchaseTapped(string productId)
         {
             if (IAPManager.Instance == null)
@@ -106,6 +109,18 @@ namespace FarmFuryArcade.UI
                 return;
             }
 
+            if (ParentalGateController.Instance != null)
+            {
+                ParentalGateController.Instance.Show(() => BeginPurchase(productId));
+            }
+            else
+            {
+                BeginPurchase(productId);
+            }
+        }
+
+        private void BeginPurchase(string productId)
+        {
             if (statusText != null)
             {
                 statusText.text = "Processing...";
@@ -145,6 +160,21 @@ namespace FarmFuryArcade.UI
                 return;
             }
 
+            // Audit finding F4.4: Restore doesn't create a new charge, but it's still a
+            // StoreKit-transaction-adjacent action reachable from the same unprotected surface as
+            // a fresh purchase — gated the same way rather than left as an undecided carve-out.
+            if (ParentalGateController.Instance != null)
+            {
+                ParentalGateController.Instance.Show(BeginRestore);
+            }
+            else
+            {
+                BeginRestore();
+            }
+        }
+
+        private void BeginRestore()
+        {
             if (restoreStatusText != null)
             {
                 restoreStatusText.text = "Restoring...";

@@ -51,7 +51,9 @@ namespace FarmFuryArcade.UI
             gameObject.SetActive(true);
         }
 
-        private void Resume()
+        // Public — audit finding C3.2's AndroidBackButtonHandler calls this directly so the
+        // Android back button resumes gameplay while Pause is open, the same as tapping Play.
+        public void Resume()
         {
             gameObject.SetActive(false);
             GameManager.Instance.ResumeGame();

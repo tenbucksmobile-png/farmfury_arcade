@@ -34,9 +34,19 @@ namespace FarmFuryArcade.Core
             _cosmeticsById.Clear();
 
             var levels = Resources.LoadAll<LevelData>("Levels");
+            int skippedLevels = 0;
             foreach (var level in levels)
             {
+                if (!IsValid(level))
+                {
+                    skippedLevels++;
+                    continue;
+                }
                 _levelsByIndex[level.levelNumber] = level;
+            }
+            if (skippedLevels > 0)
+            {
+                Debug.LogError($"[DataManager] Skipped {skippedLevels} malformed LevelData asset(s) — see preceding warnings for which ones and why.");
             }
 
             var characters = Resources.LoadAll<CharacterData>("Characters");
@@ -63,6 +73,47 @@ namespace FarmFuryArcade.Core
             }
 
             Debug.Log($"[DataManager] Loaded {levels.Length} level data, {characters.Length} character data, {robots.Length} robot data, {cosmetics.Length} cosmetic data.");
+        }
+
+        /// <summary>Audit finding C2.5: 175 hand/procedurally-authored levels is a lot of surface
+        /// area for one malformed entry (a bad export, a half-finished edit) to slip through with
+        /// nothing catching it until a player actually reaches that specific level. This is a
+        /// load-time sanity pass, not a full simulation — cheap checks that would have caught real
+        /// bugs already found and fixed in this project's history (the power-pellet-cap crop-count
+        /// mismatch, the LevelData_05/RobotTest levelNumber collision) if they'd existed at the
+        /// time. A level failing this check is logged and excluded from `_levelsByIndex` entirely —
+        /// GameManager.LoadLevel already null-checks GetLevelData's result and logs+returns rather
+        /// than crashing, so skipping here degrades to "this level tile never appears" instead of a
+        /// gameplay-time failure.</summary>
+        private static bool IsValid(LevelData level)
+        {
+            if (level == null)
+            {
+                return false;
+            }
+            if (level.mazeLayoutFlat == null || level.mazeLayoutFlat.Length == 0)
+            {
+                Debug.LogWarning($"[DataManager] LevelData '{level.name}' has no maze layout — skipped.");
+                return false;
+            }
+            if (level.mazeWidth <= 0 || level.mazeHeight <= 0 ||
+                level.mazeLayoutFlat.Length < level.mazeWidth * level.mazeHeight)
+            {
+                Debug.LogWarning($"[DataManager] LevelData '{level.name}' has a mazeWidth/mazeHeight that doesn't match its mazeLayoutFlat length — skipped.");
+                return false;
+            }
+            if (level.playerStartPosition.x < 0 || level.playerStartPosition.x >= level.mazeWidth ||
+                level.playerStartPosition.y < 0 || level.playerStartPosition.y >= level.mazeHeight)
+            {
+                Debug.LogWarning($"[DataManager] LevelData '{level.name}' has an out-of-bounds playerStartPosition {level.playerStartPosition} — skipped.");
+                return false;
+            }
+            if (level.totalCropsRequired <= 0)
+            {
+                Debug.LogWarning($"[DataManager] LevelData '{level.name}' has totalCropsRequired <= 0 — a level that can never be completed — skipped.");
+                return false;
+            }
+            return true;
         }
 
         public LevelData GetLevelData(int levelIndex)

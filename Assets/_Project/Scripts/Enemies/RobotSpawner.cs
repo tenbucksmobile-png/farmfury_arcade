@@ -43,6 +43,16 @@ namespace FarmFuryArcade.Enemies
             ClearRobots();
             _level = level;
 
+            // Audit finding C7.6: ChaseScoreManager's "all robots defeated on one pellet" +5,000
+            // bonus used to be hardcoded to fire at exactly 4 chain-defeats — but the difficulty
+            // curve spawns as few as 2 robots on a level's earliest band, where the bonus could
+            // never mathematically fire, and as many as 5 on the hardest band, where it fired one
+            // robot early. Set from level.robotSpawns.Length directly (one spawn definition per
+            // robot, known immediately — well before any of the staggered spawn coroutines below
+            // could possibly result in a defeat) rather than from _activeRobots.Count, which is
+            // still 0 at this point since spawning itself is delayed.
+            ChaseScoreManager.Instance?.SetTotalRobotsThisMaze(level.robotSpawns?.Length ?? 0);
+
             if (level.robotSpawns == null)
             {
                 return;
@@ -109,6 +119,13 @@ namespace FarmFuryArcade.Enemies
             }
 
             var data = DataManager.Instance.GetRobotData(spawn.robotType);
+            if (data == null)
+            {
+                // Audit finding C8.1 — RobotBase.Initialize already degrades gracefully to
+                // fallback health/speed on a null RobotData, so this isn't a crash risk; without
+                // this log it was a silent degrade with zero signal to notice in a playtest.
+                Debug.LogWarning($"[RobotSpawner] No RobotData found for {spawn.robotType} — spawning with fallback stats.");
+            }
             robot.Initialize(data, tileMap, spawn.spawnPosition, GetScatterCorner(spawn.robotType));
             robot.SetDifficultyMultiplier(DifficultyMultiplier);
             _activeRobots.Add(robot);

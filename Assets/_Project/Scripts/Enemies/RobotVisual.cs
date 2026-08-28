@@ -22,6 +22,20 @@ namespace FarmFuryArcade.Enemies
         private const float FlashThresholdSeconds = 2f;
         private const float FlashSpeed = 6f;
 
+        /// <summary>Audit finding F7.2: for most of the Vulnerable window, colour (red vs. a fixed
+        /// blue) was the ONLY signal distinguishing "safe to touch" from "will kill you" — a
+        /// red-green colourblind player has no way to tell, since the white warning flash only
+        /// covers the final FlashThresholdSeconds. This adds a shape/motion cue independent of hue,
+        /// for the FULL Vulnerable duration: a gentle size pulse, same sine-wave-pulsate convention
+        /// GameplayHUD's ability-ready flash already uses. Cheap stopgap ahead of the dedicated
+        /// Vulnerable sprite already queued in the art backlog (see CLAUDE.md's Art status). Scales
+        /// the whole robot transform rather than a dedicated visual-only child (none exists in this
+        /// prefab hierarchy) — this necessarily pulses the Collider2D's effective size along with
+        /// it, but only while the robot is meant to be easy to catch, so the minor hitbox wobble is
+        /// an accepted, low-risk tradeoff rather than a bug.</summary>
+        private const float VulnerablePulseAmplitude = 0.12f;
+        private const float VulnerablePulseSpeed = 4f;
+
         [SerializeField] private Color normalColor = Color.red;
         [SerializeField] private Sprite frontSprite;
         [SerializeField] private Sprite backSprite;
@@ -31,11 +45,13 @@ namespace FarmFuryArcade.Enemies
 
         private SpriteRenderer _spriteRenderer;
         private RobotBase _robot;
+        private Vector3 _baseScale;
 
         private void Awake()
         {
             _spriteRenderer = GetComponent<SpriteRenderer>();
             _robot = GetComponent<RobotBase>();
+            _baseScale = transform.localScale;
         }
 
         public void SetNormalColor(Color color)
@@ -71,6 +87,12 @@ namespace FarmFuryArcade.Enemies
 
             bool eyesOnly = defeatedSprite != null &&
                 (_robot.CurrentState == RobotState.Defeated || _robot.CurrentState == RobotState.Returning);
+
+            bool vulnerablePulsing = !eyesOnly && _robot.CurrentState == RobotState.Vulnerable &&
+                !_robot.IsStunned && !_robot.IsKnockedBack;
+            transform.localScale = vulnerablePulsing
+                ? _baseScale * (1f + VulnerablePulseAmplitude * (Mathf.Sin(Time.time * VulnerablePulseSpeed) * 0.5f + 0.5f))
+                : _baseScale;
 
             if (eyesOnly)
             {

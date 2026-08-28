@@ -1,0 +1,36 @@
+# Audit finding C10.2: no static analysis configuration existed anywhere in the project — every
+# category this audit hunted for by hand (leaked event subscriptions, obvious null-ref risks) got
+# no automated first pass, relying entirely on a manual audit like this one recurring. This is a
+# minimal, non-breaking starting point: warnings only, nothing here fails a build (no severity is
+# set to "error"), so it surfaces real issues in the IDE/CI log without blocking anyone.
+
+root = true
+
+[*.cs]
+indent_style = space
+indent_size = 4
+charset = utf-8-bom
+trim_trailing_whitespace = true
+insert_final_newline = true
+
+# ---- Correctness-leaning Roslyn built-ins (the categories this audit hunted for by hand) ----
+
+# CS0168/CS0219: variable declared/assigned but never used — same class of bug as an unused field.
+dotnet_diagnostic.CS0168.severity = warning
+dotnet_diagnostic.CS0219.severity = warning
+
+# CS8600-CS8625: nullable-reference-adjacent warnings (harmless even with nullable annotations
+# disabled project-wide, as this project currently has them — Roslyn still flags a few of the most
+# obvious possible-null-dereference shapes without requiring the project-wide opt-in).
+dotnet_diagnostic.CS8600.severity = warning
+dotnet_diagnostic.CS8602.severity = warning
+dotnet_diagnostic.CS8604.severity = warning
+
+# IDE0052: a private member's value is never read — catches exactly the "event subscribed, field
+# assigned, never actually used again" pattern this audit was checking for by hand in a few places.
+dotnet_diagnostic.IDE0052.severity = warning
+
+# CA2213: a disposable field is never disposed — not a common pattern in this project's own code,
+# but cheap insurance given how many singleton managers hold onto coroutine/event-subscription
+# state that ought to be torn down somewhere.
+dotnet_diagnostic.CA2213.severity = suggestion

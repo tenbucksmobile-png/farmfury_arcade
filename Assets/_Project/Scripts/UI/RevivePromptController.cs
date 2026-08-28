@@ -61,6 +61,26 @@ namespace FarmFuryArcade.UI
             gameObject.SetActive(true);
         }
 
+        /// <summary>Audit finding C6.3: watchAdButton's visibility used to be set once, in Show(),
+        /// and never re-checked — if an ad finished loading in the background while the prompt was
+        /// already open (a real, if narrow, timing window), the button never appeared until the
+        /// player's next death. Update() only runs while this GameObject is active (Show()/
+        /// HandleRevive/HandleDecline are the only places that toggle it), so this is a no-op cost
+        /// the rest of the time — same per-frame re-check convention GameplayHUD's own
+        /// skip-cooldown-via-ad button already uses.</summary>
+        private void Update()
+        {
+            if (watchAdButton == null)
+            {
+                return;
+            }
+            bool ready = Core.AdManager.Instance != null && Core.AdManager.Instance.IsRewardedAdReady;
+            if (watchAdButton.gameObject.activeSelf != ready)
+            {
+                watchAdButton.gameObject.SetActive(ready);
+            }
+        }
+
         private void HandleRevive()
         {
             GameManager.Instance?.AcceptRevive();

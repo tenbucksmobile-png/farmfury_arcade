@@ -48,7 +48,7 @@ namespace FarmFuryArcade.EditorTools
             GameObject cluckPrefab = AddCharacterBaseAndAbilityToCluck(eggPrefab);
 
             GameObject bessiePrefab = BuildCharacterPrefab("Bessie", new Color(0.55f, 0.38f, 0.20f),
-                typeof(GroundSlamAbility), 10f, ability =>
+                typeof(GroundSlamAbility), UnifiedAbilityCooldown, ability =>
                 {
                     var so = new SerializedObject(ability);
                     so.FindProperty("shockwavePrefab").objectReferenceValue = shockwavePrefab;
@@ -56,7 +56,7 @@ namespace FarmFuryArcade.EditorTools
                 });
 
             GameObject percyPrefab = BuildCharacterPrefab("Percy", new Color(0.95f, 0.55f, 0.65f),
-                typeof(BounceRollAbility), 10f, ability =>
+                typeof(BounceRollAbility), UnifiedAbilityCooldown, ability =>
                 {
                     var so = new SerializedObject(ability);
                     so.FindProperty("trailPrefab").objectReferenceValue = bounceTrailPrefab;
@@ -64,7 +64,7 @@ namespace FarmFuryArcade.EditorTools
                 });
 
             GameObject woollyPrefab = BuildCharacterPrefab("Woolly", new Color(0.92f, 0.90f, 0.80f),
-                typeof(TripleCloneAbility), 10f, ability =>
+                typeof(TripleCloneAbility), UnifiedAbilityCooldown, ability =>
                 {
                     var so = new SerializedObject(ability);
                     so.FindProperty("clonePrefab").objectReferenceValue = woolClonePrefab;
@@ -73,7 +73,7 @@ namespace FarmFuryArcade.EditorTools
                 });
 
             GameObject duckyPrefab = BuildCharacterPrefab("Ducky", new Color(0.25f, 0.65f, 0.75f),
-                typeof(SkipShotAbility), 10f, ability =>
+                typeof(SkipShotAbility), UnifiedAbilityCooldown, ability =>
                 {
                     var so = new SerializedObject(ability);
                     so.FindProperty("woolClonePrefab").objectReferenceValue = woolClonePrefab;
@@ -82,7 +82,7 @@ namespace FarmFuryArcade.EditorTools
                 });
 
             GameObject horacePrefab = BuildCharacterPrefab("Horace", new Color(0.45f, 0.30f, 0.15f),
-                typeof(RearKickAbility), 10f, ability =>
+                typeof(RearKickAbility), UnifiedAbilityCooldown, ability =>
                 {
                     var so = new SerializedObject(ability);
                     so.FindProperty("buckEffectPrefab").objectReferenceValue = horaceBuckPrefab;
@@ -90,10 +90,10 @@ namespace FarmFuryArcade.EditorTools
                 });
 
             GameObject geraldPrefab = BuildCharacterPrefab("Gerald", new Color(0.65f, 0.60f, 0.50f),
-                typeof(PuffUpAbility), 10f, null);
+                typeof(PuffUpAbility), UnifiedAbilityCooldown, null);
 
             GameObject billyPrefab = BuildCharacterPrefab("Billy", new Color(0.35f, 0.35f, 0.38f),
-                typeof(HeadbuttThroughAbility), 10f, null);
+                typeof(HeadbuttThroughAbility), UnifiedAbilityCooldown, null);
 
             // UpdateLevelData01Water() is no longer called — the water gate at row 11 (cells
             // (3,11)/(10,11)) rendered as a plain blue placeholder square (no real water art was
@@ -185,7 +185,7 @@ namespace FarmFuryArcade.EditorTools
             }
 
             var abilitySO = new SerializedObject(ability);
-            abilitySO.FindProperty("totalCooldown").floatValue = 10f;
+            abilitySO.FindProperty("totalCooldown").floatValue = UnifiedAbilityCooldown;
             abilitySO.FindProperty("eggPrefab").objectReferenceValue = eggPrefab;
             abilitySO.ApplyModifiedPropertiesWithoutUndo();
 
@@ -391,23 +391,30 @@ namespace FarmFuryArcade.EditorTools
         // consistent across every robot type because every character now shares this one speed.
         private const float UnifiedCharacterSpeed = 4.0f;
 
+        /// <summary>Audit finding C2.3: this used to be 15 separate `10f` literals scattered across
+        /// this file (every ability sub-prefab's totalCooldown, and every BuildCharacterDataAsset
+        /// call) — the exact "duplicates a GDD constant across files instead of defining it once"
+        /// drift class the cross-platform code audit flagged. One constant now, referenced
+        /// everywhere the cooldown is set.</summary>
+        private const float UnifiedAbilityCooldown = 10f;
+
         private static void BuildCharacterData()
         {
-            BuildCharacterDataAsset(CharacterType.Cluck, "Cluck", UnifiedCharacterSpeed, AbilityType.EggDrop, 10f,
+            BuildCharacterDataAsset(CharacterType.Cluck, "Cluck", UnifiedCharacterSpeed, AbilityType.EggDrop, UnifiedAbilityCooldown,
                 "Drops 3 eggs in her current lane that instantly defeat any robot walking over them.", 0, false);
-            BuildCharacterDataAsset(CharacterType.Bessie, "Bessie", UnifiedCharacterSpeed, AbilityType.GroundSlam, 10f,
+            BuildCharacterDataAsset(CharacterType.Bessie, "Bessie", UnifiedCharacterSpeed, AbilityType.GroundSlam, UnifiedAbilityCooldown,
                 "Instant shockwave instantly defeats every robot within 2 tiles.", 0, false);
-            BuildCharacterDataAsset(CharacterType.Percy, "Percy", UnifiedCharacterSpeed, AbilityType.BounceRoll, 10f,
+            BuildCharacterDataAsset(CharacterType.Percy, "Percy", UnifiedCharacterSpeed, AbilityType.BounceRoll, UnifiedAbilityCooldown,
                 "The next wall Percy hits becomes walkable for 2 seconds.", 5, false);
-            BuildCharacterDataAsset(CharacterType.Woolly, "Woolly", UnifiedCharacterSpeed, AbilityType.TripleClone, 10f,
+            BuildCharacterDataAsset(CharacterType.Woolly, "Woolly", UnifiedCharacterSpeed, AbilityType.TripleClone, UnifiedAbilityCooldown,
                 "Spawns 2 AI-controlled clones that wander, collect crops, and fade after 10s.", 10, false);
-            BuildCharacterDataAsset(CharacterType.Ducky, "Ducky", UnifiedCharacterSpeed, AbilityType.SkipShot, 10f,
+            BuildCharacterDataAsset(CharacterType.Ducky, "Ducky", UnifiedCharacterSpeed, AbilityType.SkipShot, UnifiedAbilityCooldown,
                 "Teleports across an adjacent water tile pair — once per pair per maze.", 15, true);
-            BuildCharacterDataAsset(CharacterType.Horace, "Horace", UnifiedCharacterSpeed, AbilityType.RearKick, 10f,
+            BuildCharacterDataAsset(CharacterType.Horace, "Horace", UnifiedCharacterSpeed, AbilityType.RearKick, UnifiedAbilityCooldown,
                 "Kicks the nearest robot within 3 tiles back 4 tiles and defeats it on landing.", 20, false);
-            BuildCharacterDataAsset(CharacterType.Gerald, "Gerald", UnifiedCharacterSpeed, AbilityType.PuffUp, 10f,
+            BuildCharacterDataAsset(CharacterType.Gerald, "Gerald", UnifiedCharacterSpeed, AbilityType.PuffUp, UnifiedAbilityCooldown,
                 "Inflates to 3x size for 5s — any robot touched is instantly defeated. Half speed, no warp tunnels while puffed.", 30, false);
-            BuildCharacterDataAsset(CharacterType.Billy, "Billy", UnifiedCharacterSpeed, AbilityType.HeadbuttThrough, 10f,
+            BuildCharacterDataAsset(CharacterType.Billy, "Billy", UnifiedCharacterSpeed, AbilityType.HeadbuttThrough, UnifiedAbilityCooldown,
                 "Permanently destroys the next 3 walls he headbutts.", 40, false);
         }
 

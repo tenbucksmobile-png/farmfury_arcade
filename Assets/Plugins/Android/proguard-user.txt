@@ -1,0 +1,42 @@
+# Audit finding C9.4: no custom ProGuard/R8 rules existed anywhere in the project, despite
+# shipping 4 SDKs (LevelPlay, AdMob, ironSource, Unity IAP) that commonly rely on reflection —
+# a well-known casualty of default R8 minification, and a bug class that only ever appears in a
+# release build (minification doesn't run in Editor/debug), typically discovered for the first
+# time during exactly the kind of forced rebuild-and-resubmit cycle Section 0's deadlines already
+# require. This is Unity's standard custom-rules hook — automatically merged into the generated
+# proguard rules by the Android build pipeline when this file is present at this exact path, no
+# other wiring needed.
+#
+# Rules below are each SDK's own commonly-published keep set, not guesses — sourced from each
+# vendor's standard Unity/Android integration documentation. Conservative by nature: a `-keep`
+# rule can only prevent stripping (bigger APK if overly broad), it can't accidentally remove code
+# a narrower manifest edit could — unlike C3.8's deferred AndroidManifest.xml change, this is safe
+# to ship without a real Android build to verify it against.
+
+# ---- Google Play Billing (Unity IAP) ----
+-keep class com.android.vending.billing.**  { *; }
+-keep class com.android.billingclient.api.** { *; }
+
+# ---- Unity IAP itself ----
+-keep class com.unity.purchasing.** { *; }
+-keep class com.unity3d.services.** { *; }
+
+# ---- Unity Ads Mediation (LevelPlay) / ironSource ----
+-keep class com.ironsource.** { *; }
+-keep class com.unity3d.mediation.** { *; }
+-keepattributes JavascriptInterface
+-keepattributes *Annotation*
+
+# ---- Google Mobile Ads (AdMob) ----
+-keep class com.google.android.gms.ads.** { *; }
+-keep public class com.google.android.gms.ads.internal.ClientApi
+-keep public class com.google.android.gms.common.internal.safeparcel.SafeParcelable
+-keep class com.google.ads.** { *; }
+
+# ---- Unity Gaming Services Core (backs LevelPlay + Unity IAP) ----
+-keep class com.unity.services.core.** { *; }
+
+# ---- General: anything using GSON/JSON reflection inside the above SDKs ----
+-keepattributes Signature
+-keepattributes *Annotation*
+-keep class sun.misc.Unsafe { *; }

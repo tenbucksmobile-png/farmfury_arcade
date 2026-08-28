@@ -31,8 +31,16 @@ namespace FarmFuryArcade.Utilities
 
         /// <summary>Widest landscape aspect ratio worth planning backdrop coverage for (e.g. an
         /// ultra-wide phone). Used only by ArtWiringBuilder.WireGameplayBackdrop to size the
-        /// backdrop generously enough that no real device's extra width outruns it.</summary>
-        public const float MaxSupportedAspect = 2.4f;
+        /// backdrop generously enough that no real device's extra width outruns it.
+        ///
+        /// Audit finding C3.4: 2.4 didn't cover some unfolded-foldable and ultra-wide Android
+        /// aspects (some reach ~2.5:1+ unfolded), which would show unpainted space beyond the
+        /// backdrop's edge on those devices — visible but cosmetic, never a gameplay/HUD crop,
+        /// since orthographicSize itself is derived purely from CellScreenHeightFraction/CellSize,
+        /// not from this constant. Raised with headroom past the known-problem cases; the
+        /// backdrop's own ×1.6 safety margin (see ArtWiringBuilder.WireGameplayBackdrop) still
+        /// applies on top of this.</summary>
+        public const float MaxSupportedAspect = 2.6f;
 
         private Camera _camera;
         private TileMapRenderer _tileMapRenderer;

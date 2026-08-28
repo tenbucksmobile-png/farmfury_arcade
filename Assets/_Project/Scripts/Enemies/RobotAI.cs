@@ -18,6 +18,21 @@ namespace FarmFuryArcade.Enemies
             Direction.Up, Direction.Down, Direction.Left, Direction.Right
         };
 
+        /// <summary>Audit finding C4.2: ComputeDistances/GetValidDirections used to allocate a
+        /// fresh Dictionary+Queue (BFS scratch state) and List (candidate directions) on every
+        /// single call — with up to 5 robots per level, each capable of re-evaluating direction up
+        /// to 8x in one Update() while blocked/looping (RobotBase.UpdateMovement's own guard),
+        /// this was a real per-frame GC-pressure source. Reused as static scratch buffers instead —
+        /// safe because Unity's game loop is single-threaded and neither method is reentrant (a
+        /// call always fully consumes its result before returning, never calling back into RobotAI
+        /// mid-computation), so there's no risk of one robot's in-progress BFS being clobbered by
+        /// another's. ComputeDistances now returns this shared dictionary directly rather than a
+        /// fresh copy — callers must finish reading it before anything could call ComputeDistances
+        /// again, which both existing callers (GetNextDirection, FindFarthestCell) already do.</summary>
+        private static readonly Dictionary<Vector2Int, int> DistanceScratch = new Dictionary<Vector2Int, int>();
+        private static readonly Queue<Vector2Int> BfsQueueScratch = new Queue<Vector2Int>();
+        private static readonly List<Direction> ValidDirectionsScratch = new List<Direction>(4);
+
         /// <summary>Deterministic-greedy directional choice: among the walkable, non-reversing
         /// directions from currentPos, always picks whichever candidate's neighbour cell has the
         /// REAL shortest-path distance to targetPos (a BFS distance, not straight-line — see
@@ -103,31 +118,31 @@ namespace FarmFuryArcade.Enemies
         /// facing" projection can land on a wall or off the grid).</summary>
         private static Dictionary<Vector2Int, int> ComputeDistances(Vector2Int start, TileMapRenderer maze)
         {
-            var distances = new Dictionary<Vector2Int, int>();
+            DistanceScratch.Clear();
             if (!maze.IsWalkable(start))
             {
-                return distances;
+                return DistanceScratch;
             }
 
-            distances[start] = 0;
-            var queue = new Queue<Vector2Int>();
-            queue.Enqueue(start);
-            while (queue.Count > 0)
+            DistanceScratch[start] = 0;
+            BfsQueueScratch.Clear();
+            BfsQueueScratch.Enqueue(start);
+            while (BfsQueueScratch.Count > 0)
             {
-                Vector2Int cur = queue.Dequeue();
-                int nextDist = distances[cur] + 1;
+                Vector2Int cur = BfsQueueScratch.Dequeue();
+                int nextDist = DistanceScratch[cur] + 1;
                 foreach (var dir in AllDirections)
                 {
                     Vector2Int next = cur + DirectionUtils.ToVector(dir);
-                    if (distances.ContainsKey(next) || !maze.IsWalkable(next))
+                    if (DistanceScratch.ContainsKey(next) || !maze.IsWalkable(next))
                     {
                         continue;
                     }
-                    distances[next] = nextDist;
-                    queue.Enqueue(next);
+                    DistanceScratch[next] = nextDist;
+                    BfsQueueScratch.Enqueue(next);
                 }
             }
-            return distances;
+            return DistanceScratch;
         }
 
         private static int StraightLineDistanceSqr(Vector2Int a, Vector2Int b)
@@ -216,7 +231,7 @@ namespace FarmFuryArcade.Enemies
         public static Direction[] GetValidDirections(Vector2Int pos, Direction excluding, TileMapRenderer maze)
         {
             Direction reverse = DirectionUtils.Opposite(excluding);
-            var result = new List<Direction>(4);
+            ValidDirectionsScratch.Clear();
 
             foreach (var dir in AllDirections)
             {
@@ -227,16 +242,19 @@ namespace FarmFuryArcade.Enemies
 
                 if (maze.IsWalkable(pos + DirectionUtils.ToVector(dir)))
                 {
-                    result.Add(dir);
+                    ValidDirectionsScratch.Add(dir);
                 }
             }
 
-            if (result.Count == 0 && excluding != Direction.None && maze.IsWalkable(pos + DirectionUtils.ToVector(reverse)))
+            if (ValidDirectionsScratch.Count == 0 && excluding != Direction.None && maze.IsWalkable(pos + DirectionUtils.ToVector(reverse)))
             {
-                result.Add(reverse);
+                ValidDirectionsScratch.Add(reverse);
             }
 
-            return result.ToArray();
+            // Still one allocation (ToArray) — unavoidable given the public API returns an array
+            // callers hold onto/index directly, but this at least removes the List object
+            // allocation that used to happen alongside it on every single call.
+            return ValidDirectionsScratch.ToArray();
         }
     }
 }

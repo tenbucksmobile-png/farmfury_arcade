@@ -32,15 +32,26 @@ namespace FarmFuryArcade.Core
         [SerializeField] private string androidInterstitialAdUnitId;
         [SerializeField] private string iosInterstitialAdUnitId;
 
-        [Tooltip("Enables LevelPlay's in-app test suite UI (SetMetaData \"is_test_suite\") — for " +
-                 "QA/dev builds only. Must be false in a release build; there is deliberately no " +
-                 "automatic RELEASE-vs-DEBUG switch here yet (see CLAUDE.md's monetisation plan, " +
-                 "Phase 2's \"Technical needed\" list) — toggle this by hand before cutting a " +
-                 "release build until that build-config split exists.")]
+        [Tooltip("Enables LevelPlay's in-app test suite UI (SetMetaData \"is_test_suite\") in an " +
+                 "Editor or Development Build only — see EnableTestSuite below, which forces this " +
+                 "off in a release build regardless of what this Inspector value says. Toggle this " +
+                 "freely for QA; it can no longer ship enabled by accident.")]
         [SerializeField] private bool enableTestSuite = true;
 
         [Tooltip("Levels between forced interstitials, per the GDD's 5-8 range.")]
         [SerializeField] private int interstitialLevelInterval = 6;
+
+        /// <summary>Audit finding F6.3: enableTestSuite used to be a plain, never-automatically-
+        /// gated Inspector bool — a release build could ship with LevelPlay's test-ad UI still
+        /// active (zero real revenue, and a potential ad-network policy issue) if nobody remembered
+        /// to flip it by hand. This compiles the release build's answer to a hardcoded false, so
+        /// there's no longer a manual step to forget.</summary>
+        private bool EnableTestSuite =>
+#if UNITY_EDITOR || DEVELOPMENT_BUILD
+            enableTestSuite;
+#else
+            false;
+#endif
 
         public bool IsInitialized { get; private set; }
 
@@ -80,14 +91,25 @@ namespace FarmFuryArcade.Core
             // Must run before Init — see class doc comment.
             LevelPlay.SetMetaData("is_child_directed", "true");
             LevelPlay.SetMetaData("is_deviceid_optout", "true");
-            if (enableTestSuite)
+            if (EnableTestSuite)
             {
                 LevelPlay.SetMetaData("is_test_suite", "enable");
             }
 
             LevelPlay.OnInitSuccess += HandleInitSuccess;
             LevelPlay.OnInitFailed += HandleInitFailed;
-            LevelPlay.Init(AppKey);
+            // Audit finding C8.2: this SDK boundary call had no containment — a malformed native
+            // response or SDK misbehavior here would have propagated as an unhandled exception with
+            // no crash reporting (C8.3) to ever surface it. Ads simply stay uninitialized on
+            // failure rather than crashing the app.
+            try
+            {
+                LevelPlay.Init(AppKey);
+            }
+            catch (System.Exception e)
+            {
+                Debug.LogError($"[AdManager] LevelPlay.Init threw: {e}");
+            }
         }
 
         private void OnDestroy()
@@ -112,6 +134,30 @@ namespace FarmFuryArcade.Core
 
         // ---- Rewarded ---------------------------------------------------------------------------
 
+        /// <summary>Audit finding C6.1: the only place either ad type's LoadAd() was ever called
+        /// again was inside OnAdClosed — which requires a full successful show-and-close cycle to
+        /// fire. A single failed FIRST load (cold network, a momentary ad-network outage right at
+        /// app start) left that ad type dead — IsRewardedAdReady/IsInterstitialAdReady false — for
+        /// the rest of the session, with no error surfaced to the player (the "never show a dead
+        /// button" logic just correctly hides the option) and no path to recovery short of
+        /// restarting the app. Exponential backoff (5s/10s/20s/40s, capped at 60s, retrying
+        /// indefinitely at the cap rather than giving up) fixes this for both ad types
+        /// independently; the retry chain resets to the base delay the moment a load actually
+        /// succeeds, via OnAdLoaded.</summary>
+        private const float AdRetryBaseDelaySeconds = 5f;
+        private const float AdRetryMaxDelaySeconds = 60f;
+
+        private Coroutine _rewardedRetryRoutine;
+        private float _rewardedRetryDelay = AdRetryBaseDelaySeconds;
+        private Coroutine _interstitialRetryRoutine;
+        private float _interstitialRetryDelay = AdRetryBaseDelaySeconds;
+
+        private System.Collections.IEnumerator RetryLoadAfterDelay(System.Action loadAction, float delaySeconds)
+        {
+            yield return new WaitForSecondsRealtime(delaySeconds);
+            loadAction?.Invoke();
+        }
+
         private void CreateRewardedAd()
         {
             if (string.IsNullOrEmpty(RewardedAdUnitId))
@@ -121,8 +167,17 @@ namespace FarmFuryArcade.Core
             }
 
             _rewardedAd = new LevelPlayRewardedAd(RewardedAdUnitId);
+            _rewardedAd.OnAdLoaded += (LevelPlayAdInfo info) => _rewardedRetryDelay = AdRetryBaseDelaySeconds;
             _rewardedAd.OnAdLoadFailed += (LevelPlayAdError error) =>
-                Debug.LogWarning($"[AdManager] Rewarded ad failed to load: {error}");
+            {
+                Debug.LogWarning($"[AdManager] Rewarded ad failed to load: {error} — retrying in {_rewardedRetryDelay}s.");
+                if (_rewardedRetryRoutine != null)
+                {
+                    StopCoroutine(_rewardedRetryRoutine);
+                }
+                _rewardedRetryRoutine = StartCoroutine(RetryLoadAfterDelay(() => _rewardedAd.LoadAd(), _rewardedRetryDelay));
+                _rewardedRetryDelay = Mathf.Min(_rewardedRetryDelay * 2f, AdRetryMaxDelaySeconds);
+            };
             _rewardedAd.OnAdDisplayFailed += (LevelPlayAdInfo info, LevelPlayAdError error) =>
                 Debug.LogWarning($"[AdManager] Rewarded ad failed to display: {error}");
             _rewardedAd.OnAdClosed += (LevelPlayAdInfo info) => _rewardedAd.LoadAd();
@@ -132,11 +187,22 @@ namespace FarmFuryArcade.Core
 
         public bool IsRewardedAdReady => _rewardedAd != null && _rewardedAd.IsAdReady();
 
-        /// <summary>Shows a rewarded ad if one's ready. onResult fires exactly once — true only if
-        /// LevelPlay actually granted the reward (OnAdRewarded), false if the ad was closed early,
-        /// failed to display, or wasn't ready to show at all. Callers should gate their own reward
-        /// logic on this rather than assuming ShowAd() succeeding means the reward was earned — a
-        /// player can close a rewarded ad before it finishes.</summary>
+        /// <summary>Seconds to wait for LevelPlay's OnAdRewarded/OnAdClosed callbacks before giving
+        /// up on a shown rewarded ad. Audit finding F5.6: without this, a hung SDK callback (rare,
+        /// but a real network/SDK edge case) left onResult never firing at all — and two of the
+        /// three call sites pre-disabled their own button before calling this method, so a single
+        /// hung callback permanently disabled that button (the skip-cooldown one, for the rest of
+        /// the session, since nothing ever re-enables it). This timeout guarantees onResult always
+        /// fires, so any caller that reacts to it (re-enabling its button in the false case) can no
+        /// longer get stuck.</summary>
+        private const float RewardedAdTimeoutSeconds = 8f;
+
+        /// <summary>Shows a rewarded ad if one's ready. onResult fires exactly once, always — true
+        /// only if LevelPlay actually granted the reward (OnAdRewarded); false if the ad was closed
+        /// early, failed to display, wasn't ready to show at all, or the SDK never called back within
+        /// RewardedAdTimeoutSeconds. Callers should gate their own reward logic on this rather than
+        /// assuming ShowAd() succeeding means the reward was earned — a player can close a rewarded
+        /// ad before it finishes.</summary>
         public void ShowRewardedAd(string placementName, System.Action<bool> onResult)
         {
             if (!IsRewardedAdReady)
@@ -146,18 +212,47 @@ namespace FarmFuryArcade.Core
             }
 
             bool rewarded = false;
+            bool resolved = false;
+            Coroutine timeoutRoutine = null;
 
-            void HandleRewarded(LevelPlayAdInfo info, LevelPlayReward reward) => rewarded = true;
-            void HandleClosed(LevelPlayAdInfo info)
+            void Resolve(bool result)
             {
+                if (resolved)
+                {
+                    return;
+                }
+                resolved = true;
                 _rewardedAd.OnAdRewarded -= HandleRewarded;
                 _rewardedAd.OnAdClosed -= HandleClosed;
-                onResult?.Invoke(rewarded);
+                if (timeoutRoutine != null)
+                {
+                    StopCoroutine(timeoutRoutine);
+                }
+                onResult?.Invoke(result);
             }
+
+            void HandleRewarded(LevelPlayAdInfo info, LevelPlayReward reward) => rewarded = true;
+            void HandleClosed(LevelPlayAdInfo info) => Resolve(rewarded);
 
             _rewardedAd.OnAdRewarded += HandleRewarded;
             _rewardedAd.OnAdClosed += HandleClosed;
-            _rewardedAd.ShowAd(placementName: placementName);
+            timeoutRoutine = StartCoroutine(RewardedAdTimeoutFallback(() => Resolve(false)));
+            try
+            {
+                _rewardedAd.ShowAd(placementName: placementName);
+            }
+            catch (System.Exception e)
+            {
+                // C8.2 — the timeout coroutine already started above still resolves this call
+                // correctly (false) if ShowAd throws instead of calling back normally.
+                Debug.LogError($"[AdManager] ShowRewardedAd threw: {e}");
+            }
+        }
+
+        private System.Collections.IEnumerator RewardedAdTimeoutFallback(System.Action onTimeout)
+        {
+            yield return new WaitForSecondsRealtime(RewardedAdTimeoutSeconds);
+            onTimeout?.Invoke();
         }
 
         // ---- Interstitial ------------------------------------------------------------------------
@@ -171,8 +266,17 @@ namespace FarmFuryArcade.Core
             }
 
             _interstitialAd = new LevelPlayInterstitialAd(InterstitialAdUnitId);
+            _interstitialAd.OnAdLoaded += (LevelPlayAdInfo info) => _interstitialRetryDelay = AdRetryBaseDelaySeconds;
             _interstitialAd.OnAdLoadFailed += (LevelPlayAdError error) =>
-                Debug.LogWarning($"[AdManager] Interstitial failed to load: {error}");
+            {
+                Debug.LogWarning($"[AdManager] Interstitial failed to load: {error} — retrying in {_interstitialRetryDelay}s.");
+                if (_interstitialRetryRoutine != null)
+                {
+                    StopCoroutine(_interstitialRetryRoutine);
+                }
+                _interstitialRetryRoutine = StartCoroutine(RetryLoadAfterDelay(() => _interstitialAd.LoadAd(), _interstitialRetryDelay));
+                _interstitialRetryDelay = Mathf.Min(_interstitialRetryDelay * 2f, AdRetryMaxDelaySeconds);
+            };
             _interstitialAd.OnAdDisplayFailed += (LevelPlayAdInfo info, LevelPlayAdError error) =>
                 Debug.LogWarning($"[AdManager] Interstitial failed to display: {error}");
             _interstitialAd.OnAdClosed += (LevelPlayAdInfo info) => _interstitialAd.LoadAd();
@@ -232,7 +336,18 @@ namespace FarmFuryArcade.Core
 
             _interstitialAd.OnAdClosed += HandleClosed;
             _interstitialAd.OnAdDisplayFailed += HandleDisplayFailed;
-            _interstitialAd.ShowAd();
+            try
+            {
+                _interstitialAd.ShowAd();
+            }
+            catch (System.Exception e)
+            {
+                // C8.2 — the caller (GameManager.LoadLevel) freezes Time.timeScale around this
+                // whole call and is relying on onReady firing no matter what; a thrown exception
+                // here without this catch would have soft-locked the game frozen forever.
+                Debug.LogError($"[AdManager] Interstitial ShowAd threw: {e}");
+                HandleDisplayFailed(default, default);
+            }
         }
     }
 }

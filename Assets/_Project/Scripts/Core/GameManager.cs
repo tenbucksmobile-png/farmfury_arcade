@@ -31,7 +31,6 @@ namespace FarmFuryArcade.Core
 
         private const int TimeBonusCap = 500;
         private const int PerfectBonusCap = 500;
-        private const float TimeBonusDecaySeconds = 120f;
         private const int BaseCoinsPerLevel = 10;
         private const int CoinsPerStar = 5;
 
@@ -40,6 +39,12 @@ namespace FarmFuryArcade.Core
         /// state-watcher reacts to by showing LevelFailedScreen ("Try Again").</summary>
         public const int MaxRespawns = 3;
         public const float LevelTimeLimitSeconds = 120f;
+
+        /// <summary>Audit finding C2.4: this used to be its own independent `120f` literal that only
+        /// agreed with LevelTimeLimitSeconds by coincidence — a future per-level or difficulty-scaled
+        /// time limit that updated one without the other would have silently broken "the time bonus
+        /// reaches zero exactly at the deadline" with no compiler error. Derived directly now.</summary>
+        private const float TimeBonusDecaySeconds = LevelTimeLimitSeconds;
 
         /// <summary>Monetisation: coin cost of RequestRevivePrompt's "one more life" offer — see
         /// AcceptRevive.</summary>
@@ -80,6 +85,14 @@ namespace FarmFuryArcade.Core
         /// revive is offered, RequestRevivePrompt auto-declines rather than leaving
         /// ReviveDecisionPending stuck true forever with nothing able to resolve it.</summary>
         public event Action OnReviveOffered;
+
+        /// <summary>Fired by OnApplicationPause when auto-pausing on backgrounding — same
+        /// "manager raises event, screen reacts" convention as OnReviveOffered above. GameManager
+        /// itself has no UI knowledge (it can't call pauseMenu.Show() directly), so GameplayHUD
+        /// subscribes to this and shows the same Pause overlay a manual Pause-button tap would, so
+        /// the player returns to foreground with a real, dismissable Pause screen rather than a
+        /// silently frozen maze and no visible reason why.</summary>
+        public event Action OnGamePausedExternally;
 
         private bool _wasRevived;
         private int _cropsRemaining;
@@ -123,6 +136,12 @@ namespace FarmFuryArcade.Core
             _cropsRemaining = level.totalCropsRequired;
             ScoreManager.Instance.ResetMazeScore();
             DeathCountThisMaze = 0;
+            // Audit finding F2.4: every traced retry path already resolves ReviveDecisionPending
+            // (Accept/Decline, or RequestRevivePrompt's own no-listener auto-decline) before a new
+            // LoadLevel can run, so this reads as safe by inspection — but it's the one piece of
+            // retry state nothing was defensively resetting. Cheap insurance against many
+            // consecutive maze attempts in one sitting ever leaving it stuck true from a stale run.
+            ReviveDecisionPending = false;
             _levelStartTime = Time.time;
             CurrentState = GameState.Playing;
             // Hands off from the "Theme" landing track to this level's own world music the moment
@@ -164,8 +183,24 @@ namespace FarmFuryArcade.Core
                 AudioListener.pause = true;
                 AdManager.Instance.NotifyLevelLoaded(() =>
                 {
-                    Time.timeScale = 1f;
+                    // Audit finding C3.7: this callback used to unconditionally restore
+                    // Time.timeScale, with no awareness that OnApplicationPause could have set
+                    // CurrentState to Paused (and frozen time for THAT reason) during the exact
+                    // window this interstitial call was waiting on — backgrounding is far more
+                    // likely to actually land in a multi-second async wait like this one, and more
+                    // likely to fire at an inconvenient moment on Android's looser OS scheduling
+                    // than iOS's. Unconditionally restoring would have silently resumed the maze
+                    // simulation underneath the still-visible Pause screen. If we're already Paused
+                    // for that reason, only clear the audio mute (matching normal Pause behaviour,
+                    // which never mutes audio) and leave Time.timeScale frozen — the normal
+                    // ResumeGame() path (the visible Pause screen's Play button, already shown via
+                    // OnGamePausedExternally) is what un-freezes it from here, exactly like any
+                    // other pause.
                     AudioListener.pause = false;
+                    if (CurrentState != GameState.Paused)
+                    {
+                        Time.timeScale = 1f;
+                    }
                 });
             }
         }
@@ -328,6 +363,25 @@ namespace FarmFuryArcade.Core
         public void SelectCharacter(CharacterType type)
         {
             CurrentCharacter = DataManager.Instance.GetCharacterData(type);
+        }
+
+        /// <summary>Audit finding F2.5: nothing in the project reacted to the app losing focus —
+        /// a maze kept simulating (robots chasing, ability cooldowns ticking, the level timer
+        /// burning) underneath an incoming call, Control Center, or the player switching apps mid-
+        /// run. Unity calls this automatically on both the transition to background (paused: true)
+        /// and the return to foreground (paused: false) — only the former needs action here, since
+        /// the existing pause freeze is already released by the player's own explicit Resume tap,
+        /// not by anything foreground-related. Only auto-pauses while actually Playing — pausing
+        /// from, say, GameState.Paused or a menu screen would be a no-op via PauseGame's own guard
+        /// anyway, and pausing from LevelComplete/LevelFailed would incorrectly imply a run is still
+        /// in progress.</summary>
+        private void OnApplicationPause(bool paused)
+        {
+            if (paused && CurrentState == GameState.Playing)
+            {
+                PauseGame();
+                OnGamePausedExternally?.Invoke();
+            }
         }
 
         public void PauseGame()

@@ -44,6 +44,13 @@ namespace FarmFuryArcade.Core
         /// so index alone can no longer tell a challenge run apart from an ordinary one.</summary>
         public bool IsPlayingDailyChallenge { get; private set; }
 
+        /// <summary>Audit finding C5.5 (accepted risk, documented not fixed): both TodayChallenge
+        /// and this completion check are gated purely by the device's own clock, with no server
+        /// time source to validate against. A player can change the device clock and relaunch to
+        /// re-claim the +25 coin bonus repeatedly — a real, trivial exploit, but a low-value one
+        /// (25 coins) that doesn't warrant a backend on its own, and it's already covered by the
+        /// broader accepted-risk framing the client-side-only economy carries generally. Revisit
+        /// only alongside a real server-time source if one ever exists for another reason.</summary>
         public bool IsCompletedToday =>
             SaveManager.Instance != null && SaveManager.Instance.GetDailyChallengeCompletedDate() == TodayDateKey;
 
@@ -64,6 +71,25 @@ namespace FarmFuryArcade.Core
             TodayChallenge = values[rng.Next(values.Length)];
         }
 
+        /// <summary>Audit finding C5.6: TodayChallenge/TodayDateKey/the cached level index used to
+        /// only ever refresh on a fresh Awake (app relaunch) — a player who never backgrounds or
+        /// kills the app across a UTC-midnight boundary kept seeing the previous day's challenge
+        /// indefinitely (internally consistent, not a data bug, just a stale-until-relaunch UX
+        /// gap). Cheap to check (a string compare) so it's safe to call from anywhere that's about
+        /// to read today's challenge — GetTodayLevelIndex already does; LevelSelectController calls
+        /// it too when the world-select carousel (where the Daily Challenge shield lives) is
+        /// shown.</summary>
+        public void RefreshIfDateChanged()
+        {
+            string currentDateKey = DateTime.UtcNow.ToString("yyyy-MM-dd");
+            if (currentDateKey == TodayDateKey)
+            {
+                return;
+            }
+            DetermineTodayChallenge();
+            _todayLevelIndex = null;
+        }
+
         public void SetPlayingDailyChallenge(bool playing)
         {
             IsPlayingDailyChallenge = playing;
@@ -81,6 +107,7 @@ namespace FarmFuryArcade.Core
         /// mid-session" limitation TodayChallenge already has.</summary>
         public int GetTodayLevelIndex()
         {
+            RefreshIfDateChanged();
             if (!_todayLevelIndex.HasValue)
             {
                 _todayLevelIndex = DetermineTodayLevelIndex();

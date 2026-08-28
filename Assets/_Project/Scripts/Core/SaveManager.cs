@@ -45,6 +45,15 @@ namespace FarmFuryArcade.Core
         /// deleting a PlayerPrefs key that was never set is a harmless no-op.</summary>
         private const int MaxLevelsForReset = 100;
 
+        /// <summary>Audit finding C5.4: no save-schema versioning existed at all — a future update
+        /// that changes what an existing key stores would have no way to detect and migrate an old
+        /// save shape. Checked once in LoadProgress(); bump this and add a migration branch only
+        /// when a future change actually requires one. 1 = the shape as of this fix (unversioned
+        /// saves from before this existed are treated as version 1 with no migration needed, since
+        /// nothing about the shape actually changed here, only the version marker was added).</summary>
+        private const string SaveSchemaVersionKey = "FFA_SaveSchemaVersion";
+        private const int CurrentSaveSchemaVersion = 1;
+
         public int HighestLevelReached { get; private set; }
         public int CoinBalance { get; private set; }
 
@@ -57,14 +66,14 @@ namespace FarmFuryArcade.Core
         public void SaveProgress()
         {
             PlayerPrefs.SetInt(HighestLevelKey, HighestLevelReached);
-            PlayerPrefs.SetInt(CoinBalanceKey, CoinBalance);
+            SetProtectedInt(CoinBalanceKey, CoinBalance);
             PlayerPrefs.Save();
         }
 
         public void LoadProgress()
         {
             HighestLevelReached = PlayerPrefs.GetInt(HighestLevelKey, 0);
-            CoinBalance = PlayerPrefs.GetInt(CoinBalanceKey, 0);
+            CoinBalance = GetProtectedInt(CoinBalanceKey, 0);
 
             // Starter characters are unlocked by default.
             if (!PlayerPrefs.HasKey(CharacterUnlockedKeyPrefix + CharacterType.Cluck))
@@ -75,6 +84,85 @@ namespace FarmFuryArcade.Core
             {
                 UnlockCharacter(CharacterType.Bessie);
             }
+
+            // C5.4: record/advance the schema version. A save with no version key yet is either a
+            // brand-new install or a pre-existing save from before this marker existed — either
+            // way it's already in CurrentSaveSchemaVersion's shape today, so this just starts
+            // tracking it, not a migration trigger.
+            int savedSchemaVersion = PlayerPrefs.GetInt(SaveSchemaVersionKey, CurrentSaveSchemaVersion);
+            if (savedSchemaVersion != CurrentSaveSchemaVersion)
+            {
+                // No migrations exist yet — this branch is where a future one would run, keyed off
+                // savedSchemaVersion, before the marker below advances it.
+                Debug.LogWarning($"[SaveManager] Save schema version {savedSchemaVersion} does not match current {CurrentSaveSchemaVersion} — no migration defined yet, data may be read using the current shape as a best effort.");
+            }
+            PlayerPrefs.SetInt(SaveSchemaVersionKey, CurrentSaveSchemaVersion);
+        }
+
+        // ---- Economy integrity (audit finding C5.2) --------------------------------------------
+
+        /// <summary>Every economy-critical PlayerPrefs value used to be a plain, undisguised int
+        /// under a literal English key name — trivially readable/editable via any file-manager app
+        /// with root on Android, or any widely-available save-editor tool, without needing a
+        /// jailbreak the way iOS does. This isn't meant to be cryptographic security (there's no
+        /// backend to validate against) — it's meant to raise the bar past "casually flip a value
+        /// in a text editor." Each protected value is stored alongside a companion checksum keyed
+        /// off the value, the key name, and a per-install salt; a mismatch on read means the value
+        /// was edited without also recomputing a checksum only this code knows how to produce, so
+        /// it's treated as tampered and reset to its default rather than trusted.
+        ///
+        /// A save written before this existed has no checksum key yet — GetProtectedInt treats
+        /// that as "adopt and start protecting from here," not as tampering, so upgrading never
+        /// wipes a legitimate pre-existing balance.</summary>
+        private static string ProtectedSalt => SystemInfo.deviceUniqueIdentifier;
+
+        private static int ComputeChecksum(string key, int value)
+        {
+            unchecked
+            {
+                int hash = 17;
+                hash = hash * 31 + key.GetHashCode();
+                hash = hash * 31 + value;
+                hash = hash * 31 + ProtectedSalt.GetHashCode();
+                return hash;
+            }
+        }
+
+        private static void SetProtectedInt(string key, int value)
+        {
+            PlayerPrefs.SetInt(key, value);
+            PlayerPrefs.SetInt(key + "_chk", ComputeChecksum(key, value));
+        }
+
+        private static int GetProtectedInt(string key, int defaultValue)
+        {
+            int value = PlayerPrefs.GetInt(key, defaultValue);
+            string checksumKey = key + "_chk";
+            if (!PlayerPrefs.HasKey(checksumKey))
+            {
+                SetProtectedInt(key, value);
+                return value;
+            }
+
+            int expected = ComputeChecksum(key, value);
+            int stored = PlayerPrefs.GetInt(checksumKey, expected);
+            if (stored != expected)
+            {
+                Debug.LogWarning($"[SaveManager] Integrity check failed for '{key}' — value looks tampered or corrupted, resetting to default.");
+                SetProtectedInt(key, defaultValue);
+                return defaultValue;
+            }
+            return value;
+        }
+
+        private static bool GetProtectedBool(string key, bool defaultValue)
+        {
+            return GetProtectedInt(key, defaultValue ? 1 : 0) == 1;
+        }
+
+        private static void SetProtectedBool(string key, bool value)
+        {
+            SetProtectedInt(key, value ? 1 : 0);
         }
 
         public void SetHighestLevelReached(int levelIndex)
@@ -85,9 +173,16 @@ namespace FarmFuryArcade.Core
             }
         }
 
+        /// <summary>Audit finding C5.1: coin balance used to only reach disk incidentally, at
+        /// whatever unrelated SaveProgress() call happened next (level end, a purchase) — which
+        /// could be minutes away or might never happen before a crash/force-quit/OS kill. Every
+        /// coin mutation now flushes immediately (through the protected-value path, so C5.2's
+        /// integrity check stays in sync with every gain/spend, not just the ones that happened to
+        /// coincide with a full SaveProgress()).</summary>
         public void AddCoins(int amount)
         {
             CoinBalance += amount;
+            PersistCoinBalance();
         }
 
         public bool SpendCoins(int amount)
@@ -98,7 +193,14 @@ namespace FarmFuryArcade.Core
             }
 
             CoinBalance -= amount;
+            PersistCoinBalance();
             return true;
+        }
+
+        private void PersistCoinBalance()
+        {
+            SetProtectedInt(CoinBalanceKey, CoinBalance);
+            PlayerPrefs.Save();
         }
 
         public int GetLevelStars(int levelIndex)
@@ -250,8 +352,8 @@ namespace FarmFuryArcade.Core
         /// interstitial call site needs no changes once that purchase flow lands.</summary>
         public bool AdsRemoved
         {
-            get => PlayerPrefs.GetInt(AdsRemovedKey, 0) == 1;
-            set => PlayerPrefs.SetInt(AdsRemovedKey, value ? 1 : 0);
+            get => GetProtectedBool(AdsRemovedKey, false);
+            set => SetProtectedBool(AdsRemovedKey, value);
         }
 
         /// <summary>Rolling counter AdManager.NotifyLevelLoaded increments/resets to decide when
@@ -284,7 +386,7 @@ namespace FarmFuryArcade.Core
         /// IsCharacterUnlocked/UnlockCharacter — a cosmetic is never "un-owned" once purchased.</summary>
         public bool IsCosmeticOwned(string cosmeticId)
         {
-            return !string.IsNullOrEmpty(cosmeticId) && PlayerPrefs.GetInt(CosmeticOwnedKeyPrefix + cosmeticId, 0) == 1;
+            return !string.IsNullOrEmpty(cosmeticId) && GetProtectedBool(CosmeticOwnedKeyPrefix + cosmeticId, false);
         }
 
         public void SetCosmeticOwned(string cosmeticId)
@@ -293,7 +395,7 @@ namespace FarmFuryArcade.Core
             {
                 return;
             }
-            PlayerPrefs.SetInt(CosmeticOwnedKeyPrefix + cosmeticId, 1);
+            SetProtectedBool(CosmeticOwnedKeyPrefix + cosmeticId, true);
         }
 
         /// <summary>Spends coins and grants ownership in one call — mirrors SpendCoins' bool-return
@@ -345,12 +447,12 @@ namespace FarmFuryArcade.Core
         /// as purchase-gated (e.g. FrostbiteGarden) — the 4 free worlds never call this.</summary>
         public bool IsWorldPurchased(MazeType world)
         {
-            return PlayerPrefs.GetInt(WorldPurchasedKeyPrefix + world, 0) == 1;
+            return GetProtectedBool(WorldPurchasedKeyPrefix + world, false);
         }
 
         public void SetWorldPurchased(MazeType world)
         {
-            PlayerPrefs.SetInt(WorldPurchasedKeyPrefix + world, 1);
+            SetProtectedBool(WorldPurchasedKeyPrefix + world, true);
             PlayerPrefs.Save();
         }
 
@@ -411,6 +513,9 @@ namespace FarmFuryArcade.Core
         {
             PlayerPrefs.DeleteKey(HighestLevelKey);
             PlayerPrefs.DeleteKey(CoinBalanceKey);
+            PlayerPrefs.DeleteKey(CoinBalanceKey + "_chk"); // C5.2's companion checksum — see note below
+            PlayerPrefs.DeleteKey(AdsRemovedKey);
+            PlayerPrefs.DeleteKey(AdsRemovedKey + "_chk");
             PlayerPrefs.DeleteKey(TotalCombosTriggeredKey);
             PlayerPrefs.DeleteKey(DailyChallengeCompletedDateKey);
 
@@ -423,7 +528,12 @@ namespace FarmFuryArcade.Core
             PlayerPrefs.DeleteKey(EquippedTrailKeyPrefix + "global");
             foreach (MazeType world in System.Enum.GetValues(typeof(MazeType)))
             {
+                // C5.2's companion checksum must be deleted alongside the value it protects —
+                // otherwise a reset value (0/false) would fail its own integrity check against the
+                // stale checksum for whatever value was there before the reset, logging a
+                // false-positive "tampered" warning immediately after a legitimate reset.
                 PlayerPrefs.DeleteKey(WorldPurchasedKeyPrefix + world);
+                PlayerPrefs.DeleteKey(WorldPurchasedKeyPrefix + world + "_chk");
             }
             // NOTE: cosmetic OWNERSHIP keys (CosmeticOwnedKeyPrefix + cosmeticId) are NOT swept
             // here — cosmeticId is an arbitrary string with no enumerable range like CharacterType/

@@ -115,6 +115,10 @@ namespace FarmFuryArcade.UI
             gameObject.SetActive(true);
         }
 
+        /// <summary>Audit findings F3.5/F4.4: this screen backs Hat/Trail purchase AND World
+        /// Purchase (Phase5ProjectBuilder.BuildWorldPurchaseScreen reuses this same component), so
+        /// gating it here closes the gap for all three at once. See ParentalGateController's own
+        /// doc comment.</summary>
         private void HandlePurchaseTapped(string productId)
         {
             if (IAPManager.Instance == null)
@@ -126,6 +130,18 @@ namespace FarmFuryArcade.UI
                 return;
             }
 
+            if (ParentalGateController.Instance != null)
+            {
+                ParentalGateController.Instance.Show(() => BeginPurchase(productId));
+            }
+            else
+            {
+                BeginPurchase(productId);
+            }
+        }
+
+        private void BeginPurchase(string productId)
+        {
             if (statusText != null)
             {
                 statusText.text = "Processing...";

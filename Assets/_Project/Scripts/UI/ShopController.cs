@@ -94,12 +94,28 @@ namespace FarmFuryArcade.UI
             gameObject.SetActive(true);
         }
 
+        /// <summary>Audit findings F3.5/F4.4: Remove Ads is a direct-purchase icon (no sub-screen)
+        /// so it had no gate of its own, unlike the other 3 purchase surfaces (Coin Purchase,
+        /// Cosmetic/World Purchase). See ParentalGateController's own doc comment.</summary>
         private void HandleRemoveAdsTapped()
         {
             if (IAPManager.Instance == null)
             {
                 return;
             }
+
+            if (ParentalGateController.Instance != null)
+            {
+                ParentalGateController.Instance.Show(BeginRemoveAdsPurchase);
+            }
+            else
+            {
+                BeginRemoveAdsPurchase();
+            }
+        }
+
+        private void BeginRemoveAdsPurchase()
+        {
             IAPManager.Instance.PurchaseProduct(IAPManager.RemoveAdsProductId);
         }
 

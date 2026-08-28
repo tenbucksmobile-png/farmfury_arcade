@@ -200,13 +200,23 @@ namespace FarmFuryArcade.Core
                 Debug.LogWarning("[IAPManager] Store not connected — can't purchase yet.");
                 return;
             }
-            if (_products.TryGetValue(productId, out var product))
+            // Audit finding C8.2 — no SDK-boundary call in this class had any containment; a
+            // malformed native response here is a real-world crash source for IAP-integrated games,
+            // and with no crash reporting (C8.3) it would otherwise be entirely invisible.
+            try
             {
-                _storeController.PurchaseProduct(product);
+                if (_products.TryGetValue(productId, out var product))
+                {
+                    _storeController.PurchaseProduct(product);
+                }
+                else
+                {
+                    _storeController.PurchaseProduct(productId);
+                }
             }
-            else
+            catch (Exception e)
             {
-                _storeController.PurchaseProduct(productId);
+                Debug.LogError($"[IAPManager] PurchaseProduct({productId}) threw: {e}");
             }
         }
 
@@ -222,14 +232,24 @@ namespace FarmFuryArcade.Core
                 callback?.Invoke(false);
                 return;
             }
-            _storeController.RestoreTransactions((success, error) =>
+            try
             {
-                if (!success && !string.IsNullOrEmpty(error))
+                _storeController.RestoreTransactions((success, error) =>
                 {
-                    Debug.LogWarning($"[IAPManager] Restore failed: {error}");
-                }
-                callback?.Invoke(success);
-            });
+                    if (!success && !string.IsNullOrEmpty(error))
+                    {
+                        Debug.LogWarning($"[IAPManager] Restore failed: {error}");
+                    }
+                    callback?.Invoke(success);
+                });
+            }
+            catch (Exception e)
+            {
+                // C8.2 — guarantee the callback still fires on a thrown exception so a caller
+                // showing "Restoring..." status text can never get stuck there.
+                Debug.LogError($"[IAPManager] RestoreTransactions threw: {e}");
+                callback?.Invoke(false);
+            }
         }
 
         /// <summary>Grants the purchased product's effect and confirms the order — mirrors the
@@ -239,6 +259,23 @@ namespace FarmFuryArcade.Core
         /// flushes the coin balance the same way every other coin-earning call site in this project
         /// already does.</summary>
         private void HandlePurchasePending(PendingOrder order)
+        {
+            // Audit finding C8.2 — this whole method is the single most consequential SDK-boundary
+            // call site in the app (it grants real-money entitlements); wrapping it doesn't change
+            // the relative order of anything inside (grant branches still run before
+            // ConfirmPurchase, exactly as before) — it only stops an exception anywhere in that
+            // chain from propagating unhandled.
+            try
+            {
+                HandlePurchasePendingInner(order);
+            }
+            catch (Exception e)
+            {
+                Debug.LogError($"[IAPManager] HandlePurchasePending threw: {e}");
+            }
+        }
+
+        private void HandlePurchasePendingInner(PendingOrder order)
         {
             var product = order.CartOrdered.Items().FirstOrDefault()?.Product;
             if (product == null)

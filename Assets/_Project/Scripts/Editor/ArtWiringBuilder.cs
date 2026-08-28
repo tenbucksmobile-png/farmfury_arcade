@@ -639,6 +639,24 @@ namespace FarmFuryArcade.EditorTools
                     importer.spriteBorder = new Vector4(borderX, borderY, borderX, borderY);
                 }
 
+                // Audit finding C4.4: every sprite in the project used to ride Unity's single
+                // shared Default platform settings — no way to special-case either platform's
+                // compressed format/quality independently. ASTC 6x6 is a reasonable, broadly-
+                // supported default for both current-generation iOS and Android hardware (a good
+                // size/quality balance); explicitly overriding it here — rather than leaving both
+                // platforms silently inheriting whatever Default resolves to — is what actually
+                // closes the gap, even though the specific format chosen happens to agree with what
+                // Default would likely pick anyway. maxTextureSize is kept in sync with the same
+                // value just computed above, not a separate hardcoded number.
+                foreach (string platform in new[] { "iPhone", "Android" })
+                {
+                    var platformSettings = importer.GetPlatformTextureSettings(platform);
+                    platformSettings.overridden = true;
+                    platformSettings.format = TextureImporterFormat.ASTC_6x6;
+                    platformSettings.maxTextureSize = importer.maxTextureSize;
+                    importer.SetPlatformTextureSettings(platformSettings);
+                }
+
                 importer.SaveAndReimport();
             }
         }

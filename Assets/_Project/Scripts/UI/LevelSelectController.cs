@@ -164,6 +164,12 @@ namespace FarmFuryArcade.UI
         /// worlds they haven't reached yet — only unlocked worlds are coloured and tappable.</summary>
         public void ShowWorldSelect()
         {
+            // Audit finding C5.6: re-check the date every time world-select (where the Daily
+            // Challenge shield lives) is shown, so a session that stays open across a UTC-midnight
+            // boundary picks up the new day's challenge instead of showing yesterday's until the
+            // app is relaunched.
+            DailyChallengeManager.Instance?.RefreshIfDateChanged();
+
             if (_shieldRevealRoutine != null)
             {
                 StopCoroutine(_shieldRevealRoutine);
