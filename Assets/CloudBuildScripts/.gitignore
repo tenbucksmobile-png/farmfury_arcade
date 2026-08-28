@@ -1,0 +1,8 @@
+# Safety net: only the ENCRYPTED key (authkey.p8.enc) should ever be committed here. A raw .p8
+# is the actual App Store Connect API private key — this rule makes it impossible to accidentally
+# `git add` one, even with a broad `git add -A`, no matter what it's named.
+*.p8
+!*.p8.enc
+
+# The plaintext ENCRYPTION_KEY password itself must never be committed either.
+.encryption_key_SAVE_THIS_THEN_DELETE.txt
