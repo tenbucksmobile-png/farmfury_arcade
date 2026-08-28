@@ -3385,6 +3385,59 @@ Unity-generated manifest as the base (so it definitely has every tag Unity's act
 verify the build still launches, or (b) just test Split View/multi-window on a real Android device
 once one exists for testing and skip the manifest change entirely if it already behaves correctly.
 
+## Unity Cloud Build — iOS, no local Mac required
+
+Set up 2026-08-29 so a real device archive/TestFlight build doesn't require owning a Mac (the user
+has an active Apple Developer Program membership but no Mac). Two separate pieces, worth
+distinguishing:
+
+**What's actually in this repo (works regardless of build method — local Xcode or Cloud Build):**
+`Assets/_Project/Scripts/Editor/IOSPostProcessBuild.cs` — a `[PostProcessBuild]` hook that fires
+automatically after Unity generates the Xcode project, for every iOS build. It proactively removes
+`-ld64` from Other Linker Flags on both the main app target and `UnityFramework`, closing the
+Xcode 26 linker bug documented in the section below *before* it can fail an archive — no manual
+step needed, no dashboard configuration required, and it's a no-op (nothing to remove) if a future
+Xcode/Unity version stops injecting that flag. Compiled and verified directly against the real
+`UnityEditor.iOS.Xcode` API (batch-mode compile with `-buildTarget iOS`) — this environment has the
+iOS Build Support module installed, so this class actually builds, not just "should."
+
+**What is NOT in this repo, because it isn't a repo-file thing** — Unity Cloud Build's own
+configuration (which Unity organization/project it's linked to, which GitHub branch/PR triggers a
+build, which Unity Editor version and Xcode version to use, iOS signing credentials, and whether to
+auto-publish to TestFlight) all live in Unity's own web dashboard
+(`dashboard.unity3d.com` → your organization → this project → DevOps → Cloud Build), tied to a
+Unity ID with billing/org access this session doesn't have. Set up manually:
+
+1. **Link the project.** In the Unity Editor: `Window > Unity Cloud` (or `Services`), sign in, create/
+   select an organization, link this project. This writes a `ProjectSettings/ProjectSettings.asset`
+   `productGUID`/cloud project ID — if that shows up as a diff after linking, it's expected, not a
+   bug.
+2. **Connect source control.** In the Cloud Build dashboard, connect the GitHub repo
+   (`tenbucksmobile-png/farmfury_arcade`) and authorize Unity's GitHub App if prompted.
+3. **Create an iOS build target.** Branch `main`, Unity version must match this project's exactly
+   (`6000.5.0f1` — a mismatched Editor version is a common Cloud Build failure mode), Xcode version
+   set to the current default (or explicitly 26+ if the dashboard exposes that choice — this is
+   exactly the F1.1/F1.2 toolchain check from the iOS Submission Audit, just running on Unity's Mac
+   instead of yours).
+4. **iOS signing.** Either upload a `.p12` certificate + `.mobileprovision` profile directly, or
+   (simpler, recommended) let Cloud Build manage signing automatically via an App Store Connect API
+   key (generate one in App Store Connect → Users and Access → Keys, upload it in the Cloud Build
+   dashboard's signing section). Bundle ID must be `com.farmfury.arcade`, matching
+   `ProjectSettings.asset`'s already-set `applicationIdentifier` (see the "IAP plumbing" section
+   above for why that ID was chosen).
+5. **TestFlight auto-publish.** Cloud Build's "Auto-publish to TestFlight" option (under the build
+   target's advanced options) needs the same App Store Connect API key from step 4 — turn it on so a
+   successful build uploads straight to TestFlight without a separate manual step.
+6. **First build.** Trigger it manually from the dashboard (don't rely on a git push auto-triggering
+   until the first one succeeds). Watch for exactly two known failure modes: a Unity/Xcode version
+   mismatch (fix by aligning the build target's Unity version to `6000.5.0f1`), or a privacy
+   manifest/App Privacy issue (F3.1/F3.2 from the iOS Submission Audit — check the build log's
+   generated `PrivacyInfo.xcprivacy` once a build actually succeeds).
+
+Once a build lands in TestFlight, the F5.2 IAP sandbox test pass and the F2.1 Instruments/
+performance pass from the iOS Submission Audit both become possible for the first time — this is
+still the literal Phase 1/Stage 3 gate, just executed without local hardware.
+
 ## iOS build toolchain — known Xcode 26 gotcha (2026-08-29, researched, not yet hit in practice)
 
 No archive has ever been produced for this project (iOS Submission Audit finding F1.3) and this
