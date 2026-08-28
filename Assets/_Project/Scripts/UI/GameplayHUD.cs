@@ -49,11 +49,11 @@ namespace FarmFuryArcade.UI
         [SerializeField] private GameObject levelCompleteScreen;
         [SerializeField] private GameObject levelFailedScreen;
         [SerializeField] private RevivePromptController revivePrompt;
-        [SerializeField] private Button skipCooldownButton;
+        [SerializeField] private Button skipCooldownCoinButton;
         [SerializeField] private Button watchAdSkipCooldownButton;
 
-        /// <summary>Monetisation: coin cost of the "skip cooldown" button next to the ability
-        /// portrait — only enabled/shown while the active ability actually is on cooldown (see
+        /// <summary>Monetisation: coin cost of the "skip cooldown" coin badge overlaid on the
+        /// ability icon — only shown/tappable while the active ability actually is on cooldown (see
         /// HandleAbilityCooldownChanged/RefreshActiveAbility).</summary>
         private const int SkipCooldownCoinsCost = 3;
 
@@ -104,9 +104,9 @@ namespace FarmFuryArcade.UI
             {
                 swapCharacterButton.onClick.AddListener(() => chooseCharacterScreen.Show());
             }
-            if (skipCooldownButton != null)
+            if (skipCooldownCoinButton != null)
             {
-                skipCooldownButton.onClick.AddListener(HandleSkipCooldownClicked);
+                skipCooldownCoinButton.onClick.AddListener(HandleSkipCooldownClicked);
             }
             if (watchAdSkipCooldownButton != null)
             {
@@ -162,8 +162,11 @@ namespace FarmFuryArcade.UI
         private void HandleReviveOffered() => revivePrompt?.Show();
 
         /// <summary>Monetisation: spends SkipCooldownCoinsCost coins to zero the active ability's
-        /// cooldown early. No-ops (silently — the button is only shown/interactable while genuinely
-        /// on cooldown and affordable, see HandleAbilityCooldownChanged) if either check fails.</summary>
+        /// cooldown early — triggered by tapping the coin badge overlaid on the ability icon while
+        /// it's on cooldown (tapping the icon anywhere else just attempts a normal activation, same
+        /// as Space, which no-ops while on cooldown). No-ops (silently — the badge is only shown/
+        /// interactable while genuinely on cooldown and affordable, see HandleAbilityCooldownChanged)
+        /// if either check fails.</summary>
         private void HandleSkipCooldownClicked()
         {
             if (_activeAbility == null || _activeAbility.IsReady)
@@ -366,9 +369,9 @@ namespace FarmFuryArcade.UI
             else
             {
                 characterPortrait.color = _portraitReadyColor;
-                if (skipCooldownButton != null)
+                if (skipCooldownCoinButton != null)
                 {
-                    skipCooldownButton.gameObject.SetActive(false);
+                    skipCooldownCoinButton.gameObject.SetActive(false);
                 }
                 if (watchAdSkipCooldownButton != null)
                 {
@@ -401,15 +404,16 @@ namespace FarmFuryArcade.UI
                 StartReadyFlash();
             }
 
-            // Monetisation: only worth showing while genuinely on cooldown and only tappable while
-            // affordable — checked every tick (this handler already fires every frame during a
-            // cooldown, see AbilityBase.UpdateCooldown) rather than once when the cooldown starts,
-            // so a coin pickup mid-cooldown makes the button interactable immediately instead of
-            // needing the cooldown to restart first.
-            if (skipCooldownButton != null)
+            // Monetisation: the coin badge only appears while genuinely on cooldown and disappears
+            // the instant it isn't (whether the cooldown finished naturally or was paid away) —
+            // only tappable while affordable, checked every tick (this handler already fires every
+            // frame during a cooldown, see AbilityBase.UpdateCooldown) rather than once when the
+            // cooldown starts, so a coin pickup mid-cooldown makes it interactable immediately
+            // instead of needing the cooldown to restart first.
+            if (skipCooldownCoinButton != null)
             {
-                skipCooldownButton.gameObject.SetActive(remaining > 0f);
-                skipCooldownButton.interactable = SaveManager.Instance != null &&
+                skipCooldownCoinButton.gameObject.SetActive(remaining > 0f);
+                skipCooldownCoinButton.interactable = SaveManager.Instance != null &&
                     SaveManager.Instance.CoinBalance >= SkipCooldownCoinsCost;
             }
             // Never shown as a dead button — only while on cooldown AND a rewarded ad is actually

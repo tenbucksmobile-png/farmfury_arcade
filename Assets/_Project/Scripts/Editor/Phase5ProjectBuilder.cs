@@ -749,56 +749,56 @@ namespace FarmFuryArcade.EditorTools
             var scoreText = CreateText("ScoreText", root.transform, "0", 72f, TextAlignmentOptions.TopLeft, 90f, hudTextColor);
             AnchorTopLeft((RectTransform)scoreText.transform, new Vector2(320f, 90f), new Vector2(170f, -170f));
 
-            // Monetisation: coin balance chip — previously SaveManager.CoinBalance had no on-screen
-            // display anywhere at all (only surfaced indirectly via the Revive prompt's cost text /
-            // skip-cooldown button's cost label), which is bad UX once the player is actually being
-            // asked to spend coins on both of those.
+            // Monetisation: coin balance display — previously SaveManager.CoinBalance had no
+            // on-screen display anywhere at all (only surfaced indirectly via the Revive prompt's
+            // cost text / skip-cooldown button's cost label), which is bad UX once the player is
+            // actually being asked to spend coins on both of those.
             //
-            // Coin_Balance_Chip.png (SQUARE, 500x500) was reworked by the artist (2026-08-23) — the
-            // old art was a horizontal pill (coin icon left half / blank right half), which forced
-            // the balance number to squeeze into a narrow right-side strip; it kept wrapping onto
-            // two lines and spilling past the frame (caught via a gameplay screenshot review). The
-            // new art is a wood picture-frame with the coin icon centred near the TOP of the inner
-            // parchment and a wide blank parchment band below it, purpose-built for the number to
-            // sit underneath the coin instead of squeezed beside it.
-            // Sized square to match the art's real aspect, same "box aspect must match the art" fix
-            // already applied to the Revive Prompt panel and Level Complete panel.
-            // Enlarged repeatedly (110 -> 170 -> 340) per feedback it kept reading as too small to
-            // actually see — moved to the top-right corner (TimerText's old spot, now that Timer
-            // lives above ScoreText on the left — see above). 340 then turned out too large in
-            // practice (a device-frame screenshot showed it overlapping the maze's own rendered
-            // tiles), so it's pulled back down to 230 — still notably bigger than the original 170,
-            // just no longer eating into playable maze space.
-            const float coinChipSize = 230f;
-            var coinChipImage = CreateImage("CoinBalanceChip", root.transform, new Color(0.85f, 0.65f, 0.2f), coinChipSize, coinChipSize);
-            var coinChipRect = (RectTransform)coinChipImage.transform;
-            // Lifted to -80 (was -170) so its top edge lines up with TimerText's own top edge
-            // (AnchorTopLeft offset y=-80, above) instead of sitting noticeably lower than it.
-            AnchorTopRight(coinChipRect, new Vector2(coinChipSize, coinChipSize), new Vector2(-170f, -80f));
-            coinChipImage.preserveAspect = false;
+            // Reworked 2026-08-28 from the wood-frame Coin_Balance_Chip.png plaque to a plain coin
+            // icon (Coin_UI.png) + number, per direct feedback: the fixed-size wood frame couldn't
+            // grow to fit a large balance (a player who bought the 15,000-coin pack would overflow
+            // the frame's own parchment band). Built as a self-sizing row (HorizontalLayoutGroup +
+            // ContentSizeFitter, both self-baked here rather than going through
+            // ArtWiringBuilder.SetImageSprite, so nothing forces a fixed box the number could
+            // outgrow) anchored by its own top-right corner, so it grows LEFTWARD as the balance
+            // gains digits instead of running off the right edge of the screen.
+            var coinDisplayGO = new GameObject("CoinBalanceDisplay", typeof(RectTransform), typeof(HorizontalLayoutGroup), typeof(ContentSizeFitter));
+            coinDisplayGO.transform.SetParent(root.transform, false);
+            var coinDisplayRect = (RectTransform)coinDisplayGO.transform;
+            coinDisplayRect.anchorMin = coinDisplayRect.anchorMax = new Vector2(1f, 1f);
+            coinDisplayRect.pivot = new Vector2(1f, 1f);
+            // Same top-right inset the old chip used, so this still lines up with TimerText's top
+            // edge on the opposite corner.
+            coinDisplayRect.anchoredPosition = new Vector2(-170f, -80f);
+            var coinDisplayHlg = coinDisplayGO.GetComponent<HorizontalLayoutGroup>();
+            coinDisplayHlg.spacing = 14f;
+            coinDisplayHlg.childAlignment = TextAnchor.MiddleRight;
+            coinDisplayHlg.childControlWidth = true;
+            coinDisplayHlg.childControlHeight = true;
+            coinDisplayHlg.childForceExpandWidth = false;
+            coinDisplayHlg.childForceExpandHeight = false;
+            var coinDisplayFitter = coinDisplayGO.GetComponent<ContentSizeFitter>();
+            coinDisplayFitter.horizontalFit = ContentSizeFitter.FitMode.PreferredSize;
+            coinDisplayFitter.verticalFit = ContentSizeFitter.FitMode.PreferredSize;
 
-            var coinBalanceText = CreateText("CoinBalanceText", coinChipImage.transform, "0", 64f, TextAlignmentOptions.Center, coinChipSize);
-            var coinBalanceTextRect = (RectTransform)coinBalanceText.transform;
-            // Positioned in the blank parchment band directly below the coin icon (roughly
-            // x:20%-80%, y:18%-55% of the full 500x500 art, measured against the new artwork) — the
-            // coin icon occupies the parchment's upper third, the wood frame border runs from about
-            // 0-15% and 85-100% on every edge, so this stays inset from both without touching either.
-            coinBalanceTextRect.anchorMin = new Vector2(0.20f, 0.18f);
-            coinBalanceTextRect.anchorMax = new Vector2(0.80f, 0.55f);
-            coinBalanceTextRect.offsetMin = Vector2.zero;
-            coinBalanceTextRect.offsetMax = Vector2.zero;
-            coinBalanceText.color = new Color(0.3f, 0.2f, 0.1f);
-            // A flat 64pt was wrapping onto two lines for anything beyond ~3 digits ("1,2" over "7"
-            // — caught via a gameplay screenshot), since CreateText's default word-wrapping tried to
-            // fit the number within this band's width at a fixed size. Shrink-to-fit (same "keep
-            // text inside its container" convention used elsewhere, e.g. CharacterStoryScreen's row
-            // text) with wrapping off guarantees the whole balance always renders on one line,
-            // shrinking the font instead of breaking the number across rows.
+            const float coinIconSize = 72f;
+            var coinIconGO = new GameObject("CoinIcon", typeof(RectTransform), typeof(Image), typeof(LayoutElement));
+            coinIconGO.transform.SetParent(coinDisplayGO.transform, false);
+            var coinIconImage = coinIconGO.GetComponent<Image>();
+            coinIconImage.sprite = LoadUiSprite("Coin_UI.png");
+            coinIconImage.preserveAspect = true;
+            var coinIconLayoutElement = coinIconGO.GetComponent<LayoutElement>();
+            coinIconLayoutElement.preferredWidth = coinIconSize;
+            coinIconLayoutElement.preferredHeight = coinIconSize;
+
+            var coinBalanceText = CreateText("CoinBalanceText", coinDisplayGO.transform, "0", 56f, TextAlignmentOptions.Left, coinIconSize, hudTextColor);
+            // Word-wrap off, no fixed preferredWidth override on its LayoutElement (CreateText's
+            // default -1/unset) — TMP reports its own natural preferred width for whatever the
+            // current balance renders as, so the HorizontalLayoutGroup reflows the whole row's width
+            // automatically every time RefreshCoinBalanceText updates the number, growing/shrinking
+            // with digit count rather than ever clipping or wrapping.
             coinBalanceText.enableWordWrapping = false;
-            coinBalanceText.enableAutoSizing = true;
-            coinBalanceText.fontSizeMin = 24f;
-            coinBalanceText.fontSizeMax = 64f;
-            coinBalanceText.overflowMode = TextOverflowModes.Truncate;
+            coinBalanceText.overflowMode = TextOverflowModes.Overflow;
 
             // Power pellet timer bar + chain counter (upper area, under the level text)
             var powerBarGO = CreatePanel("PowerPelletTimerBar", root.transform, new Color(0.2f, 0.2f, 0.22f));
@@ -870,8 +870,12 @@ namespace FarmFuryArcade.EditorTools
 
             // The icon used to sit at clusterInsetY directly; it's now raised by WatchAd's own
             // height + a gap, since WatchAd moved from beside the icon to underneath it (per
-            // feedback) and needs that space at the bottom of this corner instead.
-            float abilityBottomY = clusterInsetY + watchAdButtonHeight + clusterSpacing;
+            // feedback) and needs that space at the bottom of this corner instead. Gap tightened
+            // to its own smaller value (was the shared clusterSpacing, 30) per feedback that this
+            // specific gap read as too wide — clusterSpacing itself is left untouched since it still
+            // governs the (still-uniform) Pause-above-D-pad gap elsewhere.
+            const float abilityToWatchAdSpacing = 12f;
+            float abilityBottomY = clusterInsetY + watchAdButtonHeight + abilityToWatchAdSpacing;
 
             // Character portrait sits at the bottom of the cluster (closer to the corner). Doubles
             // as the on-screen ability button (Space has no touch equivalent, so without this the
@@ -907,6 +911,25 @@ namespace FarmFuryArcade.EditorTools
             portrait.sprite = PlaceholderSprite.Get(new Color(1f, 0.84f, 0f));
             portrait.raycastTarget = false;
 
+            // Monetisation: "skip cooldown for 3 coins" — reworked 2026-08-28 from a separate
+            // "-3" button beside the ability icon into a coin badge overlaid on the icon itself
+            // (per direct feedback), since Btn_skipcooldown.png's art slot was reassigned to the
+            // Swap Character button. Sits in the icon's own top-right corner, poking out slightly
+            // like a badge; shown only while the ability is on cooldown (see
+            // GameplayHUD.HandleAbilityCooldownChanged) and disappears the instant it isn't. Its own
+            // Button sits ABOVE PortraitArt in the hierarchy (later sibling = drawn on top) so a tap
+            // on the badge is caught by IT, not the ability button underneath — tapping anywhere
+            // else on the icon still just tries a normal activation (no-op while on cooldown, same
+            // as Space), tapping the coin badge specifically pays to skip the wait instead.
+            const float skipCoinBadgeSize = abilityButtonSize * 0.4f;
+            var skipCooldownCoinButton = CreateIconButton("SkipCooldownCoinBadge", portraitButton.transform,
+                LoadUiSprite("Coin_UI.png"), skipCoinBadgeSize);
+            var skipCoinBadgeRect = (RectTransform)skipCooldownCoinButton.transform;
+            skipCoinBadgeRect.anchorMin = skipCoinBadgeRect.anchorMax = new Vector2(1f, 1f);
+            skipCoinBadgeRect.pivot = new Vector2(1f, 1f);
+            skipCoinBadgeRect.anchoredPosition = new Vector2(10f, 10f);
+            skipCooldownCoinButton.gameObject.SetActive(false);
+
             // Swap Character button (2026-08-27) — moved here from Pause (see GameplayHUD's own doc
             // comment) so it's reachable with a thumb mid-run on mobile without opening Pause first.
             // Directly above the ability icon, same X inset and same size (per explicit direction),
@@ -916,21 +939,10 @@ namespace FarmFuryArcade.EditorTools
             AnchorBottomRight((RectTransform)swapCharacterButton.transform, new Vector2(abilityButtonSize, abilityButtonSize),
                 new Vector2(abilityInsetX, abilityBottomY + abilityButtonSize + clusterSpacing));
 
-            // Monetisation: "skip cooldown for 3 coins" button — sits just left of the ability icon,
-            // vertically centred against it (computed from the icon's own inset/size, now raised to
-            // abilityBottomY — see above). Hidden by default; GameplayHUD.HandleAbilityCooldownChanged
-            // shows/hides and enables/disables it every tick while an ability is on cooldown (see
-            // that method's own comment for why it re-checks affordability every tick rather than
-            // once). No dedicated icon art exists yet, so the button keeps its auto-generated "-3"
-            // text label instead of the usual icon-only style.
-            float abilityLeftEdgeInset = -abilityInsetX + abilityButtonSize; // distance from screen's right edge to the icon's LEFT edge
+            // Note: the coin-cost skip-cooldown button used to live here as its own "-3" button
+            // beside the icon — replaced 2026-08-28 by the coin badge overlaid directly on the
+            // ability icon itself (see its own comment further up, right after PortraitArt).
             float abilityCenterX = -abilityInsetX + abilityButtonSize / 2f; // distance from screen's right edge to the icon's horizontal centre
-            float abilityCenterY = abilityBottomY + abilityButtonSize / 2f;
-            var skipCooldownButton = CreateButton("SkipCooldownButton", root.transform, "-3",
-                new Color(0.85f, 0.55f, 0.1f), 24f, skipButtonSize, out _);
-            AnchorBottomRight((RectTransform)skipCooldownButton.transform, new Vector2(skipButtonSize, skipButtonSize),
-                new Vector2(-(abilityLeftEdgeInset + clusterSpacing), abilityCenterY - skipButtonSize / 2f));
-            skipCooldownButton.gameObject.SetActive(false);
 
             // Monetisation (Phase 2, "extra ability charge"/"skip cooldown via ad" — per the
             // Monetisation Build Plan doc these are literally the same button): a Watch Ad
@@ -1123,7 +1135,7 @@ namespace FarmFuryArcade.EditorTools
             so.FindProperty("chainCounterRoot").objectReferenceValue = chainRoot;
             so.FindProperty("chainCounterText").objectReferenceValue = chainText;
             so.FindProperty("revivePrompt").objectReferenceValue = revivePrompt;
-            so.FindProperty("skipCooldownButton").objectReferenceValue = skipCooldownButton;
+            so.FindProperty("skipCooldownCoinButton").objectReferenceValue = skipCooldownCoinButton;
             so.FindProperty("watchAdSkipCooldownButton").objectReferenceValue = watchAdSkipCooldownButton;
             so.ApplyModifiedPropertiesWithoutUndo();
 
@@ -1785,7 +1797,9 @@ namespace FarmFuryArcade.EditorTools
             // the art's own real aspect (same "box aspect must match the art" convention used
             // throughout this project) keeps both the coded spacing AND the apparent visual spacing
             // uniform with the rest of the family.
-            float coinIconHeight = StandardIconButtonSize * 1.5f;
+            // Enlarged another 1.4x per direct feedback ("increase the size of the wood coin icon
+            // .4x bigger") on top of the existing 1.5x family-wide bump.
+            float coinIconHeight = StandardIconButtonSize * 1.5f * 1.4f;
             const float coinPlaqueAspect = 500f / 669f;
             float coinIconWidth = coinIconHeight * coinPlaqueAspect;
             var coinRowGO = new GameObject("CoinRow", typeof(RectTransform), typeof(GridLayoutGroup));
@@ -1796,8 +1810,20 @@ namespace FarmFuryArcade.EditorTools
             // Matches BuildSettingsPanel/BuildShopOverlay's own icon-grid spacing (77) so this
             // screen's row reads uniformly with the rest of the family — was 50 before.
             float coinRowSpacing = 77f;
-            coinRowRect.sizeDelta = new Vector2(4 * coinIconWidth + 3 * coinRowSpacing + 100f, coinIconHeight + 40f);
-            coinRowRect.anchoredPosition = new Vector2(0f, 20f);
+            float coinRowHeight = coinIconHeight + 40f;
+            coinRowRect.sizeDelta = new Vector2(4 * coinIconWidth + 3 * coinRowSpacing + 100f, coinRowHeight);
+            // Settings/Shop hub's own icon row sits at a fixed -183 (screen-centre-relative) since
+            // those screens have nothing below it but empty space down to the screen edge. This
+            // screen also has the Restore Purchases button/status text anchored from the bottom
+            // (AnchorBottomCenter, topmost at 140+40=180px above the screen's bottom edge), so a
+            // flat -183 no longer clears it once the plaques were enlarged 1.4x (per feedback) —
+            // instead centred in the actual free vertical space between the header's own bottom
+            // edge (StandardHeaderSignOffset.y=-55, StandardHeaderSignSize.y=310, i.e. 1080-365=715
+            // from the screen's bottom edge) and that 180px bottom-content ceiling: midpoint
+            // (715+180)/2=447.5 from the bottom, converted to this row's centre-anchored coordinate
+            // space (screen centre = 540) as 447.5-540=-92.5. Widens the header gap the original
+            // report was about while staying clear of the bottom content either way.
+            coinRowRect.anchoredPosition = new Vector2(0f, -92.5f);
             var coinGrid = coinRowGO.GetComponent<GridLayoutGroup>();
             coinGrid.cellSize = new Vector2(coinIconWidth, coinIconHeight);
             coinGrid.spacing = new Vector2(coinRowSpacing, 0f);
@@ -1832,15 +1858,46 @@ namespace FarmFuryArcade.EditorTools
             var statusText = CreateText("StatusText", root.transform, string.Empty, 26f, TextAlignmentOptions.Center, 40f);
             AnchorBottomCenter((RectTransform)statusText.transform, new Vector2(860f, 40f), new Vector2(0f, 140f));
 
-            // Small Restore Purchases link, no dedicated icon art exists for it — same
-            // "text label until art lands" convention SkipCooldownButton's "-3" used before
-            // Btn_skipcooldown.png existed.
+            // Restore Purchases moved onto a real Btn_plaque.png background, bottom-left, just
+            // inside the safe-area guide (2026-08-28) — was a plain solid-color text button
+            // bottom-center. Box sized to Btn_plaque.png's own real aspect (485x256, ~1.895) so the
+            // plaque art renders undistorted (this button is built directly here, not through
+            // ArtWiringBuilder.SetImageSprite, so preserveAspect genuinely applies — no Sliced-
+            // squash risk). Same (110, 70) bottom-left inset CreateRoundBackButton's own bottom-left
+            // variant uses ("matching the generic bottom-left inset every other screen uses"), and
+            // sized small enough (300 wide) to leave clear headroom below the coin row above it.
+            const float restorePlaqueAspect = 485f / 256f;
+            const float restorePlaqueWidth = 300f;
+            const float restorePlaqueHeight = restorePlaqueWidth / restorePlaqueAspect;
             var restorePurchasesButton = CreateButton("RestorePurchasesButton", root.transform, "Restore Purchases",
-                new Color(0.4f, 0.32f, 0.22f), 24f, 60f, out _);
-            AnchorBottomCenter((RectTransform)restorePurchasesButton.transform, new Vector2(320f, 60f), new Vector2(0f, 70f));
+                Color.white, 24f, restorePlaqueHeight, out var restorePurchasesLabel);
+            var restoreButtonRect = (RectTransform)restorePurchasesButton.transform;
+            AnchorBottomLeft(restoreButtonRect, new Vector2(restorePlaqueWidth, restorePlaqueHeight), new Vector2(110f, 70f));
+            var restoreButtonImage = restorePurchasesButton.GetComponent<Image>();
+            restoreButtonImage.sprite = LoadUiSprite("Btn_plaque.png");
+            restoreButtonImage.type = Image.Type.Simple;
 
-            var restoreStatusText = CreateText("RestoreStatusText", root.transform, string.Empty, 22f, TextAlignmentOptions.Center, 30f);
-            AnchorBottomCenter((RectTransform)restoreStatusText.transform, new Vector2(700f, 30f), new Vector2(0f, 40f));
+            // Retarget the auto-created label to the plaque's upper portion (was full-stretch) and
+            // add a second, smaller status line in the lower portion — keeps both lines fully
+            // inside the plaque's own footprint instead of spilling outside it or needing a
+            // separate element that could collide with the coin row above.
+            var restoreLabelRect = (RectTransform)restorePurchasesLabel.transform;
+            restoreLabelRect.anchorMin = new Vector2(0.08f, 0.52f);
+            restoreLabelRect.anchorMax = new Vector2(0.92f, 0.90f);
+            restoreLabelRect.offsetMin = restoreLabelRect.offsetMax = Vector2.zero;
+            restorePurchasesLabel.fontSize = 22f;
+            restorePurchasesLabel.enableAutoSizing = true;
+            restorePurchasesLabel.fontSizeMin = 12f;
+            restorePurchasesLabel.fontSizeMax = 22f;
+
+            var restoreStatusText = CreateText("RestoreStatusText", restorePurchasesButton.transform, string.Empty, 16f, TextAlignmentOptions.Center, 30f);
+            var restoreStatusRect = (RectTransform)restoreStatusText.transform;
+            restoreStatusRect.anchorMin = new Vector2(0.08f, 0.10f);
+            restoreStatusRect.anchorMax = new Vector2(0.92f, 0.48f);
+            restoreStatusRect.offsetMin = restoreStatusRect.offsetMax = Vector2.zero;
+            restoreStatusText.enableAutoSizing = true;
+            restoreStatusText.fontSizeMin = 10f;
+            restoreStatusText.fontSizeMax = 16f;
 
             var screen = root.AddComponent<CoinPurchaseScreen>();
             var so = new SerializedObject(screen);
@@ -2189,6 +2246,22 @@ namespace FarmFuryArcade.EditorTools
             var doubleCoinsButton = CreateIconButton("DoubleCoinsButton", root.transform, LoadUiSprite("DoubleCoins.png"), StandardIconButtonSize);
             AnchorBottomRight((RectTransform)doubleCoinsButton.transform, new Vector2(StandardIconButtonSize, StandardIconButtonSize), new Vector2(-150f, 110f));
 
+            // "Watch Ad" label plaque tucked neatly under the x2 coin icon (2026-08-28) — same
+            // WatchAd.png banner Gameplay HUD's own skip-cooldown-via-ad button already uses, sized
+            // to its real 512x214 aspect so it doesn't squash. Purely a visual label (the coin icon
+            // above is the actual tap target, unchanged) — not interactive, so no Button/onClick.
+            // Lifted slightly off the very bottom edge (15, not flush at 0) and centred a touch left
+            // of the coin icon's own centre, per direct feedback.
+            const float watchAdLabelWidth = 140f;
+            const float watchAdLabelHeight = watchAdLabelWidth * 214f / 512f;
+            var watchAdLabelGO = new GameObject("WatchAdLabel", typeof(RectTransform), typeof(Image));
+            watchAdLabelGO.transform.SetParent(root.transform, false);
+            var watchAdLabelImage = watchAdLabelGO.GetComponent<Image>();
+            watchAdLabelImage.sprite = LoadUiSprite("WatchAd.png");
+            watchAdLabelImage.preserveAspect = true;
+            watchAdLabelImage.raycastTarget = false;
+            AnchorBottomRight((RectTransform)watchAdLabelGO.transform, new Vector2(watchAdLabelWidth, watchAdLabelHeight), new Vector2(-175f, 15f));
+
             var playButton = CreateButton("PlayButton", root.transform, string.Empty, new Color(0.85f, 0.55f, 0.1f), 28f, StandardIconButtonSize, out _);
             Object.DestroyImmediate(playButton.transform.Find("PlayButton_Label").gameObject);
             AnchorBottomLeft((RectTransform)playButton.transform, new Vector2(StandardIconButtonSize, StandardIconButtonSize), new Vector2(150f, 110f));
@@ -2363,22 +2436,19 @@ namespace FarmFuryArcade.EditorTools
             logoImage.preserveAspect = true;
             AnchorTopLeft((RectTransform)logoImageGO.transform, new Vector2(LogoImageSize, LogoImageSize), new Vector2(100f, -40f));
 
-            var panelArtGO = new GameObject("PanelArt", typeof(RectTransform), typeof(Image), typeof(AspectRatioFitter));
+            // Fixed 600x600 square, centred (was full-screen-minus-inset via AspectRatioFitter.
+            // FitInParent, which rendered the card nearly full-height — per feedback to match the
+            // mockup's genuinely smaller card, sized/positioned directly instead: clears the bottom
+            // button row's top edge (110 inset + 160 size = 270, +50 margin = 320) with room to
+            // spare, and leaves a healthy margin below the screen's own top edge too.
+            var panelArtGO = new GameObject("PanelArt", typeof(RectTransform), typeof(Image));
             panelArtGO.transform.SetParent(root.transform, false);
             var panelArtRect = (RectTransform)panelArtGO.transform;
-            panelArtRect.anchorMin = Vector2.zero;
-            panelArtRect.anchorMax = Vector2.one;
-            // Inset (was a bare 0/0 full-stretch) — the square card's top ribbon banner and bottom
-            // rope corners were touching/crossing the yellow safe-area guide's top and bottom edges
-            // on a real landscape aspect, since FitInParent at 100% of the screen height leaves no
-            // margin at all in the dimension that's actually the constraint. 80px top/bottom, 40px
-            // left/right shrinks the box AspectRatioFitter fits into, not just the visible art.
-            panelArtRect.offsetMin = new Vector2(40f, 80f);
-            panelArtRect.offsetMax = new Vector2(-40f, -80f);
+            panelArtRect.anchorMin = panelArtRect.anchorMax = new Vector2(0.5f, 0.5f);
+            panelArtRect.pivot = new Vector2(0.5f, 0.5f);
+            panelArtRect.sizeDelta = new Vector2(600f, 600f);
+            panelArtRect.anchoredPosition = new Vector2(0f, 70f);
             panelArtGO.GetComponent<Image>().sprite = LoadUiSprite("LevelFailed.png");
-            var panelArtFitter = panelArtGO.GetComponent<AspectRatioFitter>();
-            panelArtFitter.aspectMode = AspectRatioFitter.AspectMode.FitInParent;
-            panelArtFitter.aspectRatio = 1f;
 
             // Stars-then-score, in the card's blank interior below the "TRY AGAIN!" banner — first
             // pass, eyeballed against the mockup (no visual Editor/Play mode access this session);

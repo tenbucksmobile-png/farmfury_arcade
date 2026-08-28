@@ -524,7 +524,7 @@ namespace FarmFuryArcade.EditorTools
             HeavyFront, HeavyBack, DrifterFront, DrifterLeft, DrifterRight, DrifterBack, RobotEyes, DroneFront,
             LevelCompletePanel, LevelFailedPanel, PausedPanel,
             BtnPlay, BtnPause, BtnSettings, BtnQuit, BtnMusic, BtnNoSound, BtnHome, BtnSkip, BtnBack, BtnPlaque,
-            RevivePromptPanel, BtnRevive, BtnDecline, BtnWatchAd, BtnSkipCooldown, BtnDoubleCoins, CoinUI, CoinBalanceChip,
+            RevivePromptPanel, BtnRevive, BtnDecline, BtnWatchAd, BtnDoubleCoins, CoinUI,
             RetryButtonArt, MenuButtonArt, ResumeButtonArt, SwapCharacterButtonArt, RestartButtonArt,
             SettingsButtonArt, QuitButtonArt,
             CluckCard, BessieCard, PercyCard, WoollyCard, DuckyCard, HoraceCard, GeraldCard, BillyCard,
@@ -577,6 +577,25 @@ namespace FarmFuryArcade.EditorTools
                 // convention that every existing prefab's localScale was already tuned around.
                 importer.GetSourceTextureWidthAndHeight(out int width, out int height);
                 importer.spritePixelsPerUnit = width > 0 ? width : 100;
+
+                // Real bug found 2026-08-28: maxTextureSize defaults to 2048 on first import and
+                // that .meta setting persists even after the source file is later overwritten with
+                // higher-res art — it does NOT auto-raise to match. This silently downsampled the
+                // gameplay backdrops (re-authored at 2720x1536 to fix a "stretched/blocky" report)
+                // right back down to ~2048px on import, so the fix didn't actually take effect
+                // until this cap was raised too. Applied generally (not just to backdrops) since any
+                // sprite could hit the same "art replaced with higher-res content, cap never
+                // updated" gap — only ever raises the cap, never lowers an existing larger one.
+                int maxDimension = Mathf.Max(width, height);
+                int neededTextureSize = 32;
+                while (neededTextureSize < maxDimension && neededTextureSize < 8192)
+                {
+                    neededTextureSize *= 2;
+                }
+                if (importer.maxTextureSize < neededTextureSize)
+                {
+                    importer.maxTextureSize = neededTextureSize;
+                }
 
                 // Fix for a real sizing bug (was a partial stopgap before — see git history):
                 // Billy_Front.png/Billy_back.png are tight portrait crops (213x401 / 234x408) while
@@ -1906,7 +1925,12 @@ namespace FarmFuryArcade.EditorTools
             SetImageSprite(canvasTransform, "GameplayScreen/RevivePromptOverlay/PanelArt/Content/WatchAdButton", Load(BtnWatchAd));
             SetImageSprite(canvasTransform, "GameplayScreen/RevivePromptOverlay/PanelArt/Content/DeclineButton", Load(BtnDecline));
 
-            SetImageSprite(canvasTransform, "GameplayScreen/SkipCooldownButton", Load(BtnSkipCooldown));
+            // GameplayScreen/CharacterPortrait/SkipCooldownCoinBadge (2026-08-28 rework, replacing
+            // the old separate "-3" SkipCooldownButton — see Phase5ProjectBuilder.BuildGameplayHUD's
+            // own doc comment) is self-baked directly there via LoadUiSprite("Coin_UI.png") —
+            // nothing to wire here. Btn_skipcooldown.png/BtnSkipCooldown are now unused; the artist
+            // has repurposed that art for the Swap Character button instead (SwapCharacterIcon.png,
+            // already wired separately).
             // WatchAdSkipCooldownButton (the HUD "skip cooldown via ad" button, below the ability
             // icon) now shows the real WatchAd.png banner instead of a plain "AD" text label — its
             // box (Phase5ProjectBuilder.BuildGameplayHUD's watchAdButtonWidth/Height) is already
@@ -1914,7 +1938,11 @@ namespace FarmFuryArcade.EditorTools
             // it uniformly instead of squashing it.
             SetImageSprite(canvasTransform, "GameplayScreen/WatchAdSkipCooldownButton", Load(BtnWatchAd));
 
-            SetImageSprite(canvasTransform, "GameplayScreen/CoinBalanceChip", Load(CoinBalanceChip));
+            // GameplayScreen/CoinBalanceDisplay/CoinIcon (2026-08-28 rework, replacing the old
+            // wood-frame CoinBalanceChip plaque — see Phase5ProjectBuilder.BuildGameplayHUD's own
+            // doc comment) is self-baked directly there via LoadUiSprite("Coin_UI.png") — nothing to
+            // wire here. Coin_Balance_Chip.png/the CoinBalanceChip constant are now unused; left on
+            // disk rather than deleted.
 
             // LevelCompleteScreen/DoubleCoinsButton (2026-08-20 redesign) is self-baked directly in
             // Phase5ProjectBuilder.BuildLevelComplete now (square box to match DoubleCoins.png's
