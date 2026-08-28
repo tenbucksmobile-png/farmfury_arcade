@@ -772,6 +772,16 @@ small next to the rest of the HUD — confirmed clear of the D-pad below it befo
 bottom edge lands well above the D-pad's top edge even at 170). `CoinBalanceText`'s anchor fractions
 are unchanged, so the text region scales automatically with the chip.
 
+**Same bug, sixth occurrence: `LogoImage` (2026-08-28).** `Logo.png` is a square 500×500 source,
+but every screen's `LogoImage` box (Pause, Level Complete, New Character Unlock, Choose Character —
+all 5 call sites) used a non-square 300×170 box, so `SetImageSprite`'s forced `Type.Sliced` was
+squashing the square logo into a wide rectangle everywhere it appeared, exactly the same class of
+bug as the Coin Balance Chip above. Fixed with a single shared `Phase5ProjectBuilder.
+LogoImageSize` constant (square, 170 — the box's constrained/height dimension, i.e. the true prior
+visual size `preserveAspect` would have rendered at if it weren't being ignored — enlarged 1.5x per
+follow-up feedback) used at all 5 call sites instead of the old hardcoded `new Vector2(300f,
+170f)`, so the logo now renders at a consistent square size everywhere it's shown.
+
 **Then went through a full rework on 2026-08-23.** Sequence, in order: (1) enlarged again 170→340 (a
 further 2x pass) since it still read as too small; (2) `TimerText` moved from top-right to sit
 directly above `ScoreText` on the top-left (both now top-left), freeing up the chip's own new home —
@@ -1297,20 +1307,31 @@ running, not its output. `Phase3ProjectBuilder.AssignRobotSpawnsToRemainingLevel
 went from 100→125→175 across this work so all 3 worlds get the same per-world-position robot
 difficulty curve every free world already has.
 
-**Art: real wall/ground/backdrop + shield badge, placeholder crop/pellet/warp/bonus.** Each world
+**Art: real wall/ground/backdrop/warp-tunnel/pellet, placeholder crop/vegetable/bonus.** Each world
 has real dedicated wall/ground/backdrop art (dropped in under `Sprites/Cosmetics/
 CosmeticType_MazeTheme/` — originally authored for the abandoned MazeTheme reskin idea, reused
 here since the art itself is exactly what a `MazeArtSet` needs) wired via `ArtWiringBuilder.
 WireFrostbiteGarden`/`WireGoldenSunset`/`WireHarvestMoon`, each following the same shape: set the
 wall/ground prefab's sprite (prefabs themselves built as placeholder-colored in
 `Phase2ProjectBuilder.BuildAll`, same two-phase convention Orchard/Wheat's wall/ground prefabs
-used), set `backdropSprite`, and — since none of the 3 has its own dedicated crop/vegetable/pellet/
-warp-tunnel/bonus-pickup art yet — reuse CornField's own prefabs/sprites for those roles by direct
-reference (`tileMapRenderer.GetOrAddArtSet(MazeType.CornField)`, read once, assigned onto the new
-world's `MazeArtSet`). Swap in dedicated art for those roles later; the wiring method's shape won't
-need to change, just which prefab/sprite each field points at. Note: `ForstbiteGarden_Walltile.png`
+used), set `backdropSprite`, and — since none of the 3 has its own dedicated crop/vegetable/
+bonus-pickup art yet — reuse CornField's own crop prefabs for those roles by direct reference
+(`tileMapRenderer.GetOrAddArtSet(MazeType.CornField)`, read once, assigned onto the new world's
+`MazeArtSet`). Swap in dedicated art for those roles later; the wiring method's shape won't need to
+change, just which prefab/sprite each field points at. Note: `ForstbiteGarden_Walltile.png`
 (missing an 'r') is a real on-disk typo — the Backdrop/Floortile files for the same world are
 spelled `FrostbiteGarden_*` correctly.
+
+**Warp-tunnel and power-pellet art landed 2026-08-28** (`FG_/GS_/HM_WarpTile.png` and
+`FG_/GS_/HM_PowerPellet.png`, same `CosmeticType_MazeTheme` folder) — no longer reused from
+CornField. Each world got its own dedicated `WarpTunnel_<World>` prefab (new, built in
+`Phase2ProjectBuilder.BuildAll` alongside the existing wall/ground placeholder prefabs, same
+per-world-warp-tunnel-prefab pattern Orchard/Wheat established), with its sprite set by
+`ArtWiringBuilder`'s `SetPrefabSprite`. The power-pellet art is set directly onto `MazeArtSet.
+pelletSprite` **and** `rarePelletSprite` (the same sprite for both) — only one power pellet ever
+spawns per maze and it always renders via `rarePelletSprite` when set (see "Only ONE power pellet
+spawns per maze now" above), so this guarantees that sole pellet always shows the world's own
+dedicated art regardless of which tier it rolls.
 
 Real per-world Level Select badge art also landed the same session — `FrozenGarden_shield.png`/
 `GoldenSunset_shield.png`/`HarvestMoon_shield.png` (same folder), wired into
@@ -1555,7 +1576,13 @@ from their original Phase 5 layouts:
   safe-area guide once viewed on a device frame), enlarged, and given the `Bangers SDF` cartoon font
   (`ArtWiringBuilder.WireGameplayFont` — bundled with TMP's own Examples & Extras, already has a
   correctly-generated SDF material unlike `Inter-Regular SDF`'s broken shader, so no
-  import/generation step needed). `LevelText` (the level name header) was removed outright — it
+  import/generation step needed). **Text colour switched from plain white to a dark brown
+  (`Phase5ProjectBuilder`'s `hudTextColor`, `(0.25, 0.15, 0.06)`, same tone Level Complete/Level
+  Failed's score text already uses) on 2026-08-28** — white was unreadable against the bright sky/
+  backdrop art behind it, per a gameplay screenshot review. `GameplayHUD.RefreshTimerText`'s
+  red warning-pulse (last 15s) needed no matching change — it caches whatever colour `timerText`
+  actually has at runtime (`_timerNormalColor`) and lerps from that, so it picked up the new base
+  colour automatically. `LevelText` (the level name header) was removed outright — it
   duplicated what the Level Select tile the player just tapped already established. An on-screen
   **directional pad** (`UI/DirectionalPadController`, originally right side, diamond layout —
   `up`/`down`/`left`/`right.png`, each already a complete rounded button with no separate
@@ -1972,6 +1999,17 @@ requires a restore entry point somewhere for non-consumables, and this is the ac
 the natural place for it). Coin icon size also bumped to the same 240px `iconSize` other rows in
 this family use (was `StandardIconButtonSize * 1.25` = 200). Reached by tapping the Cash icon on
 the Shop hub.
+
+**Icon spacing/sizing corrected 2026-08-28 for a new coin-pack art drop.** Two separate fixes: (1)
+the coin-pack row's spacing (`coinRowSpacing`) was still `50`, not the `77` every other icon row in
+this family (`BuildSettingsPanel`/`BuildShopOverlay`) uses — bumped to match. (2) the new
+`100/500/5000/15000.png` art (500×669px, aspect ~0.747) is a portrait price-plaque shape, not the
+near-square icons the 240×240 cell was originally sized for — `CreateIconButton`'s `preserveAspect`
+already stopped it from squashing, but a square cell still left uneven-looking dead space around
+each plaque. The cell is now sized to the art's own real aspect (240 tall × ~179 wide,
+`coinPlaqueAspect = 500f/669f`) instead of a forced square, so the coded spacing and the actual
+visual gaps both line up with the rest of the family — same "box aspect must match the art"
+convention documented throughout this file (see the `LogoImage`/Coin Balance Chip entries above).
 
 **`LegalScreen`** (new) — Settings' Policies icon opens this: a Privacy Policy button that opens the
 published draft policy page via `Application.OpenURL` (this project has no in-app web view — see
@@ -2492,6 +2530,26 @@ values from the GDD's color palette where one exists (e.g. walls = Wall Brown `#
   maze's own world footprint, or the camera's view width. Recenters/rescales itself off
   `LevelData_01`'s own `mazeWidth`/`mazeHeight` each time `ArtWiringBuilder.WireAll` runs, so it
   doesn't need manual retuning if the maze's dimensions ever change again.
+
+  **Backdrop resolution, not aspect, was the real "stretched" bug (2026-08-28).** A gameplay
+  screenshot of Orchard's backdrop (`OrchardBackground.png`, 1280×720) showed its tile pattern
+  reading as warped/blocky — both `WireGameplayBackdrop` and `TileMapRenderer.ApplyBackdrop`
+  already scale every backdrop **uniformly** (aspect-preserving, never non-uniformly stretched), so
+  the aspect ratio itself was never the problem. The actual required on-screen size, worked out
+  from the same formula both methods use (`CellSize=2`, `CellScreenHeightFraction=0.105`,
+  `MaxSupportedAspect=2.4`, a 12×9 maze, ×1.6 safety margin): the backdrop covers ~76×43 world
+  units, which on a ~1080px-tall device is roughly ~4300×2400 pixels on screen. `World1_Cornfield.
+  png` (2720×1536) only needs a mild ~1.6x upscale to hit that and looks fine; `OrchardBackground.
+  png` at 1280×720 needed a ~3.4x upscale, which is what made its pattern read as distorted — pure
+  resolution, not shape (both files were already ~16:9, nearly identical aspect). **All 7 worlds'
+  backdrops (the 4 free worlds' `World1_Cornfield.png`/`VegatableGarden.png`/`OrchardBackground.
+  png`/`Wheatfield_background.png`, plus the 3 purchased worlds' `FrostbiteGarden_Backdrop.png`/
+  `GoldenSunset_backdrop.png`/`Harvest_Backdrop.png`) were re-authored at a consistent 2720×1536 to
+  fix this** — no code change was needed, since the scaling math reads each sprite's own pixel
+  dimensions at wire/runtime and just picked up the higher-res art automatically. **If a future
+  world's backdrop reads as stretched/blocky again, check its pixel resolution against this
+  2720×1536 baseline before suspecting the scaling code** — the aspect-preserving math itself has
+  been correct all along.
 - **Power pellets** — spawn with a real tier instead of always Sunflower. `TileMapRenderer.
   ConfigurePelletTier` rolls a weighted random tier per pellet (Sunflower 70% / GoldenWheat 20% /
   Rainbow 10%, matching the "RarePellets" art naming) and swaps in `sunflowerPelletSprite`
@@ -2813,6 +2871,13 @@ values from the GDD's color palette where one exists (e.g. walls = Wall Brown `#
     (`GameManager.ResumeGame()`) instead of landing back on the Pause menu — the Back button still
     correctly returns to Pause (`ChooseCharacterScreen.Close()` reactivates `pauseMenuScreen` only
     if `GameManager.CurrentState == GameState.Paused`).
+
+    **Back button moved bottom-left → bottom-right (2026-08-28)** to match every other screen in
+    this family (Settings/Level Select/Shop/Cosmetics/etc. all use `CreateRoundBackButton`'s
+    default bottom-right corner) — this screen had been the one deliberate bottom-left outlier
+    since its original 2026-07-31 mockup. Carousel container also re-centred to true screen-
+    vertical-middle (`CardContainer.anchoredPosition` `(0, -20)` → `(0, 0)`) per a device screenshot
+    showing the cards sitting visibly low against the backdrop.
   - **`CreateRoundBackButton` had a sign bug**, found while fixing the above: its `bottomRight`
     branch reused `AnchorBottomLeft`'s positive-X-is-inward offset convention, but for a
     right-pivoted anchor a *positive* X pushes the element further right/off-screen — negative X
@@ -3087,21 +3152,38 @@ fill exactly one maze grid cell (1 world unit), matching `PlaceholderSprite`'s 1
 convention that every prefab's existing `localScale` (e.g. crop 0.35, pellet 0.7) was already
 tuned around, so no prefab scale values needed to change when real art went in.
 
-**Audio** — `Audio/Music/BackgroundMusic.mp3` is wired onto `AudioManager.backgroundMusicClip`
-(`ArtWiringBuilder.WireAudio`). `AudioManager.Start()` calls `ResumeBackgroundMusic()` as a
-safety-net auto-play, guarded by a `_musicStarted` flag set the first time `PlayMusic` runs from
-anywhere — since Unity calls every active object's `OnEnable` before any object's `Start()`,
-`MainMenuController.OnEnable`'s `PlayLandingMusic()` always claims `_musicStarted` first when Main
-Menu is present, so this fallback can never override Main Menu's own landing track with gameplay
-music; it only matters in a context with no `MainMenuController` (e.g. a test harness).
+**Audio — per-world gameplay music (2026-08-28), replacing an earlier single flat track.**
+`AudioManager.worldMusicClips` is now a `MazeType → AudioClip` array (`Audio/Music/CornField.mp3`/
+`VegetablePatch.mp3`/`Orchard.mp3`/`Wheatfield.mp3`, wired by `ArtWiringBuilder.WireAudio`).
+`GameManager.LoadLevel` calls the new `AudioManager.PlayWorldMusic(level.mazeType)` once a level
+actually begins, which looks up that world's track and crossfades to it — replacing the old flat
+`ResumeBackgroundMusic()` call there. The 3 purchased worlds (FrostbiteGarden/GoldenSunset/
+HarvestMoon) have no dedicated track yet, so a `MazeType` with no `worldMusicClips` entry falls
+back to `AudioManager.backgroundMusicClip` (wired to `CornField.mp3`) — same "reuse CornField as a
+placeholder" convention this project already uses for those worlds' still-missing crop/vegetable
+art (see "World Purchase" below).
+
+**"Theme"** (`Audio/Music/Theme.mp3`, wired onto `AudioManager.landingMusicClip`) is the Main
+Menu/Level Select track — starts on `MainMenuController.OnEnable`'s `PlayLandingMusic()` and keeps
+playing through Level Select browsing (`OnDisable` deliberately doesn't stop it) right up until
+`GameManager.LoadLevel`'s `PlayWorldMusic` call hands off to the level's own world track the
+instant the level actually begins. `GameManager.EndLevel`/`QuitToLevelSelect` call
+`AudioManager.PlayLandingMusic()` on the way out of gameplay (win, fail, or a deliberate Pause-menu
+quit), not `StopMusic()` — so leaving a level always flips straight back to Theme rather than
+cutting to silence; the two tracks never overlap since `PlayMusic`'s crossfade always fades the
+previous track out as the new one fades in, whichever two call sites are involved.
+
+**`ResumeBackgroundMusic()` now replays whichever world track `PlayWorldMusic` most recently
+started** (`AudioManager._currentWorldMusicClip`, cached on every `PlayWorldMusic` call), not a
+single flat clip — `PowerPelletManager` still calls this when a power pellet's effect ends (see
+`Audio/SFX/EatRobot.mp3` below), and now correctly resumes the actual world track that was playing
+rather than always falling back to one fixed track. `AudioManager.Start()` still calls
+`ResumeBackgroundMusic()` as a safety-net auto-play (falls back to `backgroundMusicClip` if no
+world track has played yet this session), guarded by the same `_musicStarted` flag as before —
+`MainMenuController.OnEnable`'s `PlayLandingMusic()` always claims it first when Main Menu is
+present, so this only matters in a context with no `MainMenuController` (e.g. a test harness).
 `SaveManager.MusicVolume`'s default was lowered from `1f` to `0.5f` so it plays soft/background-
 level out of the box rather than at full volume; still fully overridable via the Settings slider.
-
-**`GameManager.EndLevel`/`QuitToLevelSelect` call `AudioManager.PlayLandingMusic()` on the way out
-of gameplay, not `StopMusic()`** — leaving a level (win, fail, or a deliberate Pause-menu quit) now
-resumes the landing/menu track instead of cutting to silence. This matches the earlier fix to
-`MainMenuController.OnDisable` (below) with the same intent: music should only ever be swapped
-between tracks, never stopped outright, while any screen that has one is showing.
 
 `AudioManager.musicSourceA`/`musicSourceB`/`sfxPool` are `AudioSource` children created by
 `Phase5ProjectBuilder.WireAudioSources` (called from `AddManagers`, part of `BuildAll`) — **not**
@@ -3113,9 +3195,11 @@ call silently no-ops — re-run `Phase5ProjectBuilder.BuildAll` to fix it, not `
 `Audio/SFX/EatRobot.mp3` (despite living in the SFX folder, it's used as a second **music** track,
 not a one-shot) plays for the exact duration a power pellet is active — `PowerPelletManager`
 crossfades to it via `AudioManager.PlayEatRobotMusic()` on the `false → true` activation edge, and
-crossfades back to the regular background track via `ResumeBackgroundMusic()` when the countdown
-reaches zero (`PowerPelletManager.CountDown`'s end). Both go through the same `PlayMusic`
-crossfade `AudioManager` already had — no new fade logic needed, just two named entry points.
+crossfades back to whichever world track was playing via `ResumeBackgroundMusic()` when the
+countdown reaches zero (`PowerPelletManager.CountDown`'s end). Both go through the same `PlayMusic`
+crossfade `AudioManager` already had — no new fade logic needed, just two named entry points. SFX
+playback itself (`PlaySFX`, the 6 named `PlayXSfx()` methods, pooling/volume) is entirely
+unaffected by the per-world music work above.
 
 All 6 SFX clips under `Audio/SFX/` are wired to a specific gameplay trigger, each via a named
 `AudioManager` method (`PlayXSfx()`, not a raw `PlaySFX(clip)` call, so call sites read as what
