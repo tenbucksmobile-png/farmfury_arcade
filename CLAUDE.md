@@ -744,6 +744,18 @@ Two coin-spend features exist:
   fire, `PlayPowerReadySfx`) so a paid skip looks and sounds identical to the cooldown finishing
   naturally, rather than needing its own duplicate "ability just became ready" logic.
 
+  **Reworked from a separate button into a coin badge overlaid on the ability icon (2026-08-28)** —
+  per direct feedback, and because `Btn_skipcooldown.png`'s art slot was reassigned to the Swap
+  Character button instead. `GameplayHUD.skipCooldownButton` is now `skipCooldownCoinButton`, built
+  in `BuildGameplayHUD` as a `CreateIconButton("SkipCooldownCoinBadge", ...)` child of the ability
+  icon's own button (`portraitButton`), showing plain `Coin_UI.png`, anchored to the icon's own
+  top-right corner and poking out slightly like a badge (later sibling than `PortraitArt`, so it
+  draws on top and its own `Button` catches a tap on the badge before it can reach the ability
+  button underneath). Same show/hide-on-cooldown and affordability-gated-interactable logic as
+  before, just retargeted to the new field name — tapping the badge still calls
+  `HandleSkipCooldownClicked()` unchanged; tapping the ability icon anywhere else still just
+  attempts a normal activation (a no-op while on cooldown, same as Space).
+
 Both spends go through the existing `SaveManager.SpendCoins`/`AddCoins` — no new economy plumbing,
 just two new call sites.
 
@@ -771,6 +783,17 @@ Enlarged again later (110x110 → 170x170, font 28 → 44 to match) per feedback
 small next to the rest of the HUD — confirmed clear of the D-pad below it before resizing (chip's
 bottom edge lands well above the D-pad's top edge even at 170). `CoinBalanceText`'s anchor fractions
 are unchanged, so the text region scales automatically with the chip.
+
+**The whole wood-frame chip was replaced outright (2026-08-28)** — not resized again, removed. Per
+direct feedback: a fixed-size frame can't grow to fit a large balance (a player who bought the
+15,000-coin pack would overflow the parchment band no matter how the box was tuned). `GameplayHUD`'s
+`CoinBalanceChip`/`Coin_Balance_Chip.png` are gone; `Phase5ProjectBuilder.BuildGameplayHUD` now
+builds a self-sizing `CoinBalanceDisplay` (a `HorizontalLayoutGroup` + `ContentSizeFitter`, anchored
+by its own top-right corner so it grows LEFTWARD as digits are added, never off-screen) holding a
+plain `Coin_UI.png` icon and `CoinBalanceText` beside it — no fixed box for the number to outgrow.
+Built self-contained here (not through `ArtWiringBuilder.SetImageSprite`) specifically so
+`preserveAspect` genuinely applies with no Sliced-squash risk. `GameplayHUD.coinBalanceText` is the
+only field that survived the rework — `RefreshCoinBalanceText` needed no changes.
 
 **Same bug, sixth occurrence: `LogoImage` (2026-08-28).** `Logo.png` is a square 500×500 source,
 but every screen's `LogoImage` box (Pause, Level Complete, New Character Unlock, Choose Character —
@@ -911,6 +934,13 @@ an unrelated floating button. `ArtWiringBuilder`'s wiring path for its icon chan
 `LevelCompleteScreen/PanelArt/ShelfContent/DoubleCoinsButton` to `LevelCompleteScreen/
 DoubleCoinsButton`.
 
+**A "Watch Ad" label plaque was added directly under the x2 coin icon (2026-08-28)** — per
+feedback, so it reads more clearly as a rewarded-ad placement. `WatchAdLabel` (a plain, non-
+interactive `Image` — the coin icon above it is still the real tap target, unchanged) shows the
+same `WatchAd.png` banner Gameplay HUD's own skip-cooldown-via-ad button uses, sized to its real
+512×214 aspect (140×58.6). Anchored bottom-right, lifted slightly off the very bottom edge (`y=15`,
+not flush at 0) and centred a touch left of the coin icon's own centre, per direct feedback.
+
 **"Extra ability charge" / "skip cooldown via ad"** — per the plan doc's own text, these two listed
 placements are literally the same feature ("(d) same button, ad as the free alternative to spending
 coins"), not two separate ones. Built as one: a Watch Ad button in `GameplayHUD`, calling
@@ -990,6 +1020,16 @@ Purchases"`, no dedicated icon art) calling `IAPManager.RestorePurchases(callbac
 `RestoreStatusText` row showing "Restoring..." → "Purchases restored!"/"Restore failed." — same
 feedback-text convention Shop/Cosmetic purchase screens already use, not a toast (no toast system
 exists in this project).
+
+**Given real `Btn_plaque.png` art (2026-08-28)** — was a plain solid-color text button; now sits on
+a wood-plaque background, moved to bottom-left just inside the safe-area guide (matching
+`CreateRoundBackButton`'s own bottom-left inset, `(110, 70)`). Box sized to `Btn_plaque.png`'s real
+aspect (485×256) so the art renders undistorted. Built directly here (not through `ArtWiringBuilder.
+SetImageSprite`), so `Image.type` stays `Simple` with `preserveAspect` genuinely honoured — no
+Sliced-squash risk. Both the "Restore Purchases" label and the status line now live INSIDE the
+plaque's own footprint (retargeted to its upper/lower halves respectively, both auto-sizing) rather
+than as separate elements outside it, so neither can collide with the coin-pack row above regardless
+of how long the status text gets.
 
 **Store-side setup status (updated 2026-08-25):** all 12 products (the original 5 + 7 cosmetic IAPs
 added since — see "Cosmetics Store UI" below) are now **registered in App Store Connect** for iOS
@@ -1549,7 +1589,12 @@ from their original Phase 5 layouts:
     stays uniform, same "box aspect must match the art" fix used throughout this project) and now
     shows that real art instead of a plain "AD" text label (wired in `ArtWiringBuilder.
     WireMonetisationArt`) — `SkipCooldownButton` (the coin-cost "-3" one) stays to the icon's left,
-    unchanged in size, just re-centred against the icon's new, higher position.
+    unchanged in size, just re-centred against the icon's new, higher position. **`SkipCooldownButton`
+    itself no longer exists as of 2026-08-28** — reworked into a coin badge overlaid on the ability
+    icon (see the "Skip ability cooldown" bullet under Monetisation above); the icon-to-WatchAd gap
+    described here was also tightened to its own smaller `abilityToWatchAdSpacing` (12, was the
+    shared `clusterSpacing` of 30) the same session, per feedback it read as too wide —
+    `clusterSpacing` itself is untouched, still governing the Pause-above-D-pad gap.
 
   **Swap Character button added (2026-08-27)**, directly above the ability icon — same X inset and
   same size (`abilityButtonSize`, per explicit direction), raised by the icon's own height +
@@ -2545,11 +2590,26 @@ values from the GDD's color palette where one exists (e.g. walls = Wall Brown `#
   backdrops (the 4 free worlds' `World1_Cornfield.png`/`VegatableGarden.png`/`OrchardBackground.
   png`/`Wheatfield_background.png`, plus the 3 purchased worlds' `FrostbiteGarden_Backdrop.png`/
   `GoldenSunset_backdrop.png`/`Harvest_Backdrop.png`) were re-authored at a consistent 2720×1536 to
-  fix this** — no code change was needed, since the scaling math reads each sprite's own pixel
-  dimensions at wire/runtime and just picked up the higher-res art automatically. **If a future
-  world's backdrop reads as stretched/blocky again, check its pixel resolution against this
-  2720×1536 baseline before suspecting the scaling code** — the aspect-preserving math itself has
-  been correct all along.
+  fix this.** The scaling math itself needed no changes — it reads each sprite's own pixel
+  dimensions at wire/runtime and just picks up whatever resolution the art actually is.
+
+  **A second, real bug then made the resolution fix not actually take effect (2026-08-28
+  follow-up).** Even after all 7 files were re-authored at 2720×1536, Orchard's backdrop still
+  looked stretched — traced by directly viewing the source art (confirming it's a genuine wide
+  scenic illustration, not a small repeating tile) and then checking each file's `.meta`:
+  `maxTextureSize` was still `2048` on every one of the 7 backdrops, a leftover from when they were
+  first imported at a lower resolution. Unity's importer does **not** auto-raise this cap when a
+  file's content is later overwritten with higher-res art — it silently re-downsamples the new
+  2720px source back down to ~2048px on import, which then gets upscaled again to cover the
+  ~4300px screen area, reintroducing the exact same blockiness the resolution fix was meant to
+  solve. Fixed generally in `ArtWiringBuilder.ConfigureSpriteImporters` (not just for backdrops,
+  since any sprite could hit the same "art replaced with higher-res content, cap never updated"
+  gap): it now computes the correct power-of-two bracket for each texture's actual width/height and
+  raises `importer.maxTextureSize` to match, never lowering an already-larger cap. **If a future
+  world's backdrop reads as stretched/blocky again, check its `.meta`'s `maxTextureSize` against its
+  actual source resolution before suspecting either the scaling math or the art file's own
+  resolution** — both have been correct on every past occurrence; the importer cap was the real
+  culprit hiding behind them.
 - **Power pellets** — spawn with a real tier instead of always Sunflower. `TileMapRenderer.
   ConfigurePelletTier` rolls a weighted random tier per pellet (Sunflower 70% / GoldenWheat 20% /
   Rainbow 10%, matching the "RarePellets" art naming) and swaps in `sunflowerPelletSprite`
@@ -2670,6 +2730,16 @@ values from the GDD's color palette where one exists (e.g. walls = Wall Brown `#
   Pause's Swap Character button is gone (no room in the 4-button mockup) — moved to Gameplay HUD
   instead (see "Screens & scene flow" below), not deleted; `ChooseCharacterScreen` itself and its
   Tab shortcut are untouched.
+
+  **Level Failed's `PanelArt` shrunk to match its own mockup (2026-08-28)** — it used to be
+  `AspectRatioFitter.FitInParent` stretched across nearly the full screen (a 40/80px inset from a
+  full 0-1 anchor stretch), which rendered the "TRY AGAIN!" card almost full-height, well past how
+  large the mockup actually shows it. Replaced with a fixed 600×600 square, centred
+  (`anchoredPosition (0, 70)`) — no `AspectRatioFitter` needed since a literal square `sizeDelta`
+  already guarantees the aspect. Sized to clear the bottom button row's top edge (110 inset + 160
+  size = 270, +50 margin = 320) with room to spare. `ShelfContent`'s fractional anchors
+  (`SetAnchorRect`) needed no changes — they're percentage-based against whatever `PanelArt`'s
+  current size is, so stars/score still sit correctly inside the smaller card.
 
   **Real bug found and fixed in the same pass**: `MenuHubScreen` never deactivated itself when
   opening Settings/Shop, and — since it happened to be added to the scene after both in
