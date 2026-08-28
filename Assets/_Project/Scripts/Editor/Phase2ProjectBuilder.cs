@@ -327,21 +327,26 @@ namespace FarmFuryArcade.EditorTools
             BuildCropPrefab("Crop_Vegetable_Wheat", CropType.Vegetable, 50, new Color(0.85f, 0.65f, 0.20f), 0.7f);
 
             // World Purchase's FrostbiteGarden (5th world, $3.99 IAP) — wall/ground prefabs only;
-            // no dedicated crop/pellet/warp-tunnel/bonus art exists yet, so ArtWiringBuilder.
-            // WireFrostbiteGarden reuses CornField's own prefabs for those roles as a placeholder
-            // (see that method's doc comment). Placeholder colors here too, until
-            // WireFrostbiteGarden sets the real wall/ground sprites.
+            // no dedicated crop/bonus art exists yet, so ArtWiringBuilder.WireFrostbiteGarden still
+            // reuses CornField's crop prefabs for those roles as a placeholder (see that method's
+            // doc comment). Placeholder colors here too, until WireFrostbiteGarden sets the real
+            // wall/ground sprites. Warp-tunnel now gets its own dedicated prefab too (real art
+            // dropped in 2026-08-28, FG_WarpTile.png) instead of reusing CornField's WarpTunnel
+            // prefab — same per-world-warp-tunnel-prefab pattern Orchard/Wheat established above.
             BuildWallPrefab("Wall_FrostbiteGarden", new Color(0.55f, 0.68f, 0.78f));
             BuildGroundPrefab("Ground_FrostbiteGarden", new Color(0.75f, 0.85f, 0.90f));
+            BuildWarpTunnelPrefab("WarpTunnel_FrostbiteGarden", new Color(0.55f, 0.27f, 0.68f));
 
             // World Purchase's GoldenSunset and HarvestMoon (6th/7th worlds) — same shape as
-            // FrostbiteGarden above: placeholder-colored wall/ground prefabs only, real sprites set
-            // by ArtWiringBuilder.WireGoldenSunset/WireHarvestMoon, crop/pellet/warp-tunnel/bonus
+            // FrostbiteGarden above: placeholder-colored wall/ground/warp-tunnel prefabs, real
+            // sprites set by ArtWiringBuilder.WireGoldenSunset/WireHarvestMoon, crop/bonus still
             // reused from CornField as a placeholder.
             BuildWallPrefab("Wall_GoldenSunset", new Color(0.70f, 0.55f, 0.30f));
             BuildGroundPrefab("Ground_GoldenSunset", new Color(0.85f, 0.70f, 0.45f));
+            BuildWarpTunnelPrefab("WarpTunnel_GoldenSunset", new Color(0.55f, 0.27f, 0.68f));
             BuildWallPrefab("Wall_HarvestMoon", new Color(0.45f, 0.35f, 0.20f));
             BuildGroundPrefab("Ground_HarvestMoon", new Color(0.60f, 0.50f, 0.30f));
+            BuildWarpTunnelPrefab("WarpTunnel_HarvestMoon", new Color(0.55f, 0.27f, 0.68f));
 
             BuildCharacterData();
             BuildLevelData01();

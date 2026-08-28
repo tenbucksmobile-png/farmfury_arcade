@@ -125,7 +125,9 @@ namespace FarmFuryArcade.Core
             DeathCountThisMaze = 0;
             _levelStartTime = Time.time;
             CurrentState = GameState.Playing;
-            AudioManager.Instance?.ResumeBackgroundMusic();
+            // Hands off from the "Theme" landing track to this level's own world music the moment
+            // the level actually begins (see AudioManager.PlayWorldMusic's own doc comment).
+            AudioManager.Instance?.PlayWorldMusic(level.mazeType);
 
             DailyChallengeManager.Instance?.SetPlayingDailyChallenge(isDailyChallenge);
             if (_sceneController != null && _sceneController.RobotSpawner != null)
@@ -146,8 +148,8 @@ namespace FarmFuryArcade.Core
             // GetElapsedSeconds reads) doesn't advance while frozen, so no time is lost either.
             // AudioListener.pause is set alongside the timeScale freeze — Time.timeScale alone only
             // stops movement/animation (anything driven by scaled Time.deltaTime); AudioSource
-            // playback is real-time and completely unaffected by timeScale, so the background music
-            // ResumeBackgroundMusic already started above (and any 0-delay robot-spawn SFX fired
+            // playback is real-time and completely unaffected by timeScale, so the world music
+            // PlayWorldMusic already started above (and any 0-delay robot-spawn SFX fired
             // synchronously by LoadLevelContent just before this block) kept playing audibly under
             // the interstitial even though gameplay itself was correctly frozen — reported via a
             // Daily Challenge playtest ("I can hear it playing while the ad is running") but not

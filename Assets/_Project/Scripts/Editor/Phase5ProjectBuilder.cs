@@ -739,10 +739,14 @@ namespace FarmFuryArcade.EditorTools
             // top-right where the coin balance pill now lives (see CoinBalanceChip below). Its own
             // box sits directly above ScoreText's (same 90px height, top edge at -80 so its bottom
             // edge lands exactly on ScoreText's top edge at -170, no gap/overlap).
-            var timerText = CreateText("TimerText", root.transform, "00:00", 60f, TextAlignmentOptions.TopLeft, 90f);
+            // Dark brown fill (same tone LevelComplete/LevelFailed's score text already uses)
+            // instead of CreateText's plain-white default — white was unreadable against the
+            // bright sky/backdrop art behind it, per a gameplay screenshot review.
+            var hudTextColor = new Color(0.25f, 0.15f, 0.06f);
+            var timerText = CreateText("TimerText", root.transform, "00:00", 60f, TextAlignmentOptions.TopLeft, 90f, hudTextColor);
             AnchorTopLeft((RectTransform)timerText.transform, new Vector2(240f, 90f), new Vector2(170f, -80f));
 
-            var scoreText = CreateText("ScoreText", root.transform, "0", 72f, TextAlignmentOptions.TopLeft, 90f);
+            var scoreText = CreateText("ScoreText", root.transform, "0", 72f, TextAlignmentOptions.TopLeft, 90f, hudTextColor);
             AnchorTopLeft((RectTransform)scoreText.transform, new Vector2(320f, 90f), new Vector2(170f, -170f));
 
             // Monetisation: coin balance chip — previously SaveManager.CoinBalance had no on-screen
@@ -1148,7 +1152,7 @@ namespace FarmFuryArcade.EditorTools
             var logoImage = logoImageGO.GetComponent<Image>();
             logoImage.sprite = LoadUiSprite("Logo.png");
             logoImage.preserveAspect = true;
-            AnchorTopLeft((RectTransform)logoImageGO.transform, new Vector2(300f, 170f), new Vector2(100f, -40f));
+            AnchorTopLeft((RectTransform)logoImageGO.transform, new Vector2(LogoImageSize, LogoImageSize), new Vector2(100f, -40f));
 
             // Pause.png is a 666x375 hanging wood sign (rope-tied corners, "Pause" on parchment) —
             // sized to its own real aspect (~1.78:1) rather than a generic header-sign box, first
@@ -1577,6 +1581,17 @@ namespace FarmFuryArcade.EditorTools
         // aren't touched — forcing their wide banner-style buttons into a square box would squash
         // them, the exact bug this same session already fixed once for DoubleCoins.png.
         private const float StandardIconButtonSize = 160f;
+
+        // Shared top-left LogoImage box (Pause, Level Complete, New Character Unlock, Choose
+        // Character) — every call site used a non-square 300x170 box despite Logo.png itself being
+        // a square 500x500 source. ArtWiringBuilder.SetImageSprite always sets Image.Type.Sliced,
+        // which ignores preserveAspect (the same box-aspect-must-match-the-art bug documented
+        // throughout this project — Coin Balance Chip, Revive Prompt panel, Level Complete panel,
+        // etc.), so the square logo was actually being non-uniformly squashed into that wide box
+        // every time it rendered. 170 (the box's constrained/height dimension, i.e. the size
+        // preserveAspect WOULD have fit the image to if it weren't being ignored) is the true prior
+        // visual size; enlarged 1.5x per feedback per a gameplay screenshot review.
+        private const float LogoImageSize = 170f * 1.5f;
         // Sized to guarantee real clearance above BuildSettingsPanel's icon grid, not just eyeballed
         // against the benchmark: with the grid's own layout math (StandardIconButtonSize=160,
         // cellSpacing=50 -> gridHeight=370, container sizeDelta.y=gridHeight+60=430, anchoredPosition
@@ -1758,20 +1773,33 @@ namespace FarmFuryArcade.EditorTools
 
             CreateHeaderSign(root.transform, LoadUiSprite("ShopBanner.png"));
 
-            // Coin plaques sized to match Settings/Shop hub's own enlarged icons (StandardIconButtonSize
-            // * 1.5 = 240) per the same "enlarge the icons" feedback applied there, keeping this whole
-            // family of screens uniform — was 1.25x (200) before that pass.
-            float coinIconSize = StandardIconButtonSize * 1.5f;
+            // Coin plaque HEIGHT matches Settings/Shop hub's own enlarged icons
+            // (StandardIconButtonSize * 1.5 = 240) per the same "enlarge the icons" feedback applied
+            // there, keeping this whole family of screens uniform — was 1.25x (200) before that pass.
+            // Width is no longer forced to the same square 240 — the 2026-08-28 art drop
+            // (100/500/5000/15000.png) is a portrait price-plaque shape (500x669px, aspect ~0.747),
+            // not the roughly-square icons Settings/Shop hub use. CreateIconButton's preserveAspect
+            // already stops it from squashing inside a square cell, but a square cell still leaves
+            // dead horizontal space around each plaque, which reads as inconsistent gaps between
+            // plaques even with the coded spacing value matching Settings exactly. Sizing the cell to
+            // the art's own real aspect (same "box aspect must match the art" convention used
+            // throughout this project) keeps both the coded spacing AND the apparent visual spacing
+            // uniform with the rest of the family.
+            float coinIconHeight = StandardIconButtonSize * 1.5f;
+            const float coinPlaqueAspect = 500f / 669f;
+            float coinIconWidth = coinIconHeight * coinPlaqueAspect;
             var coinRowGO = new GameObject("CoinRow", typeof(RectTransform), typeof(GridLayoutGroup));
             coinRowGO.transform.SetParent(root.transform, false);
             var coinRowRect = (RectTransform)coinRowGO.transform;
             coinRowRect.anchorMin = coinRowRect.anchorMax = new Vector2(0.5f, 0.5f);
             coinRowRect.pivot = new Vector2(0.5f, 0.5f);
-            float coinRowSpacing = 50f;
-            coinRowRect.sizeDelta = new Vector2(4 * coinIconSize + 3 * coinRowSpacing + 100f, coinIconSize + 40f);
+            // Matches BuildSettingsPanel/BuildShopOverlay's own icon-grid spacing (77) so this
+            // screen's row reads uniformly with the rest of the family — was 50 before.
+            float coinRowSpacing = 77f;
+            coinRowRect.sizeDelta = new Vector2(4 * coinIconWidth + 3 * coinRowSpacing + 100f, coinIconHeight + 40f);
             coinRowRect.anchoredPosition = new Vector2(0f, 20f);
             var coinGrid = coinRowGO.GetComponent<GridLayoutGroup>();
-            coinGrid.cellSize = new Vector2(coinIconSize, coinIconSize);
+            coinGrid.cellSize = new Vector2(coinIconWidth, coinIconHeight);
             coinGrid.spacing = new Vector2(coinRowSpacing, 0f);
             coinGrid.childAlignment = TextAnchor.MiddleCenter;
             coinGrid.constraint = GridLayoutGroup.Constraint.FixedColumnCount;
@@ -1789,7 +1817,13 @@ namespace FarmFuryArcade.EditorTools
             for (int i = 0; i < coinDefs.Length; i++)
             {
                 var (id, fileName) = coinDefs[i];
-                coinButtonsData[i] = (id, CreateIconButton(id + "Button", coinRowGO.transform, LoadUiSprite(fileName), coinIconSize));
+                var coinButton = CreateIconButton(id + "Button", coinRowGO.transform, LoadUiSprite(fileName), coinIconHeight);
+                // CreateIconButton forces a square sizeDelta (size, size) — override to the plaque's
+                // real non-square aspect; the parent GridLayoutGroup would re-apply cellSize on its
+                // own next layout pass anyway, but setting it explicitly here keeps this correct even
+                // before that pass runs.
+                ((RectTransform)coinButton.transform).sizeDelta = new Vector2(coinIconWidth, coinIconHeight);
+                coinButtonsData[i] = (id, coinButton);
             }
 
             var closeButton = CreateRoundBackButton(root.transform, bottomRight: true);
@@ -2113,7 +2147,7 @@ namespace FarmFuryArcade.EditorTools
             var logoImage = logoImageGO.GetComponent<Image>();
             logoImage.sprite = PlaceholderSprite.Get(Color.clear);
             logoImage.preserveAspect = true;
-            AnchorTopLeft((RectTransform)logoImageGO.transform, new Vector2(300f, 170f), new Vector2(100f, -40f));
+            AnchorTopLeft((RectTransform)logoImageGO.transform, new Vector2(LogoImageSize, LogoImageSize), new Vector2(100f, -40f));
 
             var panelArtGO = new GameObject("PanelArt", typeof(RectTransform), typeof(Image), typeof(AspectRatioFitter));
             panelArtGO.transform.SetParent(root.transform, false);
@@ -2177,7 +2211,7 @@ namespace FarmFuryArcade.EditorTools
             unlockLogoImage.sprite = PlaceholderSprite.Get(Color.clear);
             unlockLogoImage.preserveAspect = true;
             unlockLogoImage.raycastTarget = false;
-            AnchorTopLeft((RectTransform)unlockLogoGO.transform, new Vector2(300f, 170f), new Vector2(100f, -50f));
+            AnchorTopLeft((RectTransform)unlockLogoGO.transform, new Vector2(LogoImageSize, LogoImageSize), new Vector2(100f, -50f));
 
             var unlockBannerGO = new GameObject("UnlockedBanner", typeof(RectTransform), typeof(Image));
             unlockBannerGO.transform.SetParent(unlockRoot.transform, false);
@@ -2327,7 +2361,7 @@ namespace FarmFuryArcade.EditorTools
             var logoImage = logoImageGO.GetComponent<Image>();
             logoImage.sprite = LoadUiSprite("Logo.png");
             logoImage.preserveAspect = true;
-            AnchorTopLeft((RectTransform)logoImageGO.transform, new Vector2(300f, 170f), new Vector2(100f, -40f));
+            AnchorTopLeft((RectTransform)logoImageGO.transform, new Vector2(LogoImageSize, LogoImageSize), new Vector2(100f, -40f));
 
             var panelArtGO = new GameObject("PanelArt", typeof(RectTransform), typeof(Image), typeof(AspectRatioFitter));
             panelArtGO.transform.SetParent(root.transform, false);
@@ -2527,9 +2561,10 @@ namespace FarmFuryArcade.EditorTools
         }
 
         /// <summary>Built to a Canva mockup (2026-07-31): World1_Cornfield.png backdrop (same as
-        /// Pause), Logo.png top-left, a round back button bottom-LEFT (CreateRoundBackButton's
-        /// non-default corner — this mockup's icon isn't Btn_home.png like Settings/Level Select's,
-        /// see ArtWiringBuilder.WireButtons for the substitution note), and a CardCarouselController
+        /// Pause), Logo.png top-left, a round back button bottom-right (moved here 2026-08-28 to
+        /// match every other screen in this family — Settings/Level Select/Shop/Cosmetics/etc. all
+        /// use CreateRoundBackButton's default bottom-right corner; this screen was previously the
+        /// one outlier still on bottom-left, per an earlier mockup pass), and a CardCarouselController
         /// (same component Level Select's world picker uses) instead of the old static GridLayoutGroup
         /// — one CharacterSelectCard per CharacterData, flick to cycle which is centred/full-scale,
         /// tap the centred card to swap into it. Not part of screenRoots — like Pause/Settings, it's
@@ -2545,9 +2580,9 @@ namespace FarmFuryArcade.EditorTools
             logoImage.preserveAspect = true;
             // Inset further than the original mockup value (40 -> 100) — it was close enough to the
             // corner to read as clipped by the yellow safe-area guide, same fix as Settings/Pause.
-            AnchorTopLeft((RectTransform)logoImageGO.transform, new Vector2(300f, 170f), new Vector2(100f, -50f));
+            AnchorTopLeft((RectTransform)logoImageGO.transform, new Vector2(LogoImageSize, LogoImageSize), new Vector2(100f, -50f));
 
-            var backButton = CreateRoundBackButton(root.transform, bottomRight: false);
+            var backButton = CreateRoundBackButton(root.transform, bottomRight: true);
 
             // Carousel area — an invisible-but-raycastable Image covers the whole area (not just the
             // cards themselves) so a flick started on empty space between cards still registers as a
@@ -2559,7 +2594,10 @@ namespace FarmFuryArcade.EditorTools
             containerRect.anchorMax = new Vector2(0.5f, 0.5f);
             containerRect.pivot = new Vector2(0.5f, 0.5f);
             containerRect.sizeDelta = new Vector2(1700f, 500f);
-            containerRect.anchoredPosition = new Vector2(0f, -20f);
+            // Lifted to true screen-vertical-centre (was -20, sitting visibly low against the
+            // backdrop per a device screenshot review) — dead center on the 1920x1080 reference
+            // canvas.
+            containerRect.anchoredPosition = new Vector2(0f, 0f);
             cardContainerGO.transform.SetParent(root.transform, false);
             var containerImage = cardContainerGO.GetComponent<Image>();
             containerImage.sprite = PlaceholderSprite.Get(Color.clear);

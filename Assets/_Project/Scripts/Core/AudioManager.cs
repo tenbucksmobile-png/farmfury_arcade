@@ -1,24 +1,32 @@
+using System;
 using System.Collections;
 using UnityEngine;
+using FarmFuryArcade.Data;
 using FarmFuryArcade.Utilities;
 
 namespace FarmFuryArcade.Core
 {
     /// <summary>
     /// Full playback API and pooling/volume/mute plumbing, exercised in Phase5Test with synthetic
-    /// AudioClips as well as real content. Background music (backgroundMusicClip, wired by
-    /// ArtWiringBuilder from Assets/_Project/Audio/Music/) plays only during an active run —
-    /// GameManager.LoadLevel starts it (ResumeBackgroundMusic) and EndLevel/QuitToLevelSelect stop it
-    /// (StopMusic). Main Menu instead plays its own dedicated track (landingMusicClip via
-    /// PlayLandingMusic, hooked to MainMenuController.OnEnable only — OnDisable deliberately
-    /// doesn't stop it, so the landing track keeps playing through Level Select browsing instead
-    /// of cutting to silence the moment Play is tapped). The two tracks still never overlap:
-    /// PlayMusic's crossfade always fades the previous track out as the new one fades in, whichever
-    /// two call sites are involved.
+    /// AudioClips as well as real content. Gameplay music is now per-world (worldMusicClips, wired
+    /// by ArtWiringBuilder from Assets/_Project/Audio/Music/ — one track per MazeType, e.g.
+    /// CornField.mp3/Orchard.mp3/Wheatfield.mp3/VegetablePatch.mp3) and starts only during an
+    /// active run — GameManager.LoadLevel starts the level's own world track (PlayWorldMusic) and
+    /// EndLevel/QuitToLevelSelect stop it (StopMusic) and hand back to the "Theme" landing track.
+    /// A MazeType with no dedicated entry in worldMusicClips (currently the 3 purchased worlds,
+    /// which have no dedicated music yet) falls back to backgroundMusicClip — same "reuse
+    /// CornField's own art as a placeholder" convention this project uses elsewhere for those
+    /// worlds' still-missing crop/vegetable art. Main Menu instead plays its own dedicated "Theme"
+    /// track (landingMusicClip via PlayLandingMusic, hooked to MainMenuController.OnEnable only —
+    /// OnDisable deliberately doesn't stop it, so the landing track keeps playing through Level
+    /// Select browsing instead of cutting to silence the moment Play is tapped, right up until
+    /// GameManager.LoadLevel's PlayWorldMusic call actually starts the level). The two tracks still
+    /// never overlap: PlayMusic's crossfade always fades the previous track out as the new one
+    /// fades in, whichever two call sites are involved.
     /// SFX clips under Assets/_Project/Audio/SFX/ are wired to specific gameplay triggers — see
     /// PlayAnimalDeathSfx/PlayCornPickupSfx/PlayCoinPickupSfx/PlayPowerReadySfx/
     /// PlayRarePelletPickupSfx/PlayRobotRespawnSfx and their call sites (PlayerHealth,
-    /// CropCollector, AbilityBase, RobotBase respectively).
+    /// CropCollector, AbilityBase, RobotBase respectively). Unchanged by the per-world music work.
     /// </summary>
     public class AudioManager : Singleton<AudioManager>
     {
@@ -27,18 +35,39 @@ namespace FarmFuryArcade.Core
         [SerializeField] private AudioSource[] sfxPool;
         [SerializeField] private float musicCrossfadeSeconds = 0.6f;
 
-        [Tooltip("Looping background music, started once as soon as the app launches (GameManagers " +
-                 "is a persistent singleton, so this never restarts on scene/screen changes).")]
+        [Serializable]
+        private struct WorldMusicEntry
+        {
+            public MazeType mazeType;
+            public AudioClip clip;
+        }
+
+        [Tooltip("Per-world gameplay music (one entry per MazeType) — PlayWorldMusic looks this up " +
+                 "by the level's own mazeType. A world with no entry here (or a null clip) falls " +
+                 "back to backgroundMusicClip below.")]
+        [SerializeField] private WorldMusicEntry[] worldMusicClips;
+
+        [Tooltip("Fallback gameplay track used only when the level's MazeType has no entry in " +
+                 "worldMusicClips (currently the 3 purchased worlds, pending their own dedicated " +
+                 "music) — also the Start() safety-net track for a context with no LoadLevel call " +
+                 "at all (e.g. a test harness).")]
         [SerializeField] private AudioClip backgroundMusicClip;
 
         [Tooltip("Swapped in for the duration of a power pellet's effect (PowerPelletManager " +
                  "crossfades to this and back via PlayEatRobotMusic/ResumeBackgroundMusic).")]
         [SerializeField] private AudioClip eatRobotMusicClip;
 
-        [Tooltip("Starts on Main Menu (MainMenuController.OnEnable) and keeps playing through " +
-                 "Level Select browsing — crossfades out once a level actually starts, since " +
-                 "backgroundMusicClip takes over then (GameManager.LoadLevel).")]
+        [Tooltip("The 'Theme' track — starts on Main Menu (MainMenuController.OnEnable) and keeps " +
+                 "playing through Level Select browsing — crossfades out once a level actually " +
+                 "starts (GameManager.LoadLevel's PlayWorldMusic call) and crossfades back in the " +
+                 "moment the level ends (GameManager.EndLevel/QuitToLevelSelect).")]
         [SerializeField] private AudioClip landingMusicClip;
+
+        // The world track PlayWorldMusic most recently started — ResumeBackgroundMusic (called by
+        // PowerPelletManager when a power pellet's effect ends, and by Start()'s safety net) replays
+        // this specific clip rather than always falling back to a single flat track, so resuming
+        // after a power pellet correctly returns to whichever world's music was actually playing.
+        private AudioClip _currentWorldMusicClip;
 
         [Header("SFX clips")]
         [SerializeField] private AudioClip animalDeathClip;
@@ -168,10 +197,33 @@ namespace FarmFuryArcade.Core
         /// and every time the player navigates back to it.</summary>
         public void PlayLandingMusic() => PlayMusic(landingMusicClip);
 
-        /// <summary>Crossfades back to the regular background track — the counterpart to
-        /// PlayEatRobotMusic. Also what GameManager.LoadLevel calls to start the music in the first
-        /// place, since starting a level and "resuming the background track" are the same action.</summary>
-        public void ResumeBackgroundMusic() => PlayMusic(backgroundMusicClip);
+        /// <summary>Crossfades to the given world's own gameplay track (falls back to
+        /// backgroundMusicClip if that MazeType has no dedicated entry in worldMusicClips) — what
+        /// GameManager.LoadLevel calls once a level actually begins, so the "Theme" landing track
+        /// hands off to the world's own music at the exact moment gameplay starts.</summary>
+        public void PlayWorldMusic(MazeType mazeType)
+        {
+            AudioClip clip = backgroundMusicClip;
+            if (worldMusicClips != null)
+            {
+                foreach (var entry in worldMusicClips)
+                {
+                    if (entry.mazeType == mazeType && entry.clip != null)
+                    {
+                        clip = entry.clip;
+                        break;
+                    }
+                }
+            }
+            _currentWorldMusicClip = clip;
+            PlayMusic(clip);
+        }
+
+        /// <summary>Crossfades back to whichever world track PlayWorldMusic most recently started —
+        /// the counterpart to PlayEatRobotMusic (PowerPelletManager calls this when a power
+        /// pellet's effect ends). Falls back to backgroundMusicClip if no world track has played
+        /// yet this session (e.g. Start()'s safety net in a context with no LoadLevel call at all).</summary>
+        public void ResumeBackgroundMusic() => PlayMusic(_currentWorldMusicClip != null ? _currentWorldMusicClip : backgroundMusicClip);
 
         /// <summary>Silences whichever music source is currently playing — used by GameManager
         /// when leaving gameplay (EndLevel, QuitToLevelSelect) so background music plays only during

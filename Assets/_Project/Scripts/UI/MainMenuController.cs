@@ -44,7 +44,7 @@ namespace FarmFuryArcade.UI
 
         // Deliberately does NOT stop music on disable (tapping Play used to cut straight to
         // silence here, leaving Level Select browsing with no music at all) — the landing track
-        // keeps playing until GameManager.LoadLevel's own ResumeBackgroundMusic crossfade takes
-        // over once the player actually starts a level.
+        // keeps playing until GameManager.LoadLevel's own PlayWorldMusic crossfade takes over
+        // once the player actually starts a level.
     }
 }

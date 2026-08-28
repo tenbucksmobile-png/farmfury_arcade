@@ -268,7 +268,15 @@ namespace FarmFuryArcade.EditorTools
         private const string SettingsSignText = "Assets/_Project/Sprites/UI/SettingsSign.png";
         private const string LevelTilePrefabPath = UIPrefabFolder + "/LevelTile.prefab";
         private const string WorldDividerPrefabPath = UIPrefabFolder + "/WorldDivider.prefab";
-        private const string BackgroundMusicClip = "Assets/_Project/Audio/Music/BackgroundMusic.mp3";
+        // Per-world gameplay music (2026-08-28 drop) — one track per free world, wired into
+        // AudioManager.worldMusicClips by MazeType. CornField.mp3 doubles as the fallback track
+        // (AudioManager.backgroundMusicClip) for the 3 purchased worlds, which have no dedicated
+        // music yet — same "reuse CornField as a placeholder" convention this project already uses
+        // for their still-missing crop/vegetable art.
+        private const string CornFieldMusicClip = "Assets/_Project/Audio/Music/CornField.mp3";
+        private const string VegPatchMusicClip = "Assets/_Project/Audio/Music/VegetablePatch.mp3";
+        private const string OrchardMusicClip = "Assets/_Project/Audio/Music/Orchard.mp3";
+        private const string WheatMusicClip = "Assets/_Project/Audio/Music/Wheatfield.mp3";
         private const string AnimalDeathSfx = "Assets/_Project/Audio/SFX/Animal_death.mp3";
         private const string CornPickupSfx = "Assets/_Project/Audio/SFX/CornPickup.mp3";
         private const string CoinPickupSfx = "Assets/_Project/Audio/SFX/CoinPickup.mp3";
@@ -276,7 +284,9 @@ namespace FarmFuryArcade.EditorTools
         private const string RarePelletPickupSfx = "Assets/_Project/Audio/SFX/RarePellet_pickup.mp3";
         private const string RobotSpawnSfx = "Assets/_Project/Audio/SFX/RobotSpawn.mp3";
         private const string EatRobotMusicClip = "Assets/_Project/Audio/SFX/EatRobot.mp3";
-        private const string LandingMusicClip = "Assets/_Project/Audio/Music/LandingPage.mp3";
+        // "Theme" — the Main Menu/Level Select track, plays until a level actually begins and
+        // resumes the instant one ends (GameManager.EndLevel/QuitToLevelSelect).
+        private const string LandingMusicClip = "Assets/_Project/Audio/Music/Theme.mp3";
 
         /// <summary>Bundled with TMP's own "Examples & Extras" (Assets/TextMesh Pro/Examples &
         /// Extras/...) — a bold comic/cartoon-style display face, already has its own correctly
@@ -395,12 +405,23 @@ namespace FarmFuryArcade.EditorTools
         private const string FrostbiteGardenBackdropSprite = "Assets/_Project/Sprites/Cosmetics/CosmeticType_MazeTheme/FrostbiteGarden_Backdrop.png";
         private const string WallFrostbiteGardenPrefabPath = BlockPrefabFolder + "/Wall_FrostbiteGarden.prefab";
         private const string GroundFrostbiteGardenPrefabPath = BlockPrefabFolder + "/Ground_FrostbiteGarden.prefab";
+        // Dedicated warp-tunnel/power-pellet art dropped in 2026-08-28 (FG_/GS_/HM_ prefixed,
+        // same CosmeticType_MazeTheme folder as the wall/ground/backdrop art above) — replaces the
+        // CornField warp-tunnel/pellet placeholder each of these 3 worlds used before. No dedicated
+        // crop/vegetable/bonus-pickup art yet, so those roles still reuse CornField's own prefabs
+        // (see each Wire* method's own doc comment).
+        private const string FrostbiteGardenWarpTile = "Assets/_Project/Sprites/Cosmetics/CosmeticType_MazeTheme/FG_WarpTile.png";
+        private const string FrostbiteGardenPellet = "Assets/_Project/Sprites/Cosmetics/CosmeticType_MazeTheme/FG_PowerPellet.png";
+        private const string WarpTunnelFrostbiteGardenPrefabPath = BlockPrefabFolder + "/WarpTunnel_FrostbiteGarden.prefab";
 
         private const string GoldenSunsetWallTile = "Assets/_Project/Sprites/Cosmetics/CosmeticType_MazeTheme/GoldenSunset_Walltile.png";
         private const string GoldenSunsetFloorTile = "Assets/_Project/Sprites/Cosmetics/CosmeticType_MazeTheme/GoldenSunset_Floortile.png";
         private const string GoldenSunsetBackdropSprite = "Assets/_Project/Sprites/Cosmetics/CosmeticType_MazeTheme/GoldenSunset_backdrop.png";
         private const string WallGoldenSunsetPrefabPath = BlockPrefabFolder + "/Wall_GoldenSunset.prefab";
         private const string GroundGoldenSunsetPrefabPath = BlockPrefabFolder + "/Ground_GoldenSunset.prefab";
+        private const string GoldenSunsetWarpTile = "Assets/_Project/Sprites/Cosmetics/CosmeticType_MazeTheme/GS_WarpTile.png";
+        private const string GoldenSunsetPellet = "Assets/_Project/Sprites/Cosmetics/CosmeticType_MazeTheme/GS_PowerPellet.png";
+        private const string WarpTunnelGoldenSunsetPrefabPath = BlockPrefabFolder + "/WarpTunnel_GoldenSunset.prefab";
 
         private const string HarvestMoonWallTile = "Assets/_Project/Sprites/Cosmetics/CosmeticType_MazeTheme/HarvestMoon_Walltile.png";
         private const string HarvestMoonFloorTile = "Assets/_Project/Sprites/Cosmetics/CosmeticType_MazeTheme/HarvestMoon_Floortile.png";
@@ -408,6 +429,9 @@ namespace FarmFuryArcade.EditorTools
         private const string HarvestMoonBackdropSprite = "Assets/_Project/Sprites/Cosmetics/CosmeticType_MazeTheme/Harvest_Backdrop.png";
         private const string WallHarvestMoonPrefabPath = BlockPrefabFolder + "/Wall_HarvestMoon.prefab";
         private const string GroundHarvestMoonPrefabPath = BlockPrefabFolder + "/Ground_HarvestMoon.prefab";
+        private const string HarvestMoonWarpTile = "Assets/_Project/Sprites/Cosmetics/CosmeticType_MazeTheme/HM_WarpTile.png";
+        private const string HarvestMoonPellet = "Assets/_Project/Sprites/Cosmetics/CosmeticType_MazeTheme/HM_PowerPellet.png";
+        private const string WarpTunnelHarvestMoonPrefabPath = BlockPrefabFolder + "/WarpTunnel_HarvestMoon.prefab";
 
         // Real dedicated Level Select world-badge art for all 3 purchased worlds (dropped in
         // 2026-08-25 — before this, FrostbiteGarden's badge fell back to its own backdrop sprite as
@@ -514,9 +538,9 @@ namespace FarmFuryArcade.EditorTools
             BgLevelSelect, DividerWorldBanner, WaterTileSprite, UnlockedBannerSprite, WorldUnlockedBannerSprite,
             OrchardWallTile, OrchardFloorTileSprite, OrchardBackgroundSprite, OrchardWarpTile, WheatWarpTile, RedApplePellet, CherryBonus,
             WheatWallTile, WheatFloorTileSprite, MiniLoafPellet, RareGrainSackBonus,
-            FrostbiteGardenWallTile, FrostbiteGardenFloorTile, FrostbiteGardenBackdropSprite,
-            GoldenSunsetWallTile, GoldenSunsetFloorTile, GoldenSunsetBackdropSprite,
-            HarvestMoonWallTile, HarvestMoonFloorTile, HarvestMoonBackdropSprite,
+            FrostbiteGardenWallTile, FrostbiteGardenFloorTile, FrostbiteGardenBackdropSprite, FrostbiteGardenWarpTile, FrostbiteGardenPellet,
+            GoldenSunsetWallTile, GoldenSunsetFloorTile, GoldenSunsetBackdropSprite, GoldenSunsetWarpTile, GoldenSunsetPellet,
+            HarvestMoonWallTile, HarvestMoonFloorTile, HarvestMoonBackdropSprite, HarvestMoonWarpTile, HarvestMoonPellet,
             FrozenGardenShield, GoldenSunsetShield, HarvestMoonShield,
             SelectLevelText, CornFieldText, VegetablePatchText, OrchardText, WheatfieldText, SettingsSignText,
             LogoImage, CluckEggIcon, CluckEggCracked, CluckEggBurst,
@@ -1199,6 +1223,7 @@ namespace FarmFuryArcade.EditorTools
         {
             SetPrefabSprite(WallFrostbiteGardenPrefabPath, Load(FrostbiteGardenWallTile));
             SetPrefabSprite(GroundFrostbiteGardenPrefabPath, Load(FrostbiteGardenFloorTile));
+            SetPrefabSprite(WarpTunnelFrostbiteGardenPrefabPath, Load(FrostbiteGardenWarpTile));
 
             EditorSceneManager.OpenScene(ScenePath);
             var tileMapRenderer = GameObject.Find("GameManagers")?.GetComponent<TileMapRenderer>();
@@ -1214,13 +1239,18 @@ namespace FarmFuryArcade.EditorTools
             frostbiteGarden.wallPrefab = AssetDatabase.LoadAssetAtPath<GameObject>(WallFrostbiteGardenPrefabPath);
             frostbiteGarden.groundPrefab = AssetDatabase.LoadAssetAtPath<GameObject>(GroundFrostbiteGardenPrefabPath);
             frostbiteGarden.backdropSprite = Load(FrostbiteGardenBackdropSprite);
-            // Reused from CornField (placeholder until FrostbiteGarden gets its own dedicated art —
-            // see this method's own doc comment):
-            frostbiteGarden.warpTunnelPrefab = cornField.warpTunnelPrefab;
+            // Dedicated warp-tunnel/pellet art landed 2026-08-28 — no longer reused from CornField.
+            frostbiteGarden.warpTunnelPrefab = AssetDatabase.LoadAssetAtPath<GameObject>(WarpTunnelFrostbiteGardenPrefabPath);
+            var frostbiteGardenPellet = Load(FrostbiteGardenPellet);
+            frostbiteGarden.pelletSprite = frostbiteGardenPellet;
+            // Only 1 power pellet ever spawns per maze and it always renders via rarePelletSprite
+            // when set (see TileMapRenderer's pellet-tier docs) — set to the same dedicated sprite
+            // so FrostbiteGarden's one pellet always shows its own art regardless of rolled tier.
+            frostbiteGarden.rarePelletSprite = frostbiteGardenPellet;
+            // Still reused from CornField (placeholder until FrostbiteGarden gets its own dedicated
+            // crop/vegetable art — see this method's own doc comment):
             frostbiteGarden.cropKernelPrefab = cornField.cropKernelPrefab;
             frostbiteGarden.cropVegetablePrefab = cornField.cropVegetablePrefab;
-            frostbiteGarden.pelletSprite = cornField.pelletSprite;
-            frostbiteGarden.rarePelletSprite = cornField.rarePelletSprite;
 
             EditorUtility.SetDirty(tileMapRenderer);
             EditorSceneManager.SaveScene(EditorSceneManager.GetActiveScene());
@@ -1233,6 +1263,7 @@ namespace FarmFuryArcade.EditorTools
         {
             SetPrefabSprite(WallGoldenSunsetPrefabPath, Load(GoldenSunsetWallTile));
             SetPrefabSprite(GroundGoldenSunsetPrefabPath, Load(GoldenSunsetFloorTile));
+            SetPrefabSprite(WarpTunnelGoldenSunsetPrefabPath, Load(GoldenSunsetWarpTile));
 
             EditorSceneManager.OpenScene(ScenePath);
             var tileMapRenderer = GameObject.Find("GameManagers")?.GetComponent<TileMapRenderer>();
@@ -1248,11 +1279,15 @@ namespace FarmFuryArcade.EditorTools
             goldenSunset.wallPrefab = AssetDatabase.LoadAssetAtPath<GameObject>(WallGoldenSunsetPrefabPath);
             goldenSunset.groundPrefab = AssetDatabase.LoadAssetAtPath<GameObject>(GroundGoldenSunsetPrefabPath);
             goldenSunset.backdropSprite = Load(GoldenSunsetBackdropSprite);
-            goldenSunset.warpTunnelPrefab = cornField.warpTunnelPrefab;
+            // Dedicated warp-tunnel/pellet art landed 2026-08-28 — no longer reused from CornField.
+            goldenSunset.warpTunnelPrefab = AssetDatabase.LoadAssetAtPath<GameObject>(WarpTunnelGoldenSunsetPrefabPath);
+            var goldenSunsetPellet = Load(GoldenSunsetPellet);
+            goldenSunset.pelletSprite = goldenSunsetPellet;
+            goldenSunset.rarePelletSprite = goldenSunsetPellet;
+            // Still reused from CornField (placeholder until GoldenSunset gets its own dedicated
+            // crop/vegetable art):
             goldenSunset.cropKernelPrefab = cornField.cropKernelPrefab;
             goldenSunset.cropVegetablePrefab = cornField.cropVegetablePrefab;
-            goldenSunset.pelletSprite = cornField.pelletSprite;
-            goldenSunset.rarePelletSprite = cornField.rarePelletSprite;
 
             EditorUtility.SetDirty(tileMapRenderer);
             EditorSceneManager.SaveScene(EditorSceneManager.GetActiveScene());
@@ -1264,6 +1299,7 @@ namespace FarmFuryArcade.EditorTools
         {
             SetPrefabSprite(WallHarvestMoonPrefabPath, Load(HarvestMoonWallTile));
             SetPrefabSprite(GroundHarvestMoonPrefabPath, Load(HarvestMoonFloorTile));
+            SetPrefabSprite(WarpTunnelHarvestMoonPrefabPath, Load(HarvestMoonWarpTile));
 
             EditorSceneManager.OpenScene(ScenePath);
             var tileMapRenderer = GameObject.Find("GameManagers")?.GetComponent<TileMapRenderer>();
@@ -1279,11 +1315,15 @@ namespace FarmFuryArcade.EditorTools
             harvestMoon.wallPrefab = AssetDatabase.LoadAssetAtPath<GameObject>(WallHarvestMoonPrefabPath);
             harvestMoon.groundPrefab = AssetDatabase.LoadAssetAtPath<GameObject>(GroundHarvestMoonPrefabPath);
             harvestMoon.backdropSprite = Load(HarvestMoonBackdropSprite);
-            harvestMoon.warpTunnelPrefab = cornField.warpTunnelPrefab;
+            // Dedicated warp-tunnel/pellet art landed 2026-08-28 — no longer reused from CornField.
+            harvestMoon.warpTunnelPrefab = AssetDatabase.LoadAssetAtPath<GameObject>(WarpTunnelHarvestMoonPrefabPath);
+            var harvestMoonPellet = Load(HarvestMoonPellet);
+            harvestMoon.pelletSprite = harvestMoonPellet;
+            harvestMoon.rarePelletSprite = harvestMoonPellet;
+            // Still reused from CornField (placeholder until HarvestMoon gets its own dedicated
+            // crop/vegetable art):
             harvestMoon.cropKernelPrefab = cornField.cropKernelPrefab;
             harvestMoon.cropVegetablePrefab = cornField.cropVegetablePrefab;
-            harvestMoon.pelletSprite = cornField.pelletSprite;
-            harvestMoon.rarePelletSprite = cornField.rarePelletSprite;
 
             EditorUtility.SetDirty(tileMapRenderer);
             EditorSceneManager.SaveScene(EditorSceneManager.GetActiveScene());
@@ -2034,7 +2074,10 @@ namespace FarmFuryArcade.EditorTools
         /// these short clips and the two looping music tracks.</summary>
         private static void WireAudio()
         {
-            var musicClip = AssetDatabase.LoadAssetAtPath<AudioClip>(BackgroundMusicClip);
+            var cornFieldMusic = AssetDatabase.LoadAssetAtPath<AudioClip>(CornFieldMusicClip);
+            var vegPatchMusic = AssetDatabase.LoadAssetAtPath<AudioClip>(VegPatchMusicClip);
+            var orchardMusic = AssetDatabase.LoadAssetAtPath<AudioClip>(OrchardMusicClip);
+            var wheatMusic = AssetDatabase.LoadAssetAtPath<AudioClip>(WheatMusicClip);
             var animalDeath = AssetDatabase.LoadAssetAtPath<AudioClip>(AnimalDeathSfx);
             var cornPickup = AssetDatabase.LoadAssetAtPath<AudioClip>(CornPickupSfx);
             var coinPickup = AssetDatabase.LoadAssetAtPath<AudioClip>(CoinPickupSfx);
@@ -2044,9 +2087,9 @@ namespace FarmFuryArcade.EditorTools
             var eatRobotMusic = AssetDatabase.LoadAssetAtPath<AudioClip>(EatRobotMusicClip);
             var landingMusic = AssetDatabase.LoadAssetAtPath<AudioClip>(LandingMusicClip);
 
-            if (musicClip == null)
+            if (cornFieldMusic == null)
             {
-                Debug.LogWarning($"[ArtWiringBuilder] {BackgroundMusicClip} not found — skipping background music wiring.");
+                Debug.LogWarning($"[ArtWiringBuilder] {CornFieldMusicClip} not found — skipping background/CornField music wiring.");
             }
 
             EditorSceneManager.OpenScene(ScenePath);
@@ -2060,7 +2103,9 @@ namespace FarmFuryArcade.EditorTools
             }
 
             var so = new SerializedObject(audioManager);
-            if (musicClip != null) so.FindProperty("backgroundMusicClip").objectReferenceValue = musicClip;
+            // CornField.mp3 doubles as the fallback backgroundMusicClip (used for the 3 purchased
+            // worlds, which have no dedicated track yet) as well as its own worldMusicClips entry.
+            if (cornFieldMusic != null) so.FindProperty("backgroundMusicClip").objectReferenceValue = cornFieldMusic;
             if (animalDeath != null) so.FindProperty("animalDeathClip").objectReferenceValue = animalDeath;
             if (cornPickup != null) so.FindProperty("cornPickupClip").objectReferenceValue = cornPickup;
             if (coinPickup != null) so.FindProperty("coinPickupClip").objectReferenceValue = coinPickup;
@@ -2069,6 +2114,27 @@ namespace FarmFuryArcade.EditorTools
             if (robotSpawn != null) so.FindProperty("robotRespawnClip").objectReferenceValue = robotSpawn;
             if (eatRobotMusic != null) so.FindProperty("eatRobotMusicClip").objectReferenceValue = eatRobotMusic;
             if (landingMusic != null) so.FindProperty("landingMusicClip").objectReferenceValue = landingMusic;
+
+            var worldEntries = new (MazeType mazeType, AudioClip clip)[]
+            {
+                (MazeType.CornField, cornFieldMusic),
+                (MazeType.VegPatch, vegPatchMusic),
+                (MazeType.Orchard, orchardMusic),
+                (MazeType.Wheat, wheatMusic),
+            };
+            var worldMusicProp = so.FindProperty("worldMusicClips");
+            worldMusicProp.arraySize = worldEntries.Length;
+            for (int i = 0; i < worldEntries.Length; i++)
+            {
+                var element = worldMusicProp.GetArrayElementAtIndex(i);
+                element.FindPropertyRelative("mazeType").enumValueIndex = (int)worldEntries[i].mazeType;
+                element.FindPropertyRelative("clip").objectReferenceValue = worldEntries[i].clip;
+                if (worldEntries[i].clip == null)
+                {
+                    Debug.LogWarning($"[ArtWiringBuilder] No music clip found for MazeType.{worldEntries[i].mazeType} — that world will fall back to backgroundMusicClip until its own track is added.");
+                }
+            }
+
             so.ApplyModifiedPropertiesWithoutUndo();
 
             EditorSceneManager.SaveScene(EditorSceneManager.GetActiveScene());
