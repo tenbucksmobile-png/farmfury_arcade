@@ -3387,9 +3387,11 @@ once one exists for testing and skip the manifest change entirely if it already 
 
 ## Unity Cloud Build — iOS, no local Mac required
 
-Set up 2026-08-29 so a real device archive/TestFlight build doesn't require owning a Mac (the user
-has an active Apple Developer Program membership but no Mac). Two separate pieces, worth
-distinguishing:
+Set up 2026-08-28/29 so a real device archive/TestFlight build doesn't require owning a Mac (the
+user has an active Apple Developer Program membership but no Mac). Fully configured as of
+2026-08-29 — a "FarmFury Arcade iOS" build target exists in the dashboard and is ready to trigger;
+the first actual build run hasn't happened yet (planned for the next session). Two separate
+pieces, worth distinguishing:
 
 **What's actually in this repo (works regardless of build method — local Xcode or Cloud Build):**
 `Assets/_Project/Scripts/Editor/IOSPostProcessBuild.cs` — a `[PostProcessBuild]` hook that fires
@@ -3401,38 +3403,67 @@ Xcode/Unity version stops injecting that flag. Compiled and verified directly ag
 `UnityEditor.iOS.Xcode` API (batch-mode compile with `-buildTarget iOS`) — this environment has the
 iOS Build Support module installed, so this class actually builds, not just "should."
 
-**What is NOT in this repo, because it isn't a repo-file thing** — Unity Cloud Build's own
-configuration (which Unity organization/project it's linked to, which GitHub branch/PR triggers a
-build, which Unity Editor version and Xcode version to use, iOS signing credentials, and whether to
-auto-publish to TestFlight) all live in Unity's own web dashboard
-(`dashboard.unity3d.com` → your organization → this project → DevOps → Cloud Build), tied to a
-Unity ID with billing/org access this session doesn't have. Set up manually:
+**Corrected: Cloud Build has no built-in "auto-publish to TestFlight" toggle.** An earlier version
+of this section assumed one existed — confirmed wrong against Unity's own support docs
+(https://support.unity.com/hc/en-us/articles/27576236407956). Build Automation's job stops at
+producing a signed IPA; getting it into TestFlight needs a **post-build script**, which this repo
+now provides: `Assets/CloudBuildScripts/post-build.bash` (adapted from
+https://github.com/Dans1997/UnityAppleConnectAutomation), run by the Cloud Build agent itself after
+a successful build. It decrypts an encrypted copy of an App Store Connect API key and calls
+`xcrun altool --upload-app` to push the IPA to TestFlight. See the script's own header comment for
+the full one-time-setup sequence (already completed for this project — summarized below).
 
-1. **Link the project.** In the Unity Editor: `Window > Unity Cloud` (or `Services`), sign in, create/
-   select an organization, link this project. This writes a `ProjectSettings/ProjectSettings.asset`
-   `productGUID`/cloud project ID — if that shows up as a diff after linking, it's expected, not a
-   bug.
-2. **Connect source control.** In the Cloud Build dashboard, connect the GitHub repo
-   (`tenbucksmobile-png/farmfury_arcade`) and authorize Unity's GitHub App if prompted.
-3. **Create an iOS build target.** Branch `main`, Unity version must match this project's exactly
-   (`6000.5.0f1` — a mismatched Editor version is a common Cloud Build failure mode), Xcode version
-   set to the current default (or explicitly 26+ if the dashboard exposes that choice — this is
-   exactly the F1.1/F1.2 toolchain check from the iOS Submission Audit, just running on Unity's Mac
-   instead of yours).
-4. **iOS signing.** Either upload a `.p12` certificate + `.mobileprovision` profile directly, or
-   (simpler, recommended) let Cloud Build manage signing automatically via an App Store Connect API
-   key (generate one in App Store Connect → Users and Access → Keys, upload it in the Cloud Build
-   dashboard's signing section). Bundle ID must be `com.farmfury.arcade`, matching
-   `ProjectSettings.asset`'s already-set `applicationIdentifier` (see the "IAP plumbing" section
-   above for why that ID was chosen).
-5. **TestFlight auto-publish.** Cloud Build's "Auto-publish to TestFlight" option (under the build
-   target's advanced options) needs the same App Store Connect API key from step 4 — turn it on so a
-   successful build uploads straight to TestFlight without a separate manual step.
-6. **First build.** Trigger it manually from the dashboard (don't rely on a git push auto-triggering
-   until the first one succeeds). Watch for exactly two known failure modes: a Unity/Xcode version
-   mismatch (fix by aligning the build target's Unity version to `6000.5.0f1`), or a privacy
-   manifest/App Privacy issue (F3.1/F3.2 from the iOS Submission Audit — check the build log's
-   generated `PrivacyInfo.xcprivacy` once a build actually succeeds).
+**Two distinct Apple credential concerns, both now set up:**
+
+1. **Code signing** (makes the IPA valid at all) — an **Apple Distribution** certificate +
+   **App Store Connect** provisioning profile for `com.farmfury.arcade`, bundled as a `.p12` +
+   its password. Generated entirely via OpenSSL on Windows (no Mac/Keychain needed):
+   `genrsa` → CSR → upload CSR to Apple Developer → Certificates → download `.cer` → convert to
+   `.pem` (`openssl x509 -inform DER`) → create an **App Store Connect** (not Ad Hoc — no device
+   UDID registration needed for TestFlight/App Store distribution) provisioning profile for the
+   App ID → `openssl pkcs12 -export -legacy` to produce the final `.p12`. Both the `.p12` and the
+   `.mobileprovision` are uploaded directly into Unity Cloud Build's own **Credentials** section
+   (Project → DevOps → Build Automation → Credentials → new iOS credential), which then becomes
+   selectable as "Credentials set" on the build target's config page. Bundle ID field on that same
+   page: `com.farmfury.arcade`. None of the certificate/key material is stored in this repo — it
+   lives only in Apple's dashboard and Unity's Credentials store.
+2. **Upload authentication** (lets `post-build.bash` push the finished IPA) — an **App Store
+   Connect API key** (Issuer ID + Key ID + `.p8` file), generated in App Store Connect → Users and
+   Access → Integrations → Keys, dedicated to this project (not shared with any other app/key).
+   The `.p8` is AES-256-encrypted locally (`openssl aes-256-cbc -pbkdf2`) and only the encrypted
+   result, `Assets/CloudBuildScripts/authkey.p8.enc`, is committed — the raw `.p8` never touches
+   git (`Assets/CloudBuildScripts/.gitignore` blocks `*.p8` except the `.enc` file). Three env vars
+   carry the Issuer ID, Key ID, and the decryption password into the build agent — see
+   `post-build.bash`'s header for the exact names and where to set them (Cloud Build dashboard →
+   this build target → Advanced Settings → Environment Variables). Script Hooks → Post-Build
+   Script is set to `Assets/CloudBuildScripts/post-build.bash`.
+
+**Build target setup, in the order actually done:**
+
+1. **Link the project.** `Window > Unity Cloud` in the Editor, sign in, link to the org — writes a
+   `productGUID`/cloud project ID into `ProjectSettings.asset` (expected diff, not a bug).
+2. **Connect source control** — GitHub repo `tenbucksmobile-png/farmfury_arcade`, Unity's GitHub
+   App authorized.
+3. **Create the iOS build target** ("FarmFury Arcade iOS"), branch `main`. **Unity version: leave
+   "Auto detect Unity version" / "Build with closest version" checked** (Unity's own built-in
+   version-matching, more robust than hand-pinning `6000.5.0f1` in a dropdown). Builder OS:
+   **macOS Tahoe** (macOS 26 — ships with Xcode 26, satisfying the F1.1 toolchain requirement
+   automatically). Machine spec: Standard (4 vCPU/16GB/512GB) is sufficient.
+4. **Credentials** — the `.p12`/`.mobileprovision`/Bundle ID setup described above.
+5. **Environment Variables + Post-Build Script** — the API key auth setup described above.
+6. **First build** — not yet triggered as of 2026-08-29; plan is to click **Build** on the target
+   manually next session and watch the log. Two likely first-run failure points: a missing/wrong
+   env var (the script fails fast with a named error) or an unanswered Export Compliance question
+   in App Store Connect for this app (answer No/exempt — no custom encryption is used) blocking
+   `xcrun altool`'s upload.
+
+**After a successful build, two local cleanup items** (not yet done as of 2026-08-29 — do these
+once the first build/upload is confirmed working): delete the plaintext `.p8` key and the `.p12`
+password text file from disk (their locations are logged in this session's history, not repeated
+here since they're meant to be transient) — the encrypted copies in git and Unity's Credentials
+store are the durable source of truth. Keep `distribution.key`/`distribution.p12`/the
+`.mobileprovision` backed up somewhere safe (password manager/encrypted archive) regardless, since
+Apple won't reissue the same certificate.
 
 Once a build lands in TestFlight, the F5.2 IAP sandbox test pass and the F2.1 Instruments/
 performance pass from the iOS Submission Audit both become possible for the first time — this is
