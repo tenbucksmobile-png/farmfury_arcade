@@ -1,5 +1,6 @@
 using System.Collections;
 using UnityEngine;
+using FarmFuryArcade.Abilities;
 using FarmFuryArcade.Core;
 using FarmFuryArcade.Enemies;
 
@@ -25,13 +26,36 @@ namespace FarmFuryArcade.Gameplay
         private SpriteRenderer _spriteRenderer;
         private Vector3 _spawnWorldPosition;
 
+        // Real bug found and fixed (2026-08-29): BounceRollAbility (Percy), HeadbuttThroughAbility
+        // (Billy), and PuffUpAbility (Gerald) each define their own OnTriggerEnter2D on this SAME
+        // GameObject to ForceDefeat any robot their active ability touches — but Unity does not
+        // guarantee which sibling MonoBehaviour's OnTriggerEnter2D runs first on a shared trigger
+        // event. If this component's own check happened to run first, the character could die on
+        // the exact contact their ability was about to instantly defeat instead. Cached references
+        // (null on any character without that ability) let OnTriggerEnter2D below treat "currently
+        // mid-ability, robot touch already being handled" as deterministically safe regardless of
+        // callback order, rather than hoping execution order lines up.
+        private BounceRollAbility _bounceRollAbility;
+        private HeadbuttThroughAbility _headbuttThroughAbility;
+        private PuffUpAbility _puffUpAbility;
+
         public bool IsRespawning { get; private set; }
 
         private void Awake()
         {
             _movement = GetComponent<GridMovement>();
             _spriteRenderer = GetComponent<SpriteRenderer>();
+            _bounceRollAbility = GetComponent<BounceRollAbility>();
+            _headbuttThroughAbility = GetComponent<HeadbuttThroughAbility>();
+            _puffUpAbility = GetComponent<PuffUpAbility>();
         }
+
+        /// <summary>True while an active ability on this same GameObject is already handling any
+        /// robot contact itself (ForceDefeat) — see the field doc comment above.</summary>
+        private bool IsProtectedByActiveAbility =>
+            (_bounceRollAbility != null && _bounceRollAbility.IsRolling) ||
+            (_headbuttThroughAbility != null && _headbuttThroughAbility.IsCharging) ||
+            (_puffUpAbility != null && _puffUpAbility.IsPuffed);
 
         private void Start()
         {
@@ -48,6 +72,14 @@ namespace FarmFuryArcade.Gameplay
             var robot = other.GetComponent<RobotBase>();
             if (robot == null)
             {
+                return;
+            }
+
+            if (IsProtectedByActiveAbility)
+            {
+                // An active ability's own OnTriggerEnter2D on this same GameObject is already
+                // ForceDefeat-ing whatever this contact is, regardless of which callback Unity
+                // happens to run first — see the field doc comment above.
                 return;
             }
 

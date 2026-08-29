@@ -40,6 +40,12 @@ namespace FarmFuryArcade.Abilities
         private Sprite _preChargeSprite;
         private bool _isCharging;
 
+        /// <summary>Read by PlayerHealth (same GameObject) — same race-condition fix as
+        /// BounceRollAbility.IsRolling, see its own doc comment. Without this, Billy could die on
+        /// the exact contact his charge was meant to ForceDefeat instead, depending on which
+        /// sibling MonoBehaviour's OnTriggerEnter2D Unity happened to run first.</summary>
+        public bool IsCharging => _isCharging;
+
         protected override void Awake()
         {
             base.Awake();

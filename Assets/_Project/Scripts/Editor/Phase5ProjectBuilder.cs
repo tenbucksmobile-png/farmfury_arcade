@@ -781,11 +781,25 @@ namespace FarmFuryArcade.EditorTools
             // instead of CreateText's plain-white default — white was unreadable against the
             // bright sky/backdrop art behind it, per a gameplay screenshot review.
             var hudTextColor = new Color(0.25f, 0.15f, 0.06f);
+            // Real bug found and fixed (2026-08-29): every inset in this whole method was tuned
+            // back when these elements were parented straight onto the raw screen edge — SafeArea
+            // (added 2026-08-28, right above) now shrinks ITS OWN rect to Screen.safeArea first, and
+            // every AnchorTopLeft/AnchorBottomRight/etc. call below measures its inset from THAT
+            // already-inset edge, not the physical screen edge. On any device that actually reports
+            // a non-zero safe-area inset (a notch, Dynamic Island, gesture bar — which is most of
+            // them), the two insets now stack: the deep "clear the maze" values tuned pre-SafeArea
+            // over-inset every corner element a second time, pulling the whole HUD further inward
+            // and deeper onto the maze's own rendered tiles instead of off them — the opposite of
+            // what they were meant to do. Reduced across the board (previous values noted per call)
+            // since SafeArea's own shrink now already does the "clear the device's real unsafe
+            // edge" job on its own; these residual insets are just breathing room from the safe
+            // rectangle's edge, not double duty. Previously 170 -> 110 (a same-day-earlier fix) ->
+            // 60 now.
             var timerText = CreateText("TimerText", safeArea.transform, "00:00", 60f, TextAlignmentOptions.TopLeft, 90f, hudTextColor);
-            AnchorTopLeft((RectTransform)timerText.transform, new Vector2(240f, 90f), new Vector2(170f, -80f));
+            AnchorTopLeft((RectTransform)timerText.transform, new Vector2(240f, 90f), new Vector2(60f, -40f));
 
             var scoreText = CreateText("ScoreText", safeArea.transform, "0", 72f, TextAlignmentOptions.TopLeft, 90f, hudTextColor);
-            AnchorTopLeft((RectTransform)scoreText.transform, new Vector2(320f, 90f), new Vector2(170f, -170f));
+            AnchorTopLeft((RectTransform)scoreText.transform, new Vector2(320f, 90f), new Vector2(60f, -130f));
 
             // Monetisation: coin balance display — previously SaveManager.CoinBalance had no
             // on-screen display anywhere at all (only surfaced indirectly via the Revive prompt's
@@ -805,9 +819,10 @@ namespace FarmFuryArcade.EditorTools
             var coinDisplayRect = (RectTransform)coinDisplayGO.transform;
             coinDisplayRect.anchorMin = coinDisplayRect.anchorMax = new Vector2(1f, 1f);
             coinDisplayRect.pivot = new Vector2(1f, 1f);
-            // Same top-right inset the old chip used, so this still lines up with TimerText's top
-            // edge on the opposite corner.
-            coinDisplayRect.anchoredPosition = new Vector2(-170f, -80f);
+            // Shifted right and down (-100,-40 -> -70,-70) per feedback ("shift the coin and
+            // counter slightly to the right and slightly downward") — a device screenshot showed it
+            // sitting too close to the top-right corner of the yellow safe-area guide.
+            coinDisplayRect.anchoredPosition = new Vector2(-70f, -70f);
             var coinDisplayHlg = coinDisplayGO.GetComponent<HorizontalLayoutGroup>();
             coinDisplayHlg.spacing = 14f;
             coinDisplayHlg.childAlignment = TextAnchor.MiddleRight;
@@ -877,10 +892,13 @@ namespace FarmFuryArcade.EditorTools
             // WatchAd, skip-cooldown-to-icon) so they all read as the same consistent spacing
             // instead of several different hand-tuned values.
             const float clusterSpacing = 30f;
-            // Deepened (-90 -> -160) per a gameplay-screen review — the cluster (Pause button in
-            // particular) was still crossing the yellow safe-area guide's right edge.
-            const float clusterInsetX = -160f;
-            const float clusterInsetY = 90f;
+            // Pulled back out again (-160 -> -100 -> -60) — see the real root cause documented on
+            // TimerText/ScoreText above: SafeArea's own shrink (added 2026-08-28) now already
+            // clears the device's real unsafe edge, so keeping this corner's insets as deep as they
+            // were tuned pre-SafeArea double-inset it, still crowding the ability/swap icons in
+            // over the maze even after the first -100 pass.
+            const float clusterInsetX = -60f;
+            const float clusterInsetY = 50f;
 
             // Ability icon enlarged (120 -> 150 -> 210) and shifted further left (its own inset, not
             // Pause's) per direct feedback — it's the on-screen ability button (see below) and the
@@ -890,8 +908,12 @@ namespace FarmFuryArcade.EditorTools
             // shifting it left of where Pause's own X still sits. The AnchorBottomRight pivot means
             // this growth extends the box up and left from its fixed bottom-right corner, so
             // enlarging it doesn't need any inset retuning to avoid clipping the screen edge.
-            const float abilityButtonSize = 210f;
-            const float abilityShiftLeft = 30f;
+            // Shrunk slightly (210 -> 180) and shifted right (abilityShiftLeft 30 -> 10, i.e. less
+            // inward from clusterInsetX) per feedback ("slightly reduce the size... and shift
+            // slightly right, keep inside the yellow border") — a device screenshot showed both
+            // icons crowding right up against the yellow safe-area guide.
+            const float abilityButtonSize = 180f;
+            const float abilityShiftLeft = 10f;
             const float abilityInsetX = clusterInsetX - abilityShiftLeft;
 
             const float skipButtonSize = 64f;
@@ -1022,10 +1044,18 @@ namespace FarmFuryArcade.EditorTools
             // Shifted down and to the left again (inset 260/240 -> 235/210) per feedback, while
             // staying inside the yellow safe-area guide — this also opens up the headroom the new
             // Pause button (below) needs to sit above the diamond without crowding it.
+            // Pulled back out again (235/210 -> 150/140) — same SafeArea double-inset root cause
+            // documented on TimerText/ScoreText/clusterInsetX above: this diamond's centre inset was
+            // tuned pre-SafeArea against the raw screen edge, and SafeArea's own shrink (added
+            // 2026-08-28) now applies a second, redundant inward pull on top of it on any device
+            // that reports a real notch/gesture-bar safe-area inset.
+            // Shifted slightly further left (150 -> 115) per feedback ("shift the direction buttons
+            // slightly left, include the Btn_pause") — Pause needs no separate change, its own
+            // position is computed off the D-pad's Up button below and follows automatically.
             const float dpadButtonSize = 90f;
             const float dpadSpacing = 70f;
-            const float dpadInsetX = 235f;
-            const float dpadInsetY = 210f;
+            const float dpadInsetX = 115f;
+            const float dpadInsetY = 140f;
             Vector2 dpadCenter = new Vector2(dpadInsetX, dpadInsetY);
 
             var upButton = CreateButton("DPadUpButton", safeArea.transform, string.Empty, Color.clear, out _);
@@ -1949,46 +1979,56 @@ namespace FarmFuryArcade.EditorTools
             var statusText = CreateText("StatusText", root.transform, string.Empty, 26f, TextAlignmentOptions.Center, 40f);
             AnchorBottomCenter((RectTransform)statusText.transform, new Vector2(860f, 40f), new Vector2(0f, 140f));
 
-            // Restore Purchases moved onto a real Btn_plaque.png background, bottom-left, just
-            // inside the safe-area guide (2026-08-28) — was a plain solid-color text button
-            // bottom-center. Box sized to Btn_plaque.png's own real aspect (485x256, ~1.895) so the
-            // plaque art renders undistorted (this button is built directly here, not through
-            // ArtWiringBuilder.SetImageSprite, so preserveAspect genuinely applies — no Sliced-
-            // squash risk). Same (110, 70) bottom-left inset CreateRoundBackButton's own bottom-left
-            // variant uses ("matching the generic bottom-left inset every other screen uses"), and
-            // sized small enough (300 wide) to leave clear headroom below the coin row above it.
+            // Restore Purchases sits on a real Btn_plaque.png background, bottom-left, just inside
+            // the safe-area guide. Plaque size and label size are both derived from ONE constant
+            // (restorePlaqueWidth) instead of two independently hand-tuned numbers — the label's
+            // RectTransform is anchored by FRACTION of the plaque's own rect, so shrinking or
+            // growing restorePlaqueWidth resizes both together, they can never drift out of sync
+            // again. Shrunk 300 -> 260 per feedback ("plaque can be several px smaller").
+            // preserveAspect is set explicitly (belt-and-suspenders, even though restorePlaqueHeight
+            // is already derived to match the art's own 485x256 aspect) so the plaque can never
+            // silently letterbox/pillarbox inside its box and read as smaller than its label.
             const float restorePlaqueAspect = 485f / 256f;
-            const float restorePlaqueWidth = 300f;
+            const float restorePlaqueWidth = 260f;
             const float restorePlaqueHeight = restorePlaqueWidth / restorePlaqueAspect;
             var restorePurchasesButton = CreateButton("RestorePurchasesButton", root.transform, "Restore Purchases",
-                Color.white, 24f, restorePlaqueHeight, out var restorePurchasesLabel);
+                Color.white, 20f, restorePlaqueHeight, out var restorePurchasesLabel);
             var restoreButtonRect = (RectTransform)restorePurchasesButton.transform;
             AnchorBottomLeft(restoreButtonRect, new Vector2(restorePlaqueWidth, restorePlaqueHeight), new Vector2(110f, 70f));
             var restoreButtonImage = restorePurchasesButton.GetComponent<Image>();
             restoreButtonImage.sprite = LoadUiSprite("Btn_plaque.png");
             restoreButtonImage.type = Image.Type.Simple;
+            restoreButtonImage.preserveAspect = true;
 
             // Retarget the auto-created label to the plaque's upper portion (was full-stretch) and
             // add a second, smaller status line in the lower portion — keeps both lines fully
             // inside the plaque's own footprint instead of spilling outside it or needing a
-            // separate element that could collide with the coin row above.
+            // separate element that could collide with the coin row above. Anchors pulled in from
+            // 0.08/0.92 to 0.14/0.86 for real breathing room against the plaque's own rounded edge,
+            // and enableWordWrapping=false + TextOverflowModes.Truncate added on both lines (same
+            // convention GameplayHUD's CoinBalanceText uses) so a long/localized string shrinks to
+            // fit and truncates rather than ever rendering past the plaque's edge.
             var restoreLabelRect = (RectTransform)restorePurchasesLabel.transform;
-            restoreLabelRect.anchorMin = new Vector2(0.08f, 0.52f);
-            restoreLabelRect.anchorMax = new Vector2(0.92f, 0.90f);
+            restoreLabelRect.anchorMin = new Vector2(0.14f, 0.52f);
+            restoreLabelRect.anchorMax = new Vector2(0.86f, 0.90f);
             restoreLabelRect.offsetMin = restoreLabelRect.offsetMax = Vector2.zero;
-            restorePurchasesLabel.fontSize = 22f;
+            restorePurchasesLabel.fontSize = 20f;
             restorePurchasesLabel.enableAutoSizing = true;
-            restorePurchasesLabel.fontSizeMin = 12f;
-            restorePurchasesLabel.fontSizeMax = 22f;
+            restorePurchasesLabel.fontSizeMin = 10f;
+            restorePurchasesLabel.fontSizeMax = 20f;
+            restorePurchasesLabel.enableWordWrapping = false;
+            restorePurchasesLabel.overflowMode = TextOverflowModes.Truncate;
 
-            var restoreStatusText = CreateText("RestoreStatusText", restorePurchasesButton.transform, string.Empty, 16f, TextAlignmentOptions.Center, 30f);
+            var restoreStatusText = CreateText("RestoreStatusText", restorePurchasesButton.transform, string.Empty, 14f, TextAlignmentOptions.Center, 30f);
             var restoreStatusRect = (RectTransform)restoreStatusText.transform;
-            restoreStatusRect.anchorMin = new Vector2(0.08f, 0.10f);
-            restoreStatusRect.anchorMax = new Vector2(0.92f, 0.48f);
+            restoreStatusRect.anchorMin = new Vector2(0.14f, 0.10f);
+            restoreStatusRect.anchorMax = new Vector2(0.86f, 0.48f);
             restoreStatusRect.offsetMin = restoreStatusRect.offsetMax = Vector2.zero;
             restoreStatusText.enableAutoSizing = true;
-            restoreStatusText.fontSizeMin = 10f;
-            restoreStatusText.fontSizeMax = 16f;
+            restoreStatusText.fontSizeMin = 9f;
+            restoreStatusText.fontSizeMax = 14f;
+            restoreStatusText.enableWordWrapping = false;
+            restoreStatusText.overflowMode = TextOverflowModes.Truncate;
 
             var screen = root.AddComponent<CoinPurchaseScreen>();
             var so = new SerializedObject(screen);
@@ -2335,7 +2375,15 @@ namespace FarmFuryArcade.EditorTools
             // destroyed (icon only now, matching the mockup review that called out "remove the
             // white text overlay").
             var doubleCoinsButton = CreateIconButton("DoubleCoinsButton", root.transform, LoadUiSprite("DoubleCoins.png"), StandardIconButtonSize);
-            AnchorBottomRight((RectTransform)doubleCoinsButton.transform, new Vector2(StandardIconButtonSize, StandardIconButtonSize), new Vector2(-150f, 110f));
+            // Lifted higher/left again (2026-08-29 screenshot feedback: "align with the right
+            // horseshoe") — was (-190, 150). PanelArt is a square AspectRatioFitter filling the full
+            // screen height (1080 in the 1920x1080 reference canvas), so the card's own bottom edge
+            // sits at canvas y=0, same as this button's own anchor origin. The horseshoe decoration
+            // baked into LevelComplete.png sits roughly a third of the way up the card and a modest
+            // distance in from its right edge (pixel-estimated off the screenshot, no visual Editor
+            // access this session — expect to nudge further if it's still off). WatchAdLabel below
+            // moves by the same delta so the two stay tucked together as a pair.
+            AnchorBottomRight((RectTransform)doubleCoinsButton.transform, new Vector2(StandardIconButtonSize, StandardIconButtonSize), new Vector2(-260f, 340f));
 
             // "Watch Ad" label plaque tucked neatly under the x2 coin icon (2026-08-28) — same
             // WatchAd.png banner Gameplay HUD's own skip-cooldown-via-ad button already uses, sized
@@ -2351,7 +2399,9 @@ namespace FarmFuryArcade.EditorTools
             watchAdLabelImage.sprite = LoadUiSprite("WatchAd.png");
             watchAdLabelImage.preserveAspect = true;
             watchAdLabelImage.raycastTarget = false;
-            AnchorBottomRight((RectTransform)watchAdLabelGO.transform, new Vector2(watchAdLabelWidth, watchAdLabelHeight), new Vector2(-175f, 15f));
+            // Moved by the same (-70, +190) delta as DoubleCoinsButton above, so it stays tucked
+            // directly under the icon at its new position rather than drifting apart from it.
+            AnchorBottomRight((RectTransform)watchAdLabelGO.transform, new Vector2(watchAdLabelWidth, watchAdLabelHeight), new Vector2(-285f, 245f));
 
             var playButton = CreateButton("PlayButton", root.transform, string.Empty, new Color(0.85f, 0.55f, 0.1f), 28f, StandardIconButtonSize, out _);
             Object.DestroyImmediate(playButton.transform.Find("PlayButton_Label").gameObject);
@@ -2755,10 +2805,15 @@ namespace FarmFuryArcade.EditorTools
             containerRect.anchorMax = new Vector2(0.5f, 0.5f);
             containerRect.pivot = new Vector2(0.5f, 0.5f);
             containerRect.sizeDelta = new Vector2(1700f, 500f);
-            // Lifted to true screen-vertical-centre (was -20, sitting visibly low against the
-            // backdrop per a device screenshot review) — dead center on the 1920x1080 reference
-            // canvas.
-            containerRect.anchoredPosition = new Vector2(0f, 0f);
+            // Re-centred again (2026-08-29 device screenshot) — plain (0,0) read as off-centre in
+            // practice for two compounding reasons: (1) the arc's dip is one-directional
+            // (y = -arcRadius*(1-cos(angle)), see CardCarouselController below — every off-centre
+            // card sags DOWN, never up, so the row's actual visual mass sits below the centred
+            // card's own y), and (2) with 8 cards and an odd centred index, the fan of visible
+            // cards trails further off-frame to one side than the other, reading as left-clipped
+            // with a gap on the right. Nudged right (+50) and up (+20) to compensate — first-pass,
+            // no visual Editor access this session, expect to nudge further if it still reads off.
+            containerRect.anchoredPosition = new Vector2(50f, 20f);
             cardContainerGO.transform.SetParent(root.transform, false);
             var containerImage = cardContainerGO.GetComponent<Image>();
             containerImage.sprite = PlaceholderSprite.Get(Color.clear);

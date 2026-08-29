@@ -35,6 +35,24 @@ namespace FarmFuryArcade.UI
         private readonly List<CharacterSelectCard> _cards = new List<CharacterSelectCard>();
         private bool _isBusy;
 
+        /// <summary>Real bug found and fixed (2026-08-29): this screen is now reachable directly
+        /// from Gameplay HUD's own Swap Character button (added 2026-08-27) and via Tab while
+        /// playing, neither of which used to go through GameManager.PauseGame() the way the
+        /// screen's old Pause-hosted entry point implicitly did. GameManager.Update() checks the
+        /// level timer every frame regardless of Time.timeScale, so with nothing freezing time or
+        /// moving CurrentState off Playing, the 120s level timer kept burning for real while a
+        /// player browsed characters — running out mid-browse silently flipped GameState to
+        /// LevelFailed behind the still-open overlay, and closing the picker afterward never
+        /// noticed (its "resume" checks only fired for GameState.Paused, which by then it no longer
+        /// was) — reading as "swap character, then somehow land on Level Complete/Failed with no
+        /// way back to the game," and separately as "the level ended before all the pellets were
+        /// collected" when a long character-browsing session ate the whole timer. Tracks whether
+        /// the game was ALREADY paused when this screen opened, so Show() can pause it itself when
+        /// it wasn't (freezing time, matching every other overlay's convention) and Close() can
+        /// tell whether Back should hand control back to the Pause menu or just resume gameplay
+        /// directly.</summary>
+        private bool _gameWasAlreadyPaused;
+
         private void Awake()
         {
             backButton.onClick.AddListener(Close);
@@ -67,6 +85,17 @@ namespace FarmFuryArcade.UI
 
         public void Show()
         {
+            _gameWasAlreadyPaused = GameManager.Instance != null &&
+                GameManager.Instance.CurrentState == GameState.Paused;
+            if (!_gameWasAlreadyPaused && GameManager.Instance != null &&
+                GameManager.Instance.CurrentState == GameState.Playing)
+            {
+                // Freezes time and moves CurrentState to Paused, exactly like a manual Pause-button
+                // tap would — see this screen's own field doc comment for why this is required now
+                // that Gameplay HUD's Swap Character button/Tab can open this screen mid-run with
+                // nothing else pausing the game first.
+                GameManager.Instance.PauseGame();
+            }
             if (pauseMenuScreen != null)
             {
                 pauseMenuScreen.SetActive(false);
@@ -78,10 +107,20 @@ namespace FarmFuryArcade.UI
         private void Close()
         {
             gameObject.SetActive(false);
-            if (pauseMenuScreen != null && GameManager.Instance != null &&
-                GameManager.Instance.CurrentState == GameState.Paused)
+            if (_gameWasAlreadyPaused)
             {
-                pauseMenuScreen.SetActive(true);
+                // Came from the Pause menu — hand control back to it, same as before.
+                if (pauseMenuScreen != null && GameManager.Instance != null &&
+                    GameManager.Instance.CurrentState == GameState.Paused)
+                {
+                    pauseMenuScreen.SetActive(true);
+                }
+            }
+            else if (GameManager.Instance != null && GameManager.Instance.CurrentState == GameState.Paused)
+            {
+                // Came directly from gameplay (HUD button or Tab) — this screen is the one that
+                // paused the game in Show(), so it's the one that un-pauses it on the way out.
+                GameManager.Instance.ResumeGame();
             }
         }
 

@@ -446,6 +446,20 @@ ComputeDesiredDirection` calls this on every `ResolveTarget()` result before han
 its own target — the straight-line fallback inside `GetNextDirection` remains only as a defensive
 last resort now, not a routinely-hit path.
 
+**Reported again 2026-08-29 (an Orchard-world screenshot, robots looping in a straight row) —
+investigated, no code regression found.** Audited all 25 Orchard `LevelData` assets directly for
+the one known cause documented above (an open 2×2 floor block letting BFS ties read as
+straight-line oscillation) via a standalone script parsing each asset's `mazeLayoutFlat`: zero
+violations across all 25. Also compared `RobotAI.cs`'s current BFS/anti-loop logic and
+`ClampToWalkable` wiring against the 2026-08-28 audit commit's own diff (which reworked
+`ComputeDistances`/`GetValidDirections` to reuse static scratch buffers instead of allocating fresh
+collections per call, for GC pressure) — the refactor is logically equivalent to the original and
+safe under Unity's single-threaded execution (each call fully consumes its shared-buffer result
+before returning; the two call sites, `GetNextDirection` and `FindFarthestCell`, are never
+reentrant with each other). No further lead without a specific repro (which level/robot, does it
+fully freeze vs. just oscillate) — don't re-run the same maze/BFS-correctness checks again without
+new information; start from a screen recording or exact level number instead.
+
 **Fleeing (Vulnerable state):** `RobotBase.GetFleeTarget` used to project a target 10 tiles away
 from the player in the opposite direction — a straight-line point that could land outside the maze
 entirely and fed the same straight-line bias `GetNextDirection` had, so a fleeing robot could get
@@ -548,6 +562,21 @@ which dropped its now-unused stun-duration parameter accordingly), and (once `Bo
 was reworked into a forward roll — see below) `BounceRollAbility` itself via its own
 `OnTriggerEnter2D`. Ducky's `SkipShot` is now the only character ability with no robot-facing
 hazard at all.
+
+**Real bug found and fixed (2026-08-29): a character could die from the exact robot their own
+ability was about to instantly defeat.** `BounceRollAbility` (Percy), `HeadbuttThroughAbility`
+(Billy), and `PuffUpAbility` (Gerald) each define their own `OnTriggerEnter2D` directly on the
+character's own GameObject — the same GameObject `PlayerHealth` lives on, reacting to the same
+trigger contact with a robot (Percy rolling into one, Billy charging through one, Gerald's puffed-
+up body touching one). Unity does not guarantee which sibling `MonoBehaviour`'s `OnTriggerEnter2D`
+runs first on a shared trigger event, so `PlayerHealth`'s death check could win the race against
+the ability's own `ForceDefeat()` call, killing the character instead of the robot. Fixed
+deterministically rather than by relying on script execution order: `BounceRollAbility.IsRolling`/
+`HeadbuttThroughAbility.IsCharging` are now public (mirroring `PuffUpAbility.IsPuffed`, already
+public), and `PlayerHealth` caches references to all three (null on any character without that
+ability) and checks `IsProtectedByActiveAbility` before its death check — if any is currently
+active, the robot contact is already being handled by the ability itself, regardless of which
+`OnTriggerEnter2D` Unity happens to invoke first.
 
 **`BounceRollAbility` (Percy) reworked from wall-phasing to a forward roll-and-kill.** The original
 version armed a "next wall hit becomes temporarily walkable" window (see the old "Wall mutation"
@@ -941,6 +970,16 @@ same `WatchAd.png` banner Gameplay HUD's own skip-cooldown-via-ad button uses, s
 512×214 aspect (140×58.6). Anchored bottom-right, lifted slightly off the very bottom edge (`y=15`,
 not flush at 0) and centred a touch left of the coin icon's own centre, per direct feedback.
 
+**Moved twice more since (2026-08-29), both times as a pair (`DoubleCoinsButton` + `WatchAdLabel`
+always shift by the same delta so they stay tucked together)** — first "higher and to the left"
+(from `(-150, 110)` to `(-190, 150)` / label to `(-215, 55)`), then again per a screenshot asking to
+"align with the right horseshoe" — the decorative horseshoe brackets baked into `LevelComplete.png`
+near the card's lower-middle. `PanelArt` fills the full screen height as a centred square
+(`AspectRatioFitter.FitInParent`, aspect 1), so its own bottom edge coincides with the screen's
+bottom edge — pixel-estimated the horseshoe's position off the screenshot (roughly a third of the
+way up the card, a modest distance in from its right edge; no visual Editor access this session,
+so treat as a first-pass estimate) and moved to `(-260, 340)` / label to `(-285, 245)`.
+
 **"Extra ability charge" / "skip cooldown via ad"** — per the plan doc's own text, these two listed
 placements are literally the same feature ("(d) same button, ad as the free alternative to spending
 coins"), not two separate ones. Built as one: a Watch Ad button in `GameplayHUD`, calling
@@ -1030,6 +1069,18 @@ Sliced-squash risk. Both the "Restore Purchases" label and the status line now l
 plaque's own footprint (retargeted to its upper/lower halves respectively, both auto-sizing) rather
 than as separate elements outside it, so neither can collide with the coin-pack row above regardless
 of how long the status text gets.
+
+**Plaque and label size were independently hand-tuned, not tied together — fixed 2026-08-29** per
+feedback ("ensure the plaque and 'Restore Purchases' are scaled together; the plaque can be a few
+px smaller"). Both were already anchored correctly (the label uses fractional anchors of the
+plaque's own rect, so they always scaled together at runtime), but nothing in the code actually
+guaranteed they'd stay in sync if either was ever retuned independently, and the label had no
+overflow guard. Shrunk `restorePlaqueWidth` 300→260, added `preserveAspect = true` on the plaque
+Image defensively, tightened the label's fractional anchors (0.08/0.92 → 0.14/0.86) for real margin
+against the plaque's rounded edge, and added `enableWordWrapping = false` +
+`TextOverflowModes.Truncate` on both the label and status line (same convention `CoinBalanceText`
+already uses) so a long/localized string shrinks and truncates rather than ever rendering past the
+plaque's edge, regardless of device aspect.
 
 **Store-side setup status (updated 2026-08-25):** all 12 products (the original 5 + 7 cosmetic IAPs
 added since — see "Cosmetics Store UI" below) are now **registered in App Store Connect** for iOS
@@ -1596,6 +1647,42 @@ from their original Phase 5 layouts:
     shared `clusterSpacing` of 30) the same session, per feedback it read as too wide —
     `clusterSpacing` itself is untouched, still governing the Pause-above-D-pad gap.
 
+  **A `SafeArea` intermediate parent was added under `GameplayScreen` (2026-08-28, iOS/cross-
+  platform audit finding C3.3)** — `Utilities/SafeArea.cs` shrinks its own RectTransform's anchors
+  to `Screen.safeArea` live, and every element this section describes (timer/score, coin balance,
+  ability/swap cluster, D-pad, Pause, Revive prompt) is now built under it instead of directly on
+  `GameplayScreen`, so none of it ever renders under a notch/Dynamic Island/gesture bar. Two real
+  bugs this introduced, both found and fixed 2026-08-29 via a direct device screenshot after a
+  report that "buttons, icons, counters are all overlaying the mazes" and that the D-pad/Pause had
+  "disappeared" entirely:
+  1. **`ArtWiringBuilder`'s sprite-wiring paths were never updated for the reparent** — `PauseButton`/
+     `DPadUpButton`/etc.'s `Color.clear` background relies entirely on a wired sprite for any visible
+     art, and `SetImageSprite("GameplayScreen/PauseButton", ...)` etc. now silently failed
+     (`Transform.Find` doesn't recurse through the new intermediate level; it just logs a console
+     warning, never throws) — leaving the D-pad and Pause fully invisible, not just misplaced. Fixed
+     by inserting `SafeArea/` into all 6 affected paths (D-pad ×4, Pause, Revive prompt panel ×4,
+     WatchAdSkipCooldownButton, Score/Timer font) in `ArtWiringBuilder.cs`. Same silent-path-
+     mismatch-after-reparenting class of bug this project has hit before.
+  2. **Every corner inset in `BuildGameplayHUD` was tuned back when these elements sat directly on
+     the raw screen edge** — `SafeArea` now shrinks the coordinate space FIRST, and every
+     `AnchorTopLeft`/`AnchorBottomRight`/etc. call measures its inset from that already-inset edge,
+     not the physical screen edge. On a device that reports a real safe-area inset, the two stack:
+     the deep "clear the maze" values tuned pre-SafeArea double-inset every corner element, pulling
+     the whole HUD further inward and deeper onto the maze's own rendered tiles instead of off them.
+     Reduced across the board to remove the double-count (SafeArea's own shrink now already does the
+     "clear the device's real unsafe edge" job, so these are just residual breathing room, not
+     double duty): `TimerText`/`ScoreText` inset 170→110→60 (kept the same 90px gap between them),
+     `CoinBalanceDisplay` -170,-80→-100,-40, ability/swap cluster `clusterInsetX` -160→-100→-60 /
+     `clusterInsetY` 90→50, D-pad `dpadInsetX` 235→150→115 / `dpadInsetY` 210→140 (Pause's own
+     position is derived from the D-pad's Up button, so it follows automatically). Ability/swap
+     icons also separately shrunk 210→180 and shifted right (`abilityShiftLeft` 30→10) per a
+     follow-up screenshot showing them still crowding the yellow safe-area guide's right edge; coin
+     display separately shifted to -70,-70 for the same reason. **If a future HUD element reads as
+     misplaced on a real device but looks fine in a plain Editor Play Mode test (where
+     `Screen.safeArea` reliably returns the full screen, making `SafeArea` a no-op), check for this
+     exact double-inset pattern first** — Editor testing without a notched device/simulator profile
+     selected in the Game View won't reproduce it at all.
+
   **Swap Character button added (2026-08-27)**, directly above the ability icon — same X inset and
   same size (`abilityButtonSize`, per explicit direction), raised by the icon's own height +
   `clusterSpacing`. Moved here from Pause, which dropped it entirely in its own 2026-08-27 mockup
@@ -1605,10 +1692,26 @@ from their original Phase 5 layouts:
   the same file as the older `SwapCharacter.png` rectangular text-label button, which is now
   unused). `GameplayHUD` gained `swapCharacterButton`/`chooseCharacterScreen` fields; tapping it
   just calls `chooseCharacterScreen.Show()`, same convention Pause's old button used. Tab
-  (`InputController.OnSwapMenuToggleInput`) still works as an independent shortcut, unchanged —
-  `ChooseCharacterScreen.Show()`/`Close()` already handled being opened directly from gameplay
-  (`Close()` only reactivates Pause if `GameManager.CurrentState == GameState.Paused`), so no
-  changes were needed there.
+  (`InputController.OnSwapMenuToggleInput`) still works as an independent shortcut, unchanged.
+
+  **This "no changes were needed" claim was wrong — a real bug, found and fixed 2026-08-29.**
+  Neither the HUD button nor Tab ever called `GameManager.PauseGame()` before opening this screen
+  (unlike the old Pause-hosted entry point, which had already frozen time by the time this screen
+  showed) — so `Time.timeScale` stayed at 1 and `CurrentState` stayed `Playing` the whole time a
+  player browsed characters mid-run. `GameManager.Update()` checks the 120s level timer every frame
+  regardless of `Time.timeScale`, so the timer kept burning for real behind the full-screen
+  overlay; if it ran out mid-browse, `EndLevel(false)` silently flipped `GameState` to
+  `LevelFailed` underneath the still-open picker, and closing the picker afterward never noticed —
+  its "resume gameplay" checks only fired for `GameState.Paused`, which it no longer was. Symptom
+  reported as three separate things that were actually one bug: "swap character → land on Level
+  Complete/Failed with no way back to the game," "the level ended before all the pellets were
+  collected" (the timer, not the crop count, was the real cause), and robots appearing to have
+  "suddenly gotten faster" (they'd kept chasing in real time the whole time input was blocked by
+  the overlay). Fixed in `ChooseCharacterScreen`: `Show()` now calls `PauseGame()` itself whenever
+  the game wasn't already paused (tracked via `_gameWasAlreadyPaused`), and `Close()`/`SelectRoutine`
+  use that flag to decide whether Back should hand control back to the Pause menu or resume
+  gameplay directly — matching every other overlay's "freeze time while shown" convention instead
+  of silently relying on an entry point that no longer always freezes it first.
 
   `SoundButton`/`HomeButton` were removed too (per playtest feedback) — both are reachable via
   Pause instead (Settings' music/SFX toggles, Pause's own Quit button) — leaving just a single
@@ -2610,6 +2713,16 @@ values from the GDD's color palette where one exists (e.g. walls = Wall Brown `#
   actual source resolution before suspecting either the scaling math or the art file's own
   resolution** — both have been correct on every past occurrence; the importer cap was the real
   culprit hiding behind them.
+
+  **Re-reported 2026-08-29 (Orchard) — checked, this occurrence's cap was already correctly fixed.**
+  `OrchardBackground.png`'s `.meta` shows `maxTextureSize: 4096` on both the iOS and Android
+  platform overrides (the two that actually matter for a real build), and `TileMapRenderer.
+  ApplyBackdrop`'s scaling math (`widthUnits`/`heightUnits` derived from a single `imageAspect`
+  ratio, by construction always aspect-preserving) is unchanged and still correct. Couldn't confirm
+  or rule out a genuine remaining stretch from the screenshot alone — if it's still reported, a
+  tight crop of just the backdrop (not the maze on top of it) would help isolate whether it's a
+  real technical stretch or just the art's own wide-panorama composition reading oddly once cropped
+  behind the maze.
 - **Power pellets** — spawn with a real tier instead of always Sunflower. `TileMapRenderer.
   ConfigurePelletTier` rolls a weighted random tier per pellet (Sunflower 70% / GoldenWheat 20% /
   Rainbow 10%, matching the "RarePellets" art naming) and swaps in `sunflowerPelletSprite`
@@ -2948,6 +3061,13 @@ values from the GDD's color palette where one exists (e.g. walls = Wall Brown `#
     since its original 2026-07-31 mockup. Carousel container also re-centred to true screen-
     vertical-middle (`CardContainer.anchoredPosition` `(0, -20)` → `(0, 0)`) per a device screenshot
     showing the cards sitting visibly low against the backdrop.
+  - **Re-centred again (2026-08-29)** — `(0, 0)` still read as off-centre in practice, for two
+    compounding reasons: (1) `CardCarouselController`'s arc dip is one-directional
+    (`y = -arcRadius*(1-cos(angle))` — every off-centre card sags DOWN, never up, so the row's
+    actual visual mass sits below the centred card's own y), and (2) with 8 cards and an odd
+    centred index, the fan of visible cards trails further off-frame to one side than the other,
+    reading as left-clipped with a gap on the right. Nudged to `(50, 20)` to compensate —
+    first-pass, no visual Editor access this session, expect to nudge further if it still reads off.
   - **`CreateRoundBackButton` had a sign bug**, found while fixing the above: its `bottomRight`
     branch reused `AnchorBottomLeft`'s positive-X-is-inward offset convention, but for a
     right-pivoted anchor a *positive* X pushes the element further right/off-screen — negative X

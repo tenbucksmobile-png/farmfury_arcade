@@ -48,6 +48,14 @@ namespace FarmFuryArcade.Abilities
         private Sprite _preRollSprite;
         private bool _isRolling;
 
+        /// <summary>Read by PlayerHealth (same GameObject) so a robot this roll's own
+        /// OnTriggerEnter2D is about to ForceDefeat can never instead kill Percy first — Unity does
+        /// not guarantee which sibling MonoBehaviour's OnTriggerEnter2D runs first on the same
+        /// trigger event, so relying on execution order alone was a real race (found 2026-08-29):
+        /// PlayerHealth's death check could win the race and kill Percy on the very contact meant to
+        /// defeat the robot instead.</summary>
+        public bool IsRolling => _isRolling;
+
         protected override void Awake()
         {
             base.Awake();

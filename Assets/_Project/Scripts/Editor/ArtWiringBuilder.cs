@@ -1881,11 +1881,19 @@ namespace FarmFuryArcade.EditorTools
             // — Daily Challenge is now the first shield in the world carousel instead (see
             // WireLevelSelect below, which wires its DailyChallenge.png art).
 
-            SetImageSprite(canvasTransform, "GameplayScreen/PauseButton", pause);
-            SetImageSprite(canvasTransform, "GameplayScreen/DPadUpButton", Load(DPadUp));
-            SetImageSprite(canvasTransform, "GameplayScreen/DPadDownButton", Load(DPadDown));
-            SetImageSprite(canvasTransform, "GameplayScreen/DPadLeftButton", Load(DPadLeft));
-            SetImageSprite(canvasTransform, "GameplayScreen/DPadRightButton", Load(DPadRight));
+            // Paths go through "SafeArea/" (Phase5ProjectBuilder.BuildGameplayHUD parents every
+            // corner HUD element under a SafeArea intermediate now — see SafeArea.cs, added
+            // 2026-08-28) — these 5 still pointed at the pre-SafeArea "GameplayScreen/<name>" paths,
+            // so Transform.Find silently failed (a console warning only, never an exception) and
+            // left the D-pad/Pause buttons on their Color.clear placeholder background with no
+            // sprite ever assigned — i.e. fully invisible, not just misplaced. Same silent-path-
+            // mismatch-after-reparenting class of bug this project has hit before (see the
+            // LevelCompleteScreen/PlayButton note elsewhere in this file).
+            SetImageSprite(canvasTransform, "GameplayScreen/SafeArea/PauseButton", pause);
+            SetImageSprite(canvasTransform, "GameplayScreen/SafeArea/DPadUpButton", Load(DPadUp));
+            SetImageSprite(canvasTransform, "GameplayScreen/SafeArea/DPadDownButton", Load(DPadDown));
+            SetImageSprite(canvasTransform, "GameplayScreen/SafeArea/DPadLeftButton", Load(DPadLeft));
+            SetImageSprite(canvasTransform, "GameplayScreen/SafeArea/DPadRightButton", Load(DPadRight));
 
             // PauseOverlay's Play/Skip/Settings/Quit buttons are baked directly at construction
             // time in Phase5ProjectBuilder.BuildPauseMenu — nothing to wire here.
@@ -1938,10 +1946,11 @@ namespace FarmFuryArcade.EditorTools
                 return;
             }
 
-            SetImageSprite(canvasTransform, "GameplayScreen/RevivePromptOverlay/PanelArt", Load(RevivePromptPanel));
-            SetImageSprite(canvasTransform, "GameplayScreen/RevivePromptOverlay/PanelArt/Content/ReviveButton", Load(BtnRevive));
-            SetImageSprite(canvasTransform, "GameplayScreen/RevivePromptOverlay/PanelArt/Content/WatchAdButton", Load(BtnWatchAd));
-            SetImageSprite(canvasTransform, "GameplayScreen/RevivePromptOverlay/PanelArt/Content/DeclineButton", Load(BtnDecline));
+            // Also under SafeArea now — see the DPad/Pause path fix above for why this matters.
+            SetImageSprite(canvasTransform, "GameplayScreen/SafeArea/RevivePromptOverlay/PanelArt", Load(RevivePromptPanel));
+            SetImageSprite(canvasTransform, "GameplayScreen/SafeArea/RevivePromptOverlay/PanelArt/Content/ReviveButton", Load(BtnRevive));
+            SetImageSprite(canvasTransform, "GameplayScreen/SafeArea/RevivePromptOverlay/PanelArt/Content/WatchAdButton", Load(BtnWatchAd));
+            SetImageSprite(canvasTransform, "GameplayScreen/SafeArea/RevivePromptOverlay/PanelArt/Content/DeclineButton", Load(BtnDecline));
 
             // GameplayScreen/CharacterPortrait/SkipCooldownCoinBadge (2026-08-28 rework, replacing
             // the old separate "-3" SkipCooldownButton — see Phase5ProjectBuilder.BuildGameplayHUD's
@@ -1954,7 +1963,7 @@ namespace FarmFuryArcade.EditorTools
             // box (Phase5ProjectBuilder.BuildGameplayHUD's watchAdButtonWidth/Height) is already
             // sized to WatchAd.png's real 512x214 aspect, so SetImageSprite's Sliced stretch renders
             // it uniformly instead of squashing it.
-            SetImageSprite(canvasTransform, "GameplayScreen/WatchAdSkipCooldownButton", Load(BtnWatchAd));
+            SetImageSprite(canvasTransform, "GameplayScreen/SafeArea/WatchAdSkipCooldownButton", Load(BtnWatchAd));
 
             // GameplayScreen/CoinBalanceDisplay/CoinIcon (2026-08-28 rework, replacing the old
             // wood-frame CoinBalanceChip plaque — see Phase5ProjectBuilder.BuildGameplayHUD's own
@@ -2208,8 +2217,8 @@ namespace FarmFuryArcade.EditorTools
                 return;
             }
 
-            SetFont(canvasTransform, "GameplayScreen/ScoreText", font);
-            SetFont(canvasTransform, "GameplayScreen/TimerText", font);
+            SetFont(canvasTransform, "GameplayScreen/SafeArea/ScoreText", font);
+            SetFont(canvasTransform, "GameplayScreen/SafeArea/TimerText", font);
 
             EditorSceneManager.SaveScene(EditorSceneManager.GetActiveScene());
         }
