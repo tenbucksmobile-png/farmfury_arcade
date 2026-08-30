@@ -492,7 +492,7 @@ namespace FarmFuryArcade.EditorTools
             string[] screenNames =
             {
                 "SettingsOverlay", "StoreComingSoonOverlay", "CosmeticsHubScreen",
-                "HatPurchaseScreen", "TrailPurchaseScreen", "LeaderboardsScreen"
+                "LeaderboardsScreen"
             };
 
             foreach (var name in screenNames)

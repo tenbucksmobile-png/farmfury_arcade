@@ -9,7 +9,8 @@ namespace FarmFuryArcade.UI
     /// (ShopBanner.png) and a single row of 4 icons: Cash (Shop.png, opens
     /// <see cref="CoinPurchaseScreen"/> for the actual coin packs), Worlds (WorldMaze.png, opens
     /// the World Purchase screen), Ads (Ads.png, a direct Remove Ads purchase — no sub-screen), and
-    /// Cosmetics (Cosmetics_Icon.png, opens <see cref="CosmeticsHubScreen"/>). Discards the old
+    /// Cosmetics (Cosmetics_Icon.png, opens the unified Cosmetics purchase screen — all 7 hat/trail
+    /// items on one screen, see Phase5ProjectBuilder.BuildCosmeticsHubScreen). Discards the old
     /// layout entirely (the 4 coin-pack icons + a big Cosmetics banner button used to live directly
     /// on this screen — they're now one tap further in, behind the Cash/Cosmetics icons).
     ///
@@ -22,8 +23,8 @@ namespace FarmFuryArcade.UI
     /// and makes it non-interactable once SaveManager.AdsRemoved is already true (same convention
     /// Level Complete's DoubleCoinsButton uses for an icon-only "already owned" state).
     ///
-    /// Overlay convention, same as SettingsPanel/CosmeticsHubScreen — shown/hidden directly via
-    /// Show()/SetActive, not through SceneTransitionManager.
+    /// Overlay convention, same as SettingsPanel — shown/hidden directly via Show()/SetActive, not
+    /// through SceneTransitionManager.
     /// </summary>
     public class ShopController : MonoBehaviour
     {
@@ -36,7 +37,7 @@ namespace FarmFuryArcade.UI
         [SerializeField] private CosmeticPurchaseScreen worldPurchaseScreen;
 
         [SerializeField] private Button cosmeticsButton;
-        [SerializeField] private CosmeticsHubScreen cosmeticsHubScreen;
+        [SerializeField] private CosmeticPurchaseScreen cosmeticsHubScreen;
 
         [SerializeField] private Button removeAdsButton;
         [SerializeField] private Image removeAdsButtonIcon;

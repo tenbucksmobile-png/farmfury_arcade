@@ -62,14 +62,20 @@ namespace FarmFuryArcade.Core
             return _canvasTransform != null ? _canvasTransform.Find(name)?.gameObject : null;
         }
 
+        /// <summary>Updated 2026-08-30 for the new Title screen (attract mode, tap to continue) —
+        /// it's now the initial active screen, not Main Menu, which starts hidden until the player
+        /// taps through TitleScreenController.</summary>
         private void VerifyMainMenuIsInitialScreen()
         {
+            var titleScreen = Find("TitleScreen");
             var mainMenu = Find("MainMenuScreen");
             var levelSelect = Find("LevelSelectScreen");
-            bool ok = mainMenu != null && mainMenu.activeSelf && levelSelect != null && !levelSelect.activeSelf;
+            bool ok = titleScreen != null && titleScreen.activeSelf
+                && mainMenu != null && !mainMenu.activeSelf
+                && levelSelect != null && !levelSelect.activeSelf;
             Debug.Log(ok
-                ? "[Phase5Test] PASS: Main Menu is the only active top-level screen at startup."
-                : "[Phase5Test] FAIL: expected only MainMenuScreen active at startup.");
+                ? "[Phase5Test] PASS: Title screen is the only active top-level screen at startup."
+                : "[Phase5Test] FAIL: expected only TitleScreen active at startup.");
         }
 
         private IEnumerator TestMainMenuToGameplay()

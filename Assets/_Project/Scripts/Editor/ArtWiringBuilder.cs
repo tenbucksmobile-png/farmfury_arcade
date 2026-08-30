@@ -221,7 +221,10 @@ namespace FarmFuryArcade.EditorTools
         private const string DroneFront = "Assets/_Project/Sprites/Robots/Drone.png";
 
         private const string LogoImage = "Assets/_Project/Sprites/UI/Logo.png";
-        private const string AppIconImage = "Assets/_Project/Sprites/UI/AppIcon.png";
+        // Swapped 2026-08-30 from the original AppIcon.png (a plain Cluck/"ARCADE" square) to the
+        // new FFArcade_Icon.png (Cluck + Bessie, full "FARM FURY ARCADE" wordmark) — both square,
+        // both already the right shape for an app icon; AppIcon.png is left on disk, unreferenced.
+        private const string AppIconImage = "Assets/_Project/Sprites/UI/FFArcade_Icon.png";
         private const string WheatfieldBackdrop = "Assets/_Project/Sprites/UI/Wheatfield_background.png";
         private const string SettingsBackground = "Assets/_Project/Sprites/UI/LoadingScreen Background.png";
         private const string LevelCompletePanel = "Assets/_Project/Sprites/UI/LevelComplete.png";
@@ -330,7 +333,6 @@ namespace FarmFuryArcade.EditorTools
         // (see RevivePromptPanel's comment above). Left configured/imported in case a future screen
         // wants a standalone coin glyph.
         private const string CoinUI = "Assets/_Project/Sprites/UI/Coin_UI.png";
-        private const string CoinBalanceChip = "Assets/_Project/Sprites/UI/Coin_Balance_Chip.png";
         // Main Menu's Shop button — a square 500x500 cash-wad icon (replaced the earlier wide
         // "Shop" banner art in place, same filename; the old banner was renamed to ShopBanner.png
         // and is unused/kept on disk). Icon-only now, no baked-in label to destroy an auto-label
@@ -347,13 +349,13 @@ namespace FarmFuryArcade.EditorTools
         // (DailyChallengeShieldArt, DailyChallenge.png — a wood-shield matching the CornfieldSign/
         // VegetablePatchSign/etc. world badges' own art style), wired below alongside worldSignSprites.
         private const string DailyChallengeShieldArt = "Assets/_Project/Sprites/UI/DailyChallenge.png";
-        private const string RetryButtonArt = "Assets/_Project/Sprites/UI/Retry.png";
-        private const string MenuButtonArt = "Assets/_Project/Sprites/UI/Menu.png";
-        private const string ResumeButtonArt = "Assets/_Project/Sprites/UI/Resume.png";
-        private const string SwapCharacterButtonArt = "Assets/_Project/Sprites/UI/SwapCharacter.png";
-        private const string RestartButtonArt = "Assets/_Project/Sprites/UI/Restart.png";
-        private const string SettingsButtonArt = "Assets/_Project/Sprites/UI/Settings.png";
-        private const string QuitButtonArt = "Assets/_Project/Sprites/UI/Quit.png";
+        // Retry/Menu/Resume/SwapCharacter/Restart/Settings/Quit .png (the old Pause/Level Failed/
+        // Choose-Character button art) are all gone from disk — Pause and Level Failed were both
+        // fully rebuilt (2026-08-27) onto the shared Btn_play/Btn_skip/Btn_settings/Btn_quit icon
+        // set instead (see Phase5ProjectBuilder.BuildPauseMenu/BuildLevelFailed), and the user
+        // deleted the superseded files. These consts/SpritesToConfigure entries were dead (import-
+        // config-only, never actually wired to a button) even before the deletion; removed rather
+        // than left pointing at nothing.
 
         // ---- World 3 (Orchard) + World 4 (Wheat) maze/pickup art --------------------------------
         private const string OrchardWallTile = "Assets/_Project/Sprites/UI/Orchard_WallTile.png";
@@ -525,8 +527,6 @@ namespace FarmFuryArcade.EditorTools
             LevelCompletePanel, LevelFailedPanel, PausedPanel,
             BtnPlay, BtnPause, BtnSettings, BtnQuit, BtnMusic, BtnNoSound, BtnHome, BtnSkip, BtnBack, BtnPlaque,
             RevivePromptPanel, BtnRevive, BtnDecline, BtnWatchAd, BtnDoubleCoins, CoinUI,
-            RetryButtonArt, MenuButtonArt, ResumeButtonArt, SwapCharacterButtonArt, RestartButtonArt,
-            SettingsButtonArt, QuitButtonArt,
             CluckCard, BessieCard, PercyCard, WoollyCard, DuckyCard, HoraceCard, GeraldCard, BillyCard,
             DPadUp, DPadDown, DPadLeft, DPadRight,
             GeraldFront, GeraldBack, GeraldLeft, GeraldLeft1, GeraldRight,
@@ -1966,10 +1966,9 @@ namespace FarmFuryArcade.EditorTools
             SetImageSprite(canvasTransform, "GameplayScreen/SafeArea/WatchAdSkipCooldownButton", Load(BtnWatchAd));
 
             // GameplayScreen/CoinBalanceDisplay/CoinIcon (2026-08-28 rework, replacing the old
-            // wood-frame CoinBalanceChip plaque — see Phase5ProjectBuilder.BuildGameplayHUD's own
-            // doc comment) is self-baked directly there via LoadUiSprite("Coin_UI.png") — nothing to
-            // wire here. Coin_Balance_Chip.png/the CoinBalanceChip constant are now unused; left on
-            // disk rather than deleted.
+            // wood-frame Coin_Balance_Chip.png plaque — see Phase5ProjectBuilder.BuildGameplayHUD's
+            // own doc comment) is self-baked directly there via LoadUiSprite("Coin_UI.png") —
+            // nothing to wire here. Coin_Balance_Chip.png has since been deleted from disk.
 
             // LevelCompleteScreen/DoubleCoinsButton (2026-08-20 redesign) is self-baked directly in
             // Phase5ProjectBuilder.BuildLevelComplete now (square box to match DoubleCoins.png's

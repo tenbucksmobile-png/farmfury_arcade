@@ -62,6 +62,10 @@ namespace FarmFuryArcade.EditorTools
             var fadeGroup = BuildFadeOverlay(canvas.transform);
 
             var mainMenu = BuildMainMenu(canvas.transform);
+            // Title/attract screen (2026-08-30) — shown first, before Main Menu; tap anywhere to
+            // continue. Built new for FFArcade_Icon.png/PressStart.png, which landed with no
+            // existing slot (there was no title screen in the flow before this).
+            var titleScreen = BuildTitleScreen(canvas.transform, mainMenu);
             var (gameplay, comboBanner) = BuildGameplayHUD(canvas.transform);
             var pause = BuildPauseMenu(canvas.transform);
             var settings = BuildSettingsPanel(canvas.transform);
@@ -71,26 +75,12 @@ namespace FarmFuryArcade.EditorTools
             var storeComingSoon = BuildShopOverlay(canvas.transform);
             var coinPurchase = BuildCoinPurchaseScreen(canvas.transform);
             var menuHub = BuildMenuHubScreen(canvas.transform);
+            // Cosmetics (2026-08-30 mockup) — one flat screen with all 7 hat/trail items directly
+            // tappable, each item's own art baking in its price ($1.99 each) — no more Hat/Trail
+            // sub-screens or a shared breadcrumb/price-plaque row. See its own doc comment.
             var cosmeticsHub = BuildCosmeticsHubScreen(canvas.transform);
-            var hatPurchase = BuildCosmeticPurchaseScreen(canvas.transform, "HatPurchaseScreen", LoadCosmeticsSprite("Hat_Icon.png"),
-                new (string productId, Sprite frameSprite)[]
-                {
-                    (IAPManager.HatBaseballCapProductId, LoadHatArtSprite("FrameBaseballCap.png")),
-                    (IAPManager.HatCowboyHatProductId, LoadHatArtSprite("FrameCowboy.png")),
-                    (IAPManager.HatSombreroProductId, LoadHatArtSprite("FrameSombrero.png")),
-                },
-                LoadUiSprite("3.99.png"));
-            var trailPurchase = BuildCosmeticPurchaseScreen(canvas.transform, "TrailPurchaseScreen", LoadCosmeticsSprite("Trails_Tab_Icon.png"),
-                new (string productId, Sprite frameSprite)[]
-                {
-                    (IAPManager.TrailCornHuskProductId, LoadTrailArtSprite("FrameCornHuskTrail.png")),
-                    (IAPManager.TrailRainbowRibbonProductId, LoadTrailArtSprite("FrameRainbowRibbon.png")),
-                    (IAPManager.TrailSparkleDustProductId, LoadTrailArtSprite("FrameSparkleDust(1).png")),
-                    (IAPManager.TrailEmberProductId, LoadTrailArtSprite("FrameEmberTrail.png")),
-                },
-                LoadUiSprite("3.99.png"));
             // World Purchase — a whole new 25-level world ($3.99), not a cosmetic, so it's a
-            // sibling to Cosmetics on the Shop screen rather than living under CosmeticsHubScreen.
+            // sibling to Cosmetics on the Shop screen rather than living under the Cosmetics screen.
             // Built to a real design mockup (WorldPurchaseBackground.png, a single baked composite
             // — background, logo, 3 shields, price plaque all one image) rather than assembled
             // from primitives — see BuildWorldPurchaseScreen's own doc comment.
@@ -98,13 +88,10 @@ namespace FarmFuryArcade.EditorTools
             SetRefs(storeComingSoon.GetComponent<ShopController>(),
                 ("coinPurchaseScreen", coinPurchase.GetComponent<CoinPurchaseScreen>()),
                 ("worldPurchaseScreen", worldPurchase.GetComponent<CosmeticPurchaseScreen>()),
-                ("cosmeticsHubScreen", cosmeticsHub.GetComponent<CosmeticsHubScreen>()));
+                ("cosmeticsHubScreen", cosmeticsHub.GetComponent<CosmeticPurchaseScreen>()));
             SetRefs(menuHub.GetComponent<MenuHubScreen>(),
                 ("settingsScreen", settings.GetComponent<SettingsPanel>()),
                 ("shopScreen", storeComingSoon.GetComponent<ShopController>()));
-            SetRefs(cosmeticsHub.GetComponent<CosmeticsHubScreen>(),
-                ("hatPurchaseScreen", hatPurchase.GetComponent<CosmeticPurchaseScreen>()),
-                ("trailPurchaseScreen", trailPurchase.GetComponent<CosmeticPurchaseScreen>()));
             var (levelComplete, unlockScreen) = BuildLevelComplete(canvas.transform);
             var levelFailed = BuildLevelFailed(canvas.transform);
             var roster = BuildCharacterRoster(canvas.transform, rosterCardPrefab);
@@ -126,11 +113,9 @@ namespace FarmFuryArcade.EditorTools
             var backButtonHandler = managersGO.AddComponent<AndroidBackButtonHandler>();
             SetRefs(backButtonHandler,
                 ("parentalGate", parentalGate.GetComponent<ParentalGateController>()),
-                ("hatPurchaseScreen", hatPurchase.GetComponent<CosmeticPurchaseScreen>()),
-                ("trailPurchaseScreen", trailPurchase.GetComponent<CosmeticPurchaseScreen>()),
                 ("worldPurchaseScreen", worldPurchase.GetComponent<CosmeticPurchaseScreen>()),
                 ("coinPurchaseScreen", coinPurchase.GetComponent<CoinPurchaseScreen>()),
-                ("cosmeticsHubScreen", cosmeticsHub.GetComponent<CosmeticsHubScreen>()),
+                ("cosmeticsHubScreen", cosmeticsHub.GetComponent<CosmeticPurchaseScreen>()),
                 ("legalScreen", legal.GetComponent<LegalScreen>()),
                 ("settingsPanel", settings.GetComponent<SettingsPanel>()),
                 ("shopController", storeComingSoon.GetComponent<ShopController>()),
@@ -144,7 +129,7 @@ namespace FarmFuryArcade.EditorTools
             var transitionSO = new SerializedObject(transitionManager);
             transitionSO.FindProperty("fadeGroup").objectReferenceValue = fadeGroup;
             var screenRootsProp = transitionSO.FindProperty("screenRoots");
-            var screens = new[] { mainMenu, gameplay, levelComplete, levelFailed, roster, leaderboards, levelSelect };
+            var screens = new[] { titleScreen, mainMenu, gameplay, levelComplete, levelFailed, roster, leaderboards, levelSelect };
             screenRootsProp.arraySize = screens.Length;
             for (int i = 0; i < screens.Length; i++)
             {
@@ -152,10 +137,11 @@ namespace FarmFuryArcade.EditorTools
             }
             transitionSO.ApplyModifiedPropertiesWithoutUndo();
 
-            // Only Main Menu starts active; everything else (including overlays) starts hidden.
+            // Title screen starts active (attract mode, tap to continue); everything else
+            // (including Main Menu and every overlay) starts hidden.
             foreach (var screen in screens)
             {
-                screen.SetActive(screen == mainMenu);
+                screen.SetActive(screen == titleScreen);
             }
             pause.SetActive(false);
             settings.SetActive(false);
@@ -166,8 +152,6 @@ namespace FarmFuryArcade.EditorTools
             coinPurchase.SetActive(false);
             menuHub.SetActive(false);
             cosmeticsHub.SetActive(false);
-            hatPurchase.SetActive(false);
-            trailPurchase.SetActive(false);
             worldPurchase.SetActive(false);
             chooseCharacter.gameObject.SetActive(false);
             unlockScreen.gameObject.SetActive(false); // BuildLevelComplete already does this too; explicit for clarity
@@ -740,6 +724,45 @@ namespace FarmFuryArcade.EditorTools
             return root;
         }
 
+        // ---- Title screen -----------------------------------------------------------------------
+
+        /// <summary>Attract-mode title screen (2026-08-30) — shown once at launch, before Main
+        /// Menu; tap anywhere to continue. landing.png (full brightness — same art Main Menu itself
+        /// shows once you continue past this screen, so the hand-off doesn't jump) already bakes in
+        /// its own "FARM FURY ARCADE" wordmark, so a separate FFArcade_Icon.png logo stacked on top
+        /// of it read as redundant clutter (per a screenshot review) — removed, only the pulsating
+        /// PressStart.png prompt remains on top of the backdrop.
+        ///
+        /// Self-contained, same "bake everything at construction time" convention MenuHubScreen/
+        /// ShopController use — nothing here needs ArtWiringBuilder.</summary>
+        private static GameObject BuildTitleScreen(Transform canvasTransform, GameObject mainMenuScreen)
+        {
+            var root = CreatePanel("TitleScreen", canvasTransform, Color.black);
+            root.GetComponent<Image>().sprite = LoadUiSprite("landing.png");
+
+            var pressStartGO = new GameObject("PressStart", typeof(RectTransform), typeof(Image), typeof(CanvasGroup));
+            pressStartGO.transform.SetParent(root.transform, false);
+            var pressStartImage = pressStartGO.GetComponent<Image>();
+            pressStartImage.sprite = LoadUiSprite("PressStart.png");
+            pressStartImage.preserveAspect = true;
+            AnchorBottomCenter((RectTransform)pressStartGO.transform, new Vector2(600f, 160f), new Vector2(0f, 130f));
+
+            // Tap anywhere — the root's own Image (landing.png) is the raycast target, same
+            // "Button directly on the root panel" convention NewCharacterUnlockScreen's own
+            // full-screen tap-to-dismiss gate uses.
+            var tapButton = root.AddComponent<Button>();
+            tapButton.targetGraphic = root.GetComponent<Image>();
+
+            var controller = root.AddComponent<TitleScreenController>();
+            var so = new SerializedObject(controller);
+            so.FindProperty("tapButton").objectReferenceValue = tapButton;
+            so.FindProperty("pressStartGroup").objectReferenceValue = pressStartGO.GetComponent<CanvasGroup>();
+            so.FindProperty("mainMenuScreen").objectReferenceValue = mainMenuScreen;
+            so.ApplyModifiedPropertiesWithoutUndo();
+
+            return root;
+        }
+
         // ---- Gameplay HUD -----------------------------------------------------------------------
 
         private static (GameObject root, ComboNotificationBanner banner) BuildGameplayHUD(Transform canvasTransform)
@@ -875,10 +898,41 @@ namespace FarmFuryArcade.EditorTools
             var bannerGroup = bannerGO.AddComponent<CanvasGroup>();
             var bannerText = CreateText("Text", bannerGO.transform, string.Empty, 26f, TextAlignmentOptions.Center, 60f);
             StretchFull((RectTransform)bannerText.transform);
+
+            // Combo icon — art exists for only 3 of the 8 combos so far (CrossFire.png/DoubleSlam.png/
+            // KicknRoll.png), hidden by default and shown/hidden per-trigger by
+            // ComboNotificationBanner itself depending on whether that combo has matching art.
+            var comboIconGO = new GameObject("Icon", typeof(RectTransform), typeof(Image));
+            comboIconGO.transform.SetParent(bannerGO.transform, false);
+            var comboIconImage = comboIconGO.GetComponent<Image>();
+            comboIconImage.preserveAspect = true;
+            var comboIconRect = (RectTransform)comboIconGO.transform;
+            comboIconRect.anchorMin = new Vector2(0f, 0.5f);
+            comboIconRect.anchorMax = new Vector2(0f, 0.5f);
+            comboIconRect.pivot = new Vector2(0f, 0.5f);
+            comboIconRect.sizeDelta = new Vector2(52f, 52f);
+            comboIconRect.anchoredPosition = new Vector2(6f, 0f);
+            comboIconGO.SetActive(false);
+
             var banner = bannerGO.AddComponent<ComboNotificationBanner>();
             var bannerSO = new SerializedObject(banner);
             bannerSO.FindProperty("bannerText").objectReferenceValue = bannerText;
             bannerSO.FindProperty("canvasGroup").objectReferenceValue = bannerGroup;
+            bannerSO.FindProperty("comboIcon").objectReferenceValue = comboIconImage;
+            var comboIconEntries = new (string comboName, Sprite icon)[]
+            {
+                ("Crossfire", LoadUiSprite("CrossFire.png")),
+                ("Double Slam", LoadUiSprite("DoubleSlam.png")),
+                ("Kick and Roll", LoadUiSprite("KicknRoll.png")),
+            };
+            var comboIconsProp = bannerSO.FindProperty("comboIcons");
+            comboIconsProp.arraySize = comboIconEntries.Length;
+            for (int i = 0; i < comboIconEntries.Length; i++)
+            {
+                var element = comboIconsProp.GetArrayElementAtIndex(i);
+                element.FindPropertyRelative("comboName").stringValue = comboIconEntries[i].comboName;
+                element.FindPropertyRelative("icon").objectReferenceValue = comboIconEntries[i].icon;
+            }
             bannerSO.ApplyModifiedPropertiesWithoutUndo();
 
             // Character portrait / ability icon cluster (bottom-right). Pause used to sit directly
@@ -1244,9 +1298,10 @@ namespace FarmFuryArcade.EditorTools
             signImage.preserveAspect = true;
             AnchorTopCenter((RectTransform)signGO.transform, new Vector2(560f, 315f), new Vector2(0f, -300f));
 
-            // Same 4-button layout as LevelFailedController — Play/Skip bottom-left pair, Settings/
-            // Quit bottom-right pair, identical StandardIconButtonSize + insets (see
-            // BuildLevelFailed's own doc comment for the exact mirroring rationale).
+            // Same 4-button layout LevelFailedController used to have — Play/Skip bottom-left pair,
+            // Settings/Quit bottom-right pair, identical StandardIconButtonSize + insets. Pause
+            // keeps all 4 (unaffected by LevelFailed's own 2026-08-30 "GAME OVER" redesign, which
+            // dropped Skip and re-iconed Quit to Home — see BuildLevelFailed's own doc comment).
             var playButton = CreateIconButton("PlayButton", root.transform, LoadUiSprite("Btn_play.png"), StandardIconButtonSize);
             AnchorBottomLeft((RectTransform)playButton.transform, new Vector2(StandardIconButtonSize, StandardIconButtonSize), new Vector2(150f, 110f));
 
@@ -1667,8 +1722,6 @@ namespace FarmFuryArcade.EditorTools
 
         private const string UISpriteFolder = "Assets/_Project/Sprites/UI";
         private const string CosmeticsChromeFolder = "Assets/_Project/Sprites/Cosmetics";
-        private const string HatArtFolder = "Assets/_Project/Sprites/Cosmetics/Cosmetics_Type_Hat";
-        private const string TrailArtFolder = "Assets/_Project/Sprites/Cosmetics/CosmeticType.Trail";
         private const string MazeThemeArtFolder = "Assets/_Project/Sprites/Cosmetics/CosmeticType_MazeTheme";
 
         /// <summary>Configures a texture as a Sprite (PPU = its own width, same convention every
@@ -1676,7 +1729,17 @@ namespace FarmFuryArcade.EditorTools
         /// than depending on ArtWiringBuilder having already run, since these screens are built
         /// earlier in the standard Phase2->Phase5->ArtWiringBuilder rebuild chain — mirrors
         /// CosmeticWiringBuilder.ConfigureAndLoadSprite's same self-contained approach.</summary>
-        private static Sprite ConfigureAndLoadCosmeticChromeSprite(string path)
+        private static Sprite ConfigureAndLoadCosmeticChromeSprite(string path) => ConfigureAndLoadCosmeticChromeSprite(path, Vector4.zero);
+
+        /// <summary>Border overload — sets the sprite's 9-slice border (Sprite.border, (left,bottom,
+        /// right,top) in source pixels) so a caller can use Image.Type.Sliced to stretch just the
+        /// straight middle section of a pill/plaque shape to any width while keeping its rounded
+        /// end caps undistorted, instead of being locked to the source file's own aspect ratio the
+        /// way Image.Type.Simple + preserveAspect requires. Used by the Restore Purchases plaque,
+        /// which needs to size itself to whatever width its label text actually measures at
+        /// runtime (see CoinPurchaseScreen.ResizeRestoreButtonToFitLabel) — a fixed-aspect box could
+        /// never do that without either squashing the art or leaving dead space.</summary>
+        private static Sprite ConfigureAndLoadCosmeticChromeSprite(string path, Vector4 border)
         {
             if (!File.Exists(path))
             {
@@ -1698,6 +1761,7 @@ namespace FarmFuryArcade.EditorTools
             importer.filterMode = FilterMode.Bilinear;
             importer.GetSourceTextureWidthAndHeight(out int width, out int _);
             importer.spritePixelsPerUnit = width > 0 ? width : 100;
+            importer.spriteBorder = border;
             importer.SaveAndReimport();
 
             return AssetDatabase.LoadAssetAtPath<Sprite>(path);
@@ -1810,9 +1874,8 @@ namespace FarmFuryArcade.EditorTools
         }
 
         private static Sprite LoadUiSprite(string fileName) => ConfigureAndLoadCosmeticChromeSprite($"{UISpriteFolder}/{fileName}");
+        private static Sprite LoadUiSprite(string fileName, Vector4 border) => ConfigureAndLoadCosmeticChromeSprite($"{UISpriteFolder}/{fileName}", border);
         private static Sprite LoadCosmeticsSprite(string fileName) => ConfigureAndLoadCosmeticChromeSprite($"{CosmeticsChromeFolder}/{fileName}");
-        private static Sprite LoadHatArtSprite(string fileName) => ConfigureAndLoadCosmeticChromeSprite($"{HatArtFolder}/{fileName}");
-        private static Sprite LoadTrailArtSprite(string fileName) => ConfigureAndLoadCosmeticChromeSprite($"{TrailArtFolder}/{fileName}");
         private static Sprite LoadMazeThemeArtSprite(string fileName) => ConfigureAndLoadCosmeticChromeSprite($"{MazeThemeArtFolder}/{fileName}");
 
         /// <summary>Icon-only button — no label, art's own aspect preserved, explicit sizeDelta set
@@ -1980,50 +2043,50 @@ namespace FarmFuryArcade.EditorTools
             AnchorBottomCenter((RectTransform)statusText.transform, new Vector2(860f, 40f), new Vector2(0f, 140f));
 
             // Restore Purchases sits on a real Btn_plaque.png background, bottom-left, just inside
-            // the safe-area guide. Plaque size and label size are both derived from ONE constant
-            // (restorePlaqueWidth) instead of two independently hand-tuned numbers — the label's
-            // RectTransform is anchored by FRACTION of the plaque's own rect, so shrinking or
-            // growing restorePlaqueWidth resizes both together, they can never drift out of sync
-            // again. Shrunk 300 -> 260 per feedback ("plaque can be several px smaller").
-            // preserveAspect is set explicitly (belt-and-suspenders, even though restorePlaqueHeight
-            // is already derived to match the art's own 485x256 aspect) so the plaque can never
-            // silently letterbox/pillarbox inside its box and read as smaller than its label.
-            const float restorePlaqueAspect = 485f / 256f;
-            const float restorePlaqueWidth = 260f;
-            const float restorePlaqueHeight = restorePlaqueWidth / restorePlaqueAspect;
+            // the safe-area guide.
+            //
+            // Rebuilt again (2026-08-30) after TWO earlier attempts (a fixed box with shrink-to-fit
+            // autosizing, then the same box with word-wrap) both still rendered "Restore Purchases"
+            // spilling past the plaque's right edge on an actual device screenshot — whatever the
+            // underlying cause, a FIXED-size box relying on the text to shrink/wrap to fit it wasn't
+            // holding up. Inverted the relationship instead: the label is now fixed-size, single-
+            // line, unshrinking (RestorePlaqueFontSize, no autosizing) — and the PLAQUE resizes
+            // itself to the label's own measured width at runtime instead
+            // (CoinPurchaseScreen.ResizeRestoreButtonToFitLabel, using TMP's real GetPreferredValues
+            // on the actual device/font, not a build-time guess). The plaque art itself is now
+            // Image.Type.Sliced with a real border (RestorePlaqueBorder) so its rounded end caps
+            // stay undistorted while its straight middle section stretches to whatever width the
+            // label needs — Image.Type.Simple (the old approach) is locked to the source art's own
+            // aspect ratio and can't do this.
+            var restorePlaqueBorder = new Vector4(90f, 70f, 90f, 70f);
+            const float restorePlaqueHeight = 100f;
+            const float restorePlaqueMinWidth = 220f;
             var restorePurchasesButton = CreateButton("RestorePurchasesButton", root.transform, "Restore Purchases",
-                Color.white, 20f, restorePlaqueHeight, out var restorePurchasesLabel);
+                Color.white, 22f, restorePlaqueHeight, out var restorePurchasesLabel);
             var restoreButtonRect = (RectTransform)restorePurchasesButton.transform;
-            AnchorBottomLeft(restoreButtonRect, new Vector2(restorePlaqueWidth, restorePlaqueHeight), new Vector2(110f, 70f));
+            AnchorBottomLeft(restoreButtonRect, new Vector2(restorePlaqueMinWidth, restorePlaqueHeight), new Vector2(110f, 70f));
             var restoreButtonImage = restorePurchasesButton.GetComponent<Image>();
-            restoreButtonImage.sprite = LoadUiSprite("Btn_plaque.png");
-            restoreButtonImage.type = Image.Type.Simple;
-            restoreButtonImage.preserveAspect = true;
+            restoreButtonImage.sprite = LoadUiSprite("Btn_plaque.png", restorePlaqueBorder);
+            restoreButtonImage.type = Image.Type.Sliced;
 
-            // Retarget the auto-created label to the plaque's upper portion (was full-stretch) and
-            // add a second, smaller status line in the lower portion — keeps both lines fully
-            // inside the plaque's own footprint instead of spilling outside it or needing a
-            // separate element that could collide with the coin row above. Anchors pulled in from
-            // 0.08/0.92 to 0.14/0.86 for real breathing room against the plaque's own rounded edge,
-            // and enableWordWrapping=false + TextOverflowModes.Truncate added on both lines (same
-            // convention GameplayHUD's CoinBalanceText uses) so a long/localized string shrinks to
-            // fit and truncates rather than ever rendering past the plaque's edge.
+            // Fixed-size single-line label, top ~55% of the plaque — no autosizing/wrap/truncate at
+            // all now, since the plaque resizes to it rather than the other way around.
             var restoreLabelRect = (RectTransform)restorePurchasesLabel.transform;
-            restoreLabelRect.anchorMin = new Vector2(0.14f, 0.52f);
-            restoreLabelRect.anchorMax = new Vector2(0.86f, 0.90f);
-            restoreLabelRect.offsetMin = restoreLabelRect.offsetMax = Vector2.zero;
-            restorePurchasesLabel.fontSize = 20f;
-            restorePurchasesLabel.enableAutoSizing = true;
-            restorePurchasesLabel.fontSizeMin = 10f;
-            restorePurchasesLabel.fontSizeMax = 20f;
+            restoreLabelRect.anchorMin = new Vector2(0f, 0.45f);
+            restoreLabelRect.anchorMax = new Vector2(1f, 1f);
+            restoreLabelRect.offsetMin = new Vector2(24f, 4f);
+            restoreLabelRect.offsetMax = new Vector2(-24f, -10f);
+            restorePurchasesLabel.fontSize = 22f;
+            restorePurchasesLabel.enableAutoSizing = false;
             restorePurchasesLabel.enableWordWrapping = false;
-            restorePurchasesLabel.overflowMode = TextOverflowModes.Truncate;
+            restorePurchasesLabel.overflowMode = TextOverflowModes.Overflow;
 
             var restoreStatusText = CreateText("RestoreStatusText", restorePurchasesButton.transform, string.Empty, 14f, TextAlignmentOptions.Center, 30f);
             var restoreStatusRect = (RectTransform)restoreStatusText.transform;
-            restoreStatusRect.anchorMin = new Vector2(0.14f, 0.10f);
-            restoreStatusRect.anchorMax = new Vector2(0.86f, 0.48f);
-            restoreStatusRect.offsetMin = restoreStatusRect.offsetMax = Vector2.zero;
+            restoreStatusRect.anchorMin = new Vector2(0f, 0f);
+            restoreStatusRect.anchorMax = new Vector2(1f, 0.45f);
+            restoreStatusRect.offsetMin = new Vector2(24f, 4f);
+            restoreStatusRect.offsetMax = new Vector2(-24f, 0f);
             restoreStatusText.enableAutoSizing = true;
             restoreStatusText.fontSizeMin = 9f;
             restoreStatusText.fontSizeMax = 14f;
@@ -2044,6 +2107,8 @@ namespace FarmFuryArcade.EditorTools
             so.FindProperty("closeButton").objectReferenceValue = closeButton;
             so.FindProperty("restorePurchasesButton").objectReferenceValue = restorePurchasesButton;
             so.FindProperty("restoreStatusText").objectReferenceValue = restoreStatusText;
+            so.FindProperty("restorePurchasesLabel").objectReferenceValue = restorePurchasesLabel;
+            so.FindProperty("restorePlaqueMinWidth").floatValue = restorePlaqueMinWidth;
             so.ApplyModifiedPropertiesWithoutUndo();
 
             return root;
@@ -2086,110 +2151,67 @@ namespace FarmFuryArcade.EditorTools
             return root;
         }
 
-        /// <summary>Cosmetics category hub — landing.png background, Cosmetics.png "Cosmetics"
-        /// sign, and 3 icons (Hat_Icon.png / Trails_Tab_Icon.png "comet" / MazeThemeTab.png "map").
-        /// The map icon is shown (matching the mockup) but deliberately non-interactive — maze
-        /// reskinning as a cosmetic was tried and dropped in favor of purchasable whole new worlds
-        /// instead (see BuildShopOverlay's "New Worlds" section), so this icon has no destination
-        /// screen to open.</summary>
+        /// <summary>Cosmetics purchase screen (2026-08-30 mockup) — replaces the old 2-tap flow
+        /// (CosmeticsHubScreen's Hat/Trail icons opening separate HatPurchaseScreen/
+        /// TrailPurchaseScreen screens, each with a breadcrumb icon + a single shared "$3.99" price
+        /// plaque) with one flat screen showing all 7 items at once. Each item's own art
+        /// (baseball_price.png/cowboy_price.png/sombrero_price.png/CornHusk_price.png/
+        /// EmberTrail_price.png/RainbowRibbon_price.png/SparkleDust_Price.png) already bakes in its
+        /// icon AND price ($1.99 apiece, per the new art — was $3.99 under the old shared-plaque
+        /// design), so no breadcrumb or separate price sign is needed at all. Background is the
+        /// standard dimmed Landing_Opacity.png poster — same convention (and same file) every other
+        /// screen in this family (Shop/Settings/Cosmetics/World Purchase) uses; an earlier pass used
+        /// the bright, undimmed landing.png instead, which read inconsistent with the rest of the
+        /// suite and was corrected per feedback.
+        ///
+        /// Header uses a smaller/lower-offset custom size (420x230 at y=-95) rather than the shared
+        /// CreateHeaderSign standard (550x310 at y=-55) — the standard size's rope-corner art was
+        /// found poking above the device's safe-area guide on a screenshot review, something the
+        /// other screens using CreateHeaderSign hadn't hit (their content below sits lower). Every
+        /// row position below is computed top-down from this header's own real bottom edge (445-230
+        /// = 215) with a verified gap, not eyeballed.
+        ///
+        /// GameObject name kept as "CosmeticsHubScreen" for scene-path stability even though the
+        /// old 2-icon navigation script (CosmeticsHubScreen.cs) is gone — this now carries a
+        /// CosmeticPurchaseScreen component directly, same generic component the old Hat/Trail
+        /// sub-screens used, just with all 7 items on one screen instead of split across two.</summary>
         private static GameObject BuildCosmeticsHubScreen(Transform canvasTransform)
         {
             var root = CreatePanel("CosmeticsHubScreen", canvasTransform, Color.black);
             ApplyDimmedLandingBackground(root);
 
-            CreateHeaderSign(root.transform, LoadUiSprite("Cosmetics.png"));
+            var headerGO = new GameObject("TitleImage", typeof(RectTransform), typeof(Image));
+            headerGO.transform.SetParent(root.transform, false);
+            var headerImage = headerGO.GetComponent<Image>();
+            headerImage.sprite = LoadUiSprite("Cosmetics.png");
+            headerImage.preserveAspect = true;
+            AnchorTopCenter((RectTransform)headerGO.transform, new Vector2(420f, 230f), new Vector2(0f, -95f));
 
-            var iconRow = CreateHorizontalGroup("IconRow", root.transform, 50f);
-            var iconRowRect = (RectTransform)iconRow.transform;
-            iconRowRect.anchorMin = iconRowRect.anchorMax = new Vector2(0.5f, 0.5f);
-            iconRowRect.pivot = new Vector2(0.5f, 0.5f);
-            iconRowRect.sizeDelta = new Vector2(2 * StandardIconButtonSize + 50f + 60f, StandardIconButtonSize + 20f);
-            iconRowRect.anchoredPosition = Vector2.zero;
-            iconRow.GetComponent<LayoutElement>().preferredHeight = StandardIconButtonSize;
-            var iconRowHlg = iconRow.GetComponent<HorizontalLayoutGroup>();
-            iconRowHlg.childControlWidth = false;
-            iconRowHlg.childForceExpandWidth = false;
-            iconRowHlg.childControlHeight = false;
-            iconRowHlg.childForceExpandHeight = false;
-            iconRowHlg.childAlignment = TextAnchor.MiddleCenter;
+            const float itemWidth = 170f;
+            const float itemHeight = 230f;
+            const float itemSpacing = 40f;
 
-            var hatButton = CreateIconButton("HatButton", iconRow.transform, LoadCosmeticsSprite("Hat_Icon.png"), StandardIconButtonSize);
-            var trailButton = CreateIconButton("TrailButton", iconRow.transform, LoadCosmeticsSprite("Trails_Tab_Icon.png"), StandardIconButtonSize);
-
-            var closeButton = CreateRoundBackButton(root.transform, bottomRight: true);
-            closeButton.GetComponent<Image>().sprite = LoadUiSprite("Btn_back.png");
-
-            var hub = root.AddComponent<CosmeticsHubScreen>();
-            var so = new SerializedObject(hub);
-            so.FindProperty("hatButton").objectReferenceValue = hatButton;
-            so.FindProperty("trailButton").objectReferenceValue = trailButton;
-            so.FindProperty("closeButton").objectReferenceValue = closeButton;
-            // hatPurchaseScreen/trailPurchaseScreen are wired later in BuildAll, once those screens
-            // have actually been created (same deferred cross-screen-reference pattern as Shop's
-            // own cosmeticsHubScreen field above).
-            so.ApplyModifiedPropertiesWithoutUndo();
-
-            return root;
-        }
-
-        /// <summary>Generic cosmetic-style purchase screen — reused for both Hats (3 items:
-        /// Baseball Cap / Cowboy Hat / Sombrero) and Trails (4 items: Corn Husk / Rainbow Ribbon /
-        /// Sparkle Dust / Ember), since both mockups share the same layout: a breadcrumb icon, a
-        /// row of framed purchase items (each item's own wood-frame art is baked directly into the
-        /// button, same "art baked at construction time" convention the old CosmeticCardController
-        /// used for PurchaseCardFrame.png), a single price plaque (every item on a given screen is
-        /// $3.99), and a round back button. Every item purchases via IAPManager directly on tap —
-        /// see CosmeticPurchaseScreen's own doc comment for the purchase/grant flow.</summary>
-        private static GameObject BuildCosmeticPurchaseScreen(Transform canvasTransform, string screenName,
-            Sprite breadcrumbSprite, (string productId, Sprite frameSprite)[] items, Sprite priceSprite)
-        {
-            var root = CreatePanel(screenName, canvasTransform, Color.black);
-            ApplyDimmedLandingBackground(root);
-
-            var breadcrumbGO = new GameObject("BreadcrumbIcon", typeof(RectTransform), typeof(Image));
-            breadcrumbGO.transform.SetParent(root.transform, false);
-            var breadcrumbImage = breadcrumbGO.GetComponent<Image>();
-            breadcrumbImage.sprite = breadcrumbSprite;
-            breadcrumbImage.preserveAspect = true;
-            // Top padding increased 30 -> 62 (+32px) — the icon was overlapping the dimmed poster's
-            // baked-in "FARM FURY" wordmark at the original offset (per a screenshot review).
-            AnchorTopCenter((RectTransform)breadcrumbGO.transform, new Vector2(StandardIconButtonSize, StandardIconButtonSize), new Vector2(0f, -62f));
-
-            // Item icons doubled (160 -> 320) and the row's own spacing scaled up to match (50 ->
-            // 100), so the gaps between icons stay visually proportional to the larger art instead
-            // of reading cramped — same "pad the row" request. Row itself nudged up (20 -> 40) to
-            // tighten the gap to the breadcrumb icon above now that both moved.
-            const float itemIconSize = StandardIconButtonSize * 2f;
-            const float itemSpacing = 100f;
-            var itemRow = CreateHorizontalGroup("ItemRow", root.transform, itemSpacing);
-            var itemRowRect = (RectTransform)itemRow.transform;
-            itemRowRect.anchorMin = itemRowRect.anchorMax = new Vector2(0.5f, 0.5f);
-            itemRowRect.pivot = new Vector2(0.5f, 0.5f);
-            itemRowRect.sizeDelta = new Vector2(items.Length * itemIconSize + (items.Length - 1) * itemSpacing + 60f, itemIconSize + 20f);
-            itemRowRect.anchoredPosition = new Vector2(0f, 40f);
-            itemRow.GetComponent<LayoutElement>().preferredHeight = itemIconSize;
-            var itemRowHlg = itemRow.GetComponent<HorizontalLayoutGroup>();
-            itemRowHlg.childControlWidth = false;
-            itemRowHlg.childForceExpandWidth = false;
-            itemRowHlg.childControlHeight = false;
-            itemRowHlg.childForceExpandHeight = false;
-            itemRowHlg.childAlignment = TextAnchor.MiddleCenter;
-
-            var itemButtonsData = new (string id, Button button)[items.Length];
-            for (int i = 0; i < items.Length; i++)
+            var hatItems = new (string productId, Sprite sprite)[]
             {
-                itemButtonsData[i] = (items[i].productId, CreateIconButton($"Item{i}Button", itemRow.transform, items[i].frameSprite, itemIconSize));
-            }
+                (IAPManager.HatSombreroProductId, LoadCosmeticsSprite("sombrero_price.png")),
+                (IAPManager.HatBaseballCapProductId, LoadCosmeticsSprite("baseball_price.png")),
+                (IAPManager.HatCowboyHatProductId, LoadCosmeticsSprite("cowboy_price.png")),
+            };
+            var trailItems = new (string productId, Sprite sprite)[]
+            {
+                (IAPManager.TrailRainbowRibbonProductId, LoadCosmeticsSprite("RainbowRibbon_price.png")),
+                (IAPManager.TrailSparkleDustProductId, LoadCosmeticsSprite("SparkleDust_Price.png")),
+                (IAPManager.TrailCornHuskProductId, LoadCosmeticsSprite("CornHusk_price.png")),
+                (IAPManager.TrailEmberProductId, LoadCosmeticsSprite("EmberTrail_price.png")),
+            };
 
-            var priceGO = new GameObject("PriceSign", typeof(RectTransform), typeof(Image));
-            priceGO.transform.SetParent(root.transform, false);
-            var priceImage = priceGO.GetComponent<Image>();
-            priceImage.sprite = priceSprite;
-            priceImage.preserveAspect = true;
-            // Enlarged ~1.4x (360x190 -> 500x266, same aspect) to read clearly against the now much
-            // bigger item icons above it; bottom offset kept at 90 rather than scaled the same 2x
-            // the icons got, tightening its gap to the row instead of letting it drift apart.
-            AnchorBottomCenter((RectTransform)priceGO.transform, new Vector2(500f, 266f), new Vector2(0f, 90f));
+            // Row Y positions computed top-down from the header's own real bottom edge (215): hat
+            // row centred at y=20 (top edge 135, a 45px gap under the header would need... actually
+            // a clean 80px gap), trail row centred at y=-250 (top edge -135, a 40px gap under the
+            // hat row's own bottom edge -95; bottom edge -365, a 175px margin above the screen's own
+            // bottom edge at -540) — all a verified clearance, not eyeballed.
+            var hatRow = BuildItemRow("HatRow", root.transform, hatItems, itemWidth, itemHeight, itemSpacing, 20f);
+            var trailRow = BuildItemRow("TrailRow", root.transform, trailItems, itemWidth, itemHeight, itemSpacing, -250f);
 
             var closeButton = CreateRoundBackButton(root.transform, bottomRight: true);
             closeButton.GetComponent<Image>().sprite = LoadUiSprite("Btn_back.png");
@@ -2197,21 +2219,68 @@ namespace FarmFuryArcade.EditorTools
             var statusText = CreateText("StatusText", root.transform, string.Empty, 24f, TextAlignmentOptions.Center, 40f);
             AnchorBottomCenter((RectTransform)statusText.transform, new Vector2(860f, 40f), new Vector2(0f, 20f));
 
+            var allItems = hatRow.Concat(trailRow).ToArray();
             var screen = root.AddComponent<CosmeticPurchaseScreen>();
             var so = new SerializedObject(screen);
             var arrayProp = so.FindProperty("itemButtons");
-            arrayProp.arraySize = itemButtonsData.Length;
-            for (int i = 0; i < itemButtonsData.Length; i++)
+            arrayProp.arraySize = allItems.Length;
+            for (int i = 0; i < allItems.Length; i++)
             {
                 var element = arrayProp.GetArrayElementAtIndex(i);
-                element.FindPropertyRelative("productId").stringValue = itemButtonsData[i].id;
-                element.FindPropertyRelative("button").objectReferenceValue = itemButtonsData[i].button;
+                element.FindPropertyRelative("productId").stringValue = allItems[i].id;
+                element.FindPropertyRelative("button").objectReferenceValue = allItems[i].button;
             }
             so.FindProperty("statusText").objectReferenceValue = statusText;
             so.FindProperty("closeButton").objectReferenceValue = closeButton;
             so.ApplyModifiedPropertiesWithoutUndo();
 
             return root;
+        }
+
+        /// <summary>Lays out one horizontal row of already-priced item plaques (icon + baked-in
+        /// price, no separate label needed) centred at the given Y, returning each item's product
+        /// id paired with its Button for the caller to feed into CosmeticPurchaseScreen's
+        /// itemButtons array.</summary>
+        private static (string id, Button button)[] BuildItemRow(string name, Transform parent,
+            (string productId, Sprite sprite)[] items, float itemWidth, float itemHeight, float spacing, float centerY)
+        {
+            var row = CreateHorizontalGroup(name, parent, spacing);
+            var rowRect = (RectTransform)row.transform;
+            rowRect.anchorMin = rowRect.anchorMax = new Vector2(0.5f, 0.5f);
+            rowRect.pivot = new Vector2(0.5f, 0.5f);
+            rowRect.sizeDelta = new Vector2(items.Length * itemWidth + (items.Length - 1) * spacing + 40f, itemHeight + 20f);
+            rowRect.anchoredPosition = new Vector2(0f, centerY);
+            row.GetComponent<LayoutElement>().preferredHeight = itemHeight;
+            var hlg = row.GetComponent<HorizontalLayoutGroup>();
+            hlg.childControlWidth = false;
+            hlg.childForceExpandWidth = false;
+            hlg.childControlHeight = false;
+            hlg.childForceExpandHeight = false;
+            hlg.childAlignment = TextAnchor.MiddleCenter;
+
+            var buttons = new (string id, Button button)[items.Length];
+            for (int i = 0; i < items.Length; i++)
+            {
+                var button = CreateItemButton($"{name}Item{i}", row.transform, items[i].sprite, itemWidth, itemHeight);
+                buttons[i] = (items[i].productId, button);
+            }
+            return buttons;
+        }
+
+        /// <summary>Non-square counterpart to CreateIconButton — for art like the cosmetics price
+        /// plaques, which are taller than wide (icon + hanging price sign baked into one image), so
+        /// forcing a square box would waste space either letterboxing or (worse, since these are
+        /// built directly rather than through SetImageSprite) never actually distorting the art but
+        /// leaving a mismatched box around it.</summary>
+        private static Button CreateItemButton(string name, Transform parent, Sprite sprite, float width, float height)
+        {
+            var button = CreateButton(name, parent, string.Empty, Color.white, 20f, height, out _);
+            Object.DestroyImmediate(button.transform.Find(name + "_Label").gameObject);
+            var image = button.GetComponent<Image>();
+            image.sprite = sprite;
+            image.preserveAspect = true;
+            ((RectTransform)button.transform).sizeDelta = new Vector2(width, height);
+            return button;
         }
 
         /// <summary>World Purchase screen — header swapped (2026-08-27) from the WorldMaze.png map
@@ -2385,13 +2454,17 @@ namespace FarmFuryArcade.EditorTools
             // moves by the same delta so the two stay tucked together as a pair.
             AnchorBottomRight((RectTransform)doubleCoinsButton.transform, new Vector2(StandardIconButtonSize, StandardIconButtonSize), new Vector2(-260f, 340f));
 
-            // "Watch Ad" label plaque tucked neatly under the x2 coin icon (2026-08-28) — same
-            // WatchAd.png banner Gameplay HUD's own skip-cooldown-via-ad button already uses, sized
-            // to its real 512x214 aspect so it doesn't squash. Purely a visual label (the coin icon
-            // above is the actual tap target, unchanged) — not interactive, so no Button/onClick.
-            // Lifted slightly off the very bottom edge (15, not flush at 0) and centred a touch left
-            // of the coin icon's own centre, per direct feedback.
-            const float watchAdLabelWidth = 140f;
+            // "Watch Ad" label plaque tucked neatly under the x2 coin icon — same WatchAd.png
+            // banner Gameplay HUD's own skip-cooldown-via-ad button already uses. Purely a visual
+            // label (the coin icon above is the actual tap target, unchanged) — not interactive, so
+            // no Button/onClick.
+            //
+            // Resized 2026-08-30 to exactly match DoubleCoinsButton's own width (StandardIconButtonSize)
+            // instead of an independently hand-tuned 140 — and reuses that same button's own X
+            // inset (-260) rather than a separate one, so the two are guaranteed centre-aligned
+            // (same width + same X offset = same centre) instead of needing two numbers kept in
+            // sync by hand. Sits 10px below the icon's own bottom edge (340 - 10 - height).
+            const float watchAdLabelWidth = StandardIconButtonSize;
             const float watchAdLabelHeight = watchAdLabelWidth * 214f / 512f;
             var watchAdLabelGO = new GameObject("WatchAdLabel", typeof(RectTransform), typeof(Image));
             watchAdLabelGO.transform.SetParent(root.transform, false);
@@ -2399,9 +2472,7 @@ namespace FarmFuryArcade.EditorTools
             watchAdLabelImage.sprite = LoadUiSprite("WatchAd.png");
             watchAdLabelImage.preserveAspect = true;
             watchAdLabelImage.raycastTarget = false;
-            // Moved by the same (-70, +190) delta as DoubleCoinsButton above, so it stays tucked
-            // directly under the icon at its new position rather than drifting apart from it.
-            AnchorBottomRight((RectTransform)watchAdLabelGO.transform, new Vector2(watchAdLabelWidth, watchAdLabelHeight), new Vector2(-285f, 245f));
+            AnchorBottomRight((RectTransform)watchAdLabelGO.transform, new Vector2(watchAdLabelWidth, watchAdLabelHeight), new Vector2(-260f, 340f - 10f - watchAdLabelHeight));
 
             var playButton = CreateButton("PlayButton", root.transform, string.Empty, new Color(0.85f, 0.55f, 0.1f), 28f, StandardIconButtonSize, out _);
             Object.DestroyImmediate(playButton.transform.Find("PlayButton_Label").gameObject);
@@ -2544,27 +2615,22 @@ namespace FarmFuryArcade.EditorTools
 
         // ---- Level Failed -----------------------------------------------------------------------
 
-        /// <summary>Rebuilt (2026-08-27) to match a new mockup exactly — self-contained, all art
-        /// baked directly at construction time (same convention MenuHubScreen/ShopController/
-        /// CosmeticsHubScreen use), nothing left for ArtWiringBuilder to wire. Bg_LevelSelect.png
-        /// root background (unchanged from the previous pass), Logo.png top-left (new — the old
-        /// version had none), and the "TRY AGAIN!" card (LevelFailed.png) as an aspect-locked
-        /// PanelArt child (same square-art-on-landscape-overlay fix Pause/Level Complete already
-        /// have; 40/80 inset unchanged from the previous pass, still clears the safe-area guide).
+        /// <summary>Rebuilt again (2026-08-30) to match a new "GAME OVER" mockup exactly —
+        /// Bg_LevelSelect.png root background and Logo.png top-left are unchanged, but the old
+        /// "TRY AGAIN!" card (LevelFailed.png) + StarDisplay/score readout are gone entirely: the
+        /// new mockup shows just a wood-sign "GAME OVER" banner and 3 buttons, no stars/score at
+        /// all. GameOver.png originally landed as bare text with no frame, so a placeholder wood-
+        /// sign composition was built around it — the artist has since replaced the file in place
+        /// with a real framed hanging sign (666x375, same template as Pause.png/Leaderboard.png:
+        /// rope-tied corners, parchment insert, "GAME OVER" baked directly onto it), so that
+        /// placeholder is gone — this is now a single real image, same convention every other
+        /// wood-sign header in this project uses.
         ///
-        /// The card's own blank parchment interior now carries a real StarDisplay + score readout
-        /// (LevelFailedController always shows 0 filled stars — a failed run never earns any — with
-        /// the score earned so far directly BELOW the star row, the mirror image of
-        /// LevelCompleteController's own ShelfContent order, per the mockup and explicit direction).
-        ///
-        /// 4 real buttons replace the old Restart/Quit pair, all StandardIconButtonSize icon
-        /// buttons positioned exactly like LevelCompleteController's PlayButton/DoubleCoinsButton
-        /// (root-level, bottom corners, not inside PanelArt — this mockup's buttons sit on the night
-        /// backdrop below the card, unlike the old version which nested them inside the blank
-        /// parchment): Play + Skip as a bottom-left pair (Play outermost, matching Level Complete's
-        /// own Play position exactly), Settings + Quit as a bottom-right pair (Quit outermost,
-        /// mirroring Play — Settings sits inward next to it, matching the mockup's gear-then-X
-        /// left-to-right order).</summary>
+        /// Only 3 buttons now, matching the mockup exactly (was 4: Play/Skip/Settings/Quit) — Play
+        /// (bottom-left, restarts, unchanged), Settings (opens the shared SettingsPanel overlay,
+        /// unchanged) and Home (bottom-right outermost, Btn_home.png — the old Quit button, same
+        /// QuitToWorldSelect behaviour, just relabelled/re-iconed to match the mockup's house icon;
+        /// the standalone Skip button is gone, since the mockup has no 4th icon for it).</summary>
         private static GameObject BuildLevelFailed(Transform canvasTransform)
         {
             var root = CreatePanel("LevelFailedScreen", canvasTransform, Color.black);
@@ -2577,54 +2643,34 @@ namespace FarmFuryArcade.EditorTools
             logoImage.preserveAspect = true;
             AnchorTopLeft((RectTransform)logoImageGO.transform, new Vector2(LogoImageSize, LogoImageSize), new Vector2(100f, -40f));
 
-            // Fixed 600x600 square, centred (was full-screen-minus-inset via AspectRatioFitter.
-            // FitInParent, which rendered the card nearly full-height — per feedback to match the
-            // mockup's genuinely smaller card, sized/positioned directly instead: clears the bottom
-            // button row's top edge (110 inset + 160 size = 270, +50 margin = 320) with room to
-            // spare, and leaves a healthy margin below the screen's own top edge too.
-            var panelArtGO = new GameObject("PanelArt", typeof(RectTransform), typeof(Image));
-            panelArtGO.transform.SetParent(root.transform, false);
-            var panelArtRect = (RectTransform)panelArtGO.transform;
-            panelArtRect.anchorMin = panelArtRect.anchorMax = new Vector2(0.5f, 0.5f);
-            panelArtRect.pivot = new Vector2(0.5f, 0.5f);
-            panelArtRect.sizeDelta = new Vector2(600f, 600f);
-            panelArtRect.anchoredPosition = new Vector2(0f, 70f);
-            panelArtGO.GetComponent<Image>().sprite = LoadUiSprite("LevelFailed.png");
-
-            // Stars-then-score, in the card's blank interior below the "TRY AGAIN!" banner — first
-            // pass, eyeballed against the mockup (no visual Editor/Play mode access this session);
-            // expect to nudge this band like every other card layout in this project has needed.
-            var shelfGO = CreateVerticalGroup("ShelfContent", panelArtGO.transform, 20f, 0);
-            SetAnchorRect((RectTransform)shelfGO.transform, 0.27f, 0.30f, 0.73f, 0.62f);
-            var starDisplayGO = CreateStarDisplay("Stars", shelfGO.transform, 60);
-            var scoreText = CreateText("ScoreText", shelfGO.transform, "0", 52f, TextAlignmentOptions.Center, 70f, new Color(0.3f, 0.2f, 0.1f));
-
-            var starDisplay = starDisplayGO.GetComponent<StarDisplay>();
-            var starSo = new SerializedObject(starDisplay);
-            starSo.FindProperty("filledStarSprite").objectReferenceValue = LoadUiSprite("ScoreStar.png");
-            starSo.FindProperty("emptyStarSprite").objectReferenceValue = LoadUiSprite("ClearStar.png");
-            starSo.ApplyModifiedPropertiesWithoutUndo();
+            // "GAME OVER" sign — real 666x375 art (~1.776:1, same aspect/size class as Pause.png),
+            // centred at (0,90) same as the placeholder it replaces, comfortably below Logo's own
+            // bottom edge (245) with room to spare.
+            var gameOverGO = new GameObject("GameOverSign", typeof(RectTransform), typeof(Image));
+            gameOverGO.transform.SetParent(root.transform, false);
+            var gameOverImage = gameOverGO.GetComponent<Image>();
+            gameOverImage.sprite = LoadUiSprite("GameOver.png");
+            gameOverImage.preserveAspect = true;
+            var gameOverRect = (RectTransform)gameOverGO.transform;
+            gameOverRect.anchorMin = gameOverRect.anchorMax = new Vector2(0.5f, 0.5f);
+            gameOverRect.pivot = new Vector2(0.5f, 0.5f);
+            gameOverRect.sizeDelta = new Vector2(700f, 394f);
+            gameOverRect.anchoredPosition = new Vector2(0f, 90f);
 
             var playButton = CreateIconButton("PlayButton", root.transform, LoadUiSprite("Btn_play.png"), StandardIconButtonSize);
             AnchorBottomLeft((RectTransform)playButton.transform, new Vector2(StandardIconButtonSize, StandardIconButtonSize), new Vector2(150f, 110f));
 
-            var skipButton = CreateIconButton("SkipButton", root.transform, LoadUiSprite("Btn_skip.png"), StandardIconButtonSize);
-            AnchorBottomLeft((RectTransform)skipButton.transform, new Vector2(StandardIconButtonSize, StandardIconButtonSize), new Vector2(150f + StandardIconButtonSize + 30f, 110f));
-
-            var quitButton = CreateIconButton("QuitButton", root.transform, LoadUiSprite("Btn_quit.png"), StandardIconButtonSize);
-            AnchorBottomRight((RectTransform)quitButton.transform, new Vector2(StandardIconButtonSize, StandardIconButtonSize), new Vector2(-150f, 110f));
+            var homeButton = CreateIconButton("HomeButton", root.transform, LoadUiSprite("Btn_home.png"), StandardIconButtonSize);
+            AnchorBottomRight((RectTransform)homeButton.transform, new Vector2(StandardIconButtonSize, StandardIconButtonSize), new Vector2(-150f, 110f));
 
             var settingsButton = CreateIconButton("SettingsButton", root.transform, LoadUiSprite("Btn_settings.png"), StandardIconButtonSize);
             AnchorBottomRight((RectTransform)settingsButton.transform, new Vector2(StandardIconButtonSize, StandardIconButtonSize), new Vector2(-150f - StandardIconButtonSize - 30f, 110f));
 
             var controller = root.AddComponent<LevelFailedController>();
             var so = new SerializedObject(controller);
-            so.FindProperty("starDisplay").objectReferenceValue = starDisplay;
-            so.FindProperty("scoreText").objectReferenceValue = scoreText;
             so.FindProperty("playButton").objectReferenceValue = playButton;
-            so.FindProperty("skipButton").objectReferenceValue = skipButton;
             so.FindProperty("settingsButton").objectReferenceValue = settingsButton;
-            so.FindProperty("quitButton").objectReferenceValue = quitButton;
+            so.FindProperty("homeButton").objectReferenceValue = homeButton;
             so.ApplyModifiedPropertiesWithoutUndo();
 
             return root;

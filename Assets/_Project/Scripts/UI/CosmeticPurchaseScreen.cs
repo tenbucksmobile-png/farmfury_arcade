@@ -7,22 +7,22 @@ using FarmFuryArcade.Core;
 namespace FarmFuryArcade.UI
 {
     /// <summary>
-    /// Generic cosmetic-style purchase surface (2026-08-20 redesign) — reused for both the Hats
-    /// screen (3 items: Baseball Cap / Cowboy Hat / Sombrero) and the Trails screen (4 items: Corn
-    /// Husk / Rainbow Ribbon / Sparkle Dust / Ember), since both mockups share the same layout: a
-    /// breadcrumb icon, a row of framed purchase items (each item's own frame art is baked in by
-    /// the builder, same "art wiring is baked at construction time" convention
-    /// CosmeticCardController's PurchaseCardFrame used), a single price plaque (every item on a
-    /// given screen costs the same $3.99), and a back button.
+    /// Generic cosmetic-style purchase surface. As of the 2026-08-30 mockup, one instance
+    /// (Phase5ProjectBuilder.BuildCosmeticsHubScreen) hosts all 7 hat/trail items at once, each
+    /// item's own plaque art baking in both its icon AND its $1.99 price — no separate breadcrumb
+    /// icon or shared price plaque needed (the earlier 2026-08-20 design split Hats/Trails across
+    /// two screens, each with a shared $3.99 price sign; both are gone now). The same component
+    /// also backs the World Purchase screen (Phase5ProjectBuilder.BuildWorldPurchaseScreen, 3 items
+    /// at $3.99 each with its own real price plaque, since that art wasn't baked with a price).
     ///
-    /// Every item is a real-money IAP purchase via IAPManager — tapping a framed item purchases it
+    /// Every item is a real-money IAP purchase via IAPManager — tapping an item purchases it
     /// directly (no separate confirm step), same "tap to buy" convention the old coin-priced
     /// CosmeticStoreScreen used. IAPManager grants ownership + auto-equips on a confirmed purchase;
     /// this screen only needs to kick off the purchase and show processing/success/failure
     /// feedback.
     ///
-    /// Overlay convention, same as CosmeticsHubScreen/ShopController — shown/hidden directly via
-    /// Show()/SetActive, not through SceneTransitionManager.
+    /// Overlay convention, same as ShopController — shown/hidden directly via Show()/SetActive, not
+    /// through SceneTransitionManager.
     /// </summary>
     public class CosmeticPurchaseScreen : MonoBehaviour
     {

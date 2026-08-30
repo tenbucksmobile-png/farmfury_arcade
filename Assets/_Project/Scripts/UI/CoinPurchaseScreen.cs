@@ -35,6 +35,13 @@ namespace FarmFuryArcade.UI
         [SerializeField] private Button restorePurchasesButton;
         [SerializeField] private TextMeshProUGUI restoreStatusText;
 
+        // Restore Purchases plaque now sizes itself to its own label at runtime rather than the
+        // label shrinking/wrapping to fit a fixed plaque — see ResizeRestoreButtonToFitLabel's own
+        // doc comment for why (two earlier fixed-box attempts both still overflowed on-device).
+        [SerializeField] private TextMeshProUGUI restorePurchasesLabel;
+        [SerializeField] private float restorePlaqueMinWidth = 220f;
+        private const float RestorePlaqueHorizontalPadding = 48f; // matches the label's own 24px-per-side inset
+
         private void Awake()
         {
             if (closeButton != null)
@@ -45,6 +52,7 @@ namespace FarmFuryArcade.UI
             {
                 restorePurchasesButton.onClick.AddListener(HandleRestorePurchasesTapped);
             }
+            ResizeRestoreButtonToFitLabel();
 
             if (purchaseButtons == null)
             {
@@ -186,6 +194,30 @@ namespace FarmFuryArcade.UI
                     restoreStatusText.text = success ? "Purchases restored!" : "Restore failed.";
                 }
             });
+        }
+
+        /// <summary>Sizes the Restore Purchases plaque to its own label's real measured width
+        /// (TMP.GetPreferredValues, the actual font/device metrics — not a build-time guess) rather
+        /// than relying on the label to shrink/wrap into a fixed-size plaque. Two earlier attempts
+        /// at the fixed-box approach (autosizing-to-shrink, then word-wrap) both still rendered the
+        /// text spilling past the plaque's right edge on an actual device screenshot; inverting the
+        /// relationship removes the dependency on whatever was causing that. The plaque art itself
+        /// is Image.Type.Sliced (see Phase5ProjectBuilder.BuildCoinPurchaseScreen) so its rounded
+        /// end caps stay undistorted while the straight middle stretches to this computed width.
+        /// Runs once in Awake — the label text is static ("Restore Purchases"), never changes at
+        /// runtime, so there's nothing to re-measure later.</summary>
+        private void ResizeRestoreButtonToFitLabel()
+        {
+            if (restorePurchasesButton == null || restorePurchasesLabel == null)
+            {
+                return;
+            }
+
+            float labelWidth = restorePurchasesLabel.GetPreferredValues(restorePurchasesLabel.text, 0f, 0f).x;
+            float desiredWidth = Mathf.Max(restorePlaqueMinWidth, labelWidth + RestorePlaqueHorizontalPadding);
+
+            var rect = (RectTransform)restorePurchasesButton.transform;
+            rect.sizeDelta = new Vector2(desiredWidth, rect.sizeDelta.y);
         }
     }
 }

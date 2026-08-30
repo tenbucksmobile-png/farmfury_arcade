@@ -27,11 +27,9 @@ namespace FarmFuryArcade.UI
     public class AndroidBackButtonHandler : MonoBehaviour
     {
         [SerializeField] private ParentalGateController parentalGate;
-        [SerializeField] private CosmeticPurchaseScreen hatPurchaseScreen;
-        [SerializeField] private CosmeticPurchaseScreen trailPurchaseScreen;
         [SerializeField] private CosmeticPurchaseScreen worldPurchaseScreen;
         [SerializeField] private CoinPurchaseScreen coinPurchaseScreen;
-        [SerializeField] private CosmeticsHubScreen cosmeticsHubScreen;
+        [SerializeField] private CosmeticPurchaseScreen cosmeticsHubScreen;
         [SerializeField] private LegalScreen legalScreen;
         [SerializeField] private SettingsPanel settingsPanel;
         [SerializeField] private ShopController shopController;
@@ -52,8 +50,6 @@ namespace FarmFuryArcade.UI
             // of the Shop hub, which can be open on top of the Menu Hub, and each step should only
             // close the one topmost layer, matching how a real back button behaves everywhere else.
             if (CloseIfActive(parentalGate)) return;
-            if (CloseIfActive(hatPurchaseScreen)) return;
-            if (CloseIfActive(trailPurchaseScreen)) return;
             if (CloseIfActive(worldPurchaseScreen)) return;
             if (CloseIfActive(coinPurchaseScreen)) return;
             if (CloseIfActive(cosmeticsHubScreen)) return;

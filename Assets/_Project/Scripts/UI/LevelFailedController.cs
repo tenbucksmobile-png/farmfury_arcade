@@ -1,35 +1,28 @@
 using UnityEngine;
 using UnityEngine.UI;
-using TMPro;
 using FarmFuryArcade.Core;
 
 namespace FarmFuryArcade.UI
 {
     /// <summary>
     /// Shown by GameplayHUD when GameManager.CurrentState becomes LevelFailed (a timer expiry or
-    /// exhausting the respawn cap — see GameManager.MaxRespawns/LevelTimeLimitSeconds). Rebuilt to a
-    /// 2026-08-27 mockup: Bg_LevelSelect.png (night farm) root background, Logo.png top-left, and
-    /// the "TRY AGAIN!" card (LevelFailed.png) as an aspect-locked PanelArt child (same
-    /// square-art-on-landscape-overlay fix Pause/Level Complete already have) — carrying a real
-    /// StarDisplay + score readout in its blank parchment interior (score sits BELOW the stars here,
-    /// the opposite order from LevelCompleteController's own ShelfContent, per the mockup and per
-    /// explicit direction — a failed run never earns stars, so the star row leads and the score
-    /// earned before failing sits underneath it).
+    /// exhausting the respawn cap — see GameManager.MaxRespawns/LevelTimeLimitSeconds). Rebuilt
+    /// (2026-08-30) to match a new "GAME OVER" mockup: Bg_LevelSelect.png (night farm) root
+    /// background, Logo.png top-left, and a wood-sign "GAME OVER" banner (see
+    /// Phase5ProjectBuilder.BuildLevelFailed for the placeholder frame around GameOver.png's bare
+    /// text) — no star/score readout at all, unlike the previous "TRY AGAIN!" card design.
     ///
-    /// 4 real buttons now instead of 2: Play (replay), Skip (back to Level Select, same "one step
-    /// back to where the player picked this level from" convention the old single Quit button had),
-    /// Settings (opens the shared SettingsPanel overlay, same convention Pause's own Settings button
-    /// uses), and Quit (back to Level Select's world-select state specifically, via
-    /// LevelSelectController.ShowWorldSelect — a bigger step back than Skip).
+    /// Only 3 buttons now: Play (replay), Settings (opens the shared SettingsPanel overlay, same
+    /// convention Pause's own Settings button uses), and Home (back to Level Select's world-select
+    /// state, via LevelSelectController.ShowWorldSelect — the old Quit button, just relabelled/
+    /// re-iconed to match the mockup's house icon). The previous 4th button, Skip (a lesser "back
+    /// to Level Select" step than Quit/Home), has no equivalent in the new mockup and is gone.
     /// </summary>
     public class LevelFailedController : MonoBehaviour
     {
-        [SerializeField] private StarDisplay starDisplay;
-        [SerializeField] private TextMeshProUGUI scoreText;
         [SerializeField] private Button playButton;
-        [SerializeField] private Button skipButton;
         [SerializeField] private Button settingsButton;
-        [SerializeField] private Button quitButton;
+        [SerializeField] private Button homeButton;
         [SerializeField] private GameObject gameplayScreen;
         [SerializeField] private GameObject levelSelectScreen;
         [SerializeField] private LevelSelectController levelSelectController;
@@ -40,32 +33,16 @@ namespace FarmFuryArcade.UI
         private void Awake()
         {
             playButton.onClick.AddListener(Play);
-            skipButton.onClick.AddListener(Skip);
             if (settingsButton != null && settingsPanel != null)
             {
                 settingsButton.onClick.AddListener(() => settingsPanel.Show());
             }
-            quitButton.onClick.AddListener(QuitToWorldSelect);
+            homeButton.onClick.AddListener(GoHome);
         }
 
         private void OnEnable()
         {
             _levelIndex = GameManager.Instance.CurrentLevel != null ? GameManager.Instance.CurrentLevel.levelNumber : 0;
-
-            // A failed run never earns stars — shown as an all-empty row, same StarDisplay
-            // component LevelCompleteController uses, just always passed 0. The score readout still
-            // reflects whatever was actually scored this attempt: GameManager.LastLevelResult isn't
-            // populated on a failure (see EndLevel's success/failure branch), so this reads the live
-            // running total directly off ScoreManager instead, which EndLevel(false) never resets.
-            if (starDisplay != null)
-            {
-                starDisplay.SetStars(0);
-            }
-            if (scoreText != null)
-            {
-                int score = ScoreManager.Instance != null ? ScoreManager.Instance.CurrentMazeScore : 0;
-                scoreText.text = score.ToString("N0");
-            }
         }
 
         private void Play()
@@ -82,13 +59,7 @@ namespace FarmFuryArcade.UI
             GameManager.Instance.LoadLevel(_levelIndex, isDailyChallenge);
         }
 
-        private void Skip()
-        {
-            GameManager.Instance.QuitToLevelSelect();
-            SceneTransitionManager.Instance.ShowOnly(levelSelectScreen);
-        }
-
-        private void QuitToWorldSelect()
+        private void GoHome()
         {
             GameManager.Instance.QuitToLevelSelect();
             if (levelSelectController != null)

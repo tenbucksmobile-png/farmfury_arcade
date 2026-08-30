@@ -691,6 +691,18 @@ instance — a flag on e.g. `BounceRollAbility` would be lost the moment Percy i
 (his GameObject is destroyed). Each affected ability calls the matching `Consume*` method at the
 top of its `Execute()`.
 
+**`ComboNotificationBanner`** (`Scripts/UI`, inside `GameplayHUD`) is the in-maze "COMBO! {name}"
+text toast that fades in/out on `ComboSystem.OnComboTriggered` (2s visible, 0.3s fade each way).
+**Icon art landed for 3 of the 8 combos (2026-08-30)** — `CrossFire.png`/`DoubleSlam.png`/
+`KicknRoll.png` — wired via a small `(comboName, Sprite)` lookup table
+(`Phase5ProjectBuilder.BuildGameplayHUD`); the banner shows the matching icon beside its text when
+one exists for the triggered combo name and hides it otherwise, so the other 5 combos (Feather
+Storm/Earthquake Roll/Skip Shatter/Iron Stampede/Full Fury) still show text-only until their own
+art lands — same "wire whatever art has landed, fall back gracefully" convention this project uses
+for character/robot art. Note `CrossFire.png`'s own artwork depicts Bessie (cow) vs. Horace (horse)
+clashing, not Billy (goat) vs. Horace as the actual `Crossfire` trigger pair above — an art/lore
+mismatch, not a wiring bug; it's still wired by combo NAME correctly.
+
 **`ChooseCharacterScreen`** (`Scripts/UI`) is the real uGUI character-swap panel — see "Screens &
 scene flow" below for its full description. The original Phase 4 `CharacterSwapUI` (`OnGUI`,
 "functional even if not polished" per spec) was retired once this replaced it. Toggled by Tab
@@ -980,6 +992,13 @@ bottom edge — pixel-estimated the horseshoe's position off the screenshot (rou
 way up the card, a modest distance in from its right edge; no visual Editor access this session,
 so treat as a first-pass estimate) and moved to `(-260, 340)` / label to `(-285, 245)`.
 
+**`WatchAdLabel` resized to exactly match `DoubleCoinsButton`'s own width and re-centred under it
+(2026-08-30)** — was an independently hand-tuned 140px wide, not aligned to the icon's own
+`StandardIconButtonSize` (160), and offset by a different X inset (`-285` vs. the icon's `-260`),
+so the two never quite lined up. Now `watchAdLabelWidth = StandardIconButtonSize` and the label
+reuses the icon's own `-260` X inset directly (same width + same offset = guaranteed same centre,
+rather than two numbers kept in sync by hand) — sits 10px below the icon's own bottom edge.
+
 **"Extra ability charge" / "skip cooldown via ad"** — per the plan doc's own text, these two listed
 placements are literally the same feature ("(d) same button, ad as the free alternative to spending
 coins"), not two separate ones. Built as one: a Watch Ad button in `GameplayHUD`, calling
@@ -1081,6 +1100,23 @@ against the plaque's rounded edge, and added `enableWordWrapping = false` +
 `TextOverflowModes.Truncate` on both the label and status line (same convention `CoinBalanceText`
 already uses) so a long/localized string shrinks and truncates rather than ever rendering past the
 plaque's edge, regardless of device aspect.
+
+**That fix, and a follow-up word-wrap variant, both still overflowed on an actual device screenshot
+— rebuilt a third time (2026-08-30) by inverting the relationship entirely.** Both prior attempts
+kept the plaque a FIXED size and tried to make the label shrink/wrap to fit it (autosizing, then
+word-wrap); on-device, "Restore Purchases" kept rendering past the plaque's right edge regardless.
+Now the label is fixed-size and single-line (22pt, no autosizing, no wrap) and the **plaque resizes
+itself to the label's own real measured width at runtime** — `CoinPurchaseScreen.
+ResizeRestoreButtonToFitLabel`, called once from `Awake()`, reads `TMP.GetPreferredValues` on the
+actual live label (real font/device metrics, not a build-time guess) and sets the plaque's
+`RectTransform.sizeDelta.x` to `max(restorePlaqueMinWidth, labelWidth + padding)`. This only works
+because the plaque art is now `Image.Type.Sliced` with a real border (`Btn_plaque.png`'s
+`spriteBorder`, set via a new `border` parameter on `ConfigureAndLoadCosmeticChromeSprite`/
+`LoadUiSprite`) instead of `Type.Simple` — Simple is locked to the source file's own aspect ratio
+and can't resize to arbitrary text width without either squashing the art or leaving dead space;
+Sliced stretches only the straight middle section, keeping the rounded end caps undistorted at any
+width. The label's text never changes at runtime ("Restore Purchases" is static, not localized in
+this build), so this only ever needs to run once.
 
 **Store-side setup status (updated 2026-08-25):** all 12 products (the original 5 + 7 cosmetic IAPs
 added since — see "Cosmetics Store UI" below) are now **registered in App Store Connect** for iOS
@@ -1231,7 +1267,7 @@ to retune per-asset). `trailEffectPrefab` is left null on all 4 — see "Not bui
 still no Trail rendering hook, so equipping one persists correctly (ownership + equip state) but
 has no visible effect in gameplay yet.
 
-### Cosmetics Store UI (2026-08-20 redesign — `Scripts/UI/CosmeticsHubScreen.cs`, `CosmeticPurchaseScreen.cs`)
+### Cosmetics Store UI (2026-08-20 redesign, consolidated 2026-08-30 — `Scripts/UI/CosmeticPurchaseScreen.cs`)
 
 **Rebuilt from scratch to match a new set of Canva mockups exactly** — the tab-based
 `CosmeticStoreScreen`/`CosmeticCardController` (coin-priced, scrolling card row, Hat/Trail/
@@ -1254,29 +1290,41 @@ for any of these 4 screens):
    itself and relabeling to "Ads Removed" once `SaveManager.AdsRemoved` is true.
    `ShopController.purchaseButtons` (renamed from `coinPackButtons`) is generic now — any IAP
    product id + its Button, not coin-pack-specific.
-2. **Cosmetics hub** (`CosmeticsHubScreen`, its own new controller) — a `Cosmetics.png` sign and 2
-   icons: `Hat_Icon.png` → Hats screen, `Trails_Tab_Icon.png` ("comet") → Trails screen. A 3rd
-   `MazeThemeTab.png` ("map") icon used to sit here (first not-wired-to-anything, then briefly
-   wired to a maze-reskin cosmetic screen) but was removed entirely on 2026-08-25 review — see
-   "World Purchase" above for what replaced the idea it was pointing at. Reached via Shop's
-   Cosmetics button, layered on top of it (same "overlay on top of overlay" convention
-   `ChooseCharacterScreen` uses over Pause).
-3. **Hats** (`HatPurchaseScreen`, `CosmeticPurchaseScreen`) — 3 framed items (`FrameBaseballCap.png`
-   / `FrameCowboy.png` / `FrameSombrero.png`, each already a complete wood-framed icon — no
-   separate frame+icon composition needed) and one `3.99.png` price plaque (every item is $3.99).
-4. **Trails** (`TrailPurchaseScreen`, same `CosmeticPurchaseScreen` component, reused) — 4 framed
-   items (`FrameCornHuskTrail.png` / `FrameRainbowRibbon.png` / `FrameSparkleDust(1).png` note the
-   `(1)` — `FrameSparkleDust.png` without it is a corrupt 0-byte file, left on disk unreferenced —
-   / `FrameEmberTrail.png`) and the same `3.99.png` price plaque.
+2. **Cosmetics** (`CosmeticsHubScreen` GameObject, `Phase5ProjectBuilder.BuildCosmeticsHubScreen`) —
+   **consolidated into one flat screen (2026-08-30)**, per a new mockup: a `Cosmetics.png` sign and
+   all 7 hat/trail items directly tappable on one screen (3 hats in a top row — Sombrero/Baseball
+   Cap/Cowboy Hat — 4 trails in a row below — Rainbow Ribbon/Sparkle Dust/Corn Husk/Ember). The
+   separate Hats/Trails sub-screens described in points 3-4 below (and this screen's own old 2-icon
+   `Hat_Icon.png`/`Trails_Tab_Icon.png` navigation, plus the `MazeThemeTab.png` "map" icon already
+   removed on 2026-08-25) are all gone — `CosmeticsHubScreen.cs` (the navigation script) was deleted
+   outright, and this GameObject now carries a `CosmeticPurchaseScreen` component directly (see
+   point 3 below), just with all 7 items instead of 3-or-4 split across two screens. Background is
+   the standard dimmed `Landing_Opacity.png` (an earlier pass used full-brightness `landing.png` to
+   match the mockup's vividness, but that read inconsistent with every other screen in this family
+   and was corrected). Reached via Shop's Cosmetics button, layered on top of it (same "overlay on
+   top of overlay" convention `ChooseCharacterScreen` uses over Pause).
+3. **Item art now bakes in its own price, no shared price plaque** — each of the 7 items got new
+   self-contained art (`sombrero_price.png`/`baseball_price.png`/`cowboy_price.png`/
+   `RainbowRibbon_price.png`/`SparkleDust_Price.png`/`CornHusk_price.png`/`EmberTrail_price.png`,
+   under `Sprites/Cosmetics/` directly) replacing the old `Frame*.png` icon + shared `3.99.png`
+   price-plaque pair the separate Hats/Trails screens used — each new image already shows the icon
+   AND its price ($1.99, not the old $3.99) baked into one hanging wood-plaque graphic, so no
+   breadcrumb icon or separate price sign is built at all anymore. The old `Frame*Trail.png` files
+   were deleted from disk (the corresponding hat `Frame*.png` files are untouched — still used
+   elsewhere, see the Cowboy Hat/Sombrero bullet below). **`IAPManager`'s registered fallback price
+   for these 7 products is still the old $3.99** — the art now shows $1.99, but updating the actual
+   IAP price/product config was left to be done separately.
 
-**`CosmeticPurchaseScreen` is one generic component reused for both Hats and Trails** — an array of
+**`CosmeticPurchaseScreen` is one generic component** — reused by this consolidated Cosmetics
+screen, and also by the World Purchase screen (3 items at their own real $3.99 price plaque, since
+that art wasn't baked with a price the way the 7 cosmetics items now are). An array of
 `(productId, Button)` pairs, a status text, and a close button; tapping an item calls
 `IAPManager.PurchaseProduct(productId)` directly (no separate confirm step, no owned/equipped state
 shown — a `NonConsumable` re-purchase attempt is handled store-side). All cosmetic purchase/grant
-logic moved into `IAPManager` itself (`GrantBaseballCapSet`/`GrantAndEquipHat`/`GrantAndEquipTrail`,
-called from `HandlePurchasePending`) rather than living in the UI layer the way
-`CosmeticStoreScreen.HandleCardTapped` used to — the UI screens now only kick off a purchase and
-show processing/success/failure feedback, matching `ShopController`'s existing coin-pack pattern.
+logic lives in `IAPManager` itself (`GrantBaseballCapSet`/`GrantAndEquipHat`/`GrantAndEquipTrail`,
+called from `HandlePurchasePending`) rather than in the UI layer — the screen only kicks off a
+purchase and shows processing/success/failure feedback, matching `ShopController`'s coin-pack
+pattern.
 
 **Cosmetics moved off the coin-priced `SaveManager.PurchaseCosmetic` flow onto real-money IAP** —
 every hat/trail in the new mockups bakes in a `$` price, not a coin cost, so `IAPManager` gained 7
@@ -1484,8 +1532,22 @@ of the existing `Canvas` GameObject (built by `Phase1ProjectBuilder`, upgraded b
 the "scale properly for different screen sizes" requirement) and is mutually exclusive with every
 other top-level screen.
 
-**Flow:** Main Menu → Level Select → Gameplay HUD → Level Complete → Level Select (Skip button) or
-Level Failed → Gameplay (Retry)/Main Menu. Main Menu's Play button (`MainMenuController`) calls
+**Title screen (2026-08-30, `TitleScreenController`)** — a new attract-mode screen shown ONLY at
+app launch, before Main Menu: `landing.png` at full brightness (no separate logo overlaid on top —
+an `FFArcade_Icon.png` square logo was tried first and removed per feedback that it read as
+redundant clutter on top of the poster's own baked-in wordmark) with a pulsating `PressStart.png`
+prompt (plain alpha lerp, same "sine-wave pulse" convention `GameplayHUD`'s ability-ready flash
+uses) and a full-screen invisible tap target. Tapping anywhere calls
+`SceneTransitionManager.Instance.ShowOnly(mainMenuScreen)`. It's a real `screenRoots` entry (not an
+overlay) and is the ONLY screen active at scene load — `MainMenuController.OnEnable`'s
+`PlayLandingMusic()` call now also fires from `TitleScreenController.OnEnable` for the same reason
+(so the Theme track starts immediately at launch, before the player ever reaches Main Menu).
+Built new because neither `FFArcade_Icon.png` nor `PressStart.png` had any existing slot to wire
+into — there was no title/splash screen in the flow before this.
+
+**Flow:** Title Screen (tap to continue) → Main Menu → Level Select → Gameplay HUD → Level Complete
+→ Level Select (Skip button) or Level Failed → Gameplay (Retry)/Main Menu. Main Menu's Play button
+(`MainMenuController`) calls
 `SceneTransitionManager.ShowOnly(levelSelectScreen)` directly — Level Select (see its own section
 below) is where a level actually gets picked and `GameManager.LoadLevel` + `ShowOnly(gameplayScreen)`
 happen. There is no intermediate "World Map" step and no "VS" matchup screen/countdown. (An
@@ -2865,6 +2927,24 @@ values from the GDD's color palette where one exists (e.g. walls = Wall Brown `#
   `transform.SetAsLastSibling()` before activating, so each always draws above whatever's currently
   showing regardless of build/sibling order. Check this pattern first if a future overlay's tap
   silently "does nothing" while its wiring checks out.
+- **Level Failed rebuilt again (2026-08-30) to a "GAME OVER" mockup — the "TRY AGAIN!" card
+  (`LevelFailed.png`) + `StarDisplay`/score readout described just above are gone entirely.** The
+  new mockup shows only a wood-sign "GAME OVER" banner and 3 buttons, no stars/score at all.
+  `GameOver.png` landed twice this session: first as bare yellow text with no frame (transparent
+  background), which `Phase5ProjectBuilder` wrapped in a plain layered `PlaceholderSprite`
+  composition (gold border + parchment rect, same convention `CharacterStoryScreen`'s intro box
+  uses) as a stand-in frame; the artist then replaced the file in place with a real framed hanging
+  sign (666×375, same template/size as `Pause.png`/`Leaderboard.png` — rope-tied corners, parchment
+  insert, "GAME OVER" baked directly on) — the placeholder composition was removed and replaced
+  with this single real image (`GameOverSign`, centred at `(0, 90)`, 700×394 preserving its real
+  aspect).
+
+  Buttons went from 4 (Play/Skip/Settings/Quit) to 3, matching the mockup exactly: Play (unchanged,
+  restarts), Settings (unchanged), and **Home** — the old Quit button, same
+  `QuitToLevelSelect`+`ShowWorldSelect` behaviour, just re-iconed to `Btn_home.png` and renamed
+  (`LevelFailedController.homeButton`/`GoHome()`, was `quitButton`/`QuitToWorldSelect()`) to match
+  the mockup's house icon. The standalone Skip button is gone — no 4th icon in this mockup, and no
+  equivalent behaviour was requested.
 - **Settings is a 2x3 grid of whole-plaque toggle cells, not a vertical stack of rows.** Rebuilt to
   a 2026-07-31 Canva mockup: root background is `Bg_LevelSelect.png` (moon/windmill/barn — see the
   Level Select bullet below for where else this art is used), `Logo.png` top-left, `SettingsSign.png`
@@ -3119,9 +3199,11 @@ values from the GDD's color palette where one exists (e.g. walls = Wall Brown `#
   runtime; Settings' Music/SFX toggles don't use `Btn_music.png`/`Btn_nosound.png` at all anymore
   — see the Settings grid bullet above, each toggle's own `Btn_plaque.png` cell is the whole tap
   target, with no separate checkbox/checkmark icon on top.
-- **App icon** — `AppIcon.png` set as the Unity Player Settings icon (`PlayerSettings.
-  SetIconsForTargetGroup`, Standalone + the default/`Unknown` group) — a project-settings change,
-  not a scene/prefab one.
+- **App icon** — set as the Unity Player Settings icon (`PlayerSettings.SetIconsForTargetGroup`,
+  Standalone + the default/`Unknown` group) — a project-settings change, not a scene/prefab one.
+  Swapped 2026-08-30 from the original `AppIcon.png` (a plain Cluck/"ARCADE" square) to
+  `FFArcade_Icon.png` (Cluck + Bessie, full "FARM FURY ARCADE" wordmark) — both square, both
+  already the right shape for an app icon; `AppIcon.png` is left on disk, unreferenced.
 - **Shop icon** — `Shop.png`, historically a Main Menu button (as this bullet originally described)
   — relocated several times since; as of the 2026-08-27 navigation reorg it's the "Cash" icon on
   the Shop hub (`ShopController`, reached via `MenuHubScreen`), baked directly at construction time
@@ -3758,7 +3840,7 @@ during troubleshooting.
 ## UX flow
 
 ```
-Main Menu ──Play──▶ Level Select ──tap unlocked tile──▶ Gameplay HUD
+Title Screen ──tap anywhere──▶ Main Menu ──Play──▶ Level Select ──tap unlocked tile──▶ Gameplay HUD
     │▲                   │▲                                       │▲  │
     ││                    │└─ tap CurrentWorldIndicator (world select) │
     │└───────────────────┘                              Pause(P)──▶│└──┼─▶ Play (resume)
@@ -3769,9 +3851,10 @@ Main Menu ──Play──▶ Level Select ──tap unlocked tile──▶ Game
     │◀──────────────────── Skip ──────────────────────────────▲  (all crops
     │                                                          │   collected)
     │                                          Level Failed◀───┘
-    │                                          (Play restarts, or Skip/Quit back to
-    │                                           Level Select — same for Pause, whose
-    │                                           own Play resumes instead of restarting)
+    │                                          ("GAME OVER" — Play restarts, or Home back to
+    │                                           Level Select's world-select state — same for
+    │                                           Pause's own Quit, whose Play resumes instead
+    │                                           of restarting)
     │
     └──Settings (gear)────▶ MenuHubScreen (SETTINGS sign / Shop sign) ──back──▶ Main Menu
                              ├──SETTINGS──▶ Settings (music/leaderboards/character story/policies)
@@ -3780,13 +3863,15 @@ Main Menu ──Play──▶ Level Select ──tap unlocked tile──▶ Game
                                             ├──Cash───▶ CoinPurchaseScreen (4 coin packs + restore)
                                             ├──Worlds─▶ World Purchase screen ($3.99 x3 worlds)
                                             ├──Ads────▶ direct Remove Ads purchase (no sub-screen)
-                                            └──Cosmetics▶ CosmeticsHubScreen (hats/trails)
+                                            └──Cosmetics▶ Cosmetics screen (all 7 hats/trails,
+                                                          one flat screen — see "Cosmetics Store
+                                                          UI" above)
                                             ──back──▶ MenuHubScreen
 
 Pause and Level Failed also both open Settings directly (their own Settings button), bypassing
 MenuHubScreen entirely — see "Settings/Shop/Legal navigation reorg (2026-08-27)" above for the full
-breakdown of this screen family. Both screens' own Quit button goes specifically to Level Select's
-world-select state (`LevelSelectController.ShowWorldSelect()`), a bigger step back than Skip.
+breakdown of this screen family. Pause's own Quit button and Level Failed's own Home button both go
+to Level Select's world-select state specifically (`LevelSelectController.ShowWorldSelect()`).
 
 The Swap Character button lives on Gameplay HUD itself now (above the ability icon), not on Pause
 — see the Gameplay HUD bullet under "Screens & scene flow" above.

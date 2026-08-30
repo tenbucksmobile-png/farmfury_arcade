@@ -1,19 +1,13 @@
 fileFormatVersion: 2
-guid: e9e9600820e8d31429d6947158860698
+guid: 5dbd471589f19cd43bd21449f0e07607
 TextureImporter:
   internalIDToNameTable:
   - first:
-      213: -2805468012497100652
-    second: Btn_plaque_0
+      213: -9212739198471319767
+    second: PressStart_0
   - first:
-      213: -54214287194900599
-    second: Btn_plaque_1
-  - first:
-      213: -8196651910646050222
-    second: Btn_plaque_2
-  - first:
-      213: 5473876704994340294
-    second: Btn_plaque_3
+      213: -6097539356494858763
+    second: PressStart_1
   externalObjects: {}
   serializedVersion: 13
   mipmaps:
@@ -60,8 +54,8 @@ TextureImporter:
   spriteMeshType: 1
   alignment: 0
   spritePivot: {x: 0.5, y: 0.5}
-  spritePixelsToUnits: 485
-  spriteBorder: {x: 90, y: 70, z: 90, w: 70}
+  spritePixelsToUnits: 500
+  spriteBorder: {x: 0, y: 0, z: 0, w: 0}
   spriteGenerateFallbackPhysicsShape: 1
   alphaUsage: 1
   alphaIsTransparency: 1
@@ -106,6 +100,19 @@ TextureImporter:
     androidETC2FallbackOverride: 0
     forceMaximumCompressionQuality_BC6H_BC7: 0
   - serializedVersion: 4
+    buildTarget: Android
+    maxTextureSize: 2048
+    resizeAlgorithm: 0
+    textureFormat: -1
+    textureCompression: 1
+    compressionQuality: 50
+    crunchedCompression: 0
+    allowsAlphaSplitting: 0
+    overridden: 0
+    ignorePlatformSupport: 0
+    androidETC2FallbackOverride: 0
+    forceMaximumCompressionQuality_BC6H_BC7: 0
+  - serializedVersion: 4
     buildTarget: WebGL
     maxTextureSize: 2048
     resizeAlgorithm: 0
@@ -119,28 +126,15 @@ TextureImporter:
     androidETC2FallbackOverride: 0
     forceMaximumCompressionQuality_BC6H_BC7: 0
   - serializedVersion: 4
-    buildTarget: Android
-    maxTextureSize: 2048
-    resizeAlgorithm: 0
-    textureFormat: 50
-    textureCompression: 1
-    compressionQuality: 50
-    crunchedCompression: 0
-    allowsAlphaSplitting: 0
-    overridden: 1
-    ignorePlatformSupport: 0
-    androidETC2FallbackOverride: 0
-    forceMaximumCompressionQuality_BC6H_BC7: 0
-  - serializedVersion: 4
     buildTarget: iOS
     maxTextureSize: 2048
     resizeAlgorithm: 0
-    textureFormat: 50
+    textureFormat: -1
     textureCompression: 1
     compressionQuality: 50
     crunchedCompression: 0
     allowsAlphaSplitting: 0
-    overridden: 1
+    overridden: 0
     ignorePlatformSupport: 0
     androidETC2FallbackOverride: 0
     forceMaximumCompressionQuality_BC6H_BC7: 0
@@ -148,79 +142,13 @@ TextureImporter:
     serializedVersion: 2
     sprites:
     - serializedVersion: 2
-      name: Btn_plaque_0
+      name: PressStart_0
       rect:
         serializedVersion: 2
-        x: 48
-        y: 251
-        width: 40
-        height: 5
-      alignment: 0
-      pivot: {x: 0, y: 0}
-      border: {x: 0, y: 0, z: 0, w: 0}
-      customData: 
-      outline: []
-      physicsShape: []
-      tessellationDetail: -1
-      bones: []
-      spriteID: 490a366e4b9f019d0800000000000000
-      internalID: -2805468012497100652
-      vertices: []
-      indices: 
-      edges: []
-      weights: []
-    - serializedVersion: 2
-      name: Btn_plaque_1
-      rect:
-        serializedVersion: 2
-        x: 220
-        y: 251
-        width: 41
-        height: 5
-      alignment: 0
-      pivot: {x: 0, y: 0}
-      border: {x: 0, y: 0, z: 0, w: 0}
-      customData: 
-      outline: []
-      physicsShape: []
-      tessellationDetail: -1
-      bones: []
-      spriteID: 9873ffd94646f3ff0800000000000000
-      internalID: -54214287194900599
-      vertices: []
-      indices: 
-      edges: []
-      weights: []
-    - serializedVersion: 2
-      name: Btn_plaque_2
-      rect:
-        serializedVersion: 2
-        x: 396
-        y: 251
-        width: 39
-        height: 5
-      alignment: 0
-      pivot: {x: 0, y: 0}
-      border: {x: 0, y: 0, z: 0, w: 0}
-      customData: 
-      outline: []
-      physicsShape: []
-      tessellationDetail: -1
-      bones: []
-      spriteID: 2525a66d384af3e80800000000000000
-      internalID: -8196651910646050222
-      vertices: []
-      indices: 
-      edges: []
-      weights: []
-    - serializedVersion: 2
-      name: Btn_plaque_3
-      rect:
-        serializedVersion: 2
-        x: 0
+        x: 32
         y: 0
-        width: 485
-        height: 229
+        width: 216
+        height: 82
       alignment: 0
       pivot: {x: 0, y: 0}
       border: {x: 0, y: 0, z: 0, w: 0}
@@ -229,8 +157,30 @@ TextureImporter:
       physicsShape: []
       tessellationDetail: -1
       bones: []
-      spriteID: 6cd29718cdd17fb40800000000000000
-      internalID: 5473876704994340294
+      spriteID: 92fccca9286c52080800000000000000
+      internalID: -9212739198471319767
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: PressStart_1
+      rect:
+        serializedVersion: 2
+        x: 253
+        y: 0
+        width: 217
+        height: 82
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 5f5f82ce240316ba0800000000000000
+      internalID: -6097539356494858763
       vertices: []
       indices: 
       edges: []
@@ -249,10 +199,8 @@ TextureImporter:
     spriteCustomMetadata:
       entries: []
     nameFileIdTable:
-      Btn_plaque_0: -2805468012497100652
-      Btn_plaque_1: -54214287194900599
-      Btn_plaque_2: -8196651910646050222
-      Btn_plaque_3: 5473876704994340294
+      PressStart_0: -9212739198471319767
+      PressStart_1: -6097539356494858763
   mipmapLimitGroupName: 
   pSDRemoveMatte: 0
   userData: 
