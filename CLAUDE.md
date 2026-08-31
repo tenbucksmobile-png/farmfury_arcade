@@ -397,6 +397,23 @@ while still being physically unable to fly off the playable board. "Through wall
 corners (inset 1 tile from the border), classic-arcade style. `DrifterRobot`'s "retreat" target
 when close to the player reuses the same field (`scatterCornerPosition`).
 
+**Spawn positions are now randomized per robot, not the shared factory tile (2026-08-31, per
+direct request).** Every level's `LevelData.robotSpawns` still carries one authored
+`spawnPosition` per robot — historically always the maze's single `robotFactoryPosition` (see the
+Data-driven levels section above) — but `RobotSpawner` no longer uses that value directly.
+`RobotSpawner.spawnAnywhere` (bool, default `true`) gates a new `GetSpawnCell(spawn)`: when on, it
+rejection-samples a random walkable, non-water cell anywhere in the maze (excluding the player's
+own `playerStartPosition` and any cell another robot already claimed this level load, tracked in
+`_claimedSpawnCells`), falling back to the authored `spawnPosition` only if
+`MaxRandomSpawnAttempts` (40) is exhausted — a defensive floor for a near-fully-occupied tiny maze,
+not something normal levels should ever hit. `_claimedSpawnCells` is cleared in `ClearRobots`
+(every fresh `SpawnLevelRobots` call), not on player death, since death reuses the same already-
+spawned robot instances (`ResetAllRobotsToFactory`) rather than respawning them. Each robot's own
+`RobotBase.factoryPosition` is set from whatever `GetSpawnCell` returned, so a death-reset sends it
+back to ITS OWN randomized cell, not the old shared factory tile — no changes needed in
+`RobotBase` itself. Set `spawnAnywhere = false` on the `RobotSpawner` component to restore the
+original fixed-factory behaviour for a specific level/test if ever needed.
+
 **Anti-loop targeting (`RobotAI.GetNextDirection`):** at each intersection, every walkable
 non-reversing direction's neighbour cell is scored by its REAL shortest-path (BFS) distance to the
 current target, and the robot **always commits to whichever candidate has the true-shortest
@@ -1117,6 +1134,20 @@ and can't resize to arbitrary text width without either squashing the art or lea
 Sliced stretches only the straight middle section, keeping the rounded end caps undistorted at any
 width. The label's text never changes at runtime ("Restore Purchases" is static, not localized in
 this build), so this only ever needs to run once.
+
+**Label rebuilt a fourth time (2026-08-31) — it wasn't actually centred on the plaque, despite the
+sizing fix above being correct.** The label lived in the top ~55% of the plaque's own rect (a
+carve-out that left the bottom ~45% for the status line sharing the same box), so it read as
+top-anchored/off-centre rather than middle-aligned to the plaque as a whole — the sizing/resize
+logic in the paragraph above was never the issue, only where the label's own rect sat within the
+resized plaque. Fixed by having the label fill the WHOLE plaque rect (`(0,0)`-`(1,1)`,
+`TextAlignmentOptions.Center` — already horizontal+vertical middle) and moving the status line
+("Restoring...", "Purchases restored!") OUT of the plaque entirely, to its own standalone line
+sitting just above it (`RestoreStatusText`, `CoinPurchaseScreen.cs`) — it's blank almost all the
+time, so it no longer needs to share the plaque's vertical space with the label at all. Also shifted
+the whole plaque (and its status line, which now moves with it via one shared
+`restorePlaqueInsetX` constant so the two can't drift apart again) right, from `x=110` to `x=190`,
+per direct feedback.
 
 **Store-side setup status (updated 2026-08-25):** all 12 products (the original 5 + 7 cosmetic IAPs
 added since — see "Cosmetics Store UI" below) are now **registered in App Store Connect** for iOS
@@ -2241,8 +2272,17 @@ below the price sign was also silently overlapping it (same offset as the price 
 was moved to sit cleanly underneath.
 
 **Level Select's header** swapped from `SelectLevelSign.png` ("SELECT LEVEL") to `WorldUnlocked.png`
-("World Unlocked") per the same mockup pass, wired in `ArtWiringBuilder.WireLevelSelect` — the
-`SelectLevelText` constant/`SelectLevelSign.png` file are both still present but now unreferenced.
+("World Unlocked") per the same mockup pass, wired in `ArtWiringBuilder.WireLevelSelect`.
+
+**Reworked into a STATE-DRIVEN swap (2026-08-31)**, after briefly going back to a single static
+"SELECT LEVEL" sprite and then getting further feedback that neither single sprite was right for
+both of this screen's states. `LevelSelectController` now owns the swap itself:
+`titleImage`/`titleWorldSelectSprite`/`titleTileGridSprite` fields (wired directly in
+`Phase5ProjectBuilder.BuildLevelSelect`, not `ArtWiringBuilder` — there's nothing static left for
+that method to wire) — `ShowWorldSelect()` sets `WorldUnlocked.png` ("World Unlocked"),
+`RevealWorld()` sets `SelectLevelSign.png` ("SELECT LEVEL") the moment a world's tile grid is
+shown, same convention `backButtonImage`'s existing world-select/tile-grid sprite swap already
+used. `ArtWiringBuilder.WireLevelSelect` no longer touches `TitleImage`'s sprite at all.
 
 ### Level Select (`Scripts/UI/LevelSelectController.cs`, `CardCarouselController.cs`, `LevelTileController.cs`, `LockedHintPanel.cs`, `Scripts/Utilities/UnlockProgression.cs`)
 
@@ -2587,7 +2627,8 @@ phase made for art (solid-colour placeholders instead of real sprites).
   `Farm Fury Arcade > Fit Gameplay Camera To Maze` / `Farm Fury Arcade > Debug > Reset All
   Progress (Testing)` / `Farm Fury Arcade > Wire AdManager Config` / `Farm Fury Arcade > Debug >
   Diagnose Level Select Scroll Range` / `Farm Fury Arcade > Debug > Diagnose Dimmed Backdrops` /
-  `Farm Fury Arcade > Debug > Unequip All Hats (Testing)` / `Farm Fury Arcade > Debug > Equip
+  `Farm Fury Arcade > Debug > Diagnose DPad Wiring` / `Farm Fury Arcade > Debug > Diagnose Audio
+  Wiring` / `Farm Fury Arcade > Debug > Unequip All Hats (Testing)` / `Farm Fury Arcade > Debug > Equip
   Trail (Testing) > ...` / `Farm Fury Arcade > Debug > Fix Level Crop Counts (Power Pellet Cap)`) —
   small targeted scene-hygiene
   fixes that are neither "wire art" nor "rebuild a phase's content." `DisableDebugTestOverlays`
@@ -2602,9 +2643,17 @@ phase made for art (solid-colour placeholders instead of real sprites).
   dependent). `WireAdManagerConfig` sets `AdManager`'s LevelPlay app-key/placement-ID fields on the
   scene's `AdManager` component (see "Ad mediation" above) — only overwrites a field when a
   non-empty value is passed in, so it's safe to re-run as new platform values arrive piecemeal
-  without clobbering ones already set. `DiagnoseLevelSelectScrollRange`/`DiagnoseDimmedBackdrops`
-  are read-only Edit-mode diagnostics — see "Level Select" and "Settings backdrop/header gotchas"
-  above for what each answers. `FixLevelCropCounts` recomputes `LevelData.totalCropsRequired`
+  without clobbering ones already set. `DiagnoseLevelSelectScrollRange`/`DiagnoseDimmedBackdrops`/
+  `DiagnoseDPadWiring`/`DiagnoseAudioWiring` are read-only Edit-mode diagnostics — see "Level
+  Select"/"Settings backdrop/header gotchas" above and the Movement/Audio bullets in their own
+  sections for what each answers. Both `Diagnose*Wiring` entries exist specifically because headless
+  Play-mode entry hangs reliably in this environment (see the batch-mode timing gotcha below) —
+  they read a GameObject's actual serialized component fields directly out of the SAVED scene (Button/
+  Image/EventTrigger presence, `DirectionalPadController`'s field references, `InputSystemUIInputModule`'s
+  Point/Click action bindings for D-pad; `AudioManager`'s `musicSourceA`/`musicSourceB`/`sfxPool`/
+  `landingMusicClip`/`backgroundMusicClip`/`worldMusicClips`/`AudioListener` presence for audio) so a
+  silently-null reference (which no-ops the relevant `PlayMusic`/`PlaySFX`/tap call with zero
+  console error either way) can be caught without needing a live Play session at all. `FixLevelCropCounts` recomputes `LevelData.totalCropsRequired`
   directly from each level's own grid (capping power pellets to 1, matching what
   `TileMapRenderer` actually spawns) across all 175 levels — see the power-pellet section above for
   the bug this fixes. All entry points here are safe to re-run.
@@ -2945,6 +2994,21 @@ values from the GDD's color palette where one exists (e.g. walls = Wall Brown `#
   (`LevelFailedController.homeButton`/`GoHome()`, was `quitButton`/`QuitToWorldSelect()`) to match
   the mockup's house icon. The standalone Skip button is gone — no 4th icon in this mockup, and no
   equivalent behaviour was requested.
+- **`GameOver.png` and `Pause.png` both dropped their frame/background art entirely (2026-08-31)**
+  — the artist replaced both files in place with bare, transparent-background lettering (no
+  wood-sign frame, no parchment insert), so both are now rendered as plain `Image`s with no
+  backboard/frame composited behind them at all — nothing in `BuildLevelFailed`/`BuildPauseMenu`
+  ever added one separately, so this needed no code changes beyond resizing. Sized off one shared
+  `HeaderBannerHeight` (130) constant — width computed per-sprite from each PNG's own real aspect
+  (`GameOver.png` ~4.80:1, `Pause.png` ~3.37:1) — so the two now-bare banners read at a consistent
+  visual scale despite their differing proportions, rather than each screen's own hand-picked box
+  size (700×394 / 560×315) that assumed the old framed art's near-1.78:1 shape.
+
+  A purely decorative **"Insert Coin" row** was also added directly beneath `GameOverSign` on Level
+  Failed — `InsertCoin.png` (500×85 text, no gameplay/purchase hookup) at 70px tall (smaller than
+  `GameOver.png`'s 130, per direct request) plus a `Coin_UI.png` icon (70×70) beside it, both
+  manually laid out and centred as a pair (no `LayoutGroup`, matching this method's existing
+  fixed-anchor convention).
 - **Settings is a 2x3 grid of whole-plaque toggle cells, not a vertical stack of rows.** Rebuilt to
   a 2026-07-31 Canva mockup: root background is `Bg_LevelSelect.png` (moon/windmill/barn — see the
   Level Select bullet below for where else this art is used), `Logo.png` top-left, `SettingsSign.png`
@@ -2980,10 +3044,10 @@ values from the GDD's color palette where one exists (e.g. walls = Wall Brown `#
   `Header` has no background art at all (`Color.clear`) — it's just a layout strip for
   `TitleImage`/`StarCounter`, so the night sky shows straight through; `Header_LevelSelect.png`
   (a constant that used to point at a file which was never actually uploaded) was removed rather
-  than kept as a dead reference. `TitleImage`'s word-art was originally `SelectLevelSign.png`
-  (replacing old TMP "SELECT LEVEL" text), then swapped to `WorldUnlocked.png` ("World Unlocked")
-  in the 2026-08-27 navigation reorg — see that section above; `SelectLevelSign.png` is now
-  unreferenced. The 4 world badges (`CornfieldSign`/`VegetablePatchSign`/`OrchardSign`/
+  than kept as a dead reference. `TitleImage`'s word-art is now state-driven, not a single static
+  sprite — `WorldUnlocked.png` ("World Unlocked") on the world-select carousel, `SelectLevelSign.png`
+  ("SELECT LEVEL") once a world's tile grid is showing (see the "Level Select's header" bullet
+  under "Settings/Shop/Legal navigation reorg" above for the 2026-08-31 state-driven rework). The 4 world badges (`CornfieldSign`/`VegetablePatchSign`/`OrchardSign`/
   `WheatfieldSign.png` — note `CornfieldSign.png`'s on-disk filename has a lowercase "f", unlike
   the other three, since `AssetDatabase.LoadAssetAtPath` is case-sensitive regardless of the OS
   filesystem) are wired straight onto `LevelSelectController.worldSignSprites` — see the "Level
@@ -3463,6 +3527,24 @@ something `ArtWiringBuilder` can fix on its own, since it only assigns `AudioCli
 references, never creates GameObjects. If these fields are ever empty (check the `AudioManager`
 component's serialized fields directly in `Game.unity` if in doubt), every `PlayMusic`/`PlaySFX`
 call silently no-ops — re-run `Phase5ProjectBuilder.BuildAll` to fix it, not `ArtWiringBuilder`.
+
+**Real bug found and fixed (2026-08-31): toggling music back on via Settings' mute icon never
+brought the track back audibly.** `AudioManager.ApplyMusicVolume()` (called by `SetMusicMuted`,
+the mute toggle's own entry point) picked which of the two crossfading `AudioSource`s to apply the
+un-muted volume to via `_usingSourceA ? musicSourceB : musicSourceA` — but `PlayMusic` reads
+`incoming`/`outgoing` off `_usingSourceA` and only flips the flag AFTER deciding which source is
+which, so post-flip `_usingSourceA` actually names the source that just started playing (the old
+"incoming"), the OPPOSITE of what `ApplyMusicVolume` assumed. Muting still worked (silence reads
+the same regardless of which source it's applied to), but un-muting raised the volume on the
+silent/stopped source while the genuinely-playing one stayed wherever its volume last landed —
+audible only by coincidence, not by design. Fixed the ternary to `_usingSourceA ? musicSourceA :
+musicSourceB`, matching `PlayMusic`'s real post-toggle mapping. If a future "music won't come back
+after toggling" report resurfaces despite this fix, check `Farm Fury Arcade > Debug > Diagnose
+Audio Wiring` first (`SceneCleanupBuilder.DiagnoseAudioWiring`, added the same session) — it reads
+the CURRENT saved scene's `AudioManager` directly (musicSourceA/B, sfxPool, landingMusicClip,
+backgroundMusicClip, every `worldMusicClips` entry, and whether an `AudioListener` exists/is
+enabled) without needing a live Play session, since a missing clip/source reference silently
+no-ops `PlayMusic`/`PlaySFX` with zero console error either way.
 
 `Audio/SFX/EatRobot.mp3` (despite living in the SFX folder, it's used as a second **music** track,
 not a one-shot) plays for the exact duration a power pellet is active — `PowerPelletManager`

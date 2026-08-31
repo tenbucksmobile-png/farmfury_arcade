@@ -2048,21 +2048,15 @@ namespace FarmFuryArcade.EditorTools
                 PrefabUtility.UnloadPrefabContents(tileContents);
             }
 
-            // Header swapped from "SELECT LEVEL" (SelectLevelText) to WorldUnlocked.png's "World
-            // Unlocked" sign (2026-08-27, per direct feedback/mockup) — same sign World Purchase's
-            // own header and the New World Unlock celebration banner already use. SelectLevelText
-            // stays wired to nothing now; SelectLevelSign.png itself is left on disk unreferenced.
-            // TitleImage moved out of Header onto LevelSelectScreen's root directly (to match
-            // Settings' title sizing/position) — this path must track that or the sprite silently
-            // fails to wire.
-            var titleImage = canvasTransform.Find("LevelSelectScreen/TitleImage")?.GetComponent<Image>();
-            var titleSprite = Load(WorldUnlockedBannerSprite);
-            if (titleImage != null && titleSprite != null)
-            {
-                titleImage.sprite = titleSprite;
-                titleImage.type = Image.Type.Simple;
-                titleImage.preserveAspect = true;
-            }
+            // Header is now STATE-DRIVEN, not a single static sprite — went through a "World
+            // Unlocked" phase (2026-08-27, WorldUnlocked.png), then briefly a single static
+            // "SELECT LEVEL" swap-back (2026-08-31), before landing here (same day, follow-up
+            // feedback): "World Unlocked" on the world-select carousel, "SELECT LEVEL" once a
+            // world's tile grid is showing — the header reads wrong in either state if it's pinned
+            // to just one of the two. LevelSelectController.titleImage/titleWorldSelectSprite/
+            // titleTileGridSprite (wired directly in Phase5ProjectBuilder.BuildLevelSelect, not
+            // here) now own this swap at runtime via ShowWorldSelect/RevealWorld — nothing left for
+            // this method to wire.
 
             // Complete world badges (shield + rope + name text already baked into one sprite each),
             // indexed to match UnlockProgression.GetWorldNameForLevel's own world-number mapping —

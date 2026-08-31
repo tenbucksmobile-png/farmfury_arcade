@@ -43,6 +43,15 @@ namespace FarmFuryArcade.UI
         [SerializeField] private GameObject mainMenuScreen;
         [SerializeField] private GameObject gameplayScreen;
 
+        /// <summary>Header sign, state-driven same as backButtonImage's world-select/tile-grid
+        /// sprite swap below — "World Unlocked" (WorldUnlocked.png) on the world-select carousel,
+        /// "SELECT LEVEL" (SelectLevelSign.png) once a world's tile grid is showing. The two used
+        /// to share one static sprite (whichever ArtWiringBuilder last wired), which read wrong on
+        /// whichever state it wasn't tuned for.</summary>
+        [SerializeField] private Image titleImage;
+        [SerializeField] private Sprite titleWorldSelectSprite;
+        [SerializeField] private Sprite titleTileGridSprite;
+
         [Header("World Select")]
         [SerializeField] private GameObject worldShieldPrefab;
         [SerializeField] private RectTransform worldShieldContainer;
@@ -180,6 +189,7 @@ namespace FarmFuryArcade.UI
             currentWorldIndicator.gameObject.SetActive(false);
             scrollRect.gameObject.SetActive(false);
             SetBackButtonSprite(backButtonWorldSelectSprite);
+            SetTitleSprite(titleWorldSelectSprite);
 
             foreach (Transform child in worldShieldContainer)
             {
@@ -324,6 +334,7 @@ namespace FarmFuryArcade.UI
             _selectedWorld = world;
             worldShieldContainer.gameObject.SetActive(false);
             SetBackButtonSprite(backButtonTileGridSprite);
+            SetTitleSprite(titleTileGridSprite);
 
             SetWorldSignSprite(currentWorldIndicatorImage, world);
             currentWorldIndicator.gameObject.SetActive(true);
@@ -541,6 +552,14 @@ namespace FarmFuryArcade.UI
             if (backButtonImage != null && sprite != null)
             {
                 backButtonImage.sprite = sprite;
+            }
+        }
+
+        private void SetTitleSprite(Sprite sprite)
+        {
+            if (titleImage != null && sprite != null)
+            {
+                titleImage.sprite = sprite;
             }
         }
     }

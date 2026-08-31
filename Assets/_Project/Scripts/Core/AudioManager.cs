@@ -341,7 +341,12 @@ namespace FarmFuryArcade.Core
         private void ApplyMusicVolume()
         {
             float volume = MutedOrVolume(SaveManager.Instance != null && SaveManager.Instance.MusicOn, GetMusicVolume());
-            var active = _usingSourceA ? musicSourceB : musicSourceA; // the one currently playing (see PlayMusic's swap)
+            // PlayMusic reads incoming/outgoing off _usingSourceA BEFORE flipping it, so after the
+            // flip _usingSourceA actually names the source that just started playing (the old
+            // "incoming") — musicSourceA when true, musicSourceB when false. This was inverted
+            // (picked the silent/stopped source instead), which is why toggling music back on via
+            // the Settings mute icon raised the volume on a source nobody could hear.
+            var active = _usingSourceA ? musicSourceA : musicSourceB;
             if (active != null)
             {
                 active.volume = volume;

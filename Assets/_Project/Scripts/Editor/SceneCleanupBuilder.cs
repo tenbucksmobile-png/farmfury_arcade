@@ -4,6 +4,7 @@ using UnityEditor;
 using UnityEditor.SceneManagement;
 using UnityEngine;
 using UnityEngine.UI;
+using UnityEngine.EventSystems;
 using FarmFuryArcade.Core;
 using FarmFuryArcade.Data;
 using FarmFuryArcade.UI;
@@ -525,6 +526,183 @@ namespace FarmFuryArcade.EditorTools
 
                 Debug.Log($"[BackdropDiag] {name} -> root: {rootDesc} | PosterBackdrop: {posterDesc}");
             }
+        }
+
+        /// <summary>Diagnoses "music never plays / doesn't come back when toggled" reports —
+        /// Edit-mode read of the CURRENT saved scene's AudioManager component: whether
+        /// musicSourceA/musicSourceB/sfxPool exist (WireAudioSources — Phase5ProjectBuilder), and
+        /// whether landingMusicClip/backgroundMusicClip/worldMusicClips actually have real
+        /// AudioClip references (WireAudio — ArtWiringBuilder). Either being empty means PlayMusic
+        /// silently no-ops (`if (clip == null) return` / `if (incoming == null) return`) with no
+        /// console error at all — this catches that without needing a live Play session.</summary>
+        [MenuItem("Farm Fury Arcade/Debug/Diagnose Audio Wiring")]
+        public static void DiagnoseAudioWiring()
+        {
+            EditorSceneManager.OpenScene(ScenePath);
+
+            var audioManager = Object.FindFirstObjectByType<FarmFuryArcade.Core.AudioManager>(FindObjectsInactive.Include);
+            if (audioManager == null)
+            {
+                Debug.LogError("[AudioDiag] No AudioManager component found anywhere in the scene.");
+                return;
+            }
+
+            var so = new SerializedObject(audioManager);
+            var musicA = so.FindProperty("musicSourceA").objectReferenceValue;
+            var musicB = so.FindProperty("musicSourceB").objectReferenceValue;
+            var sfxPoolProp = so.FindProperty("sfxPool");
+            int sfxPoolCount = sfxPoolProp != null ? sfxPoolProp.arraySize : 0;
+            var landingClip = so.FindProperty("landingMusicClip").objectReferenceValue;
+            var backgroundClip = so.FindProperty("backgroundMusicClip").objectReferenceValue;
+
+            Debug.Log($"[AudioDiag] musicSourceA={(musicA != null ? "OK" : "NULL")} musicSourceB={(musicB != null ? "OK" : "NULL")} sfxPool.Length={sfxPoolCount}");
+            Debug.Log($"[AudioDiag] landingMusicClip={(landingClip != null ? landingClip.name : "NULL")} backgroundMusicClip={(backgroundClip != null ? backgroundClip.name : "NULL")}");
+
+            var worldClipsProp = so.FindProperty("worldMusicClips");
+            if (worldClipsProp != null && worldClipsProp.isArray)
+            {
+                for (int i = 0; i < worldClipsProp.arraySize; i++)
+                {
+                    var element = worldClipsProp.GetArrayElementAtIndex(i);
+                    var clipProp = element.FindPropertyRelative("clip");
+                    var mazeTypeProp = element.FindPropertyRelative("mazeType");
+                    string clipName = clipProp != null && clipProp.objectReferenceValue != null ? clipProp.objectReferenceValue.name : "NULL";
+                    string mazeTypeName = mazeTypeProp != null ? mazeTypeProp.enumDisplayNames[mazeTypeProp.enumValueIndex] : "?";
+                    Debug.Log($"[AudioDiag] worldMusicClips[{i}] mazeType={mazeTypeName} clip={clipName}");
+                }
+            }
+            else
+            {
+                Debug.LogWarning("[AudioDiag] worldMusicClips property not found or not an array — check the field name/type in AudioManager.cs.");
+            }
+
+            var audioListener = Object.FindFirstObjectByType<AudioListener>(FindObjectsInactive.Include);
+            Debug.Log(audioListener == null
+                ? "[AudioDiag] No AudioListener found in the scene at all — NO audio of any kind can play."
+                : $"[AudioDiag] AudioListener found on '{audioListener.gameObject.name}', enabled={audioListener.enabled}, GameObject.activeInHierarchy={audioListener.gameObject.activeInHierarchy}.");
+        }
+
+        /// <summary>Diagnoses "on-screen D-pad taps don't move the character (keyboard does)"
+        /// reports without needing a live Play session — reads the CURRENT saved scene's
+        /// GameplayScreen/SafeArea/DPad*Button hierarchy directly (Edit mode, same
+        /// reflection-free-log convention as DiagnoseDimmedBackdrops) and reports everything that
+        /// could silently break a tap: whether each button GameObject/Button/EventTrigger exists,
+        /// Button.interactable, Image.raycastTarget, how many EventTrigger entries are wired (should
+        /// be 3: PointerDown/PointerUp/PointerExit), and whether DirectionalPadController's own
+        /// serialized button references on GameplayScreen actually point at these exact
+        /// GameObjects (a stale/null reference here would silently no-op every tap while the
+        /// buttons themselves still render and look correct).</summary>
+        [MenuItem("Farm Fury Arcade/Debug/Diagnose DPad Wiring")]
+        public static void DiagnoseDPadWiring()
+        {
+            EditorSceneManager.OpenScene(ScenePath);
+
+            var canvas = GameObject.Find("Canvas");
+            if (canvas == null)
+            {
+                Debug.LogError("[DPadDiag] Could not find Canvas in the scene.");
+                return;
+            }
+
+            var gameplayScreen = canvas.transform.Find("GameplayScreen");
+            if (gameplayScreen == null)
+            {
+                Debug.LogError("[DPadDiag] Could not find Canvas/GameplayScreen.");
+                return;
+            }
+
+            var controller = gameplayScreen.GetComponent<DirectionalPadController>();
+            if (controller == null)
+            {
+                Debug.LogError("[DPadDiag] GameplayScreen has NO DirectionalPadController component at all — every tap is a guaranteed no-op.");
+            }
+
+            var so = controller != null ? new SerializedObject(controller) : null;
+
+            string[] buttonNames = { "DPadUpButton", "DPadDownButton", "DPadLeftButton", "DPadRightButton" };
+            string[] fieldNames = { "upButton", "downButton", "leftButton", "rightButton" };
+
+            for (int i = 0; i < buttonNames.Length; i++)
+            {
+                var buttonTransform = gameplayScreen.Find($"SafeArea/{buttonNames[i]}");
+                if (buttonTransform == null)
+                {
+                    Debug.LogError($"[DPadDiag] {buttonNames[i]}: NOT FOUND under GameplayScreen/SafeArea.");
+                    continue;
+                }
+
+                var button = buttonTransform.GetComponent<Button>();
+                var image = buttonTransform.GetComponent<Image>();
+                var trigger = buttonTransform.GetComponent<EventTrigger>();
+                var rect = buttonTransform.GetComponent<RectTransform>();
+
+                string buttonDesc = button != null
+                    ? $"interactable={button.interactable}"
+                    : "MISSING Button component";
+                string imageDesc = image != null
+                    ? $"raycastTarget={image.raycastTarget}"
+                    : "MISSING Image component";
+                string triggerDesc = trigger != null
+                    ? $"entries={trigger.triggers.Count} (expect 3)"
+                    : "no EventTrigger yet (EXPECTED in the saved Edit-mode scene — DirectionalPadController.Awake() adds it at runtime, not construction time)";
+                string rectDesc = rect != null
+                    ? $"size={rect.sizeDelta} activeInHierarchy={buttonTransform.gameObject.activeInHierarchy}"
+                    : "MISSING RectTransform";
+
+                string refDesc = "n/a (no controller)";
+                if (so != null)
+                {
+                    var fieldProp = so.FindProperty(fieldNames[i]);
+                    var referenced = fieldProp?.objectReferenceValue as Button;
+                    refDesc = referenced == null
+                        ? "DirectionalPadController field is NULL — guaranteed no-op tap"
+                        : (referenced.gameObject == buttonTransform.gameObject
+                            ? "OK, points at this exact button"
+                            : $"MISMATCH — points at a different GameObject ({referenced.gameObject.name}, path={GetPath(referenced.transform)})");
+                }
+
+                Debug.Log($"[DPadDiag] {buttonNames[i]}: {buttonDesc} | {imageDesc} | {triggerDesc} | {rectDesc} | controllerField[{fieldNames[i]}]={refDesc}");
+            }
+
+            var eventSystem = Object.FindFirstObjectByType<EventSystem>();
+            var uiModule = eventSystem != null ? eventSystem.GetComponent<BaseInputModule>() : null;
+            Debug.Log(eventSystem == null
+                ? "[DPadDiag] No EventSystem found in the scene at all — NO UI element anywhere can receive clicks/taps."
+                : $"[DPadDiag] EventSystem found, input module = {(uiModule != null ? uiModule.GetType().Name : "MISSING — no BaseInputModule component, UI clicks will not be processed")}.");
+
+            if (uiModule is UnityEngine.InputSystem.UI.InputSystemUIInputModule inputSystemUiModule)
+            {
+                var pointRef = inputSystemUiModule.point;
+                var clickRef = inputSystemUiModule.leftClick;
+                string pointDesc = DescribeActionRef(pointRef);
+                string clickDesc = DescribeActionRef(clickRef);
+                Debug.Log($"[DPadDiag] InputSystemUIInputModule.point = {pointDesc} | .leftClick = {clickDesc} — if either is 'null/unbound', NO on-screen UI (not just the D-pad) can register pointer input at all.");
+            }
+        }
+
+        private static string DescribeActionRef(UnityEngine.InputSystem.InputActionReference actionRef)
+        {
+            if (actionRef == null)
+            {
+                return "NULL reference";
+            }
+            var action = actionRef.action;
+            if (action == null)
+            {
+                return $"reference '{actionRef.name}' resolves to a NULL action";
+            }
+            return $"'{action.name}' bindings={action.bindings.Count} enabled={action.enabled}";
+        }
+
+        private static string GetPath(Transform t)
+        {
+            string path = t.name;
+            while (t.parent != null)
+            {
+                t = t.parent;
+                path = t.name + "/" + path;
+            }
+            return path;
         }
 
         private static void DedupeAndDisable<T>() where T : MonoBehaviour

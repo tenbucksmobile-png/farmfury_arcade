@@ -24,6 +24,24 @@ namespace FarmFuryArcade.Enemies
         [SerializeField] private GameObject heavyPrefab;
         [SerializeField] private GameObject dronePrefab;
 
+        /// <summary>Per direct request: robots no longer all pile onto the level's single authored
+        /// robotFactoryPosition (LevelData.robotSpawns' spawnPosition, still the same value for
+        /// every robot on a level — see Phase3ProjectBuilder.AssignRobotSpawnsToRemainingLevels).
+        /// When true, each robot instead spawns at its own random walkable cell (GetSpawnCell),
+        /// picked fresh per spawn — so two robots on the same level, or the same robot across a
+        /// retry, don't land in the same spot. False restores the original fixed-factory behaviour
+        /// (spawn.spawnPosition used as-is) if ever needed for a specific level/test.</summary>
+        [SerializeField] private bool spawnAnywhere = true;
+
+        /// <summary>Cells already claimed by a robot spawned THIS level load — checked so two
+        /// robots spawning close together in time don't land on the exact same random cell as each
+        /// other. Cleared in ClearRobots (every SpawnLevelRobots call and player death do NOT clear
+        /// this — only a fresh level load should reset it, since the robots themselves persist
+        /// across a death via ResetAllRobotsToFactory instead of respawning).</summary>
+        private readonly HashSet<Vector2Int> _claimedSpawnCells = new HashSet<Vector2Int>();
+
+        private const int MaxRandomSpawnAttempts = 40;
+
         /// <summary>Applied to every robot this spawner creates from here on (SpawnRobot reads it
         /// at spawn time, not just once) — GameManager.LoadLevel sets this right before calling
         /// SceneController.LoadLevelContent, so it's already correct by the time SpawnLevelRobots
@@ -75,6 +93,7 @@ namespace FarmFuryArcade.Enemies
                 }
             }
             _activeRobots.Clear();
+            _claimedSpawnCells.Clear();
         }
 
         /// <summary>Called by PlayerHealth's death sequence — score is kept, but every robot
@@ -108,7 +127,8 @@ namespace FarmFuryArcade.Enemies
                 return;
             }
 
-            Vector3 worldPos = tileMap.GridToWorld(spawn.spawnPosition);
+            Vector2Int spawnCell = GetSpawnCell(spawn);
+            Vector3 worldPos = tileMap.GridToWorld(spawnCell);
             var go = Instantiate(prefab, worldPos, Quaternion.identity, robotParent);
             var robot = go.GetComponent<RobotBase>();
             if (robot == null)
@@ -126,7 +146,7 @@ namespace FarmFuryArcade.Enemies
                 // this log it was a silent degrade with zero signal to notice in a playtest.
                 Debug.LogWarning($"[RobotSpawner] No RobotData found for {spawn.robotType} — spawning with fallback stats.");
             }
-            robot.Initialize(data, tileMap, spawn.spawnPosition, GetScatterCorner(spawn.robotType));
+            robot.Initialize(data, tileMap, spawnCell, GetScatterCorner(spawn.robotType));
             robot.SetDifficultyMultiplier(DifficultyMultiplier);
             _activeRobots.Add(robot);
             // PlayRobotRespawnSfx used to fire only from a defeated robot's mid-level walk-back to
@@ -134,6 +154,44 @@ namespace FarmFuryArcade.Enemies
             // Disappear()/IsPermanentlyDefeated doc comments), so this is now the only spawn event
             // left to play "RobotSpawn.mp3" against, level-start spawns included.
             AudioManager.Instance?.PlayRobotRespawnSfx();
+        }
+
+        /// <summary>Returns spawn.spawnPosition unchanged when spawnAnywhere is off (legacy fixed-
+        /// factory behaviour). Otherwise picks a random walkable, non-water cell — excluding the
+        /// player's own start cell and any cell already claimed by another robot spawned this level
+        /// — via rejection sampling (MazeWidth/MazeHeight are small, ~10-30 tiles a side, so a few
+        /// dozen random tries reliably finds a free cell without needing a precomputed candidate
+        /// list). Falls back to spawn.spawnPosition if MaxRandomSpawnAttempts is exhausted (a
+        /// near-fully-occupied tiny maze) rather than looping forever or spawning somewhere
+        /// unwalkable.</summary>
+        private Vector2Int GetSpawnCell(RobotSpawnData spawn)
+        {
+            if (!spawnAnywhere || tileMap == null || _level == null)
+            {
+                return spawn.spawnPosition;
+            }
+
+            for (int attempt = 0; attempt < MaxRandomSpawnAttempts; attempt++)
+            {
+                var candidate = new Vector2Int(
+                    Random.Range(0, _level.mazeWidth),
+                    Random.Range(0, _level.mazeHeight));
+
+                if (candidate == _level.playerStartPosition || _claimedSpawnCells.Contains(candidate))
+                {
+                    continue;
+                }
+                if (!tileMap.IsWalkable(candidate))
+                {
+                    continue;
+                }
+
+                _claimedSpawnCells.Add(candidate);
+                return candidate;
+            }
+
+            _claimedSpawnCells.Add(spawn.spawnPosition);
+            return spawn.spawnPosition;
         }
 
         private GameObject GetPrefabFor(RobotType type)

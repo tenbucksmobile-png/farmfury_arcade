@@ -665,7 +665,10 @@ namespace FarmFuryArcade.EditorTools
                 ("scrollRect", scrollRect),
                 ("lockedHintPanel", lockedHintPanel),
                 ("backButton", backButton),
-                ("backButtonImage", backButton.GetComponent<Image>()));
+                ("backButtonImage", backButton.GetComponent<Image>()),
+                ("titleImage", titleImage),
+                ("titleWorldSelectSprite", LoadUiSprite("WorldUnlocked.png")),
+                ("titleTileGridSprite", LoadUiSprite("SelectLevelSign.png")));
 
             return root;
         }
@@ -1288,15 +1291,17 @@ namespace FarmFuryArcade.EditorTools
             logoImage.preserveAspect = true;
             AnchorTopLeft((RectTransform)logoImageGO.transform, new Vector2(LogoImageSize, LogoImageSize), new Vector2(100f, -40f));
 
-            // Pause.png is a 666x375 hanging wood sign (rope-tied corners, "Pause" on parchment) —
-            // sized to its own real aspect (~1.78:1) rather than a generic header-sign box, first
-            // pass eyeballed against the mockup (no visual Editor/Play mode access this session).
+            // Pause.png was reworked by the artist (2026-08-31) to drop its wood-sign frame/
+            // background entirely — it's now bare "Pause" lettering on a transparent 418x124
+            // canvas (~3.37:1), so it's rendered directly with no backboard/frame composited
+            // behind it. Sized off a shared banner height (HeaderBannerHeight) with GameOver.png
+            // below (BuildLevelFailed) so both text-only screen banners read at a consistent scale.
             var signGO = new GameObject("TitleImage", typeof(RectTransform), typeof(Image));
             signGO.transform.SetParent(root.transform, false);
             var signImage = signGO.GetComponent<Image>();
             signImage.sprite = LoadUiSprite("Pause.png");
             signImage.preserveAspect = true;
-            AnchorTopCenter((RectTransform)signGO.transform, new Vector2(560f, 315f), new Vector2(0f, -300f));
+            AnchorTopCenter((RectTransform)signGO.transform, new Vector2(HeaderBannerHeight * (418f / 124f), HeaderBannerHeight), new Vector2(0f, -300f));
 
             // Same 4-button layout LevelFailedController used to have — Play/Skip bottom-left pair,
             // Settings/Quit bottom-right pair, identical StandardIconButtonSize + insets. Pause
@@ -1789,6 +1794,13 @@ namespace FarmFuryArcade.EditorTools
         // preserveAspect WOULD have fit the image to if it weren't being ignored) is the true prior
         // visual size; enlarged 1.5x per feedback per a gameplay screenshot review.
         private const float LogoImageSize = 170f * 1.5f;
+
+        // Shared height for the two now-backboard-less text-only wood-sign banners (Pause.png,
+        // GameOver.png) — both lost their frame/background art on 2026-08-31, leaving bare
+        // differently-proportioned lettering (Pause ~3.37:1, GameOver ~4.80:1). Sizing each off
+        // one common height (rather than each screen's own hand-picked box) is what makes the two
+        // screens' banners actually read as the same visual scale despite the differing aspects.
+        private const float HeaderBannerHeight = 130f;
         // Sized to guarantee real clearance above BuildSettingsPanel's icon grid, not just eyeballed
         // against the benchmark: with the grid's own layout math (StandardIconButtonSize=160,
         // cellSpacing=50 -> gridHeight=370, container sizeDelta.y=gridHeight+60=430, anchoredPosition
@@ -2061,35 +2073,47 @@ namespace FarmFuryArcade.EditorTools
             var restorePlaqueBorder = new Vector4(90f, 70f, 90f, 70f);
             const float restorePlaqueHeight = 100f;
             const float restorePlaqueMinWidth = 220f;
+            // Shifted right from the original 110 (2026-08-31, per direct feedback) — kept as one
+            // named inset so the plaque and its status line above (restoreStatusRect below) always
+            // move together rather than drifting apart if nudged again later.
+            const float restorePlaqueInsetX = 190f;
             var restorePurchasesButton = CreateButton("RestorePurchasesButton", root.transform, "Restore Purchases",
                 Color.white, 22f, restorePlaqueHeight, out var restorePurchasesLabel);
             var restoreButtonRect = (RectTransform)restorePurchasesButton.transform;
-            AnchorBottomLeft(restoreButtonRect, new Vector2(restorePlaqueMinWidth, restorePlaqueHeight), new Vector2(110f, 70f));
+            AnchorBottomLeft(restoreButtonRect, new Vector2(restorePlaqueMinWidth, restorePlaqueHeight), new Vector2(restorePlaqueInsetX, 70f));
             var restoreButtonImage = restorePurchasesButton.GetComponent<Image>();
             restoreButtonImage.sprite = LoadUiSprite("Btn_plaque.png", restorePlaqueBorder);
             restoreButtonImage.type = Image.Type.Sliced;
 
-            // Fixed-size single-line label, top ~55% of the plaque — no autosizing/wrap/truncate at
-            // all now, since the plaque resizes to it rather than the other way around.
+            // Label now fills the WHOLE plaque rect (0,0)-(1,1), true dead-centre both axes
+            // (TextAlignmentOptions.Center already covers horizontal+vertical middle — CreateButton
+            // sets this by default) — previously carved to only the top ~55% of the box to leave
+            // room for a status line underneath, which visually read as top-anchored/off-centre,
+            // not truly middle-aligned to the plaque. The status line moved OUT of the plaque
+            // entirely (see restoreStatusText below) so nothing competes with this for vertical
+            // space anymore. No autosizing/wrap/truncate — the plaque resizes to fit this label
+            // (ResizeRestoreButtonToFitLabel), not the other way around.
             var restoreLabelRect = (RectTransform)restorePurchasesLabel.transform;
-            restoreLabelRect.anchorMin = new Vector2(0f, 0.45f);
-            restoreLabelRect.anchorMax = new Vector2(1f, 1f);
+            restoreLabelRect.anchorMin = Vector2.zero;
+            restoreLabelRect.anchorMax = Vector2.one;
             restoreLabelRect.offsetMin = new Vector2(24f, 4f);
-            restoreLabelRect.offsetMax = new Vector2(-24f, -10f);
+            restoreLabelRect.offsetMax = new Vector2(-24f, -4f);
             restorePurchasesLabel.fontSize = 22f;
             restorePurchasesLabel.enableAutoSizing = false;
             restorePurchasesLabel.enableWordWrapping = false;
             restorePurchasesLabel.overflowMode = TextOverflowModes.Overflow;
+            restorePurchasesLabel.alignment = TextAlignmentOptions.Center;
 
-            var restoreStatusText = CreateText("RestoreStatusText", restorePurchasesButton.transform, string.Empty, 14f, TextAlignmentOptions.Center, 30f);
+            // Standalone status line ("Restoring...", "Purchases restored!"), sitting just above the
+            // plaque rather than sharing its box — it's blank almost all the time (only populated
+            // for the few seconds a restore is actually in flight), so it no longer needs to steal
+            // any of the plaque's own vertical space to exist.
+            var restoreStatusText = CreateText("RestoreStatusText", root.transform, string.Empty, 16f, TextAlignmentOptions.Center, 28f);
             var restoreStatusRect = (RectTransform)restoreStatusText.transform;
-            restoreStatusRect.anchorMin = new Vector2(0f, 0f);
-            restoreStatusRect.anchorMax = new Vector2(1f, 0.45f);
-            restoreStatusRect.offsetMin = new Vector2(24f, 4f);
-            restoreStatusRect.offsetMax = new Vector2(-24f, 0f);
+            AnchorBottomLeft(restoreStatusRect, new Vector2(restorePlaqueMinWidth, 28f), new Vector2(restorePlaqueInsetX, 70f + restorePlaqueHeight + 8f));
             restoreStatusText.enableAutoSizing = true;
             restoreStatusText.fontSizeMin = 9f;
-            restoreStatusText.fontSizeMax = 14f;
+            restoreStatusText.fontSizeMax = 16f;
             restoreStatusText.enableWordWrapping = false;
             restoreStatusText.overflowMode = TextOverflowModes.Truncate;
 
@@ -2630,7 +2654,13 @@ namespace FarmFuryArcade.EditorTools
         /// (bottom-left, restarts, unchanged), Settings (opens the shared SettingsPanel overlay,
         /// unchanged) and Home (bottom-right outermost, Btn_home.png — the old Quit button, same
         /// QuitToWorldSelect behaviour, just relabelled/re-iconed to match the mockup's house icon;
-        /// the standalone Skip button is gone, since the mockup has no 4th icon for it).</summary>
+        /// the standalone Skip button is gone, since the mockup has no 4th icon for it).
+        ///
+        /// GameOver.png was reworked again (2026-08-31) — the framed hanging sign described above
+        /// is gone too, replaced with bare transparent lettering, same as Pause.png (BuildPauseMenu)
+        /// — see HeaderBannerHeight's own doc comment for how the two are now sized consistently.
+        /// A purely decorative "Insert Coin" + coin-icon row (InsertCoin.png/Coin_UI.png, no
+        /// gameplay hookup) sits directly beneath it at a smaller scale, per direct request.</summary>
         private static GameObject BuildLevelFailed(Transform canvasTransform)
         {
             var root = CreatePanel("LevelFailedScreen", canvasTransform, Color.black);
@@ -2643,9 +2673,11 @@ namespace FarmFuryArcade.EditorTools
             logoImage.preserveAspect = true;
             AnchorTopLeft((RectTransform)logoImageGO.transform, new Vector2(LogoImageSize, LogoImageSize), new Vector2(100f, -40f));
 
-            // "GAME OVER" sign — real 666x375 art (~1.776:1, same aspect/size class as Pause.png),
-            // centred at (0,90) same as the placeholder it replaces, comfortably below Logo's own
-            // bottom edge (245) with room to spare.
+            // "GAME OVER" sign was reworked by the artist (2026-08-31) to drop its wood-sign
+            // frame/background too — bare "GAME OVER" lettering on a transparent 418x87 canvas
+            // (~4.80:1), rendered directly with no backboard/frame. Sized off the same
+            // HeaderBannerHeight as Pause.png (BuildPauseMenu) so the two text-only screen banners
+            // read at a consistent scale despite their differing aspect ratios.
             var gameOverGO = new GameObject("GameOverSign", typeof(RectTransform), typeof(Image));
             gameOverGO.transform.SetParent(root.transform, false);
             var gameOverImage = gameOverGO.GetComponent<Image>();
@@ -2654,8 +2686,40 @@ namespace FarmFuryArcade.EditorTools
             var gameOverRect = (RectTransform)gameOverGO.transform;
             gameOverRect.anchorMin = gameOverRect.anchorMax = new Vector2(0.5f, 0.5f);
             gameOverRect.pivot = new Vector2(0.5f, 0.5f);
-            gameOverRect.sizeDelta = new Vector2(700f, 394f);
-            gameOverRect.anchoredPosition = new Vector2(0f, 90f);
+            gameOverRect.sizeDelta = new Vector2(HeaderBannerHeight * (418f / 87f), HeaderBannerHeight);
+            gameOverRect.anchoredPosition = new Vector2(0f, 150f);
+
+            // "Insert Coin" flavour row — purely decorative (no gameplay/purchase hookup), sits
+            // directly under GAME OVER at a smaller scale per direct request. InsertCoin.png
+            // (500x85 text) + Coin_UI.png (512x512, square) are laid out as a simple fixed pair
+            // rather than a LayoutGroup, matching this method's existing manual-anchor convention.
+            const float insertCoinHeight = 70f; // smaller than HeaderBannerHeight (130) on purpose
+            float insertCoinWidth = insertCoinHeight * (500f / 85f);
+            const float insertCoinCoinSpacing = 15f;
+            float insertCoinRowWidth = insertCoinWidth + insertCoinCoinSpacing + insertCoinHeight;
+            float insertCoinRowY = 30f;
+
+            var insertCoinGO = new GameObject("InsertCoinText", typeof(RectTransform), typeof(Image));
+            insertCoinGO.transform.SetParent(root.transform, false);
+            var insertCoinImage = insertCoinGO.GetComponent<Image>();
+            insertCoinImage.sprite = LoadUiSprite("InsertCoin.png");
+            insertCoinImage.preserveAspect = true;
+            var insertCoinRect = (RectTransform)insertCoinGO.transform;
+            insertCoinRect.anchorMin = insertCoinRect.anchorMax = new Vector2(0.5f, 0.5f);
+            insertCoinRect.pivot = new Vector2(0.5f, 0.5f);
+            insertCoinRect.sizeDelta = new Vector2(insertCoinWidth, insertCoinHeight);
+            insertCoinRect.anchoredPosition = new Vector2(-insertCoinRowWidth / 2f + insertCoinWidth / 2f, insertCoinRowY);
+
+            var insertCoinIconGO = new GameObject("InsertCoinIcon", typeof(RectTransform), typeof(Image));
+            insertCoinIconGO.transform.SetParent(root.transform, false);
+            var insertCoinIconImage = insertCoinIconGO.GetComponent<Image>();
+            insertCoinIconImage.sprite = LoadUiSprite("Coin_UI.png");
+            insertCoinIconImage.preserveAspect = true;
+            var insertCoinIconRect = (RectTransform)insertCoinIconGO.transform;
+            insertCoinIconRect.anchorMin = insertCoinIconRect.anchorMax = new Vector2(0.5f, 0.5f);
+            insertCoinIconRect.pivot = new Vector2(0.5f, 0.5f);
+            insertCoinIconRect.sizeDelta = new Vector2(insertCoinHeight, insertCoinHeight);
+            insertCoinIconRect.anchoredPosition = new Vector2(insertCoinRowWidth / 2f - insertCoinHeight / 2f, insertCoinRowY);
 
             var playButton = CreateIconButton("PlayButton", root.transform, LoadUiSprite("Btn_play.png"), StandardIconButtonSize);
             AnchorBottomLeft((RectTransform)playButton.transform, new Vector2(StandardIconButtonSize, StandardIconButtonSize), new Vector2(150f, 110f));
