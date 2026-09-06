@@ -1342,9 +1342,13 @@ for any of these 4 screens):
    AND its price ($1.99, not the old $3.99) baked into one hanging wood-plaque graphic, so no
    breadcrumb icon or separate price sign is built at all anymore. The old `Frame*Trail.png` files
    were deleted from disk (the corresponding hat `Frame*.png` files are untouched — still used
-   elsewhere, see the Cowboy Hat/Sombrero bullet below). **`IAPManager`'s registered fallback price
-   for these 7 products is still the old $3.99** — the art now shows $1.99, but updating the actual
-   IAP price/product config was left to be done separately.
+   elsewhere, see the Cowboy Hat/Sombrero bullet below). **`IAPManager.FallbackPrices` for these 7
+   products was updated to `$1.99` on 2026-09-06** (had drifted from the art for a while, tracked
+   as a known gap) — still update the real store-side price for each product in App Store Connect
+   and Google Play Console separately if that hasn't been done yet; the fallback string only shows
+   before a real store connection resolves (or permanently, in the Editor/dev builds with no store
+   configured) — a connected store always returns its own live localized price in preference to
+   this fallback.
 
 **`CosmeticPurchaseScreen` is one generic component** — reused by this consolidated Cosmetics
 screen, and also by the World Purchase screen (3 items at their own real $3.99 price plaque, since
@@ -1360,7 +1364,9 @@ pattern.
 **Cosmetics moved off the coin-priced `SaveManager.PurchaseCosmetic` flow onto real-money IAP** —
 every hat/trail in the new mockups bakes in a `$` price, not a coin cost, so `IAPManager` gained 7
 new `NonConsumable` products (`hat_baseball_cap`/`hat_cowboy_hat`/`hat_sombrero`/`trail_cornhusk`/
-`trail_ember`/`trail_sparkledust`/`trail_rainbowribbon`, all $3.99 fallback price) alongside the
+`trail_ember`/`trail_sparkledust`/`trail_rainbowribbon`, originally $3.99 fallback price, updated to
+$1.99 on 2026-09-06 to match the baked-in art price — see the Cowboy Hat/Sombrero bullet above)
+alongside the
 existing coin packs + Remove Ads. `CosmeticData.coinCost` still exists on every asset but is unused
 for these — `0` on the two new universal hats, still its old value (unused) on the 8 baseball caps
 and 4 trails.
