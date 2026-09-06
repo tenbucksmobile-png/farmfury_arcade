@@ -1555,6 +1555,34 @@ namespace FarmFuryArcade.EditorTools
             image.sprite = sprite;
         }
 
+        /// <summary>Wires a backdrop that's built (Phase5ProjectBuilder) with an AspectRatioFitter
+        /// in EnvelopeParent mode instead of a plain full-stretch Image — sets both the sprite AND
+        /// the fitter's aspectRatio from that sprite's own real pixel dimensions, so the backdrop
+        /// scales uniformly to cover the screen (cropping overflow, never distorting) regardless
+        /// of device aspect. Use this instead of SetScreenBackground for any screen built with this
+        /// convention (currently just ChooseCharacterScreen/Backdrop — see its own doc comment for
+        /// why: a real device screenshot showed World1_Cornfield.png's moon rendering as an oval
+        /// under the old plain-stretch approach).</summary>
+        private static void SetAspectFillBackground(Transform canvasTransform, string path, Sprite sprite)
+        {
+            if (sprite == null)
+            {
+                return;
+            }
+
+            var target = canvasTransform.Find(path);
+            var image = target != null ? target.GetComponent<Image>() : null;
+            var fitter = target != null ? target.GetComponent<AspectRatioFitter>() : null;
+            if (image == null || fitter == null)
+            {
+                Debug.LogWarning($"[ArtWiringBuilder] Could not find Image+AspectRatioFitter at Canvas/{path} to wire.");
+                return;
+            }
+
+            image.sprite = sprite;
+            fitter.aspectRatio = sprite.rect.width / sprite.rect.height;
+        }
+
         // ---- New characters (Bessie, Woolly, Percy, Ducky) -------------------------------------
 
         /// <summary>Fixed order [Up0,Up1,Down0,Down1,Left0,Left1,Right0,Right1] per
@@ -1821,8 +1849,11 @@ namespace FarmFuryArcade.EditorTools
             // art directly at construction time in Phase5ProjectBuilder.BuildSettingsPanel (self-
             // contained, same convention Shop/Cosmetics use) — nothing to wire here anymore.
             // ChooseCharacterScreen switched to World1_Cornfield.png (same backdrop as Pause) per
-            // its own mockup — LoadingScreen Background.png is no longer used by either.
-            SetScreenBackground(canvasTransform, "ChooseCharacterScreen", Load(PauseBackground));
+            // its own mockup — LoadingScreen Background.png is no longer used by either. Uses
+            // SetAspectFillBackground (not SetScreenBackground) since this screen's backdrop is a
+            // dedicated child with an AspectRatioFitter (EnvelopeParent) — see BuildChooseCharacterScreen's
+            // own doc comment for why (fixes the moon rendering as an oval on some device aspects).
+            SetAspectFillBackground(canvasTransform, "ChooseCharacterScreen/Backdrop", Load(PauseBackground));
             SetImageSprite(canvasTransform, "ChooseCharacterScreen/LogoImage", Load(LogoImage));
             // LevelSelectScreen deliberately has no LogoImage — see BuildLevelSelect's doc comment;
             // it clashes with CurrentWorldIndicator at the same top-left inset.

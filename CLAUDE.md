@@ -1964,6 +1964,43 @@ centred card pops it (scale, `SetAsLastSibling`, `carousel.enabled = false` firs
 Pause. Tab still toggles it too, via the same `InputController.OnSwapMenuToggleInput` event
 `CharacterSwapUI` used — nothing else needed to change to preserve that shortcut.
 
+**`ChooseCharacterScreen`'s backdrop (`World1_Cornfield.png`) went through a full rework
+(2026-09-06) after a real device screenshot showed its baked-in moon rendering as an oval, not a
+circle.** Root cause: the backdrop was a plain full-stretch `Image` (`Image.Type.Simple`, no
+`preserveAspect`) directly on the screen root — this stretches non-uniformly (independent x/y
+scale factors) to exactly fill whatever aspect the device screen happens to be, which distorts
+the art whenever that aspect doesn't match the source image's own ~1.77:1. Fixed by moving the
+backdrop onto its own child, `ChooseCharacterScreen/Backdrop`, carrying an `AspectRatioFitter` in
+`EnvelopeParent` mode (uniformly scales to fully *cover* the screen, cropping overflow top/bottom
+or left/right as needed, never distorting) instead of a plain stretch — `ArtWiringBuilder`'s new
+`SetAspectFillBackground` (replacing `SetScreenBackground` for this one screen) sets both the
+sprite and the fitter's `aspectRatio` from that sprite's own real pixel dimensions, so it stays
+correct even if the art file is ever replaced. The screen root's own `Image` (from `CreatePanel`)
+is left as a plain black fallback behind this, unchanged.
+
+**A power-play (combo icon) showcase was added over the moon in the same session, then swapped
+with the Logo per direct request.** `PowerPlayMoonShowcase.cs` (`Scripts/UI`) is a small component
+that cross-fades through a fixed sprite array on a timer (2.5s hold, 0.3s fade each way) — built
+generically (just `targetImage`/`icons`/`displaySeconds`/`fadeSeconds` fields) rather than reading
+`CharacterData.abilityIconSprite` per-character, since what it actually shows is the 8-combo
+system's own icon art (`CrossFire.png`/`DoubleSlam.png`/`IronStampede.png`/`KicknRoll.png`/
+`SkipShatter.png` — the 5 of 8 combos with real art so far, same set `ComboNotificationBanner`
+shows in-maze), not a single character's own ability — "power play" means pairing two characters,
+which an ability icon alone doesn't convey. It was originally positioned as a stretch-anchored
+child of `Backdrop`, matching the moon's own measured fraction bounds so it would distort
+identically to whatever the (then-stretching) backdrop did — once the backdrop was fixed to no
+longer stretch, that approach was replaced entirely: **Logo and the power-play showcase were
+swapped outright, per direct request**, since a decorative logo doesn't need to precisely match
+the moon's silhouette the way an icon meant to sit exactly on it does. `LogoImage` is now a plain
+fixed-size (260x260), fixed-position (centre-anchored, `anchoredPosition (645, 328)` in the
+1920x1080 reference canvas — nudged right from an initial `(565, 328)` per a device screenshot
+showing it sitting left of the moon's actual centre) icon parented directly to the screen root, no
+longer backdrop-relative at all. `PowerPlayShowcase` moved to the exact top-left spot Logo used to
+occupy (`AnchorTopLeft`, same `LogoImageSize` (255) box, inset widened to `(175, -50)` from Logo's
+old `(100, -50)` per a device screenshot showing it sitting at/past the screen's rounded corner,
+outside the yellow safe-area guide) — both now use `preserveAspect = true` since neither needs to
+track the backdrop's own scaling anymore.
+
 ### Settings / Leaderboards / Level Complete redesign (2026-08-20, `SettingsPanel.cs`, `LeaderboardsScreen.cs`, `LevelCompleteController.cs`)
 
 A later pass in the same 2026-08-20 redesign wave as Shop/Cosmetics above, covering three more

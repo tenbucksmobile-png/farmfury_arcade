@@ -2917,51 +2917,71 @@ namespace FarmFuryArcade.EditorTools
         {
             var root = CreatePanel("ChooseCharacterScreen", canvasTransform, Color.black);
 
+            // Backdrop sits on its own child with an AspectRatioFitter (EnvelopeParent = uniformly
+            // scale to fully cover the screen, cropping overflow top/bottom or left/right, never
+            // distorting) instead of the root panel's own Image, which stretches non-uniformly to
+            // exactly fill the screen rect whenever the device aspect doesn't match the art's own
+            // ~1.77:1 — the cause of a real device screenshot showing World1_Cornfield.png's moon
+            // rendering as an oval instead of a circle. root's own Image stays a plain black
+            // fallback behind this (unaffected — CreatePanel already sets it, nothing to change).
+            var backdropGO = new GameObject("Backdrop", typeof(RectTransform), typeof(Image), typeof(AspectRatioFitter));
+            backdropGO.transform.SetParent(root.transform, false);
+            var backdropRect = (RectTransform)backdropGO.transform;
+            backdropRect.anchorMin = Vector2.zero;
+            backdropRect.anchorMax = Vector2.one;
+            backdropRect.offsetMin = Vector2.zero;
+            backdropRect.offsetMax = Vector2.zero;
+            var backdropFitter = backdropGO.GetComponent<AspectRatioFitter>();
+            backdropFitter.aspectMode = AspectRatioFitter.AspectMode.EnvelopeParent;
+            // aspectRatio is set for real in ArtWiringBuilder once the actual sprite is wired,
+            // computed from that sprite's own pixel dimensions rather than hardcoded here — this
+            // placeholder value only matters before art is wired at all.
+            backdropFitter.aspectRatio = 16f / 9f;
+            var backdropImage = backdropGO.GetComponent<Image>();
+            backdropImage.raycastTarget = false;
+
+            // Logo now sits over the moon baked into World1_Cornfield.png (swapped with the
+            // power-play showcase below, per direct request) — a plain fixed-size/fixed-position
+            // icon rather than anything backdrop-relative, since a decorative logo doesn't need to
+            // precisely match the moon's own silhouette the way the combo-icon showcase used to
+            // try to (see PowerPlayShowcase's own comment below for why that was dropped). Position
+            // measured from the same moon-centre fraction (0.7945, 0.1960 of the image, top-left
+            // origin) found earlier this session, converted to a screen-centre-relative anchored
+            // position in the 1920x1080 reference canvas — comfortably inside the yellow safe-area
+            // guide (well clear of both the top and right edges).
             var logoImageGO = new GameObject("LogoImage", typeof(RectTransform), typeof(Image));
             logoImageGO.transform.SetParent(root.transform, false);
             var logoImage = logoImageGO.GetComponent<Image>();
             logoImage.sprite = PlaceholderSprite.Get(Color.clear);
             logoImage.preserveAspect = true;
-            // Inset further than the original mockup value (40 -> 100) — it was close enough to the
-            // corner to read as clipped by the yellow safe-area guide, same fix as Settings/Pause.
-            AnchorTopLeft((RectTransform)logoImageGO.transform, new Vector2(LogoImageSize, LogoImageSize), new Vector2(100f, -50f));
+            var logoRect = (RectTransform)logoImageGO.transform;
+            logoRect.anchorMin = new Vector2(0.5f, 0.5f);
+            logoRect.anchorMax = new Vector2(0.5f, 0.5f);
+            logoRect.pivot = new Vector2(0.5f, 0.5f);
+            logoRect.sizeDelta = new Vector2(260f, 260f);
+            // Shifted right from the original moon-centre measurement (565->645) per a device
+            // screenshot showing it sitting visibly left of the moon's actual centre.
+            logoRect.anchoredPosition = new Vector2(645f, 328f);
 
             var backButton = CreateRoundBackButton(root.transform, bottomRight: true);
 
-            // Power-play (combo icon) showcase — sits directly over the moon baked into
-            // World1_Cornfield.png (the screen's own backdrop) and auto-cycles through the combo
-            // icon art (CrossFire/DoubleSlam/IronStampede/KicknRoll/SkipShatter), a passive
-            // "pairing characters unlocks power plays" cue.
-            //
-            // Anchored as a STRETCH rect over the moon's own measured fraction bounds, not a
-            // fixed-size child at a fixed anchoredPosition — a fixed-size/fixed-position child is
-            // pinned via one uniform CanvasScaler scale factor, but this screen's backdrop Image
-            // is Simple/non-preserveAspect on a full-stretch (0,0)-(1,1) rect, so it stretches
-            // non-uniformly (independent x/y factors) to fill whatever the device's actual aspect
-            // is — visible in a real device screenshot as the moon itself rendering as an oval,
-            // not a circle, on an aspect wider than the source art's own ~1.77:1. A fixed-position
-            // child drifts away from a spot that itself moves/distorts under that per-axis
-            // stretch; a child stretch-anchored to the SAME fraction rect distorts identically to
-            // whatever's under it, so it always exactly overlaps the moon on any device aspect.
-            // Bounds measured directly off World1_Cornfield.png's pixels (flood-fill of the
-            // moon's solid disc: x=[0.6963,0.8926], y=[0.0951,0.2969] of the image, top-left
-            // origin), converted to Unity's bottom-left anchor origin and expanded ~15% around
-            // its own centre so the icon fully covers the moon rather than just matching its
-            // disc exactly (some slack for the corona glow beyond the solid disc, and for the
-            // measurement's own margin of error).
+            // Power-play (combo icon) showcase — auto-cycles through the combo icon art
+            // (CrossFire/DoubleSlam/IronStampede/KicknRoll/SkipShatter), a passive "pairing
+            // characters unlocks power plays" cue. Moved to the top-left corner (swapped with
+            // Logo above, per direct request) — this is deliberately the exact same plain
+            // top-left anchor/size/inset Logo used to have, since sitting in open sky here means
+            // it no longer needs to match any specific backdrop feature's shape (unlike its old
+            // "sit precisely on the moon" spot, which fought the backdrop's own aspect-fill
+            // scaling for no real benefit once it was just going to be replaced by a plain logo
+            // anyway).
             var powerPlayShowcaseGO = new GameObject("PowerPlayShowcase", typeof(RectTransform), typeof(Image));
             powerPlayShowcaseGO.transform.SetParent(root.transform, false);
-            var powerPlayShowcaseRect = (RectTransform)powerPlayShowcaseGO.transform;
-            powerPlayShowcaseRect.anchorMin = new Vector2(0.6816f, 0.6879f);
-            powerPlayShowcaseRect.anchorMax = new Vector2(0.9074f, 0.9201f);
-            powerPlayShowcaseRect.pivot = new Vector2(0.5f, 0.5f);
-            powerPlayShowcaseRect.offsetMin = Vector2.zero;
-            powerPlayShowcaseRect.offsetMax = Vector2.zero;
             var powerPlayShowcaseImage = powerPlayShowcaseGO.GetComponent<Image>();
-            // Deliberately NOT preserveAspect — the icon should stretch into the same non-uniform
-            // ellipse the moon itself renders as on this device, not stay a perfect circle
-            // sitting mismatched on top of an oval.
-            powerPlayShowcaseImage.preserveAspect = false;
+            // X inset widened from 100 (Logo's own old value) to 175 per a device screenshot
+            // showing it sitting right at/past the screen's rounded-corner edge, outside the
+            // yellow safe-area guide.
+            AnchorTopLeft((RectTransform)powerPlayShowcaseGO.transform, new Vector2(LogoImageSize, LogoImageSize), new Vector2(175f, -50f));
+            powerPlayShowcaseImage.preserveAspect = true;
             powerPlayShowcaseImage.raycastTarget = false;
             Color powerPlayShowcaseStartColor = Color.white;
             powerPlayShowcaseStartColor.a = 0f;
