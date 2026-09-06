@@ -902,8 +902,9 @@ namespace FarmFuryArcade.EditorTools
             var bannerText = CreateText("Text", bannerGO.transform, string.Empty, 26f, TextAlignmentOptions.Center, 60f);
             StretchFull((RectTransform)bannerText.transform);
 
-            // Combo icon — art exists for only 3 of the 8 combos so far (CrossFire.png/DoubleSlam.png/
-            // KicknRoll.png), hidden by default and shown/hidden per-trigger by
+            // Combo icon — art now exists for 5 of the 8 combos (CrossFire.png/DoubleSlam.png/
+            // IronStampede.png/KicknRoll.png/SkipShatter.png — Feather Storm/Earthquake Roll/Full
+            // Fury still don't), hidden by default and shown/hidden per-trigger by
             // ComboNotificationBanner itself depending on whether that combo has matching art.
             var comboIconGO = new GameObject("Icon", typeof(RectTransform), typeof(Image));
             comboIconGO.transform.SetParent(bannerGO.transform, false);
@@ -927,6 +928,8 @@ namespace FarmFuryArcade.EditorTools
                 ("Crossfire", LoadUiSprite("CrossFire.png")),
                 ("Double Slam", LoadUiSprite("DoubleSlam.png")),
                 ("Kick and Roll", LoadUiSprite("KicknRoll.png")),
+                ("Iron Stampede", LoadUiSprite("IronStampede.png")),
+                ("Skip Shatter", LoadUiSprite("SkipShatter.png")),
             };
             var comboIconsProp = bannerSO.FindProperty("comboIcons");
             comboIconsProp.arraySize = comboIconEntries.Length;
@@ -2677,30 +2680,50 @@ namespace FarmFuryArcade.EditorTools
             // frame/background too — bare "GAME OVER" lettering on a transparent 418x87 canvas
             // (~4.80:1), rendered directly with no backboard/frame. Sized off the same
             // HeaderBannerHeight as Pause.png (BuildPauseMenu) so the two text-only screen banners
-            // read at a consistent scale despite their differing aspect ratios.
+            // read at a consistent scale despite their differing aspect ratios (both PNGs' opaque
+            // lettering fills essentially their whole canvas — measured near-zero transparent
+            // padding on both — so matching canvas height genuinely matches rendered letter
+            // height, not just bounding-box height). Anchored identically to Pause.png too
+            // (AnchorTopCenter, same -300 offset) — this used to be centre-anchored at a
+            // different offset (+150), which put the two banners in different screen positions
+            // despite the shared-height sizing; found via direct comparison against Pause's own
+            // anchor/offset after a report that the two didn't look placed the same.
             var gameOverGO = new GameObject("GameOverSign", typeof(RectTransform), typeof(Image));
             gameOverGO.transform.SetParent(root.transform, false);
             var gameOverImage = gameOverGO.GetComponent<Image>();
             gameOverImage.sprite = LoadUiSprite("GameOver.png");
             gameOverImage.preserveAspect = true;
-            var gameOverRect = (RectTransform)gameOverGO.transform;
-            gameOverRect.anchorMin = gameOverRect.anchorMax = new Vector2(0.5f, 0.5f);
-            gameOverRect.pivot = new Vector2(0.5f, 0.5f);
-            gameOverRect.sizeDelta = new Vector2(HeaderBannerHeight * (418f / 87f), HeaderBannerHeight);
-            gameOverRect.anchoredPosition = new Vector2(0f, 150f);
+            AnchorTopCenter((RectTransform)gameOverGO.transform, new Vector2(HeaderBannerHeight * (418f / 87f), HeaderBannerHeight), new Vector2(0f, -300f));
 
-            // "Insert Coin" flavour row — purely decorative (no gameplay/purchase hookup), sits
-            // directly under GAME OVER at a smaller scale per direct request. InsertCoin.png
-            // (500x85 text) + Coin_UI.png (512x512, square) are laid out as a simple fixed pair
-            // rather than a LayoutGroup, matching this method's existing manual-anchor convention.
+            // "Insert Coin" flavour row — purely decorative (no gameplay/purchase hookup).
+            // InsertCoin.png (500x85 text) + Coin_UI.png (512x512, square) are laid out as a
+            // simple fixed pair rather than a LayoutGroup, matching this method's existing
+            // manual-anchor convention. Grouped under one container so a single CanvasGroup can
+            // drive both — moved to sit near the bottom of the screen (was near vertical centre,
+            // sitting awkwardly close to the character card row) and given the same pulsing
+            // "flash" TitleScreenController's PRESS START prompt uses on the landing page, per
+            // direct request. Bottom inset (130) sits just above the Play/Home/Settings button
+            // row's own top edge (110 inset + 160 size = 270 is their top; this row's own 70-tall
+            // box top-caps at 130+70=200, comfortably clear) and matches the safe-area inset
+            // convention CreateRoundBackButton/CreateGenericBackButton already use for bottom
+            // elements (70-110), so it stays inside the yellow safe-area guide.
             const float insertCoinHeight = 70f; // smaller than HeaderBannerHeight (130) on purpose
             float insertCoinWidth = insertCoinHeight * (500f / 85f);
             const float insertCoinCoinSpacing = 15f;
             float insertCoinRowWidth = insertCoinWidth + insertCoinCoinSpacing + insertCoinHeight;
-            float insertCoinRowY = 30f;
+            const float insertCoinBottomInset = 130f;
+
+            var insertCoinRowGO = new GameObject("InsertCoinRow", typeof(RectTransform), typeof(CanvasGroup));
+            insertCoinRowGO.transform.SetParent(root.transform, false);
+            AnchorBottomCenter((RectTransform)insertCoinRowGO.transform, new Vector2(insertCoinRowWidth, insertCoinHeight), new Vector2(0f, insertCoinBottomInset));
+            var insertCoinRowGroup = insertCoinRowGO.GetComponent<CanvasGroup>();
+            var insertCoinPulse = insertCoinRowGO.AddComponent<PulsingCanvasGroup>();
+            var insertCoinPulseSO = new SerializedObject(insertCoinPulse);
+            insertCoinPulseSO.FindProperty("canvasGroup").objectReferenceValue = insertCoinRowGroup;
+            insertCoinPulseSO.ApplyModifiedPropertiesWithoutUndo();
 
             var insertCoinGO = new GameObject("InsertCoinText", typeof(RectTransform), typeof(Image));
-            insertCoinGO.transform.SetParent(root.transform, false);
+            insertCoinGO.transform.SetParent(insertCoinRowGO.transform, false);
             var insertCoinImage = insertCoinGO.GetComponent<Image>();
             insertCoinImage.sprite = LoadUiSprite("InsertCoin.png");
             insertCoinImage.preserveAspect = true;
@@ -2708,10 +2731,10 @@ namespace FarmFuryArcade.EditorTools
             insertCoinRect.anchorMin = insertCoinRect.anchorMax = new Vector2(0.5f, 0.5f);
             insertCoinRect.pivot = new Vector2(0.5f, 0.5f);
             insertCoinRect.sizeDelta = new Vector2(insertCoinWidth, insertCoinHeight);
-            insertCoinRect.anchoredPosition = new Vector2(-insertCoinRowWidth / 2f + insertCoinWidth / 2f, insertCoinRowY);
+            insertCoinRect.anchoredPosition = new Vector2(-insertCoinRowWidth / 2f + insertCoinWidth / 2f, 0f);
 
             var insertCoinIconGO = new GameObject("InsertCoinIcon", typeof(RectTransform), typeof(Image));
-            insertCoinIconGO.transform.SetParent(root.transform, false);
+            insertCoinIconGO.transform.SetParent(insertCoinRowGO.transform, false);
             var insertCoinIconImage = insertCoinIconGO.GetComponent<Image>();
             insertCoinIconImage.sprite = LoadUiSprite("Coin_UI.png");
             insertCoinIconImage.preserveAspect = true;
@@ -2719,7 +2742,7 @@ namespace FarmFuryArcade.EditorTools
             insertCoinIconRect.anchorMin = insertCoinIconRect.anchorMax = new Vector2(0.5f, 0.5f);
             insertCoinIconRect.pivot = new Vector2(0.5f, 0.5f);
             insertCoinIconRect.sizeDelta = new Vector2(insertCoinHeight, insertCoinHeight);
-            insertCoinIconRect.anchoredPosition = new Vector2(insertCoinRowWidth / 2f - insertCoinHeight / 2f, insertCoinRowY);
+            insertCoinIconRect.anchoredPosition = new Vector2(insertCoinRowWidth / 2f - insertCoinHeight / 2f, 0f);
 
             var playButton = CreateIconButton("PlayButton", root.transform, LoadUiSprite("Btn_play.png"), StandardIconButtonSize);
             AnchorBottomLeft((RectTransform)playButton.transform, new Vector2(StandardIconButtonSize, StandardIconButtonSize), new Vector2(150f, 110f));
@@ -2904,6 +2927,63 @@ namespace FarmFuryArcade.EditorTools
             AnchorTopLeft((RectTransform)logoImageGO.transform, new Vector2(LogoImageSize, LogoImageSize), new Vector2(100f, -50f));
 
             var backButton = CreateRoundBackButton(root.transform, bottomRight: true);
+
+            // Power-play (combo icon) showcase — sits directly over the moon baked into
+            // World1_Cornfield.png (the screen's own backdrop) and auto-cycles through the combo
+            // icon art (CrossFire/DoubleSlam/IronStampede/KicknRoll/SkipShatter), a passive
+            // "pairing characters unlocks power plays" cue.
+            //
+            // Anchored as a STRETCH rect over the moon's own measured fraction bounds, not a
+            // fixed-size child at a fixed anchoredPosition — a fixed-size/fixed-position child is
+            // pinned via one uniform CanvasScaler scale factor, but this screen's backdrop Image
+            // is Simple/non-preserveAspect on a full-stretch (0,0)-(1,1) rect, so it stretches
+            // non-uniformly (independent x/y factors) to fill whatever the device's actual aspect
+            // is — visible in a real device screenshot as the moon itself rendering as an oval,
+            // not a circle, on an aspect wider than the source art's own ~1.77:1. A fixed-position
+            // child drifts away from a spot that itself moves/distorts under that per-axis
+            // stretch; a child stretch-anchored to the SAME fraction rect distorts identically to
+            // whatever's under it, so it always exactly overlaps the moon on any device aspect.
+            // Bounds measured directly off World1_Cornfield.png's pixels (flood-fill of the
+            // moon's solid disc: x=[0.6963,0.8926], y=[0.0951,0.2969] of the image, top-left
+            // origin), converted to Unity's bottom-left anchor origin and expanded ~15% around
+            // its own centre so the icon fully covers the moon rather than just matching its
+            // disc exactly (some slack for the corona glow beyond the solid disc, and for the
+            // measurement's own margin of error).
+            var powerPlayShowcaseGO = new GameObject("PowerPlayShowcase", typeof(RectTransform), typeof(Image));
+            powerPlayShowcaseGO.transform.SetParent(root.transform, false);
+            var powerPlayShowcaseRect = (RectTransform)powerPlayShowcaseGO.transform;
+            powerPlayShowcaseRect.anchorMin = new Vector2(0.6816f, 0.6879f);
+            powerPlayShowcaseRect.anchorMax = new Vector2(0.9074f, 0.9201f);
+            powerPlayShowcaseRect.pivot = new Vector2(0.5f, 0.5f);
+            powerPlayShowcaseRect.offsetMin = Vector2.zero;
+            powerPlayShowcaseRect.offsetMax = Vector2.zero;
+            var powerPlayShowcaseImage = powerPlayShowcaseGO.GetComponent<Image>();
+            // Deliberately NOT preserveAspect — the icon should stretch into the same non-uniform
+            // ellipse the moon itself renders as on this device, not stay a perfect circle
+            // sitting mismatched on top of an oval.
+            powerPlayShowcaseImage.preserveAspect = false;
+            powerPlayShowcaseImage.raycastTarget = false;
+            Color powerPlayShowcaseStartColor = Color.white;
+            powerPlayShowcaseStartColor.a = 0f;
+            powerPlayShowcaseImage.color = powerPlayShowcaseStartColor;
+            var powerPlayShowcase = powerPlayShowcaseGO.AddComponent<PowerPlayMoonShowcase>();
+            var powerPlayIcons = new[]
+            {
+                LoadUiSprite("CrossFire.png"),
+                LoadUiSprite("DoubleSlam.png"),
+                LoadUiSprite("IronStampede.png"),
+                LoadUiSprite("KicknRoll.png"),
+                LoadUiSprite("SkipShatter.png"),
+            };
+            var powerPlayShowcaseSO = new SerializedObject(powerPlayShowcase);
+            powerPlayShowcaseSO.FindProperty("targetImage").objectReferenceValue = powerPlayShowcaseImage;
+            var powerPlayIconsProp = powerPlayShowcaseSO.FindProperty("icons");
+            powerPlayIconsProp.arraySize = powerPlayIcons.Length;
+            for (int i = 0; i < powerPlayIcons.Length; i++)
+            {
+                powerPlayIconsProp.GetArrayElementAtIndex(i).objectReferenceValue = powerPlayIcons[i];
+            }
+            powerPlayShowcaseSO.ApplyModifiedPropertiesWithoutUndo();
 
             // Carousel area — an invisible-but-raycastable Image covers the whole area (not just the
             // cards themselves) so a flick started on empty space between cards still registers as a
