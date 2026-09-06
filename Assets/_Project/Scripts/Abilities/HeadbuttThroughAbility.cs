@@ -55,6 +55,18 @@ namespace FarmFuryArcade.Abilities
 
         protected override void Execute()
         {
+            // Stability hardening: same reachable double-activation edge case as
+            // BounceRollAbility.Execute() (see its own doc comment) — the "skip cooldown"
+            // feature can zero an in-progress cooldown while ChargeRoutine is still running,
+            // which without this guard would start a second concurrent coroutine on the same
+            // GameObject and corrupt _preChargeSprite/Movement.enabled/_characterAnimator.enabled.
+            // Only the double-activation edge case is affected; a normal single activation is
+            // unchanged.
+            if (_isCharging)
+            {
+                return;
+            }
+
             Direction facing = Movement.LastFacingDirection;
             StartCoroutine(ChargeRoutine(facing, ChargeTilesBase));
         }

@@ -249,7 +249,7 @@ namespace FarmFuryArcade.Core
             if (harvester != null)
             {
                 bool backToChaseOrScatter = harvester.CurrentState is RobotState.Chase or RobotState.Scatter
-                    or RobotState.Defeated or RobotState.Returning;
+                    or RobotState.Defeated;
                 Debug.Log(backToChaseOrScatter
                     ? "[Phase3Test] PASS: robot left Vulnerable state once power expired."
                     : $"[Phase3Test] FAIL: robot still {harvester.CurrentState} after power expired.");

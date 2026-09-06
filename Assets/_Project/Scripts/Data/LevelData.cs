@@ -69,6 +69,30 @@ namespace FarmFuryArcade.Data
             }
         }
 
+        /// <summary>Reads a single tile id directly from the flat backing array, without
+        /// allocating/copying the whole grid the MazeLayout property builds on every access.
+        /// Returns 0 for any index MazeLayout's own copy loop wouldn't have populated either
+        /// (mazeLayoutFlat null, or shorter than mazeWidth * mazeHeight) — same silent-default
+        /// behaviour a fresh int[,] already has for any cell MazeLayout's loop never wrote to.
+        /// Callers that already validate bounds (e.g. IsWalkable's IsInBounds check) never hit
+        /// that path; it exists purely so this matches MazeLayout's own semantics exactly for any
+        /// input, not just the common case.</summary>
+        public int GetTile(int x, int y)
+        {
+            if (mazeLayoutFlat == null)
+            {
+                return 0;
+            }
+
+            int index = y * mazeWidth + x;
+            if (index < 0 || index >= mazeLayoutFlat.Length)
+            {
+                return 0;
+            }
+
+            return mazeLayoutFlat[index];
+        }
+
         public void SetMazeLayout(int[,] layout)
         {
             mazeWidth = layout.GetLength(0);

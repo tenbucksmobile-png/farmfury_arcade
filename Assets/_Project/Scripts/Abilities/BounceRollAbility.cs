@@ -65,6 +65,21 @@ namespace FarmFuryArcade.Abilities
 
         protected override void Execute()
         {
+            // Stability hardening: TryActivate() resets the cooldown synchronously right after
+            // calling Execute(), and the "skip cooldown" monetisation feature can zero an
+            // in-progress cooldown on demand — so without this guard, a second activation while
+            // RollRoutine is still running starts a concurrent second coroutine on the same
+            // GameObject. Both would write transform.position/_spriteRenderer.sprite/
+            // _preRollSprite/Movement.enabled/_characterAnimator.enabled concurrently; the second
+            // call's _preRollSprite capture (line below) would grab the already-swapped rolling
+            // pose instead of Percy's real walk sprite, permanently stuck on completion. This only
+            // ever no-ops the reachable-but-unintended double-activation edge case — a normal
+            // single activation is completely unaffected.
+            if (_isRolling)
+            {
+                return;
+            }
+
             bool extendedBuff = ComboSystem.Instance != null && ComboSystem.Instance.ConsumeTripleWallPhase();
             int tiles = extendedBuff ? RollTilesBuffed : RollTilesBase;
             // LastFacingDirection (not CurrentDirection, which resets to None the instant no

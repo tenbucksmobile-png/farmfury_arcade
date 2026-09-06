@@ -274,12 +274,18 @@ namespace FarmFuryArcade.Core
                 return;
             }
 
+            // Read MazeLayout once and reuse it for the whole scan, same convention RenderMaze
+            // itself already uses — the property allocates+copies the full grid on every access,
+            // so reading it fresh inside the loop below (the previous code) re-paid that cost on
+            // every one of the mazeWidth*mazeHeight iterations, twice per level load (once per
+            // SpawnScatteredPickups call).
             var candidates = new List<Vector2Int>();
+            var layout = data.MazeLayout;
             for (int x = 0; x < data.mazeWidth; x++)
             {
                 for (int y = 0; y < data.mazeHeight; y++)
                 {
-                    int tileId = data.MazeLayout[x, y];
+                    int tileId = layout[x, y];
                     if (tileId != TileWall && tileId != TileCropKernel && tileId != TileCropVegetable
                         && tileId != TilePowerPellet && tileId != TileWarpEdge && tileId != TileWater)
                     {
@@ -620,7 +626,12 @@ namespace FarmFuryArcade.Core
                 return true;
             }
 
-            int tileId = _currentLevel.MazeLayout[grid.x, grid.y];
+            // GetTile reads the flat backing array directly (no full-grid alloc+copy) — see its
+            // own doc comment. IsWalkable is the single most-called gameplay method in the
+            // project (every character/robot movement step, plus every neighbour check inside
+            // RobotAI's pathfinding BFS), so avoiding the MazeLayout property's per-access
+            // allocation here matters far more than at RenderMaze's one-time-per-level-load site.
+            int tileId = _currentLevel.GetTile(grid.x, grid.y);
             if (tileId == TileWall)
             {
                 return false;

@@ -85,6 +85,12 @@ namespace FarmFuryArcade.UI
         private static readonly Color TimerWarningColor = new Color(0.9f, 0.15f, 0.15f, 1f);
         private Color _timerNormalColor = Color.white;
         private bool _timerNormalColorCaptured;
+        // int.MinValue never matches a real elapsed-seconds/coin-balance value, so the very
+        // first RefreshTimerText/RefreshCoinBalanceText call after enable always writes once —
+        // same "guaranteed first write" guarantee the unconditional per-frame assignment this
+        // replaces already had.
+        private int _lastDisplayedTimerSeconds = int.MinValue;
+        private int _lastDisplayedCoinBalance = int.MinValue;
 
         private Coroutine _readyFlashRoutine;
         private int _displayedScore;
@@ -116,6 +122,16 @@ namespace FarmFuryArcade.UI
 
         private void OnEnable()
         {
+            // GameplayHUD is deactivated/reactivated by SceneTransitionManager.ShowOnly on every
+            // level transition (Level Complete/Failed -> next level), not destroyed — so these
+            // cached "last displayed" values must be reset here or the first frame of a new level
+            // could skip its text update because the new level's own starting value happens to
+            // match whatever the PREVIOUS level's timer/coin balance last displayed before this
+            // screen was hidden, leaving stale text on screen. int.MinValue can never match a
+            // real value, so it always forces one fresh write.
+            _lastDisplayedTimerSeconds = int.MinValue;
+            _lastDisplayedCoinBalance = int.MinValue;
+
             if (ScoreManager.Instance != null)
             {
                 ScoreManager.Instance.OnScoreChanged += HandleScoreChanged;
@@ -289,7 +305,17 @@ namespace FarmFuryArcade.UI
             }
 
             float remaining = Mathf.Max(0f, GameManager.LevelTimeLimitSeconds - GameManager.Instance.GetElapsedSeconds());
-            timerText.text = FormatTime(remaining);
+            // FormatTime only ever depends on the floored whole-second value (its own MM:SS
+            // format has no sub-second resolution), so the string it would build is identical on
+            // every frame within the same second. Skipping the reassignment on those frames
+            // avoids both the string allocation and a redundant TMP text-changed rebuild, with no
+            // change to what's ever actually displayed.
+            int totalSeconds = Mathf.Max(0, Mathf.FloorToInt(remaining));
+            if (totalSeconds != _lastDisplayedTimerSeconds)
+            {
+                _lastDisplayedTimerSeconds = totalSeconds;
+                timerText.text = FormatTime(remaining);
+            }
 
             if (remaining <= TimerWarningThresholdSeconds)
             {
@@ -311,9 +337,19 @@ namespace FarmFuryArcade.UI
         /// OnCoinBalanceChanged event to hook.</summary>
         private void RefreshCoinBalanceText()
         {
-            if (coinBalanceText != null && SaveManager.Instance != null)
+            if (coinBalanceText == null || SaveManager.Instance == null)
             {
-                coinBalanceText.text = SaveManager.Instance.CoinBalance.ToString("N0");
+                return;
+            }
+
+            // Same change-detection as RefreshTimerText — the displayed value only actually
+            // changes on a coin pickup/spend, not every frame, so skip the string
+            // allocation/TMP rebuild on the (vast majority of) frames where it hasn't.
+            int balance = SaveManager.Instance.CoinBalance;
+            if (balance != _lastDisplayedCoinBalance)
+            {
+                _lastDisplayedCoinBalance = balance;
+                coinBalanceText.text = balance.ToString("N0");
             }
         }
 

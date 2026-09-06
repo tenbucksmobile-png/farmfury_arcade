@@ -85,8 +85,7 @@ namespace FarmFuryArcade.Enemies
                 return;
             }
 
-            bool eyesOnly = defeatedSprite != null &&
-                (_robot.CurrentState == RobotState.Defeated || _robot.CurrentState == RobotState.Returning);
+            bool eyesOnly = defeatedSprite != null && _robot.CurrentState == RobotState.Defeated;
 
             bool vulnerablePulsing = !eyesOnly && _robot.CurrentState == RobotState.Vulnerable &&
                 !_robot.IsStunned && !_robot.IsKnockedBack;
@@ -147,7 +146,7 @@ namespace FarmFuryArcade.Enemies
             _spriteRenderer.color = _robot.CurrentState switch
             {
                 RobotState.Vulnerable => GetVulnerableColor(),
-                RobotState.Defeated or RobotState.Returning => DefeatedColor,
+                RobotState.Defeated => DefeatedColor,
                 _ => BaseTintColor
             };
         }

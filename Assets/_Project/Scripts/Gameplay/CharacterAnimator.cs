@@ -27,6 +27,17 @@ namespace FarmFuryArcade.Gameplay
         /// full recolor, not an overlay. Null means "no skin equipped," fall back to base art.</summary>
         private Sprite[] _cosmeticFrameOverride;
 
+        // Cached 2-element frame pairs per direction, rebuilt only when the source array
+        // (characterData.walkAnimationFrames or _cosmeticFrameOverride) actually changes —
+        // neither array is ever mutated in place after being set (both are ScriptableObject
+        // fields assigned once), so caching by reference is safe. Replaces allocating a fresh
+        // 2-element array every single Update() call for the entire time a character exists.
+        private Sprite[] _frameCacheSource;
+        private Sprite[] _upFramesCache;
+        private Sprite[] _downFramesCache;
+        private Sprite[] _leftFramesCache;
+        private Sprite[] _rightFramesCache;
+
         /// <summary>Direction/frame-index actually being displayed this frame, read by
         /// CharacterCosmeticRenderer so an equipped hat can track the exact same walk-cycle frame
         /// instead of running its own independent (and easily desynced) timer.</summary>
@@ -99,16 +110,22 @@ namespace FarmFuryArcade.Gameplay
                 source = characterData.walkAnimationFrames;
             }
 
-            int baseIndex;
-            switch (dir)
+            if (!ReferenceEquals(source, _frameCacheSource))
             {
-                case Direction.Up: baseIndex = 0; break;
-                case Direction.Left: baseIndex = 4; break;
-                case Direction.Right: baseIndex = 6; break;
-                default: baseIndex = 2; break; // Down
+                _frameCacheSource = source;
+                _upFramesCache = new[] { source[0], source[1] };
+                _downFramesCache = new[] { source[2], source[3] };
+                _leftFramesCache = new[] { source[4], source[5] };
+                _rightFramesCache = new[] { source[6], source[7] };
             }
 
-            return new[] { source[baseIndex], source[baseIndex + 1] };
+            return dir switch
+            {
+                Direction.Up => _upFramesCache,
+                Direction.Left => _leftFramesCache,
+                Direction.Right => _rightFramesCache,
+                _ => _downFramesCache, // Down
+            };
         }
     }
 }

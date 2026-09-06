@@ -380,6 +380,19 @@ namespace FarmFuryArcade.Core
             if (paused && CurrentState == GameState.Playing)
             {
                 PauseGame();
+                // Time.timeScale = 0f (set inside PauseGame) only stops movement/animation —
+                // AudioSource playback is real-time and unaffected by timescale, the same gap
+                // NotifyLevelLoaded's interstitial-ad freeze already had to work around (see its
+                // own comment on AudioListener.pause). Without this, backgrounding the app (an
+                // incoming call, switching apps, the OS task switcher) leaves gameplay music/SFX
+                // audible while the game itself is fully frozen and invisible — most noticeable on
+                // Android, which doesn't force-suspend an app's audio engine on backgrounding the
+                // way iOS does for an app with no declared background-audio capability. Deliberately
+                // scoped to only this auto-pause path, not PauseGame() itself, so a normal manual
+                // Pause-button tap keeps its existing behaviour (music keeps playing) unchanged —
+                // cleared in ResumeGame() below, the same explicit-player-action gate the timescale
+                // freeze already uses (returning to the foreground does not auto-resume either).
+                AudioListener.pause = true;
                 OnGamePausedExternally?.Invoke();
             }
         }
@@ -405,6 +418,10 @@ namespace FarmFuryArcade.Core
 
             CurrentState = _stateBeforePause;
             Time.timeScale = 1f;
+            // Harmless no-op if OnApplicationPause never silenced audio this time (AudioListener.
+            // pause is already false) — see OnApplicationPause's own comment for why this needs to
+            // be cleared here specifically, mirroring the Time.timeScale freeze/release pair.
+            AudioListener.pause = false;
         }
 
         /// <summary>Abandons the current run without recording a level-failed result — used by

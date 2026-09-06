@@ -16,11 +16,12 @@ namespace FarmFuryArcade.Enemies
     /// component too would make every robot obey player input.
     ///
     /// State machine: Chase and Scatter alternate on a 20s/5s cycle (paused while Vulnerable/
-    /// Defeated/Returning and resumed from where it left off). PowerPelletManager broadcasts
-    /// power on/off; every enabled robot listens and flips to/from Vulnerable. A hit while
-    /// Vulnerable decrements health (RegisterHit); health reaching zero triggers a brief Defeated
-    /// pause, then Returning (fast pathfind to the factory), then a respawn back to Chase once the
-    /// factory cell is reached.
+    /// Defeated and resumed from where it left off). PowerPelletManager broadcasts power on/off;
+    /// every enabled robot listens and flips to/from Vulnerable. A hit while Vulnerable decrements
+    /// health (RegisterHit); health reaching zero triggers a brief Defeated pause, then the robot
+    /// permanently vanishes for the rest of the maze (see Disappear) — there is no respawn-back-
+    /// to-Chase path (an earlier "pathfind back to the factory, then respawn" Returning state was
+    /// removed; RobotState no longer has that value at all).
     /// </summary>
     [RequireComponent(typeof(Rigidbody2D))]
     [RequireComponent(typeof(Collider2D))]
@@ -128,7 +129,6 @@ namespace FarmFuryArcade.Enemies
         /// unified to 4.0, see Phase4ProjectBuilder), but no longer faster than the robot's own
         /// normal pace.</summary>
         protected virtual float VulnerableSpeedMultiplier => 0.85f;
-        protected virtual float ReturningSpeedMultiplier => 2f;
         protected virtual int InitialHealthPoints => robotData != null ? Mathf.Max(1, robotData.healthPoints) : 1;
 
         /// <summary>Called once by RobotSpawner right after Instantiate.</summary>
@@ -243,11 +243,11 @@ namespace FarmFuryArcade.Enemies
 
         /// <summary>Freezes this robot in place (no state-cycle progress, no movement) for
         /// duration seconds. Used by EggDropAbility, GroundSlamAbility, and RearKickAbility's
-        /// knockback landing. Does nothing to a robot that's already "eyes" (Defeated/Returning).
+        /// knockback landing. Does nothing to a robot that's already Defeated.
         /// Extends rather than resets if already stunned with more time remaining.</summary>
         public virtual void Stun(float duration)
         {
-            if (CurrentState == RobotState.Defeated || CurrentState == RobotState.Returning)
+            if (CurrentState == RobotState.Defeated)
             {
                 return;
             }
@@ -263,7 +263,7 @@ namespace FarmFuryArcade.Enemies
         /// robot that runs through it, not just incapacitate it.</summary>
         public virtual void KnockBack(Vector2Int direction, int tiles)
         {
-            if (CurrentState == RobotState.Defeated || CurrentState == RobotState.Returning)
+            if (CurrentState == RobotState.Defeated)
             {
                 return;
             }
@@ -308,7 +308,7 @@ namespace FarmFuryArcade.Enemies
         /// entirely while Gerald is puffed up.</summary>
         public virtual void ForceDefeat()
         {
-            if (CurrentState == RobotState.Defeated || CurrentState == RobotState.Returning)
+            if (CurrentState == RobotState.Defeated)
             {
                 return;
             }
@@ -465,7 +465,6 @@ namespace FarmFuryArcade.Enemies
                 float stateMultiplier = CurrentState switch
                 {
                     RobotState.Vulnerable => VulnerableSpeedMultiplier,
-                    RobotState.Returning => ReturningSpeedMultiplier,
                     _ => 1f
                 };
                 return baseSpeed * SpeedMultiplier * stateMultiplier * _difficultyMultiplier;
@@ -481,7 +480,6 @@ namespace FarmFuryArcade.Enemies
             {
                 RobotState.Scatter => scatterCornerPosition,
                 RobotState.Vulnerable => GetFleeTarget(),
-                RobotState.Returning => factoryPosition,
                 _ => GetTargetPosition()
             };
         }
@@ -504,7 +502,7 @@ namespace FarmFuryArcade.Enemies
         {
             if (active)
             {
-                if (CurrentState == RobotState.Defeated || CurrentState == RobotState.Returning)
+                if (CurrentState == RobotState.Defeated)
                 {
                     return;
                 }
@@ -546,10 +544,10 @@ namespace FarmFuryArcade.Enemies
             CurrentState = RobotState.Defeated;
             CurrentDirection = Direction.None;
             ChaseScoreManager.Instance?.OnRobotDefeated();
-            StartCoroutine(DefeatedThenReturn());
+            StartCoroutine(DefeatedThenDisappear());
         }
 
-        private IEnumerator DefeatedThenReturn()
+        private IEnumerator DefeatedThenDisappear()
         {
             yield return new WaitForSeconds(DefeatedPauseSeconds);
             Disappear();

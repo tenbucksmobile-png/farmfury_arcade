@@ -29,6 +29,19 @@ namespace FarmFuryArcade.Abilities
 
         protected override void Execute()
         {
+            // Stability hardening: without this guard, the "skip cooldown" feature can zero an
+            // in-progress cooldown while PuffRoutine is still running, letting a second
+            // PuffRoutine start concurrently. The second call would capture its "original"
+            // scale/speed from whatever the FIRST call had already puffed them to (not the true
+            // original), so whichever coroutine finishes last restores the WRONG baseline —
+            // concretely, Gerald could end up permanently stuck at half movement speed and/or the
+            // wrong scale. Only the double-activation edge case is affected; a normal single
+            // activation is unchanged.
+            if (IsPuffed)
+            {
+                return;
+            }
+
             StartCoroutine(PuffRoutine());
         }
 

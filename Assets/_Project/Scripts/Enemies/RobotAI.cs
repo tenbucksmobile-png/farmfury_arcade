@@ -33,6 +33,14 @@ namespace FarmFuryArcade.Enemies
         private static readonly Queue<Vector2Int> BfsQueueScratch = new Queue<Vector2Int>();
         private static readonly List<Direction> ValidDirectionsScratch = new List<Direction>(4);
 
+        // Same C4.2 reasoning as the 3 buffers above, applied to GetNextDirection's own
+        // internal-only working state (never returned across the public API, unlike
+        // ValidDirectionsScratch/GetValidDirections' ToArray() result) — sized 4 since
+        // GetValidDirections can never return more than AllDirections.Length candidates.
+        private static readonly int[] CandidateDistancesScratch = new int[4];
+        private static readonly List<Direction> BestScratch = new List<Direction>(4);
+        private static readonly List<Direction> BestNonRecentScratch = new List<Direction>(4);
+
         /// <summary>Deterministic-greedy directional choice: among the walkable, non-reversing
         /// directions from currentPos, always picks whichever candidate's neighbour cell has the
         /// REAL shortest-path distance to targetPos (a BFS distance, not straight-line — see
@@ -75,36 +83,35 @@ namespace FarmFuryArcade.Enemies
 
             Dictionary<Vector2Int, int> distances = ComputeDistances(targetPos, maze);
 
-            var candidateDistances = new int[valid.Length];
             int bestDistance = int.MaxValue;
             for (int i = 0; i < valid.Length; i++)
             {
                 Vector2Int next = currentPos + DirectionUtils.ToVector(valid[i]);
                 int dist = distances.TryGetValue(next, out int pathDist) ? pathDist : StraightLineDistanceSqr(next, targetPos);
-                candidateDistances[i] = dist;
+                CandidateDistancesScratch[i] = dist;
                 if (dist < bestDistance)
                 {
                     bestDistance = dist;
                 }
             }
 
-            var best = new List<Direction>(valid.Length);
-            var bestNonRecent = new List<Direction>(valid.Length);
+            BestScratch.Clear();
+            BestNonRecentScratch.Clear();
             for (int i = 0; i < valid.Length; i++)
             {
-                if (candidateDistances[i] != bestDistance)
+                if (CandidateDistancesScratch[i] != bestDistance)
                 {
                     continue;
                 }
-                best.Add(valid[i]);
+                BestScratch.Add(valid[i]);
                 Vector2Int next = currentPos + DirectionUtils.ToVector(valid[i]);
                 if (recentCells == null || !recentCells.Contains(next))
                 {
-                    bestNonRecent.Add(valid[i]);
+                    BestNonRecentScratch.Add(valid[i]);
                 }
             }
 
-            var winners = bestNonRecent.Count > 0 ? bestNonRecent : best;
+            var winners = BestNonRecentScratch.Count > 0 ? BestNonRecentScratch : BestScratch;
             return winners[Random.Range(0, winners.Count)];
         }
 

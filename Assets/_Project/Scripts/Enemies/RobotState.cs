@@ -5,7 +5,6 @@ namespace FarmFuryArcade.Enemies
         Chase,
         Scatter,
         Vulnerable,
-        Defeated,
-        Returning
+        Defeated
     }
 }
