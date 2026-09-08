@@ -1453,9 +1453,39 @@ recognisable of the 4 for a universal, every-character asset); `_2`/`_3`/`_4` ar
 too if a second sombrero style or a different look is ever wanted. **`hatOffset`/`hatScale`
 re-tuned against two real gameplay screenshots** (first actual visual verification either universal
 hat has had): `hatScale` 0.62 → 1.15 (was a barely-visible speck), `hatOffset.y` went 0.55 → 0.35
-(too far, dropped over the character's face) → **0.45** (confirmed correct scale, offset raised back
-partway). Re-run `Wire Cosmetic Art (Universal Hats)` any time these values change in code — the
-`.asset` file only updates when that tool actually runs.
+(too far, dropped over the character's face) → 0.45 (confirmed correct scale, offset raised back
+partway) → **0.65** (still reading too low once more characters were checked — see the
+per-character override note below). Re-run `Wire Cosmetic Art (Universal Hats)` any time these
+values change in code — the `.asset` file only updates when that tool actually runs.
+
+**Per-character positioning overrides for universal hats (2026-09-08).** A single `hatOffset`/
+`hatScale` on one shared `CosmeticData` asset was never going to fit every character's head
+equally — confirmed once real gameplay screenshots showed the Sombrero specifically mis-fit on
+Percy (floating well above his head, oversized), then Woolly, then Bessie. `CosmeticData` gained
+`CharacterHatOverride[] characterHatOverrides` (a new `[System.Serializable] struct
+CharacterHatOverride { character, hatOffset, hatScale }`, defined alongside `CosmeticData` in
+`Data/CosmeticData.cs`) — a character with an entry here uses it instead of the asset's shared
+`hatOffset`/`hatScale`; a character with no entry falls back to the shared value as before.
+`CharacterCosmeticRenderer.ResolveHatOffsetAndScale` (called from `Refresh()`) does the lookup.
+Per-character baseball caps never need an entry here — each of those already has its own
+dedicated `CosmeticData` asset with its own `hatOffset`/`hatScale`, tuned for exactly one
+character; this mechanism only matters for a hat shared across all 8 (Cowboy Hat/Sombrero).
+
+`CosmeticWiringBuilder.SombreroCharacterOverrides` holds the current entries, wired onto
+`CosmeticData_sombrero_hat.characterHatOverrides` by `WireUniversalHats`. Went through several
+rounds of "too low"/"too high" feedback (all offset.y, no visual Editor access this session — every
+value here is a first-pass estimate against a screenshot, expect further nudges):
+
+| Character | hatOffset.y | hatScale | Notes |
+|---|---|---|---|
+| Percy | 0.75 | 0.85 | His own baseball cap uses 0.51/0.77 for a snug fit; sombrero's wide brim still renders smaller than the 1.15 universal default |
+| Woolly | 0.60 | 1.0 | His baseball cap scale (0.96, the largest of the 8) meant width was already close; only height needed correcting |
+| Bessie | 0.80 | 0.64 | Smallest baseball-cap scale of the 8 (0.58) — the 1.15 universal scale was wildly oversized/off to the side on her |
+| Cluck | 0.58 | 1.15 | Only a small downward nudge from the shared 0.65 default — she read "slightly too high," not badly mis-fit like the other 3 |
+
+Ducky/Horace/Gerald/Billy have no override yet and use the shared 0.65/1.15 default — add entries
+to `SombreroCharacterOverrides` as each gets checked in Play mode, same "we will reposition for
+every character" plan stated when this mechanism was built.
 
 **Not built yet:**
 - No Skin or MazeTheme `CosmeticData` assets exist yet, and neither has a Store surface in the new
@@ -3088,10 +3118,11 @@ values from the GDD's color palette where one exists (e.g. walls = Wall Brown `#
   Skip returns to Level Select (same "one step back" as the old single Quit button), Settings opens
   the shared `SettingsPanel` overlay, Quit returns to Level Select's **world-select** state
   specifically (`LevelSelectController.ShowWorldSelect()`) — a bigger step back than Skip. Play is
-  the one deliberate difference between the two: Level Failed's Play restarts the level (there's
-  nothing to resume — the run already ended), Pause's Play resumes gameplay instead (confirmed via
-  direct question — the universal play/resume meaning of that icon, and, since the old standalone
-  Resume button is gone, the only way left to simply un-pause).
+  the one deliberate difference between the two: Level Failed's Play originally restarted the level
+  directly (there's nothing to resume — the run already ended) but now returns to Level Select
+  instead (see the 2026-09-08 change further below), while Pause's Play still resumes gameplay
+  (confirmed via direct question — the universal play/resume meaning of that icon, and, since the
+  old standalone Resume button is gone, the only way left to simply un-pause).
 
   Level Failed also gained a real `StarDisplay` + score readout in `LevelFailed.png`'s blank
   parchment interior (always 0 filled stars — a failed run earns none — with the score earned so
@@ -3136,12 +3167,24 @@ values from the GDD's color palette where one exists (e.g. walls = Wall Brown `#
   with this single real image (`GameOverSign`, centred at `(0, 90)`, 700×394 preserving its real
   aspect).
 
-  Buttons went from 4 (Play/Skip/Settings/Quit) to 3, matching the mockup exactly: Play (unchanged,
-  restarts), Settings (unchanged), and **Home** — the old Quit button, same
-  `QuitToLevelSelect`+`ShowWorldSelect` behaviour, just re-iconed to `Btn_home.png` and renamed
-  (`LevelFailedController.homeButton`/`GoHome()`, was `quitButton`/`QuitToWorldSelect()`) to match
-  the mockup's house icon. The standalone Skip button is gone — no 4th icon in this mockup, and no
-  equivalent behaviour was requested.
+  Buttons went from 4 (Play/Skip/Settings/Quit) to 3, matching the mockup exactly: Play (originally
+  restarted the level directly — see the 2026-09-08 change below), Settings (unchanged), and
+  **Home** — the old Quit button, same `QuitToLevelSelect`+`ShowWorldSelect` behaviour, just
+  re-iconed to `Btn_home.png` and renamed (`LevelFailedController.homeButton`/`GoHome()`, was
+  `quitButton`/`QuitToWorldSelect()`) to match the mockup's house icon. The standalone Skip button
+  is gone — no 4th icon in this mockup, and no equivalent behaviour was requested.
+
+  **Play changed to return to Level Select instead of restarting directly (2026-09-08), per direct
+  feedback** ("btn_play goes straight back into gameplay level that was just played - but it
+  should go back to select level"). `LevelFailedController.Play()` no longer calls
+  `GameManager.LoadLevel`/shows `gameplayScreen` — it now calls `LevelSelectController.
+  OpenLevelSelectForLevel(_levelIndex)` (the same call `LevelCompleteController`'s own Play button
+  uses to jump straight to a specific world's tile grid) for the level that was just failed, then
+  `SceneTransitionManager.ShowOnly(levelSelectScreen)` — so the player lands on that level's tile
+  grid and can choose to retry it or pick something else, rather than being dropped straight back
+  into another attempt with no choice. `LevelFailedController.gameplayScreen` (now unused) was
+  removed from the script and from `Phase5ProjectBuilder.WireCrossReferences`'s `SetRefs` call for
+  this controller.
 - **`GameOver.png` and `Pause.png` both dropped their frame/background art entirely (2026-08-31)**
   — the artist replaced both files in place with bare, transparent-background lettering (no
   wood-sign frame, no parchment insert), so both are now rendered as plain `Image`s with no
@@ -3396,11 +3439,12 @@ values from the GDD's color palette where one exists (e.g. walls = Wall Brown `#
   version left a plain gold placeholder block on screen even after portrait art existed, since
   color tinting was never going to substitute for an actual portrait sprite. (The Matchup screen
   was an earlier consumer of these fields too, before its removal — see "Removed: Matchup screen".)
-- **Ability icons** (2026-08-21) — `CharacterData.abilityIconSprite`, a new field, is wired from 7
-  new `{Name}_ability.png` files (`Sprites/UI/`) via `ArtWiringBuilder.WireAbilityIcons` — Cluck,
-  Bessie, Woolly, Percy, Ducky, Gerald, Billy all have one; Horace doesn't yet. `GameplayHUD`'s
-  on-screen ability button shows this instead of the plain portrait now (see the Gameplay HUD
-  bullet under "Screens & scene flow" for the runtime side).
+- **Ability icons** (2026-08-21, Horace added 2026-09-08) — `CharacterData.abilityIconSprite`, a
+  field wired from per-character `{Name}_ability.png` files (`Sprites/UI/`) via `ArtWiringBuilder.
+  WireAbilityIcons` — all 8 characters now have one (`Horace_ability.png`, a wood-sign thumbs-up
+  portrait, was the last to land). `GameplayHUD`'s on-screen ability button shows this instead of
+  the plain portrait now (see the Gameplay HUD bullet under "Screens & scene flow" for the runtime
+  side).
 - **Buttons** — `Btn_play/pause/settings/quit/home/skip/back/plaque` wired onto their matching
   buttons across every screen (Main Menu, Gameplay HUD, Pause, Settings, Level Select,
   Store, Level Complete/Failed, Roster, Leaderboards) via `ArtWiringBuilder.WireButtons` —
@@ -3452,6 +3496,24 @@ dedicated art so `hasDedicatedRightArt = true`), and a Rear Kick landing-impact 
 (`Horace_ability_buckleft.png`/`Horace_ability_buckright.png` on a new `HoraceBuck.prefab`/
 `HoraceBuckEffect` — mirrored per knockback direction). No Up/back art yet — Up falls back to
 front.
+
+**`Horace_front.png` was replaced with new Kling-generated art (2026-09-08)** — a "toy-figurine"
+composition prompt (generous padding, character occupying ~75-80% of frame height/width) was used
+specifically to fix an earlier complaint that Horace looked oversized/"funny" next to the rest of
+the cast. Measured before replacing: the OLD `Horace_front.png` (500×500) filled 99%×100% of its
+canvas — essentially identical to Cluck/Percy/Wooly/Gerald's own fill ratios (98-100%), so a plain
+"resize the canvas" fix would have done nothing (every square canvas normalizes to the same 1×1
+world-unit box regardless of its pixel dimensions, since PPU = texture width) — the actual lever
+is how much of that box the drawn silhouette fills, not the canvas number. The replacement came
+back at **215×403** (a tight non-square portrait crop, coincidentally almost the same aspect as
+Billy's own 213×401 `Billy_Front.png`/`Billy_back.png`), which hits the exact same bug Billy's art
+did: the standard width-PPU rule would render Horace ~1.87 world units tall (403/215) facing
+up/down. Fixed the same way — `HoraceFront` was added to `ArtWiringBuilder.
+ConfigureSpriteImporters`'s height-based-PPU override list (alongside the Billy entries), so PPU is
+set to the texture's own height (403) instead of width, rendering him at exactly 1 world unit tall
+with proportionally narrower width — matching every other character's apparent height regardless
+of this crop's own aspect. `Horace_left1/Left2/right2.png` are unaffected (still loosely-padded
+500×500 squares, same as before) — only `Horace_front.png` needed the override.
 
 **Gerald and Billy now have real art too, completing all 8 characters.** Gerald gets a real
 2-frame Left walk cycle (`Gerald_left.png` → `Gerald_left1.png`) and a single dedicated Right frame
@@ -4061,11 +4123,11 @@ during troubleshooting.
   player can freely swap characters during a Character-Locked daily challenge; the run just won't
   register as completed if more than one character was used. Real enforcement needs
   `CharacterManager.CanSwapTo` to know about the active challenge.
-- **Only partial portrait art, and Horace still has no ability icon** — the HUD's on-screen
-  ability button (`GameplayHUD.characterPortrait`, via `RefreshPortrait`) now shows
-  `CharacterData.abilityIconSprite` for 7 of 8 characters (see the Gameplay HUD bullet above and
-  "Art status"), falling back to `portraitSprite` for Horace and for the portrait itself wherever
-  no real art exists. Roster cards still use solid-colour placeholders.
+- **Only partial portrait art** — the HUD's on-screen ability button (`GameplayHUD.
+  characterPortrait`, via `RefreshPortrait`) now shows `CharacterData.abilityIconSprite` for all 8
+  characters (Horace's own `Horace_ability.png` was wired 2026-09-08 — see "Art status"), falling
+  back to `portraitSprite` only wherever a character has no real portrait art at all. Roster cards
+  still use solid-colour placeholders.
 
 ## UX flow
 

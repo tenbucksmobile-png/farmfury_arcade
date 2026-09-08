@@ -178,9 +178,7 @@ namespace FarmFuryArcade.EditorTools
         private const string EggPrefabPath = AbilityPrefabFolder + "/Egg.prefab";
 
         // ---- Ability button icon art (per-character {Name}_ability.png) — replaces the plain
-        // portraitSprite on GameplayHUD's on-screen ability button. Horace has no dedicated icon
-        // yet, so his ability button keeps falling back to portraitSprite (see CharacterData.
-        // abilityIconSprite's doc comment).
+        // portraitSprite on GameplayHUD's on-screen ability button.
         private const string CluckAbilityIcon = "Assets/_Project/Sprites/UI/Cluck_ability.png";
         private const string BessieAbilityIcon = "Assets/_Project/Sprites/UI/Bessie_ability.png";
         private const string WoollyAbilityIcon = "Assets/_Project/Sprites/UI/Woolly_ability.png";
@@ -188,6 +186,7 @@ namespace FarmFuryArcade.EditorTools
         private const string DuckyAbilityIcon = "Assets/_Project/Sprites/UI/Ducky_ability.png";
         private const string GeraldAbilityIcon = "Assets/_Project/Sprites/UI/Gerald_ability.png";
         private const string BillyAbilityIcon = "Assets/_Project/Sprites/UI/Billy_ability.png";
+        private const string HoraceAbilityIcon = "Assets/_Project/Sprites/UI/Horace_ability.png";
 
         // ---- Sprite paths (this batch: maze wall/floor/warp tunnel art) ------------------------
         private const string WallCornTiles = "Assets/_Project/Sprites/UI/CornTiles.png";
@@ -545,7 +544,7 @@ namespace FarmFuryArcade.EditorTools
             SelectLevelText, CornFieldText, VegetablePatchText, OrchardText, WheatfieldText, SettingsSignText,
             LogoImage, CluckEggIcon, CluckEggCracked, CluckEggBurst,
             HatTabIcon, TrailsTabIcon, MazeThemeTabIcon, ShopButtonArt, LeaderboardSignArt, DailyChallengeShieldArt,
-            CluckAbilityIcon, BessieAbilityIcon, WoollyAbilityIcon, PercyAbilityIcon, DuckyAbilityIcon, GeraldAbilityIcon, BillyAbilityIcon
+            CluckAbilityIcon, BessieAbilityIcon, WoollyAbilityIcon, PercyAbilityIcon, DuckyAbilityIcon, GeraldAbilityIcon, BillyAbilityIcon, HoraceAbilityIcon
         };
 
         private static void ConfigureSpriteImporters()
@@ -619,8 +618,17 @@ namespace FarmFuryArcade.EditorTools
                 // its own bounding box), so the standard width-PPU rule would render Billy noticeably
                 // SHORTER than 1 unit tall mid-charge (500/664 ≈ 0.75) instead of matching his normal
                 // ~1-unit height in every other pose.
+                //
+                // HoraceFront hits the exact same bug (2026-09-08 art replacement): the new
+                // Kling-generated Horace_front.png came back as a tight 215x403 portrait crop
+                // (near-identical aspect to Billy's own 213x401 Front/Back), while
+                // Horace_left1/Left2/right2.png are still the loosely-padded 500x500 square every
+                // other character's art uses — the standard width-PPU rule would render him ~1.87
+                // world units tall (403/215) facing up/down, oversized next to every other
+                // character exactly like Billy's original bug. Same fix: PPU = texture height.
                 if (path == BillyFront || path == BillyBack || path == BillyLeft0 || path == BillyLeft1
-                    || path == BillyRight0 || path == BillyRight1 || path == BillyRamLeft || path == BillyRamRight)
+                    || path == BillyRight0 || path == BillyRight1 || path == BillyRamLeft || path == BillyRamRight
+                    || path == HoraceFront)
                 {
                     importer.spritePixelsPerUnit = height > 0 ? height : 100;
                 }
@@ -1678,8 +1686,8 @@ namespace FarmFuryArcade.EditorTools
 
         /// <summary>Wires each character's dedicated {Name}_ability.png onto CharacterData.
         /// abilityIconSprite — GameplayHUD's on-screen ability button shows this instead of
-        /// portraitSprite once set (see its RefreshPortrait). Horace has no dedicated icon yet, so
-        /// he's deliberately left out here; his button keeps falling back to portraitSprite.</summary>
+        /// portraitSprite once set (see its RefreshPortrait). Horace now has one too
+        /// (Horace_ability.png, 2026-09-08) — all 8 characters have a dedicated ability icon.</summary>
         private static void WireAbilityIcons()
         {
             SetAbilityIcon("Cluck", CluckAbilityIcon);
@@ -1689,6 +1697,7 @@ namespace FarmFuryArcade.EditorTools
             SetAbilityIcon("Ducky", DuckyAbilityIcon);
             SetAbilityIcon("Gerald", GeraldAbilityIcon);
             SetAbilityIcon("Billy", BillyAbilityIcon);
+            SetAbilityIcon("Horace", HoraceAbilityIcon);
         }
 
         private static void SetAbilityIcon(string characterName, string spritePath)

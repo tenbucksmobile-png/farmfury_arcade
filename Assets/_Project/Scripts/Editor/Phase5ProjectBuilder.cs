@@ -3136,7 +3136,7 @@ namespace FarmFuryArcade.EditorTools
                 ("unlockScreen", unlockScreen));
 
             SetRefs(levelFailed.GetComponent<LevelFailedController>(),
-                ("gameplayScreen", gameplay), ("levelSelectScreen", levelSelect),
+                ("levelSelectScreen", levelSelect),
                 ("levelSelectController", levelSelect.GetComponent<LevelSelectController>()),
                 ("settingsPanel", settingsPanel));
 

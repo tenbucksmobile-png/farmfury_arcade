@@ -2,6 +2,16 @@ using UnityEngine;
 
 namespace FarmFuryArcade.Data
 {
+    /// <summary>Per-character positioning override for a universal (one-asset-fits-all-characters)
+    /// hat — see CosmeticData.characterHatOverrides.</summary>
+    [System.Serializable]
+    public struct CharacterHatOverride
+    {
+        public CharacterType character;
+        public Vector2 hatOffset;
+        public float hatScale;
+    }
+
     /// <summary>
     /// One purchasable/equippable cosmetic (Monetisation Build Plan Phase 4). Loaded via
     /// DataManager.GetAllCosmetics() from ScriptableObjects/Resources/Cosmetics, same
@@ -62,6 +72,14 @@ namespace FarmFuryArcade.Data
                  "generated as a big standalone prop (not pre-scaled to a character's head) will " +
                  "usually need this well below 1.")]
         public float hatScale = 1f;
+
+        [Tooltip("Hat only. Optional per-character overrides of hatOffset/hatScale above, for a " +
+                 "universal hat (e.g. Cowboy Hat/Sombrero) shared by one CosmeticData asset across " +
+                 "every character instead of one asset per character (unlike the baseball caps, " +
+                 "which already get their own per-character offset/scale via a dedicated asset " +
+                 "each). A character with no entry here falls back to the shared hatOffset/hatScale " +
+                 "above. See CharacterCosmeticRenderer.ResolveHatOffsetAndScale.")]
+        public CharacterHatOverride[] characterHatOverrides;
 
         [Tooltip("Skin only. A full replacement walk-cycle set, same 8-entry order as " +
                  "CharacterData.walkAnimationFrames — CharacterCosmeticRenderer feeds this into " +

@@ -12,18 +12,23 @@ namespace FarmFuryArcade.UI
     /// Phase5ProjectBuilder.BuildLevelFailed for the placeholder frame around GameOver.png's bare
     /// text) — no star/score readout at all, unlike the previous "TRY AGAIN!" card design.
     ///
-    /// Only 3 buttons now: Play (replay), Settings (opens the shared SettingsPanel overlay, same
+    /// Only 3 buttons now: Play, Settings (opens the shared SettingsPanel overlay, same
     /// convention Pause's own Settings button uses), and Home (back to Level Select's world-select
     /// state, via LevelSelectController.ShowWorldSelect — the old Quit button, just relabelled/
     /// re-iconed to match the mockup's house icon). The previous 4th button, Skip (a lesser "back
     /// to Level Select" step than Quit/Home), has no equivalent in the new mockup and is gone.
+    ///
+    /// Play used to restart the failed level directly — changed per direct feedback that it
+    /// should instead return to Level Select (the tile grid for the world containing the level
+    /// just failed, same "jump straight to the relevant world" convention LevelCompleteController's
+    /// own Play button uses), so the player can choose to retry it or pick a different level rather
+    /// than being dropped straight back into another attempt with no choice.
     /// </summary>
     public class LevelFailedController : MonoBehaviour
     {
         [SerializeField] private Button playButton;
         [SerializeField] private Button settingsButton;
         [SerializeField] private Button homeButton;
-        [SerializeField] private GameObject gameplayScreen;
         [SerializeField] private GameObject levelSelectScreen;
         [SerializeField] private LevelSelectController levelSelectController;
         [SerializeField] private SettingsPanel settingsPanel;
@@ -47,16 +52,11 @@ namespace FarmFuryArcade.UI
 
         private void Play()
         {
-            // Re-passes the current daily-challenge flag (rather than always defaulting to false)
-            // so failing and restarting a Daily Challenge attempt stays a Daily Challenge attempt —
-            // see GameManager.LoadLevel's isDailyChallenge doc comment.
-            bool isDailyChallenge = DailyChallengeManager.Instance != null && DailyChallengeManager.Instance.IsPlayingDailyChallenge;
-            SceneTransitionManager.Instance.TransitionTo(() =>
+            if (levelSelectController != null)
             {
-                gameObject.SetActive(false);
-                gameplayScreen.SetActive(true);
-            });
-            GameManager.Instance.LoadLevel(_levelIndex, isDailyChallenge);
+                levelSelectController.OpenLevelSelectForLevel(_levelIndex);
+            }
+            SceneTransitionManager.Instance.ShowOnly(levelSelectScreen);
         }
 
         private void GoHome()

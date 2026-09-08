@@ -124,13 +124,34 @@ namespace FarmFuryArcade.Gameplay
             _hatRenderer.enabled = _equippedHat != null && _equippedHat.hatFrames != null && _equippedHat.hatFrames.Length >= 8;
             if (_hatRenderer.enabled)
             {
-                _hatTransform.localPosition = _equippedHat.hatOffset;
-                _hatTransform.localScale = Vector3.one * _equippedHat.hatScale;
+                (Vector2 offset, float scale) = ResolveHatOffsetAndScale(_equippedHat, character);
+                _hatTransform.localPosition = offset;
+                _hatTransform.localScale = Vector3.one * scale;
             }
 
             string equippedTrailId = SaveManager.Instance.GetEquippedTrail();
             CosmeticData trail = DataManager.Instance.GetCosmeticData(equippedTrailId);
             ApplyTrail(trail);
+        }
+
+        /// <summary>Universal hats (Cowboy Hat/Sombrero) share one CosmeticData asset across every
+        /// character, so a single hatOffset/hatScale can't fit every head — falls back to that
+        /// shared value if this character has no entry in characterHatOverrides (per-character
+        /// baseball caps never need an entry here, since each of those already has its own asset
+        /// with hatOffset/hatScale tuned for exactly one character).</summary>
+        private static (Vector2 offset, float scale) ResolveHatOffsetAndScale(CosmeticData hat, CharacterType character)
+        {
+            if (hat.characterHatOverrides != null)
+            {
+                foreach (var overrideEntry in hat.characterHatOverrides)
+                {
+                    if (overrideEntry.character == character)
+                    {
+                        return (overrideEntry.hatOffset, overrideEntry.hatScale);
+                    }
+                }
+            }
+            return (hat.hatOffset, hat.hatScale);
         }
 
         private void ApplyTrail(CosmeticData trail)

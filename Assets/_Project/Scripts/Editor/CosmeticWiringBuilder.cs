@@ -164,14 +164,16 @@ namespace FarmFuryArcade.EditorTools
             public string SpriteFileName;
             public Vector2 HatOffset;
             public float HatScale;
+            public CharacterHatOverride[] CharacterOverrides;
 
-            public UniversalHatEntry(string id, string displayName, string spriteFileName, Vector2 hatOffset, float hatScale)
+            public UniversalHatEntry(string id, string displayName, string spriteFileName, Vector2 hatOffset, float hatScale, CharacterHatOverride[] characterOverrides = null)
             {
                 Id = id;
                 DisplayName = displayName;
                 SpriteFileName = spriteFileName;
                 HatOffset = hatOffset;
                 HatScale = hatScale;
+                CharacterOverrides = characterOverrides;
             }
         }
 
@@ -192,14 +194,69 @@ namespace FarmFuryArcade.EditorTools
             // universal asset shown across all 8 characters; Sombrero_2/3/4.png (cow-print, pink/
             // green floral, orange with pom-poms) are real, usable art too if a different look or a
             // future second sombrero style is ever wanted — just swap the filename here.
-            // Sized/positioned against two direct gameplay screenshots (2026-09-08). First pass
-            // (0.62 -> 1.15 scale, 0.55 -> 0.35 offset) fixed the "barely-visible speck" sizing but
-            // overcorrected the drop — confirmed scale 1.15 is correct, but 0.35 dropped it down
-            // over the character's face/head instead of sitting on top. Offset raised partway back
-            // up. This one asset is shared by all 8 characters (universal, not per-character), so
-            // this single value already applies to every one of them — no separate per-character
-            // tuning needed structurally, just this one number.
-            new UniversalHatEntry(IAPManagerHatSombreroId, "Sombrero", "Sombrero_1.png", new Vector2(0f, 0.45f), 1.15f),
+            // Sized/positioned against several direct gameplay screenshots (2026-09-08), across
+            // multiple rounds — the shared default alone went 0.55 -> 0.35 -> 0.45 -> 0.65 as
+            // "too low" feedback kept coming in for characters with no per-character override
+            // (Cluck/Ducky/Horace/Gerald/Billy) even after the ones WITH an override (Percy/
+            // Woolly/Bessie, below) were separately raised twice each. This shared value is this
+            // asset's fallback for any character with no entry in SombreroCharacterOverrides — a
+            // single universal number was never going to fit every character's head equally
+            // (confirmed once a screenshot showed it specifically mis-fit on Percy), but the whole
+            // group was ALSO reading too low at the same time, hence raising both independently
+            // here rather than assuming the override characters were the only ones affected.
+            new UniversalHatEntry(IAPManagerHatSombreroId, "Sombrero", "Sombrero_1.png", new Vector2(0f, 0.65f), 1.15f, SombreroCharacterOverrides),
+        };
+
+        // Per-character overrides of the shared Sombrero offset/scale above — added once real
+        // gameplay screenshots showed it badly mis-fit on specific characters. First-pass
+        // eyeballed corrections (no visual Editor/Play mode access this session) — nudge further
+        // once seen. "We will reposition for every character" per direct feedback — add further
+        // entries here as each remaining character gets checked in Play mode.
+        //
+        // Offset.y history, all per direct "too low"/"too high" feedback rounds: Percy 0.45(shared)
+        // -> 0.30 -> 0.43 -> 0.55 -> 0.75; Woolly 0.45(shared) -> 0.28 -> 0.40 -> 0.60; Bessie
+        // 0.45(shared) -> 0.47 -> 0.60 -> 0.80. Each raise moved every character (shared default
+        // included) up together once "still too low" feedback covered the whole group rather than
+        // just the ones with their own override entry.
+        private static readonly CharacterHatOverride[] SombreroCharacterOverrides =
+        {
+            // Percy's baseball cap asset (see Caps above, tuned for his actual head) uses
+            // offset.y 0.51 / scale 0.77 for a snug-fitting cap; the sombrero's wide brim still
+            // needs to render smaller than the universal 1.15 default.
+            new CharacterHatOverride
+            {
+                character = CharacterType.Percy,
+                hatOffset = new Vector2(0f, 0.75f),
+                hatScale = 0.85f,
+            },
+            // Woolly's own baseball cap scale (0.96, the largest of the 8 — his fluffy head reads
+            // wide) means the sombrero's width was already roughly right; only its height needed
+            // tuning, same as Percy.
+            new CharacterHatOverride
+            {
+                character = CharacterType.Woolly,
+                hatOffset = new Vector2(0f, 0.60f),
+                hatScale = 1.0f,
+            },
+            // Bessie's baseball cap is the smallest of the 8 (scale 0.58, offset.y 0.55) — the
+            // universal 1.15 sombrero scale rendered wildly oversized and floating well off to the
+            // side of her head. Scale kept from the first correction; offset raised per the same
+            // "still too low" feedback Percy got.
+            new CharacterHatOverride
+            {
+                character = CharacterType.Bessie,
+                hatOffset = new Vector2(0f, 0.80f),
+                hatScale = 0.64f,
+            },
+            // Cluck was fine at the shared 0.65 default for every other character but read as
+            // "slightly too high" on her specifically — a small nudge down, not the large
+            // corrections the other 3 overrides above needed.
+            new CharacterHatOverride
+            {
+                character = CharacterType.Cluck,
+                hatOffset = new Vector2(0f, 0.58f),
+                hatScale = 1.15f,
+            },
         };
 
         // Local copies of IAPManager's cosmeticId constants — CosmeticWiringBuilder is an Editor-
@@ -246,6 +303,7 @@ namespace FarmFuryArcade.EditorTools
                 data.hatFrames = new[] { sprite, sprite, sprite, sprite, sprite, sprite, sprite, sprite };
                 data.hatOffset = entry.HatOffset;
                 data.hatScale = entry.HatScale;
+                data.characterHatOverrides = entry.CharacterOverrides;
                 EditorUtility.SetDirty(data);
             }
 
