@@ -60,6 +60,13 @@ namespace FarmFuryArcade.UI
         [SerializeField] private Image currentWorldIndicatorImage;
         [SerializeField] private Button currentWorldIndicatorButton;
 
+        /// <summary>"Visit Our Store" merch promo banner (2026-09-08) — moved here from Main Menu
+        /// per feedback that it overlapped/cluttered the landing art there. World-select state
+        /// only, same opposite-of-currentWorldIndicator visibility toggle: shown in ShowWorldSelect,
+        /// hidden in RevealWorld (a tile grid filling the screen has no room for it, and the promo
+        /// isn't relevant mid-level-browsing anyway).</summary>
+        [SerializeField] private GameObject merchBanner;
+
         /// <summary>Daily Challenge's own shield art (DailyChallenge.png) — shown as the first item
         /// in the world carousel, ahead of Corn Field, via DailyChallengeSentinel rather than a real
         /// world index. Always coloured/tappable regardless of save progress, unlike the 4 real
@@ -190,6 +197,10 @@ namespace FarmFuryArcade.UI
             scrollRect.gameObject.SetActive(false);
             SetBackButtonSprite(backButtonWorldSelectSprite);
             SetTitleSprite(titleWorldSelectSprite);
+            if (merchBanner != null)
+            {
+                merchBanner.SetActive(true);
+            }
 
             foreach (Transform child in worldShieldContainer)
             {
@@ -335,6 +346,10 @@ namespace FarmFuryArcade.UI
             worldShieldContainer.gameObject.SetActive(false);
             SetBackButtonSprite(backButtonTileGridSprite);
             SetTitleSprite(titleTileGridSprite);
+            if (merchBanner != null)
+            {
+                merchBanner.SetActive(false);
+            }
 
             SetWorldSignSprite(currentWorldIndicatorImage, world);
             currentWorldIndicator.gameObject.SetActive(true);

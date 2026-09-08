@@ -652,6 +652,11 @@ namespace FarmFuryArcade.EditorTools
 
             var lockedHintPanel = BuildLockedHintPanel(root.transform);
 
+            // "Visit Our Store" merch promo (2026-09-08) — bottom-left, world-select state only
+            // (see LevelSelectController.ShowWorldSelect/RevealWorld). Built after the back button
+            // (bottom-right) so the two corner elements never fight over sibling draw/raycast order.
+            var merchBanner = BuildMerchBanner(root.transform);
+
             var controller = root.AddComponent<LevelSelectController>();
             SetRefs(controller,
                 ("levelTilePrefab", levelTilePrefab),
@@ -668,7 +673,8 @@ namespace FarmFuryArcade.EditorTools
                 ("backButtonImage", backButton.GetComponent<Image>()),
                 ("titleImage", titleImage),
                 ("titleWorldSelectSprite", LoadUiSprite("WorldUnlocked.png")),
-                ("titleTileGridSprite", LoadUiSprite("SelectLevelSign.png")));
+                ("titleTileGridSprite", LoadUiSprite("SelectLevelSign.png")),
+                ("merchBanner", merchBanner));
 
             return root;
         }
@@ -717,6 +723,10 @@ namespace FarmFuryArcade.EditorTools
             // Daily Challenge and Leaderboards also no longer live on Main Menu — moved to Level
             // Select and Settings respectively (see LevelSelectController/SettingsPanel's own doc
             // comments) per feedback that the landing page should stay minimal.
+            //
+            // The "Visit Our Store" merch banner briefly lived here too (2026-09-08) but was moved
+            // to Level Select's world-select state instead — per a gameplay screenshot review it
+            // sat awkwardly in front of landing.png's baked-in character art. See BuildLevelSelect.
 
             var controller = root.AddComponent<MainMenuController>();
             var so = new SerializedObject(controller);
@@ -725,6 +735,39 @@ namespace FarmFuryArcade.EditorTools
             so.ApplyModifiedPropertiesWithoutUndo();
 
             return root;
+        }
+
+        /// <summary>"Visit Our Store" promotional link-out to the FarmFury franchise's real-goods
+        /// merchandise store on www.farmfury.games (2026-09-08) — deliberately NOT an IAP product,
+        /// no checkout happens in this app at all; see MerchBannerController's own doc comment.
+        /// Moved onto Level Select's world-select state (bottom-left, see BuildLevelSelect) after a
+        /// gameplay screenshot showed it awkwardly overlapping Main Menu's landing art. Sized to sit
+        /// neatly inside the yellow safe-area guide, same 110/70 corner inset every other bottom-
+        /// corner element on this screen family uses (CreateRoundBackButton's bottomLeft branch,
+        /// etc.) — shrunk from the original Main-Menu-era 260-tall version, which was sized for open
+        /// space in the middle of a screen, not a corner. Sized to MerchBanner.png's real 666x392
+        /// aspect (preserveAspect, explicit sizeDelta, same "box aspect must match the art"
+        /// convention this project uses everywhere) rather than forced into CreateIconButton's
+        /// square box, since this art is a wide banner, not an icon.</summary>
+        private static GameObject BuildMerchBanner(Transform screenRoot)
+        {
+            var button = CreateButton("MerchBanner", screenRoot, string.Empty, Color.white, 20f, 180f, out _);
+            Object.DestroyImmediate(button.transform.Find("MerchBanner_Label").gameObject);
+            var image = button.GetComponent<Image>();
+            image.sprite = LoadUiSprite("MerchBanner.png");
+            image.preserveAspect = true;
+
+            const float bannerHeight = 180f;
+            const float bannerAspect = 666f / 392f;
+            var rect = (RectTransform)button.transform;
+            AnchorBottomLeft(rect, new Vector2(bannerHeight * bannerAspect, bannerHeight), new Vector2(110f, 70f));
+
+            var merchController = button.gameObject.AddComponent<MerchBannerController>();
+            var mbSo = new SerializedObject(merchController);
+            mbSo.FindProperty("merchButton").objectReferenceValue = button;
+            mbSo.ApplyModifiedPropertiesWithoutUndo();
+
+            return button.gameObject;
         }
 
         // ---- Title screen -----------------------------------------------------------------------

@@ -321,21 +321,39 @@ namespace FarmFuryArcade.Core
                 return;
             }
 
-            void HandleClosed(LevelPlayAdInfo info)
+            bool resolved = false;
+            Coroutine timeoutRoutine = null;
+
+            void Resolve()
             {
+                if (resolved)
+                {
+                    return;
+                }
+                resolved = true;
                 _interstitialAd.OnAdClosed -= HandleClosed;
                 _interstitialAd.OnAdDisplayFailed -= HandleDisplayFailed;
-                onReady?.Invoke();
-            }
-            void HandleDisplayFailed(LevelPlayAdInfo info, LevelPlayAdError error)
-            {
-                _interstitialAd.OnAdClosed -= HandleClosed;
-                _interstitialAd.OnAdDisplayFailed -= HandleDisplayFailed;
+                if (timeoutRoutine != null)
+                {
+                    StopCoroutine(timeoutRoutine);
+                }
                 onReady?.Invoke();
             }
 
+            void HandleClosed(LevelPlayAdInfo info) => Resolve();
+            void HandleDisplayFailed(LevelPlayAdInfo info, LevelPlayAdError error) => Resolve();
+
             _interstitialAd.OnAdClosed += HandleClosed;
             _interstitialAd.OnAdDisplayFailed += HandleDisplayFailed;
+            // Same class of gap ShowRewardedAd's own RewardedAdTimeoutSeconds already closed
+            // (found 2026-09-08 while investigating an Editor Play-mode report that an interstitial
+            // "won't let me close it") — mediation SDKs generally have no real native ad surface to
+            // render in the Unity Editor at all, so OnAdClosed/OnAdDisplayFailed can simply never
+            // fire there; without a timeout, GameManager.LoadLevel's Time.timeScale = 0 freeze
+            // (which wraps this whole call) never lifts and the game is stuck with nothing to
+            // click, indistinguishable from "the ad won't close." This guarantees onReady always
+            // fires within InterstitialAdTimeoutSeconds regardless of what the SDK does.
+            timeoutRoutine = StartCoroutine(InterstitialAdTimeoutFallback(Resolve));
             try
             {
                 _interstitialAd.ShowAd();
@@ -346,8 +364,16 @@ namespace FarmFuryArcade.Core
                 // whole call and is relying on onReady firing no matter what; a thrown exception
                 // here without this catch would have soft-locked the game frozen forever.
                 Debug.LogError($"[AdManager] Interstitial ShowAd threw: {e}");
-                HandleDisplayFailed(default, default);
+                Resolve();
             }
+        }
+
+        private const float InterstitialAdTimeoutSeconds = 8f;
+
+        private System.Collections.IEnumerator InterstitialAdTimeoutFallback(System.Action onTimeout)
+        {
+            yield return new WaitForSecondsRealtime(InterstitialAdTimeoutSeconds);
+            onTimeout?.Invoke();
         }
     }
 }

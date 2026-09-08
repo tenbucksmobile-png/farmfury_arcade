@@ -24,6 +24,18 @@ namespace FarmFuryArcade.Abilities
         [SerializeField] private float shakeDuration = 0.3f;
         [SerializeField] private float shakeMagnitude = 0.15f;
 
+        /// <summary>True for the ability's whole active hazard window (cast through the end of the
+        /// lingering killzone) — same "PlayerHealth checks this to skip its own death check, since
+        /// the ability's own contact is already handled" convention BounceRollAbility.IsRolling/
+        /// HeadbuttThroughAbility.IsCharging/PuffUpAbility.IsPuffed use. Gap found and fixed
+        /// 2026-09-08: those three were added to PlayerHealth.IsProtectedByActiveAbility on
+        /// 2026-08-29 (see that commit's own doc comment), but Ground Slam was missed even though
+        /// it defeats robots the same way — Bessie could die on the exact contact her own slam was
+        /// about to instantly defeat, especially right at the moment of deployment (Execute()'s
+        /// initial radius sweep and PlayerHealth's own trigger-contact death check run via two
+        /// different mechanisms with no ordering guarantee between them).</summary>
+        public bool IsActive { get; private set; }
+
         protected override void Execute()
         {
             bool doubled = ComboSystem.Instance != null && ComboSystem.Instance.ConsumeDoubleSlamRadius();
@@ -49,6 +61,7 @@ namespace FarmFuryArcade.Abilities
 
         private IEnumerator LingeringKillzone(Vector2Int origin, float radius)
         {
+            IsActive = true;
             float elapsed = 0f;
             while (elapsed < KillzoneDurationSeconds)
             {
@@ -56,6 +69,7 @@ namespace FarmFuryArcade.Abilities
                 elapsed += Time.deltaTime;
                 yield return null;
             }
+            IsActive = false;
         }
 
         private static void DefeatRobotsInRadius(Vector2Int origin, float radius)

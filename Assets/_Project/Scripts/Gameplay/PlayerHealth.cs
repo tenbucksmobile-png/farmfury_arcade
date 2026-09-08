@@ -39,6 +39,16 @@ namespace FarmFuryArcade.Gameplay
         private HeadbuttThroughAbility _headbuttThroughAbility;
         private PuffUpAbility _puffUpAbility;
 
+        // Same gap, found later (2026-09-08): GroundSlamAbility (Bessie) also instantly defeats any
+        // robot within its radius, including on the very frame it's cast — but it was never added
+        // to this protection list back on 2026-08-29, so Bessie could still die on the exact robot
+        // her own slam was about to defeat, especially right at the moment of deployment. Unlike the
+        // other three, Ground Slam doesn't use OnTriggerEnter2D at all (a proximity/grid-distance
+        // sweep instead), so the race isn't sibling-callback-order — it's that the sweep and this
+        // component's own trigger-contact death check are two independent mechanisms with no
+        // ordering guarantee between them either way.
+        private GroundSlamAbility _groundSlamAbility;
+
         public bool IsRespawning { get; private set; }
 
         private void Awake()
@@ -48,6 +58,7 @@ namespace FarmFuryArcade.Gameplay
             _bounceRollAbility = GetComponent<BounceRollAbility>();
             _headbuttThroughAbility = GetComponent<HeadbuttThroughAbility>();
             _puffUpAbility = GetComponent<PuffUpAbility>();
+            _groundSlamAbility = GetComponent<GroundSlamAbility>();
         }
 
         /// <summary>True while an active ability on this same GameObject is already handling any
@@ -55,7 +66,8 @@ namespace FarmFuryArcade.Gameplay
         private bool IsProtectedByActiveAbility =>
             (_bounceRollAbility != null && _bounceRollAbility.IsRolling) ||
             (_headbuttThroughAbility != null && _headbuttThroughAbility.IsCharging) ||
-            (_puffUpAbility != null && _puffUpAbility.IsPuffed);
+            (_puffUpAbility != null && _puffUpAbility.IsPuffed) ||
+            (_groundSlamAbility != null && _groundSlamAbility.IsActive);
 
         private void Start()
         {

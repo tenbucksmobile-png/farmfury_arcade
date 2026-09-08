@@ -137,12 +137,13 @@ namespace FarmFuryArcade.EditorTools
                 data.cosmeticType = CosmeticType.Trail;
                 data.coinCost = entry.CoinCost;
                 data.previewSprite = sprite;
-                // trailEffectPrefab intentionally left null — CosmeticData's own doc comment says
-                // this falls back to a procedural placeholder effect, same "dedicated art with a
-                // procedural fallback" convention PelletCollectBurst uses, since no trail-rendering
-                // hook exists yet (CharacterCosmeticRenderer only handles Hat/Skin today — equipping
-                // a Trail persists correctly via SaveManager but has no visible effect in gameplay
-                // until that hook is built).
+                // trailEffectPrefab intentionally left null — reserved for a future dedicated
+                // particle/VFX prefab. CharacterCosmeticRenderer's Trail path (added 2026-08-25,
+                // extended 2026-09-08) already renders real in-gameplay art without one: it spawns
+                // fading CosmeticTrailGhost afterimages of this asset's own previewSprite (the
+                // CornHuskTrail.png/etc. wired just above) as the character moves, and only falls
+                // back to a flat procedural TrailRenderer colour line if BOTH trailEffectPrefab and
+                // previewSprite are unset.
                 EditorUtility.SetDirty(data);
             }
 
@@ -185,7 +186,20 @@ namespace FarmFuryArcade.EditorTools
         private static readonly UniversalHatEntry[] UniversalHats =
         {
             new UniversalHatEntry(IAPManagerHatCowboyId, "Cowboy Hat", "kling_20260818_IMAGE_Prop_shots_3923_0.png", new Vector2(0f, 0.55f), 0.62f),
-            new UniversalHatEntry(IAPManagerHatSombreroId, "Sombrero", "kling_20260818_IMAGE_isolated_g_4590_0.png", new Vector2(0f, 0.55f), 0.62f),
+            // Original source file (kling_20260818_IMAGE_isolated_g_4590_0.png) was deleted from
+            // disk and replaced with 4 new re-generated variants (2026-09-08) — Sombrero_1.png
+            // (classic red/green/tan) picked as the most immediately recognisable of the 4 for a
+            // universal asset shown across all 8 characters; Sombrero_2/3/4.png (cow-print, pink/
+            // green floral, orange with pom-poms) are real, usable art too if a different look or a
+            // future second sombrero style is ever wanted — just swap the filename here.
+            // Sized/positioned against two direct gameplay screenshots (2026-09-08). First pass
+            // (0.62 -> 1.15 scale, 0.55 -> 0.35 offset) fixed the "barely-visible speck" sizing but
+            // overcorrected the drop — confirmed scale 1.15 is correct, but 0.35 dropped it down
+            // over the character's face/head instead of sitting on top. Offset raised partway back
+            // up. This one asset is shared by all 8 characters (universal, not per-character), so
+            // this single value already applies to every one of them — no separate per-character
+            // tuning needed structurally, just this one number.
+            new UniversalHatEntry(IAPManagerHatSombreroId, "Sombrero", "Sombrero_1.png", new Vector2(0f, 0.45f), 1.15f),
         };
 
         // Local copies of IAPManager's cosmeticId constants — CosmeticWiringBuilder is an Editor-

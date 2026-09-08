@@ -7,6 +7,7 @@ using UnityEngine.UI;
 using UnityEngine.EventSystems;
 using FarmFuryArcade.Core;
 using FarmFuryArcade.Data;
+using FarmFuryArcade.Gameplay;
 using FarmFuryArcade.UI;
 using FarmFuryArcade.Utilities;
 
@@ -331,6 +332,68 @@ namespace FarmFuryArcade.EditorTools
             PlayerPrefs.DeleteKey("FFA_EquippedTrail_global");
             PlayerPrefs.Save();
             Debug.Log("[SceneCleanupBuilder] Cleared equipped Trail — no character will render a trail until re-equipped.");
+        }
+
+        /// <summary>Unlike Trail (character-agnostic/global), Hat is equipped per-character — see
+        /// SaveManager.SetEquippedCosmetic's own "FFA_EquippedHat_&lt;character&gt;" key shape. If a
+        /// live Play-mode session exists, this reads CharacterManager.Instance.ActiveCharacter so
+        /// the equip lands on whoever's actually on screen right now; falls back to Cluck (the same
+        /// "first character, matches a fresh session's own default" convention SceneController
+        /// already uses) if run from Edit mode before pressing Play.</summary>
+        private static CharacterType GetActiveOrDefaultCharacter()
+        {
+            return CharacterManager.Instance != null ? CharacterManager.Instance.ActiveCharacter : CharacterType.Cluck;
+        }
+
+        /// <summary>Force-equips one Hat cosmetic for testing, bypassing IAPManager.PurchaseProduct
+        /// (no real store connection exists in the Editor). CharacterCosmeticRenderer.Refresh only
+        /// re-reads equipped state on spawn/swap (CharacterBase.Initialize), so an already-spawned
+        /// character wouldn't otherwise pick this up until a manual character swap or level reload —
+        /// easy to forget and reads as "the hat just isn't rendering." If a live Play-mode session
+        /// exists, this calls Refresh() directly on the currently active character's own
+        /// CharacterCosmeticRenderer, so the equip is visible immediately with no extra step.</summary>
+        private static void DebugEquipHat(string cosmeticId, string displayName)
+        {
+            CharacterType character = GetActiveOrDefaultCharacter();
+            SaveManager.DebugForceEquipForTesting(CosmeticType.Hat, character, cosmeticId);
+
+            if (CharacterManager.Instance != null && CharacterManager.Instance.ActiveCharacterObject != null)
+            {
+                var renderer = CharacterManager.Instance.ActiveCharacterObject.GetComponent<CharacterCosmeticRenderer>();
+                if (renderer != null)
+                {
+                    renderer.Refresh();
+                    Debug.Log($"[SceneCleanupBuilder] Equipped Hat '{displayName}' ({cosmeticId}) on {character} and refreshed it live — should be visible now.");
+                    return;
+                }
+            }
+
+            Debug.Log($"[SceneCleanupBuilder] Equipped Hat '{displayName}' ({cosmeticId}) on {character}. " +
+                      "Swap character (even to the same one) or load a level to see it render.");
+        }
+
+        [MenuItem("Farm Fury Arcade/Debug/Equip Hat (Testing)/Baseball Cap (Active Character)")]
+        public static void EquipHatBaseballCap()
+        {
+            CharacterType character = GetActiveOrDefaultCharacter();
+            DebugEquipHat($"baseball_cap_{character}".ToLowerInvariant(), "Baseball Cap");
+        }
+
+        [MenuItem("Farm Fury Arcade/Debug/Equip Hat (Testing)/Cowboy Hat (Active Character)")]
+        public static void EquipHatCowboy() => DebugEquipHat(IAPManager.CowboyHatCosmeticId, "Cowboy Hat");
+
+        [MenuItem("Farm Fury Arcade/Debug/Equip Hat (Testing)/Sombrero (Active Character)")]
+        public static void EquipHatSombrero() => DebugEquipHat(IAPManager.SombreroCosmeticId, "Sombrero");
+
+        /// <summary>Clears the equipped Hat slot for whichever character is currently active —
+        /// narrower than UnequipAllHatsForTesting above (which clears all 8 at once).</summary>
+        [MenuItem("Farm Fury Arcade/Debug/Equip Hat (Testing)/None (Clear Active Character)")]
+        public static void ClearEquippedHatForActiveCharacter()
+        {
+            CharacterType character = GetActiveOrDefaultCharacter();
+            PlayerPrefs.DeleteKey("FFA_EquippedHat_" + character);
+            PlayerPrefs.Save();
+            Debug.Log($"[SceneCleanupBuilder] Cleared equipped Hat for {character}.");
         }
 
         private static int _sfxDiagFrame;
