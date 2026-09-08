@@ -595,6 +595,17 @@ ability) and checks `IsProtectedByActiveAbility` before its death check — if a
 active, the robot contact is already being handled by the ability itself, regardless of which
 `OnTriggerEnter2D` Unity happens to invoke first.
 
+**Same gap, found later for Bessie (2026-09-08): `GroundSlamAbility` was never added to this
+protection list.** Unlike the three above, Ground Slam doesn't use `OnTriggerEnter2D` at all — it's
+a proximity/grid-distance sweep (`DefeatRobotsInRadius`, checked once on cast and then every frame
+for the 3s lingering killzone), so the race isn't sibling-callback-order, it's that this sweep and
+`PlayerHealth`'s own trigger-contact death check are two independent mechanisms with no ordering
+guarantee between them either way. Bessie could still die on the exact robot her own slam was about
+to defeat, especially right at the moment of deployment. Fixed the same way: `GroundSlamAbility.
+IsActive` (true from `Execute()` through the end of `LingeringKillzone`, matching `PuffUpAbility.
+IsPuffed`'s "protected for the whole active hazard window" convention, not just the initial cast
+frame) is now included in `PlayerHealth.IsProtectedByActiveAbility`.
+
 **`BounceRollAbility` (Percy) reworked from wall-phasing to a forward roll-and-kill.** The original
 version armed a "next wall hit becomes temporarily walkable" window (see the old "Wall mutation"
 description this replaced, further down); per feedback it was replaced entirely with a rolling dash:
@@ -934,6 +945,15 @@ interaction so gameplay code never touches `Unity.Services.LevelPlay` directly) 
   regardless of timescale, with zero effect on the ad's own audio (rendered natively by the ad SDK,
   entirely outside Unity's `AudioListener` pipeline).
 
+  **`NotifyLevelLoaded` gained an 8s timeout (`InterstitialAdTimeoutSeconds`, 2026-09-08)** — same
+  gap `ShowRewardedAd`'s own timeout already closed, just never applied here. Surfaced via a real
+  report while testing in the Unity Editor ("the interstitial ad won't let me close it"): mediation
+  SDKs generally have no native ad surface to render in the Editor at all, so `OnAdClosed`/
+  `OnAdDisplayFailed` could simply never fire — and since `onReady` gates the `Time.timeScale = 0f`
+  freeze above, a callback that never arrives meant the game stayed frozen forever, indistinguishable
+  from a stuck ad. `onReady` is now guaranteed to fire within `InterstitialAdTimeoutSeconds`
+  regardless of what the SDK does, same resolve-once-guaranteed pattern `ShowRewardedAd` uses.
+
 **`SaveManager` gained `AdsRemoved`** (bool, persisted — `NotifyLevelLoaded` already early-outs on
 it; `IAPManager`'s Remove Ads purchase now sets it, see "IAP plumbing" below) **and
 `LevelsSinceLastInterstitial`** (the rolling counter above, exposed via a getter +
@@ -1033,7 +1053,8 @@ that real art (wired in `ArtWiringBuilder.WireMonetisationArt`) instead of the t
 **App identifiers (set 2026-08-23):** `com.farmfury.arcade` for both iOS Bundle Identifier and
 Android Package Name (`ProjectSettings.asset` → `applicationIdentifier` → `iPhone`/`Android`), under
 the `Tenbucks_Mobile` developer account. Chosen over a company-name-based ID
-(`com.tenbucksmobile.farmfuryarcade`) since the franchise's own domain (`farmfury.com`) will
+(`com.tenbucksmobile.farmfuryarcade`) since the franchise's own domain (`www.farmfury.games` —
+corrected 2026-09-08; earlier notes in this file said `farmfury.com`, which was wrong) will
 eventually host this game plus two siblings (Rush, and the main Farm Fury title) — this pattern
 gives them clean sibling IDs (`com.farmfury.rush`, `com.farmfury.main`) later. **The Android Package
 Name is permanent once published to Google Play — there is no changing it after the first upload**,
@@ -1152,7 +1173,7 @@ per direct feedback.
 **Store-side setup status (updated 2026-08-25):** all 12 products (the original 5 + 7 cosmetic IAPs
 added since — see "Cosmetics Store UI" below) are now **registered in App Store Connect** for iOS
 (bundle ID `com.farmfury.arcade`, under the `Tenbucks_Mobile` team, app name `FarmFury_Arcade`,
-domain `farmfury.com` will eventually host all 3 Farm Fury titles). **Google Play Console / Android
+domain `www.farmfury.games` will eventually host all 3 Farm Fury titles). **Google Play Console / Android
 registration is in progress** — the app itself is already created in Play Console
 (`com.farmfury.arcade`), but the 12 products, signing keystore, internal-testing build, and license
 testers still need to be set up there the same way they were for iOS; follow the same product
@@ -1166,14 +1187,44 @@ the Editor, expected until a real build runs against real store config. Purchase
 
 **3 more products exist in code since this status was last updated** — the World Purchase IAPs
 (`world_frostbitegarden`/`world_goldensunset`/`world_harvestmoon`, $3.99 each, see "World Purchase"
-above) aren't registered in App Store Connect or Play Console yet; same registration steps as the
-other 12 apply once ready.
+above) aren't registered in Play Console yet; same registration steps as the other 12 apply once
+ready. **Registered in App Store Connect as of 2026-09-08** (all 15 products total now live there
+for iOS) — Google Play Console remains the only store with zero products registered.
 
 Separately, on the **ad** side (not IAP): the ironSource Ads network (mediated via LevelPlay, see
 "Ad mediation" above) was approved 2026-08-25 — the app is live and receiving inventory on iOS;
 Android-side ironSource setup is still in progress on their end. This is a dashboard/network status,
 not a code change — no action needed here unless Android ad unit IDs need updating later via
 `SceneCleanupBuilder.WireAdManagerConfig` once that side completes.
+
+### Merchandise (`Scripts/UI/MerchBannerController.cs`)
+
+FarmFury franchise merchandise (T-shirts, towels, cups, posters) — a distinct revenue stream from
+everything else in this section, added 2026-09-08. **Fulfillment and checkout live entirely on the
+external `www.farmfury.games` website** — there is no in-app storefront, no cart, no payment
+handling in this project, and this is deliberate: physical goods are exempt from Apple/Google's
+in-app-purchase requirement (Apple Guideline 3.1.3), so this is NOT registered as an IAP product and
+does not touch `IAPManager.cs` at all. Keeping it structurally separate from the real-money IAP
+screens (Shop hub, Coin Purchase, Cosmetic/World Purchase) is intentional — a purchase-adjacent UI
+element sitting inside those screens would invite App Review scrutiny it doesn't need to invite.
+
+**In-app surface is a single promotional banner** (`MerchBannerController`, built by
+`Phase5ProjectBuilder.BuildMerchBanner`) — "VISIT OUR STORE" wood-sign art (`MerchBanner.png`,
+666x392), currently placed on Level Select's world-select state, bottom-left corner (same 110/70
+safe-area inset every other bottom-corner element in this screen family uses). Visibility is
+state-driven the same way `currentWorldIndicator` is (just inverted): shown in
+`LevelSelectController.ShowWorldSelect()`, hidden the instant `RevealWorld()` shows a world's tile
+grid. **It briefly lived on Main Menu instead** — removed after a gameplay screenshot showed it
+sitting awkwardly in front of `landing.png`'s baked-in character art; also shrunk from 260px tall
+(sized for open centre space) to 180px tall once moved into a corner slot.
+
+Tapping it calls `Application.OpenURL("https://www.farmfury.games/merch")` (system browser, not an
+in-app WebView — same hand-off pattern `LegalScreen.cs` uses for Privacy Policy/Terms), gated behind
+the existing `ParentalGateController` arithmetic gate first — same convention every real-money
+purchase surface in this project already uses, since this app already treats every player as
+child-directed and a merch link is a real external checkout even though nothing is charged in-app.
+**Update `MerchBannerController.MerchUrl`** once the real page path on `farmfury.games` is
+confirmed — it's a placeholder guess as of this writing.
 
 ### Cosmetics system (`Scripts/Data/CosmeticData.cs`, `CosmeticType.cs`, `Scripts/Gameplay/CharacterCosmeticRenderer.cs`, `Scripts/Editor/CosmeticWiringBuilder.cs`)
 
@@ -1390,6 +1441,22 @@ purchase-button art, wired directly in `Phase5ProjectBuilder`, never as the equi
 Editor/Play mode access this session) — expect to nudge per the same "plain Inspector edit, no
 rebuild required" workflow.
 
+**Sombrero's source file was deleted and replaced (2026-09-08).**
+`kling_20260818_IMAGE_isolated_g_4590_0.png` no longer exists on disk — the artist dropped in 4 new
+re-generated variants instead (`Sombrero_1.png` through `_4.png`, under the same
+`Cosmetics_Type_Hat/` folder: classic red/green/tan, cow-print, pink/green floral, and orange with
+pom-poms). Since `CosmeticData_sombrero_hat.asset` still referenced the deleted file's GUID, the
+hat silently stopped rendering (a broken sprite reference, not a code bug — `CharacterCosmeticRenderer`'s
+own `Refresh()`/live-testing path was working correctly the whole time). `WireUniversalHats`'s
+Sombrero entry now points to `Sombrero_1.png` (the classic design — picked as the most immediately
+recognisable of the 4 for a universal, every-character asset); `_2`/`_3`/`_4` are real, usable art
+too if a second sombrero style or a different look is ever wanted. **`hatOffset`/`hatScale`
+re-tuned against two real gameplay screenshots** (first actual visual verification either universal
+hat has had): `hatScale` 0.62 → 1.15 (was a barely-visible speck), `hatOffset.y` went 0.55 → 0.35
+(too far, dropped over the character's face) → **0.45** (confirmed correct scale, offset raised back
+partway). Re-run `Wire Cosmetic Art (Universal Hats)` any time these values change in code — the
+`.asset` file only updates when that tool actually runs.
+
 **Not built yet:**
 - No Skin or MazeTheme `CosmeticData` assets exist yet, and neither has a Store surface in the new
   design either (no Skin screen at all; MazeTheme's icon is present but deliberately unwired — see
@@ -1408,6 +1475,23 @@ rebuild required" workflow.
   GrantAndEquipTrail` now calls `Refresh()` after equipping, same as the Hat purchase path, so a
   freshly bought trail shows immediately without needing a character swap.
 
+  **Real uploaded trail art now used instead of the flat colour line (2026-09-08).** The 4
+  `CornHuskTrail.png`/`EmberTrail.png`/`SparkleDust.png`/`RainbowRibbon.png` files had been sitting
+  on disk since 2026-08-20, wired only into `CosmeticData.previewSprite` (the Store icon) — a stale
+  comment in `CosmeticWiringBuilder.WireTrails` said `trailEffectPrefab` was "intentionally left
+  null... since no trail-rendering hook exists yet," which was true when written but never revisited
+  once the hook above actually landed 5 days later. `CharacterCosmeticRenderer.ApplyTrail` now
+  checks in order: `trailEffectPrefab` (future dedicated VFX) → **`previewSprite`, spawning
+  `CosmeticTrailGhost` fading afterimages of the real art as the character moves** (new, this
+  session) → the flat procedural colour line, now only a last-resort fallback that no shipped trail
+  actually reaches. Tuned twice against direct feedback: first pass optimised density (`
+  GhostSpawnDistance` 0.35→0.18, closing gaps) which fixed "too light/sparse" but made each ghost's
+  actual artwork blur into its neighbours and read as an indistinct smear; second pass inverted the
+  trade — fewer, bigger, more spaced-out ghosts (`GhostScale` 0.5→1.0, `GhostSpawnDistance` back up
+  to 0.4, `GhostLifetimeSeconds` 0.45→0.7) so each one is large enough to actually read as the real
+  art. `CosmeticTrailGhost` itself darkens each ghost (`DarkenMultiplier` 0.7) and holds full opacity
+  for the first 45% of its life before fading, rather than dimming from the instant it spawns.
+
 **`SaveManager.DebugForceEquipForTesting` had a real bug for `CosmeticType.Trail` (found and fixed
 2026-08-26).** It routed every cosmetic type through `EquippedKeyPrefix(type)`, which only
 distinguishes Skin vs. Hat and silently defaults anything else — including Trail — to the Hat
@@ -1418,7 +1502,28 @@ special-casing `CosmeticType.Trail` to write `EquippedTrailKeyPrefix + "global"`
 **Trail testing tooling**: `Farm Fury Arcade > Debug > Equip Trail (Testing) > Corn Husk / Ember /
 Sparkle Dust / Rainbow Ribbon / None (Clear)` (`SceneCleanupBuilder`) force-equips one trail via the
 now-fixed helper, bypassing `IAPManager.PurchaseProduct` — no real store connection exists in the
-Editor, so this is the only way to visually test trails without a real device build.
+Editor, so this is the only way to visually test trails without a real device build. **Hat testing
+tooling** (2026-09-08, mirrors the above): `Farm Fury Arcade > Debug > Equip Hat (Testing) >
+Baseball Cap / Cowboy Hat / Sombrero (Active Character) / None (Clear Active Character)` — unlike
+Trail (global), Hat is equipped per-character, so these resolve `CharacterManager.Instance.
+ActiveCharacter` (falling back to Cluck in Edit mode) and, if a live Play-mode character exists,
+call `CharacterCosmeticRenderer.Refresh()` on it directly so the equip is visible immediately with
+no manual character-swap/level-reload step needed.
+
+**Real bug found and fixed (2026-09-08): `CharacterCosmeticRenderer` was missing from all 8
+character prefabs**, despite `CosmeticWiringBuilder.WireBaseballCaps`/`WireUniversalHats` both
+being designed to add it via the standard `LoadPrefabContents → AddComponent → SaveAsPrefabAsset`
+round-trip. Since `CharacterBase.Initialize` calls `GetComponent<CharacterCosmeticRenderer>()?.
+Refresh()` with a null-conditional, a missing component means the call silently no-ops — no error,
+no warning, an equipped Trail/Hat just never renders. Root cause: `Phase4ProjectBuilder.BuildAll`
+rebuilds all 7 non-Cluck character prefabs from scratch and knows nothing about cosmetics, so
+running it any time after the cosmetic wiring tools silently wipes the component back out — same
+"Phase rebuild resets earlier Editor-tool wiring" class of bug already documented elsewhere in this
+file (robot spawns, Cluck's ability components). Fixed by re-running `Wire Cosmetic Art (Universal
+Hats)`, which unconditionally loops over all 8 `CharacterType`s regardless of hat-sprite
+availability. **If a cosmetic silently "isn't rendering" with zero console error, check this first**
+— verify `CharacterCosmeticRenderer` is actually present on the relevant prefab before suspecting
+the `CosmeticData` asset or the rendering code itself.
 - `TileMapRenderer` doesn't yet consume `CosmeticData.themeWallSprite`/`themeGroundSprite`/
   `themeBackdropSprite` — MazeTheme equip state would persist in `SaveManager` but nothing reads it
   at render time yet, moot until MazeTheme assets exist anyway.
