@@ -42,7 +42,7 @@ namespace FarmFuryArcade.UI
             }
             if (settingsButton != null && settingsScreen != null)
             {
-                settingsButton.onClick.AddListener(() => settingsScreen.Show());
+                settingsButton.onClick.AddListener(() => settingsScreen.Show(gameObject));
             }
             if (shopButton != null && shopScreen != null)
             {

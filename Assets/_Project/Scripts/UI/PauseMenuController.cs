@@ -41,7 +41,7 @@ namespace FarmFuryArcade.UI
             skipButton.onClick.AddListener(Skip);
             if (settingsButton != null && settingsPanel != null)
             {
-                settingsButton.onClick.AddListener(() => settingsPanel.Show());
+                settingsButton.onClick.AddListener(() => settingsPanel.Show(gameObject));
             }
             quitButton.onClick.AddListener(QuitToWorldSelect);
         }
@@ -75,6 +75,18 @@ namespace FarmFuryArcade.UI
                 levelSelectController.ShowWorldSelect();
             }
             SceneTransitionManager.Instance.ShowOnly(levelSelectScreen);
+        }
+
+        /// <summary>Called by SettingsPanel when a grandchild button (e.g. Leaderboards) navigates
+        /// to a real screenRoot while Settings was opened from Pause — SceneTransitionManager.
+        /// ShowOnly only deactivates screenRoots, and Pause isn't one, so without this it would stay
+        /// active (opaque) on top of whatever ShowOnly just activated, AND leave the game genuinely
+        /// stuck in GameState.Paused/Time.timeScale=0 forever (only Skip/QuitToWorldSelect above
+        /// currently clear that). Reuses the same "leaving gameplay" reset those two already do.</summary>
+        public void CloseForNavigation()
+        {
+            gameObject.SetActive(false);
+            GameManager.Instance.QuitToLevelSelect();
         }
     }
 }

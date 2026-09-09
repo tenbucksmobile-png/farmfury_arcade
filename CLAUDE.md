@@ -1590,7 +1590,7 @@ star requirement, no cross-world gate check); every level after that world's fir
 own predecessor's star, same chain rule as any other world, just scoped to within that one
 purchased world. `IsWorldUnlocked(world)` and `GetUnlockHint(levelIndex)` branch the same way.
 `GameManager.ComputeJustUnlockedWorld` explicitly early-returns for a purchase-gated `nextWorld` —
-without this, finishing Wheat with 2+ stars would fire the free-world "New World Unlocked!"
+without this, finishing Wheat at the gate threshold would fire the free-world "New World Unlocked!"
 celebration for a world the player hasn't bought (since its LevelData now genuinely exists at the
 next levelNumber slot).
 
@@ -2033,18 +2033,21 @@ balance) in case a future screen wants to surface it again, only the display was
 
 **`GameManager.JustUnlockedWorldIndex`** is the same idea for worlds — set (or reset to null) at
 the top of every `EndLevel(true)` call, non-null only when the completed level is a world's gate
-level (its own index is the last level of a world) at 2+ stars, that world's `LevelData` actually
-exists (World 3/4 have no next-world content yet in some cases), and `SaveManager.
-HasSeenWorldUnlock(world)` is still false. That last check is the load-bearing one: an earlier
-version compared this level's stars-before-this-call to stars-after, which meant the celebration
-silently never fired for anyone who'd already 2-starred a gate level *some other way* than this
-exact `EndLevel` transition (replaying an already-qualifying level, or `SceneCleanupBuilder`'s "Set
-3 Stars on all levels" debug tool writing stars directly via `SaveManager`, bypassing `EndLevel`
-entirely) — the world was genuinely unlocked, but the player had never actually seen the
-celebration for it. `HasSeenWorldUnlock`/`SetWorldUnlockSeen` (persisted PlayerPrefs flags, same
-one-shot convention as `IsCharacterUnlocked`) fix that: the celebration fires the first time it's
-actually shown, regardless of how the stars themselves got there, and `SetWorldUnlockSeen` is
-called immediately so replaying the gate level afterward never re-fires it.
+level (its own index is the last level of a world) at `UnlockProgression.WorldGateStarRequirement`+
+stars (**1**, i.e. just completed — dropped from 2 on 2026-09-09, per direct feedback that a 2-star
+requirement gated core progression behind the pellet-chain-kill bonus's RNG rather than a clean
+skill check; see that constant's own comment in `Utilities/UnlockProgression.cs`), that world's
+`LevelData` actually exists (World 3/4 have no next-world content yet in some cases), and
+`SaveManager.HasSeenWorldUnlock(world)` is still false. That last check is the load-bearing one: an
+earlier version compared this level's stars-before-this-call to stars-after, which meant the
+celebration silently never fired for anyone who'd already qualified on a gate level *some other
+way* than this exact `EndLevel` transition (replaying an already-qualifying level, or
+`SceneCleanupBuilder`'s "Set 3 Stars on all levels" debug tool writing stars directly via
+`SaveManager`, bypassing `EndLevel` entirely) — the world was genuinely unlocked, but the player had
+never actually seen the celebration for it. `HasSeenWorldUnlock`/`SetWorldUnlockSeen` (persisted
+PlayerPrefs flags, same one-shot convention as `IsCharacterUnlocked`) fix that: the celebration
+fires the first time it's actually shown, regardless of how the stars themselves got there, and
+`SetWorldUnlockSeen` is called immediately so replaying the gate level afterward never re-fires it.
 
 `LevelCompleteController`'s celebration sequence reads this after the star/score/character-unlock
 beats: if set, it shows **`NewWorldUnlockScreen`** — the world's badge sprite
@@ -2260,6 +2263,22 @@ of feedback:**
   margin math needed — the list just gets longer and scrolls further, instead of shrinking the
   cards' own space.
 
+**Character Story rebuilt from one continuous scrollable list into 3 tabs (2026-09-09), per direct
+feedback that it had grown into "a very long scrolling list."** The same session also added a "How
+to Play" section (coins, scoring/stars, power crops & robot chains, abilities/combos —
+`CharacterStoryScreen.GameplayTopics`), which made the single-list version noticeably longer on top
+of the narrative intro and all 8 character rows, prompting the rework. `CharacterStoryScreen` now
+has 3 independent `ScrollRect`s (Story/How to Play/Characters), each built by its own
+`BuildTabScrollView` local function in `Phase5ProjectBuilder.BuildCharacterStoryPlaceholder`, sharing
+the same footprint and toggled via `SetActive` by `CharacterStoryScreen.SelectTab`. A `TabBar`
+(`CreateHorizontalGroup`, 3 `CreateButton`s) sits above them; tab buttons tint gold (active) / brown
+(inactive) — same on/off tint-only convention as `LockedTint` elsewhere, no dedicated tab art yet.
+Defaults to the Story tab on every `OnEnable`. The old single `cardContainer` field was split into
+`charactersContainer` (Characters tab) and `howToPlayContainer` (How to Play tab); `BuildRow`/
+`BuildInfoRow` now take an explicit parent `Transform` instead of always targeting one shared list.
+Running **Phase 5 > Build All** is required to pick this up (a genuine layout/hierarchy change, not
+just script logic) — re-run **Wire Uploaded Art** afterward if you use it.
+
 **Several other Settings-family screens got sizing/position fixes (2026-08-21), all per direct
 screenshot review, no new mockup:**
 - **Main Menu's `PlayButton`** had a 20px asymmetric inset vs. `SettingsButton` on the opposite
@@ -2402,6 +2421,24 @@ at 160 and shouldn't change) per direct feedback that the original size read as 
 from `MenuHubScreen`'s "SETTINGS" sign, or still directly from Pause's own Settings button
 (`PauseMenuController.settingsPanel` — unchanged, Pause never routes through the hub).
 
+**Real bug found and fixed (2026-09-09): the Leaderboards icon appeared to do nothing.** Every other
+overlay-to-screenRoot exit in this codebase (`PauseMenuController.Skip`/`QuitToWorldSelect`) hides
+itself first before calling `SceneTransitionManager.ShowOnly`, since `ShowOnly` only deactivates
+registered `screenRoots` — it has no idea Settings (or whatever opened Settings) is an overlay
+sitting on top and needs closing too. `SettingsPanel`'s Leaderboards button skipped that step: the
+navigation itself worked (`LeaderboardsScreen` genuinely activated underneath), but Settings' own
+opaque backdrop — and, if Settings was opened from Pause, Pause's opaque backdrop too — stayed
+active on top, visually blocking it entirely. Fixed by having `SettingsPanel.Show(GameObject
+opener = null)` track whoever opened it (`MenuHubScreen`/`PauseMenuController` now pass
+`gameObject`; `LevelFailedController` doesn't need to, since `LevelFailedScreen` **is** a
+screenRoot and `ShowOnly` already handles it) and closing both itself and that opener before
+navigating. Closing Pause specifically also needed a real state reset, not just `SetActive(false)`
+— leaving Pause via this path with no explicit reset would have stranded the game in
+`GameState.Paused`/`Time.timeScale = 0` forever, since only Pause's own Skip/Quit buttons cleared
+that. `PauseMenuController.CloseForNavigation()` (hide + `GameManager.QuitToLevelSelect()`) is the
+new public entry point `SettingsPanel` calls instead of a bare `SetActive(false)` when the opener
+is specifically a `PauseMenuController`.
+
 **`ShopController`** was repurposed from "the actual coin-pack purchase screen" into a navigation
 hub — `ShopBanner.png` header, a single row of 4 icons matching the same enlarged `iconSize` as
 Settings: Cash (`Shop.png`, opens `CoinPurchaseScreen`), Worlds (`WorldMaze.png`, opens the World
@@ -2469,9 +2506,10 @@ Reached from Main Menu's Play button. Two states on one screen (`LevelSelectScre
 - **World select** — a horizontally flickable carousel (`CardCarouselController`, see below) of a
   **Daily Challenge shield followed by** world badges, one per currently-unlocked world
   (`UnlockProgression.IsWorldUnlocked`: world 0/Corn Field always available, world N unlocks once
-  the last level of world N-1 has 2+ stars — the same threshold `UnlockProgression.IsLevelUnlocked`
-  gates level access on, so a badge is never shown for a world whose levels are actually still
-  locked). The Daily Challenge shield (`LevelSelectController.DailyChallengeSentinel`, a sentinel
+  the last level of world N-1 has `WorldGateStarRequirement`+ stars — **1**, i.e. just completed,
+  dropped from 2 on 2026-09-09 (see `UnlockProgression.WorldGateStarRequirement`'s own comment) —
+  the same threshold `UnlockProgression.IsLevelUnlocked` gates level access on, so a badge is never
+  shown for a world whose levels are actually still locked). The Daily Challenge shield (`LevelSelectController.DailyChallengeSentinel`, a sentinel
   value stored in `_shownWorlds`/`_shieldObjects` at local index 0, never a real world index) is
   always coloured/tappable regardless of save progress and, unlike a world badge, doesn't reveal a
   tile grid when tapped — it calls `PlayDailyChallenge()` directly, loading today's already-

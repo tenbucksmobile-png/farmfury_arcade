@@ -1599,6 +1599,13 @@ namespace FarmFuryArcade.EditorTools
             return root;
         }
 
+        // Warm gold (active) / brown (inactive) tab-tint convention — matches
+        // CharacterStoryScreen's own copies of these same values, which SelectTab re-applies on
+        // every tap at runtime; this pair only sets each tab's initial (Story-selected) tint at
+        // build time.
+        private static readonly Color TabActiveColor = new Color(0.85f, 0.65f, 0.2f);
+        private static readonly Color TabInactiveColor = new Color(0.35f, 0.28f, 0.18f);
+
         /// <summary>Real content screen for "Btn_CharacterStory" (2026-08-21 follow-up — was a
         /// "Coming Soon" placeholder until the actual narrative/character copy was written). Matches
         /// the rest of the Settings-family redesign: dimmed Landing_Opacity.png backdrop, no
@@ -1606,46 +1613,55 @@ namespace FarmFuryArcade.EditorTools
         /// one, this is the one deliberate exception), and Btn_back kept at its existing
         /// bottom-right position (CreateRoundBackButton's default).
         ///
-        /// The WHOLE screen scrolls as one list now (per feedback: a separate fixed-position intro
-        /// box above a fixed-height row area meant a tall intro — it grows at runtime to fit its own
-        /// copy, see CharacterStoryScreen.ResizeIntroContainerToFitText — ate directly into the space
-        /// left for character cards). The framed intro box (IntroBorder/IntroBackground/IntroText)
-        /// is now the FIRST item inside the same vertical ScrollRect/Content the character rows live
-        /// in, sized to the same RowWidth so it lines up with every row beneath it, rather than a
-        /// separate element positioned above a second, independently-sized scroll view. Both the
-        /// intro copy and the per-character blurbs are populated at runtime by CharacterStoryScreen
-        /// (DataManager isn't available in Edit mode); this method only builds the empty layout and
-        /// wires the introText/cardContainer references.</summary>
+        /// Rebuilt (2026-09-09, per direct feedback) from one long continuous scrollable list into 3
+        /// tabs — Story / How to Play / Characters — each its own independent ScrollRect, switched
+        /// by CharacterStoryScreen.SelectTab. The single-list version read as "a very long scrolling
+        /// list" once the How to Play section (GameplayTopics) was added on top of the narrative
+        /// intro and all 8 character rows. Both the intro copy and the per-character blurbs are
+        /// populated at runtime by CharacterStoryScreen (DataManager isn't available in Edit mode);
+        /// this method only builds the empty layout and wires the tab/content references.</summary>
         private static GameObject BuildCharacterStoryPlaceholder(Transform canvasTransform, GameObject characterSelectCardPrefab)
         {
             var root = CreatePanel("CharacterStoryScreen", canvasTransform, Color.black);
             ApplyDimmedLandingBackground(root);
 
-            // Scroll view now spans nearly the full screen (40px top margin, 140px bottom margin for
-            // the back button) — everything below, including the intro box, lives inside its Content
-            // and scrolls together as one list.
-            var scrollRect = CreateVerticalScrollView("CharacterScrollView", root.transform, out var cardContainer);
-            var scrollRT = (RectTransform)scrollRect.transform;
-            scrollRT.anchorMin = new Vector2(0f, 0f);
-            scrollRT.anchorMax = new Vector2(0f, 1f);
-            scrollRT.pivot = new Vector2(0f, 0.5f);
-            const float scrollTopMargin = 40f;
+            const float tabBarTopMargin = 40f;
+            const float tabBarHeight = 70f;
+            const float tabBarToScrollGap = 20f;
+            const float scrollTopMargin = tabBarTopMargin + tabBarHeight + tabBarToScrollGap;
             const float scrollBottomMargin = 140f; // clears the back button
-            scrollRT.anchoredPosition = new Vector2(100f, (scrollBottomMargin - scrollTopMargin) / 2f);
-            scrollRT.sizeDelta = new Vector2(1700f, -(scrollTopMargin + scrollBottomMargin));
 
-            // Framed intro box — now the first child inside cardContainer (same list the character
-            // rows are appended to at runtime, see CharacterStoryScreen.PopulateIfNeeded), sized to
-            // CharacterStoryScreen.RowWidth so it shares the same left/right edges as every row below
-            // it. No dedicated wood-sign art exists for a box this shape/size, so the "border" is a
-            // plain two-layer Image composition (an outer gold border colour with a slightly inset,
-            // darker semi-transparent inner panel) rather than uploaded art — same
-            // PlaceholderSprite.Get(color) convention used everywhere else in this project a visual
-            // is needed before real art exists. Its own sizeDelta is set explicitly (not left to a
-            // LayoutElement) since cardContainer's VerticalLayoutGroup has childControlHeight/Width =
-            // false (CreateVerticalScrollView's convention) and reads each child's raw sizeDelta
-            // directly — same reason every character row below sets its own sizeDelta too.
-            var introBorder = CreateImage("IntroBorder", cardContainer, new Color(0.70f, 0.55f, 0.20f), CharacterStoryScreen.RowWidth, 260f);
+            var tabBar = CreateHorizontalGroup("TabBar", root.transform, 12f);
+            AnchorTopCenter((RectTransform)tabBar.transform, new Vector2(1700f, tabBarHeight), new Vector2(0f, -tabBarTopMargin));
+
+            var storyTabButton = CreateButton("StoryTabButton", tabBar.transform, "Story", TabActiveColor, 28f, tabBarHeight, out _);
+            var howToPlayTabButton = CreateButton("HowToPlayTabButton", tabBar.transform, "How to Play", TabInactiveColor, 28f, tabBarHeight, out _);
+            var charactersTabButton = CreateButton("CharactersTabButton", tabBar.transform, "Characters", TabInactiveColor, 28f, tabBarHeight, out _);
+
+            GameObject BuildTabScrollView(string name, out Transform content)
+            {
+                var scrollRect = CreateVerticalScrollView(name, root.transform, out content);
+                var scrollRT = (RectTransform)scrollRect.transform;
+                scrollRT.anchorMin = new Vector2(0f, 0f);
+                scrollRT.anchorMax = new Vector2(0f, 1f);
+                scrollRT.pivot = new Vector2(0f, 0.5f);
+                scrollRT.anchoredPosition = new Vector2(100f, (scrollBottomMargin - scrollTopMargin) / 2f);
+                scrollRT.sizeDelta = new Vector2(1700f, -(scrollTopMargin + scrollBottomMargin));
+                return scrollRect.gameObject;
+            }
+
+            var storyScrollView = BuildTabScrollView("StoryScrollView", out var storyContainer);
+
+            // Framed intro box — sole content of the Story tab now (used to be the first item in one
+            // shared list with everything else below it). No dedicated wood-sign art exists for a
+            // box this shape/size, so the "border" is a plain two-layer Image composition (an outer
+            // gold border colour with a slightly inset, darker semi-transparent inner panel) rather
+            // than uploaded art — same PlaceholderSprite.Get(color) convention used everywhere else
+            // in this project a visual is needed before real art exists. Its own sizeDelta is set
+            // explicitly (not left to a LayoutElement) since storyContainer's VerticalLayoutGroup has
+            // childControlHeight/Width = false (CreateVerticalScrollView's convention) and reads
+            // each child's raw sizeDelta directly.
+            var introBorder = CreateImage("IntroBorder", storyContainer, new Color(0.70f, 0.55f, 0.20f), CharacterStoryScreen.RowWidth, 260f);
             ((RectTransform)introBorder.transform).sizeDelta = new Vector2(CharacterStoryScreen.RowWidth, 260f);
 
             var introBackground = CreateImage("IntroBackground", introBorder.transform, new Color(0.08f, 0.06f, 0.03f, 0.82f), CharacterStoryScreen.RowWidth - 12f, 248f);
@@ -1662,17 +1678,24 @@ namespace FarmFuryArcade.EditorTools
             introTextRect.sizeDelta = new Vector2(CharacterStoryScreen.RowWidth - 12f - 68f, 220f);
             introTextRect.anchoredPosition = Vector2.zero;
 
+            var howToPlayScrollView = BuildTabScrollView("HowToPlayScrollView", out var howToPlayContainer);
+            var charactersScrollView = BuildTabScrollView("CharactersScrollView", out var charactersContainer);
+
             var closeButton = CreateRoundBackButton(root.transform);
             closeButton.GetComponent<Image>().sprite = LoadUiSprite("Btn_back.png");
 
             var story = root.AddComponent<CharacterStoryScreen>();
             SetRefs(story,
-                ("cardContainer", cardContainer),
+                ("charactersContainer", charactersContainer),
                 ("cardPrefab", characterSelectCardPrefab),
                 ("closeButton", closeButton),
                 ("introText", introText),
                 ("introBorderRect", introBorder.transform),
-                ("introBackgroundRect", introBackground.transform));
+                ("introBackgroundRect", introBackground.transform),
+                ("howToPlayContainer", howToPlayContainer),
+                ("storyTabButton", storyTabButton), ("storyTabContent", storyScrollView),
+                ("howToPlayTabButton", howToPlayTabButton), ("howToPlayTabContent", howToPlayScrollView),
+                ("charactersTabButton", charactersTabButton), ("charactersTabContent", charactersScrollView));
 
             return root;
         }

@@ -23,7 +23,12 @@ namespace FarmFuryArcade.Utilities
         /// PurchasedWorldMazeTypes). Grows by 25 for every purchased world added.</summary>
         public const int TotalLevels = 175;
         public const int LevelsPerWorld = 25;
-        public const int WorldGateStarRequirement = 2;
+        // Dropped from 2 to 1 (2026-09-09, per direct feedback) — a 2-star requirement gated core
+        // progression behind the pellet-chain-kill bonus's RNG (see LevelData.
+        // ComputeMaxPossibleScoreEstimate's own doc comment), which read as "replay the level and
+        // hope for luck" rather than a skill check. Now matches every other level's own unlock
+        // requirement (1 star = completed).
+        public const int WorldGateStarRequirement = 1;
 
         /// <summary>Worlds 4+ (Monetisation "World Purchase") — owned-or-not via SaveManager.
         /// IsWorldPurchased, completely independent of the free worlds' sequential star-progress
@@ -46,7 +51,8 @@ namespace FarmFuryArcade.Utilities
 
         /// <summary>Level 1 (index 0) is always unlocked. Level N unlocks once Level N-1 has at
         /// least 1 star; levels 26-50/51-75/76-100 additionally require their world's gate level
-        /// (25/50/75) at 2+ stars. A purchase-gated world's own first level instead requires only
+        /// (25/50/75) at WorldGateStarRequirement+ stars (1, i.e. just completed — see that
+        /// constant's own comment). A purchase-gated world's own first level instead requires only
         /// that world's purchase (no star chain from the previous world at all — these worlds
         /// aren't part of the sequential CornField-&gt;Wheat chain); every level after that world's
         /// first still needs its own predecessor's star, same as any other world.</summary>

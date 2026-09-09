@@ -483,24 +483,25 @@ namespace FarmFuryArcade.Core
         }
 
         /// <summary>The level just completed unlocks a new world only if it's the last level of a
-        /// world (its own index is a world's gate level), its stars now meet the 2-star gate
-        /// threshold, and that world's unlock celebration hasn't already been shown
-        /// (SaveManager.HasSeenWorldUnlock) — matches UnlockProgression.IsWorldUnlocked's own gate
-        /// for the star check, but deliberately does NOT compare against
-        /// this level's stars-before-this-call: an earlier version did, which meant the celebration
-        /// silently never fired for anyone who reached 2+ stars on a gate level any way other than
-        /// this exact EndLevel transition (e.g. SceneCleanupBuilder's "Set 3 Stars on all levels"
-        /// debug tool, or simply having already 2-starred the level in an earlier session/before
-        /// this feature existed) — the world was genuinely unlocked, but the player had still never
-        /// actually seen the celebration for it. The persisted HasSeenWorldUnlock flag is the
-        /// correct one-shot gate instead (same convention as IsCharacterUnlocked), and it's set
-        /// immediately once this returns non-null so replaying the gate level again never re-fires
-        /// it. Also requires the next world to actually have authored LevelData — World 3/4
+        /// world (its own index is a world's gate level), its stars now meet
+        /// UnlockProgression.WorldGateStarRequirement (1, i.e. just completed — dropped from 2 on
+        /// 2026-09-09, see that constant's own comment for why), and that world's unlock celebration
+        /// hasn't already been shown (SaveManager.HasSeenWorldUnlock) — matches
+        /// UnlockProgression.IsWorldUnlocked's own gate for the star check, but deliberately does NOT
+        /// compare against this level's stars-before-this-call: an earlier version did, which meant
+        /// the celebration silently never fired for anyone who reached the gate threshold on a gate
+        /// level any way other than this exact EndLevel transition (e.g. SceneCleanupBuilder's "Set
+        /// 3 Stars on all levels" debug tool, or simply having already qualified in an earlier
+        /// session/before this feature existed) — the world was genuinely unlocked, but the player
+        /// had still never actually seen the celebration for it. The persisted HasSeenWorldUnlock
+        /// flag is the correct one-shot gate instead (same convention as IsCharacterUnlocked), and
+        /// it's set immediately once this returns non-null so replaying the gate level again never
+        /// re-fires it. Also requires the next world to actually have authored LevelData — World 3/4
         /// currently have art but no levels, and celebrating an empty, unplayable world would be
         /// confusing.</summary>
         private static int? ComputeJustUnlockedWorld(int levelNumber, int starsAfter)
         {
-            const int WorldGateStarRequirement = 2;
+            const int WorldGateStarRequirement = UnlockProgression.WorldGateStarRequirement;
 
             bool isWorldGateLevel = (levelNumber + 1) % UnlockProgression.LevelsPerWorld == 0;
             if (!isWorldGateLevel || starsAfter < WorldGateStarRequirement)

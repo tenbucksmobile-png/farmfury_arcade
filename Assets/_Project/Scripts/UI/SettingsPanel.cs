@@ -41,6 +41,17 @@ namespace FarmFuryArcade.UI
         /// for this icon.</summary>
         private static readonly Color MutedTint = new Color(0.5f, 0.5f, 0.5f, 1f);
 
+        /// <summary>Whichever overlay called Show(opener), if any — MenuHubScreen or
+        /// PauseMenuController, neither of which is a SceneTransitionManager screenRoot, so neither
+        /// gets closed automatically by ShowOnly. Closed alongside this panel itself before the
+        /// Leaderboards button navigates to a real screenRoot; otherwise it stays active on top
+        /// (opaque backdrop) and visually blocks the screen ShowOnly just activated underneath it —
+        /// this was the actual cause of "the leaderboards icon does not go into the leaderboards
+        /// page" (2026-09-09): the navigation itself worked, the opener overlay was just still
+        /// covering it. LevelFailedController's own Show() call needs no opener — LevelFailedScreen
+        /// IS a screenRoot, so ShowOnly already deactivates it correctly on its own.</summary>
+        private GameObject _opener;
+
         private void Awake()
         {
             if (closeButton != null)
@@ -53,7 +64,26 @@ namespace FarmFuryArcade.UI
             }
             if (leaderboardsButton != null && leaderboardsScreen != null)
             {
-                leaderboardsButton.onClick.AddListener(() => SceneTransitionManager.Instance.ShowOnly(leaderboardsScreen));
+                leaderboardsButton.onClick.AddListener(() =>
+                {
+                    gameObject.SetActive(false);
+                    if (_opener != null)
+                    {
+                        // Pause needs its own GameState.Paused/Time.timeScale=0 reset too, not just
+                        // hiding — see CloseForNavigation's own doc comment. MenuHubScreen (Main
+                        // Menu's opener) has no such state and just needs to be hidden.
+                        var pause = _opener.GetComponent<PauseMenuController>();
+                        if (pause != null)
+                        {
+                            pause.CloseForNavigation();
+                        }
+                        else
+                        {
+                            _opener.SetActive(false);
+                        }
+                    }
+                    SceneTransitionManager.Instance.ShowOnly(leaderboardsScreen);
+                });
             }
             if (characterStoryButton != null && characterStoryScreen != null)
             {
@@ -73,8 +103,9 @@ namespace FarmFuryArcade.UI
             }
         }
 
-        public void Show()
+        public void Show(GameObject opener = null)
         {
+            _opener = opener;
             RefreshMusicIcon();
             transform.SetAsLastSibling();
             gameObject.SetActive(true);
