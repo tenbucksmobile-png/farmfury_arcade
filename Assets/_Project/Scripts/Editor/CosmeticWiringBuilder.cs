@@ -33,13 +33,23 @@ namespace FarmFuryArcade.EditorTools
             public string SpriteFileName;
             public Vector2 HatOffset;
             public float HatScale;
+            // Optional dedicated Left-facing art (hatFrames[4]/[5]) — null means Left keeps
+            // reusing the single front sprite every other slot falls back to. Both Ducky and
+            // Woolly already have hasDedicatedRightArt=true on their own CharacterData (real
+            // Wooly_right.png/Ducky_right.png — see ArtWiringBuilder.WireWoolly/WireDucky), so
+            // their own base sprite's Right-facing pose is NEVER the flipX-mirrored-Left trick —
+            // meaning a Left-only hat sprite here has no mirroring implications for Right at all;
+            // Right simply keeps falling back to the single default sprite until dedicated Right
+            // hat art exists too.
+            public string LeftSpriteFileName;
 
-            public BaseballCapEntry(CharacterType character, string spriteFileName, Vector2 hatOffset, float hatScale)
+            public BaseballCapEntry(CharacterType character, string spriteFileName, Vector2 hatOffset, float hatScale, string leftSpriteFileName = null)
             {
                 Character = character;
                 SpriteFileName = spriteFileName;
                 HatOffset = hatOffset;
                 HatScale = hatScale;
+                LeftSpriteFileName = leftSpriteFileName;
             }
         }
 
@@ -54,8 +64,12 @@ namespace FarmFuryArcade.EditorTools
             new BaseballCapEntry(CharacterType.Cluck, "Baseball_Clucky.png", new Vector2(0f, 0.55f), 0.64f),
             new BaseballCapEntry(CharacterType.Bessie, "Baseball_Bessie.png", new Vector2(0f, 0.55f), 0.58f),
             new BaseballCapEntry(CharacterType.Percy, "Baseball_Percy.png", new Vector2(0f, 0.51f), 0.77f),
-            new BaseballCapEntry(CharacterType.Woolly, "Baseball_Woolly.png", new Vector2(0f, 0.47f), 0.96f),
-            new BaseballCapEntry(CharacterType.Ducky, "Baseball_Ducky.png", new Vector2(0f, 0.53f), 0.70f),
+            // Baseball_Woolly_left.png (2026-09-09) — real dedicated Left-facing cap art, applied
+            // to hatFrames[4]/[5] only; every other slot (Up/Down/Right) still falls back to the
+            // single front sprite as before.
+            new BaseballCapEntry(CharacterType.Woolly, "Baseball_Woolly.png", new Vector2(0f, 0.47f), 0.96f, "Baseball_Woolly_left.png"),
+            // Baseball_Ducky_left.png (2026-09-09) — same treatment.
+            new BaseballCapEntry(CharacterType.Ducky, "Baseball_Ducky.png", new Vector2(0f, 0.53f), 0.70f, "Baseball_Ducky_left.png"),
             new BaseballCapEntry(CharacterType.Horace, "Baseball_Horace.png", new Vector2(0f, 0.47f), 0.70f),
             new BaseballCapEntry(CharacterType.Gerald, "Baseball_Gerald.png", new Vector2(0f, 0.53f), 0.45f),
             new BaseballCapEntry(CharacterType.Billy, "Baseball_Billy.png", new Vector2(0f, 0.47f), 0.58f),
@@ -346,7 +360,30 @@ namespace FarmFuryArcade.EditorTools
                 data.previewSprite = sprite;
                 // Only one orientation exists yet — every slot reuses it, same convention
                 // CharacterAnimator already falls back to for characters missing per-direction art.
-                data.hatFrames = new[] { sprite, sprite, sprite, sprite, sprite, sprite, sprite, sprite };
+                var hatFrames = new[] { sprite, sprite, sprite, sprite, sprite, sprite, sprite, sprite };
+                data.mirrorLeftHatForRight = false;
+                if (entry.LeftSpriteFileName != null)
+                {
+                    Sprite leftSprite = ConfigureAndLoadSprite($"{CosmeticSpriteFolder}/{entry.LeftSpriteFileName}");
+                    if (leftSprite != null)
+                    {
+                        // [Up0,Up1,Down0,Down1,Left0,Left1,Right0,Right1] — indices 4/5 are Left.
+                        // Right (6/7) gets the SAME sprite reference — this character already has
+                        // real dedicated Right art for its own body (Ducky/Woolly both do), so a
+                        // Left-only hat would otherwise show the plain default sprite while facing
+                        // right, visibly out of sync with the body's real turn. Duplicating it here
+                        // and flipping at render time (mirrorLeftHatForRight, read by
+                        // CharacterCosmeticRenderer) makes the hat track the body's facing
+                        // direction correctly, same "flip Left to fake Right" trick
+                        // CharacterAnimator itself uses for a character with no dedicated Right art.
+                        hatFrames[4] = leftSprite;
+                        hatFrames[5] = leftSprite;
+                        hatFrames[6] = leftSprite;
+                        hatFrames[7] = leftSprite;
+                        data.mirrorLeftHatForRight = true;
+                    }
+                }
+                data.hatFrames = hatFrames;
                 data.hatOffset = entry.HatOffset;
                 data.hatScale = entry.HatScale;
                 EditorUtility.SetDirty(data);

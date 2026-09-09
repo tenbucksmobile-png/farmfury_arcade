@@ -60,6 +60,18 @@ namespace FarmFuryArcade.Data
                  "frame-for-frame instead of drifting out of sync.")]
         public Sprite[] hatFrames;
 
+        [Tooltip("Hat only. When true, hatFrames[6]/[7] (Right) deliberately hold the same sprite " +
+                 "reference as hatFrames[4]/[5] (Left) as a flip-to-fake-Right substitute — " +
+                 "CharacterCosmeticRenderer mirrors it horizontally when the character faces Right, " +
+                 "same convention CharacterAnimator already uses for the base character sprite (see " +
+                 "CharacterData.hasDedicatedRightArt) but scoped to the hat specifically, since a " +
+                 "character can have real dedicated Right body art while its equipped hat still " +
+                 "only has Left art. Defaults false so every hat wired before this field existed " +
+                 "(a single sprite reused across all 8 slots, nothing directional to mirror) keeps " +
+                 "rendering exactly as before. Set true only where WireBaseballCaps actually " +
+                 "duplicates a LeftSpriteFileName into the Right slots too (Ducky/Woolly).")]
+        public bool mirrorLeftHatForRight;
+
         [Tooltip("Hat only, local offset (world units) from the character's own sprite origin. " +
                  "Per-cosmetic (not per-CharacterCosmeticRenderer) because a sombrero and a party " +
                  "hat don't sit at the same height on the same character, let alone across " +

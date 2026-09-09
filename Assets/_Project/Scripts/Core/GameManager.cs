@@ -94,6 +94,14 @@ namespace FarmFuryArcade.Core
         /// silently frozen maze and no visible reason why.</summary>
         public event Action OnGamePausedExternally;
 
+        /// <summary>Fired once per LoadLevel, right before the interstitial-ad gate below — a UI
+        /// listener (ComboHypeScreen) shows its full-screen pre-gameplay combo banner/SFX and MUST
+        /// invoke the supplied callback once it's done, so LoadLevel knows to proceed to the ad gate
+        /// (or unfreeze directly if none is due). Same "manager raises event, screen reacts"
+        /// decoupling convention as OnReviveOffered — GameManager never references the UI screen
+        /// type directly. If nothing is subscribed, LoadLevel skips straight to the ad gate.</summary>
+        public event Action<Action> OnLevelHypeRequested;
+
         private bool _wasRevived;
         private int _cropsRemaining;
         private SceneController _sceneController;
@@ -157,51 +165,75 @@ namespace FarmFuryArcade.Core
 
             _sceneController.LoadLevelContent(level);
 
-            // Between-levels interstitial trigger — deliberately called here (never mid-Playing,
-            // since LoadLevel only ever runs at a level transition) rather than from wherever the
-            // player tapped a level tile, so every LoadLevel call site gets this for free. Time is
-            // frozen (same convention PauseGame/RequestRevivePrompt use) for whatever gap
-            // NotifyLevelLoaded takes to resolve, so a due interstitial genuinely gates the start of
-            // play instead of showing as an overlay while the player/robots/timer keep running
-            // behind it — _levelStartTime is already stamped above, and Time.time (what
-            // GetElapsedSeconds reads) doesn't advance while frozen, so no time is lost either.
-            // AudioListener.pause is set alongside the timeScale freeze — Time.timeScale alone only
-            // stops movement/animation (anything driven by scaled Time.deltaTime); AudioSource
-            // playback is real-time and completely unaffected by timeScale, so the world music
-            // PlayWorldMusic already started above (and any 0-delay robot-spawn SFX fired
-            // synchronously by LoadLevelContent just before this block) kept playing audibly under
-            // the interstitial even though gameplay itself was correctly frozen — reported via a
-            // Daily Challenge playtest ("I can hear it playing while the ad is running") but not
-            // actually specific to that flow; every interstitial-gated LoadLevel call had this same
-            // gap. AudioListener.pause silences every AudioSource in the scene regardless of
-            // timeScale, which is exactly what's needed here. When no ad is due/ready,
-            // NotifyLevelLoaded's callback fires back-to-back on the same frame and both the freeze
-            // and the mute are imperceptible.
-            if (AdManager.Instance != null)
+            // Pre-gameplay hype banner, then the between-levels interstitial trigger — both
+            // deliberately called here (never mid-Playing, since LoadLevel only ever runs at a
+            // level transition) rather than from wherever the player tapped a level tile, so every
+            // LoadLevel call site gets both for free. Time is frozen (same convention PauseGame/
+            // RequestRevivePrompt use) for the whole gate so a due hype banner and/or interstitial
+            // genuinely gates the start of play instead of showing as an overlay while the
+            // player/robots/timer keep running behind it — _levelStartTime is already stamped
+            // above, and Time.time (what GetElapsedSeconds reads) doesn't advance while frozen, so
+            // no time is lost either.
+            //
+            // The hype banner runs FIRST and deliberately does NOT mute audio — its own SFX
+            // (ComboHypeScreen/AudioManager.PlayComboSfx) needs to be heard. Only the interstitial
+            // phase that follows mutes audio (AudioListener.pause), same as before this feature
+            // existed: Time.timeScale alone only stops movement/animation (anything driven by
+            // scaled Time.deltaTime); AudioSource playback is real-time and completely unaffected
+            // by timeScale, so the world music PlayWorldMusic already started above (and any
+            // 0-delay robot-spawn SFX fired synchronously by LoadLevelContent just before this
+            // block) would otherwise keep playing audibly under the interstitial even though
+            // gameplay itself was correctly frozen — reported via a Daily Challenge playtest ("I
+            // can hear it playing while the ad is running") but not actually specific to that flow;
+            // every interstitial-gated LoadLevel call had this same gap. When neither a hype banner
+            // nor an ad is due/ready, everything below resolves synchronously on the same frame and
+            // the freeze is imperceptible.
+            if (OnLevelHypeRequested != null || AdManager.Instance != null)
             {
                 Time.timeScale = 0f;
-                AudioListener.pause = true;
-                AdManager.Instance.NotifyLevelLoaded(() =>
+
+                void ContinueAfterHype()
                 {
-                    // Audit finding C3.7: this callback used to unconditionally restore
-                    // Time.timeScale, with no awareness that OnApplicationPause could have set
-                    // CurrentState to Paused (and frozen time for THAT reason) during the exact
-                    // window this interstitial call was waiting on — backgrounding is far more
-                    // likely to actually land in a multi-second async wait like this one, and more
-                    // likely to fire at an inconvenient moment on Android's looser OS scheduling
-                    // than iOS's. Unconditionally restoring would have silently resumed the maze
-                    // simulation underneath the still-visible Pause screen. If we're already Paused
-                    // for that reason, only clear the audio mute (matching normal Pause behaviour,
-                    // which never mutes audio) and leave Time.timeScale frozen — the normal
-                    // ResumeGame() path (the visible Pause screen's Play button, already shown via
-                    // OnGamePausedExternally) is what un-freezes it from here, exactly like any
-                    // other pause.
-                    AudioListener.pause = false;
-                    if (CurrentState != GameState.Paused)
+                    if (AdManager.Instance != null)
+                    {
+                        AudioListener.pause = true;
+                        AdManager.Instance.NotifyLevelLoaded(() =>
+                        {
+                            // Audit finding C3.7: this callback used to unconditionally restore
+                            // Time.timeScale, with no awareness that OnApplicationPause could have
+                            // set CurrentState to Paused (and frozen time for THAT reason) during
+                            // the exact window this interstitial call was waiting on —
+                            // backgrounding is far more likely to actually land in a multi-second
+                            // async wait like this one, and more likely to fire at an inconvenient
+                            // moment on Android's looser OS scheduling than iOS's. Unconditionally
+                            // restoring would have silently resumed the maze simulation underneath
+                            // the still-visible Pause screen. If we're already Paused for that
+                            // reason, only clear the audio mute (matching normal Pause behaviour,
+                            // which never mutes audio) and leave Time.timeScale frozen — the normal
+                            // ResumeGame() path (the visible Pause screen's Play button, already
+                            // shown via OnGamePausedExternally) is what un-freezes it from here,
+                            // exactly like any other pause.
+                            AudioListener.pause = false;
+                            if (CurrentState != GameState.Paused)
+                            {
+                                Time.timeScale = 1f;
+                            }
+                        });
+                    }
+                    else if (CurrentState != GameState.Paused)
                     {
                         Time.timeScale = 1f;
                     }
-                });
+                }
+
+                if (OnLevelHypeRequested != null)
+                {
+                    OnLevelHypeRequested.Invoke(ContinueAfterHype);
+                }
+                else
+                {
+                    ContinueAfterHype();
+                }
             }
         }
 

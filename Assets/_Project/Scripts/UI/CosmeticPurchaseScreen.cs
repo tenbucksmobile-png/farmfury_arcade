@@ -1,8 +1,10 @@
 using System;
+using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
 using TMPro;
 using FarmFuryArcade.Core;
+using FarmFuryArcade.Data;
 
 namespace FarmFuryArcade.UI
 {
@@ -34,6 +36,16 @@ namespace FarmFuryArcade.UI
         }
 
         [SerializeField] private ItemButton[] itemButtons;
+
+        /// <summary>Green "owned" checkmark ribbon, overlaid on the top-left corner of an item's
+        /// button the moment SaveManager/IAPManager's own records say it's already owned — same
+        /// "art wired, falls back to invisible until it lands" convention this project uses
+        /// elsewhere (see ArtWiringBuilder.Load's own doc comment). Built as a child of each
+        /// itemButtons[i].button at Awake() rather than baked in by Phase5ProjectBuilder, so this
+        /// one component covers every screen that reuses it (Cosmetics hub, World Purchase) with no
+        /// per-call-site duplication.</summary>
+        [SerializeField] private Sprite ownedBadgeSprite;
+        private readonly List<(string productId, Image badge)> _badges = new List<(string, Image)>();
 
         /// <summary>Items shown on this screen with no real IAP product behind them yet (e.g. a
         /// purchasable world whose 25 levels haven't been built/verified out yet) — tapping shows
@@ -83,7 +95,34 @@ namespace FarmFuryArcade.UI
                 }
                 string productId = entry.productId;
                 entry.button.onClick.AddListener(() => HandlePurchaseTapped(productId));
+                _badges.Add((productId, BuildOwnedBadge(entry.button.transform)));
             }
+        }
+
+        /// <summary>Small badge Image, top-left corner of the item button, anchored (0,1)/(0,1) so
+        /// it sits in the button's own top-left corner regardless of that button's size (World
+        /// Purchase's 350px shields vs. the Cosmetics hub's 170px icons). Inset a small fraction of
+        /// the button's own width rather than a fixed pixel offset, so it reads at a consistent
+        /// relative size/position across both. Starts hidden — RefreshOwnedBadges shows it once
+        /// SaveManager/IAPManager's own records say this item is owned.</summary>
+        private Image BuildOwnedBadge(Transform buttonTransform)
+        {
+            var badgeGO = new GameObject("OwnedBadge", typeof(RectTransform), typeof(Image));
+            badgeGO.transform.SetParent(buttonTransform, false);
+            var badgeRect = (RectTransform)badgeGO.transform;
+            badgeRect.anchorMin = new Vector2(0f, 1f);
+            badgeRect.anchorMax = new Vector2(0f, 1f);
+            badgeRect.pivot = new Vector2(0f, 1f);
+            float buttonWidth = ((RectTransform)buttonTransform).rect.width;
+            float badgeSize = buttonWidth > 0f ? buttonWidth * 0.32f : 40f;
+            badgeRect.sizeDelta = new Vector2(badgeSize, badgeSize);
+            badgeRect.anchoredPosition = new Vector2(badgeSize * -0.15f, badgeSize * 0.15f);
+            var badgeImage = badgeGO.GetComponent<Image>();
+            badgeImage.sprite = ownedBadgeSprite;
+            badgeImage.preserveAspect = true;
+            badgeImage.raycastTarget = false; // decorative only — never steals the button's own tap
+            badgeGO.SetActive(false);
+            return badgeImage;
         }
 
         private void OnEnable()
@@ -97,6 +136,62 @@ namespace FarmFuryArcade.UI
             if (statusText != null)
             {
                 statusText.text = string.Empty;
+            }
+
+            RefreshOwnedBadges();
+        }
+
+        /// <summary>Re-checked every time this screen opens (OnEnable) and right after a purchase
+        /// confirms (HandlePurchaseSucceeded), so a badge appears immediately without needing the
+        /// player to close and reopen the screen. Covers every product family this generic screen
+        /// is ever used for — the 7 Cosmetics-hub items (hats resolved by their real cosmeticId,
+        /// Baseball Cap by the active character's own per-character variant, since
+        /// IAPManager.GrantBaseballCapSet marks every character's variant at once — see that
+        /// method's own doc comment) and the 3 World Purchase items.</summary>
+        private void RefreshOwnedBadges()
+        {
+            if (SaveManager.Instance == null)
+            {
+                return;
+            }
+
+            foreach (var (productId, badge) in _badges)
+            {
+                if (badge == null)
+                {
+                    continue;
+                }
+                badge.gameObject.SetActive(IsProductOwned(productId));
+            }
+        }
+
+        private static bool IsProductOwned(string productId)
+        {
+            switch (productId)
+            {
+                case IAPManager.HatBaseballCapProductId:
+                    CharacterType active = CharacterManager.Instance != null
+                        ? CharacterManager.Instance.ActiveCharacter
+                        : CharacterType.Cluck;
+                    return SaveManager.Instance.IsCosmeticOwned($"baseball_cap_{active}".ToLowerInvariant());
+                case IAPManager.HatCowboyHatProductId:
+                    return SaveManager.Instance.IsCosmeticOwned(IAPManager.CowboyHatCosmeticId);
+                case IAPManager.HatSombreroProductId:
+                    return SaveManager.Instance.IsCosmeticOwned(IAPManager.SombreroCosmeticId);
+                case IAPManager.TrailCornHuskProductId:
+                case IAPManager.TrailEmberProductId:
+                case IAPManager.TrailSparkleDustProductId:
+                case IAPManager.TrailRainbowRibbonProductId:
+                    // Trail product ids intentionally match their CosmeticData.cosmeticId exactly.
+                    return SaveManager.Instance.IsCosmeticOwned(productId);
+                case IAPManager.WorldFrostbiteGardenProductId:
+                    return SaveManager.Instance.IsWorldPurchased(MazeType.FrostbiteGarden);
+                case IAPManager.WorldGoldenSunsetProductId:
+                    return SaveManager.Instance.IsWorldPurchased(MazeType.GoldenSunset);
+                case IAPManager.WorldHarvestMoonProductId:
+                    return SaveManager.Instance.IsWorldPurchased(MazeType.HarvestMoon);
+                default:
+                    return false;
             }
         }
 
@@ -155,6 +250,7 @@ namespace FarmFuryArcade.UI
             {
                 statusText.text = "Purchase complete!";
             }
+            RefreshOwnedBadges();
         }
 
         private void HandlePurchaseFailed(string productId, string reason)

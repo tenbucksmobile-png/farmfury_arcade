@@ -954,6 +954,33 @@ interaction so gameplay code never touches `Unity.Services.LevelPlay` directly) 
   from a stuck ad. `onReady` is now guaranteed to fire within `InterstitialAdTimeoutSeconds`
   regardless of what the SDK does, same resolve-once-guaranteed pattern `ShowRewardedAd` uses.
 
+**Full-screen pre-gameplay "combo hype" flash (2026-09-09, `Scripts/UI/ComboHypeScreen.cs`).**
+Automatic, exciting, full-screen banner shown right before a level actually begins — inserted into
+the SAME freeze gate the interstitial-ad logic above already uses, running FIRST: `GameManager.
+LoadLevel` now fires a new `event Action<Action> OnLevelHypeRequested` (same "manager raises event,
+screen reacts" decoupling convention as `OnReviveOffered` — `GameManager` never references the UI
+screen type directly) before the ad-gate logic, and only proceeds to the ad gate (or unfreezes
+directly) once the hype screen's own callback fires. `Time.timeScale` is frozen for the WHOLE
+combined gate (hype + ad), same convention as before — the freeze condition is now
+`OnLevelHypeRequested != null || AdManager.Instance != null` instead of just the latter.
+
+Unlike the ad gate, the hype phase deliberately does **not** set `AudioListener.pause` — its own
+`Combo.mp3` stinger (`AudioManager.PlayComboSfx`) needs to be heard over the level's own world music,
+which already started a moment earlier in `LoadLevel`. Only the interstitial phase that follows
+still mutes audio, exactly as before this feature existed.
+
+`ComboHypeScreen` picks one of the 8 `Combo_*.png` banners (CrossFire/DoubleSlam/EarthquakeRoll/
+Featherstorm/FullFury/IronStampede/KicknRoll/SkipShatter — bigger, full-banner versions of the same
+8 combos `ComboNotificationBanner`'s small in-maze toast already covers, dropped in alongside
+`Combo.mp3`) at random, fades in (~0.4s), holds for a total of 5s, fades out, then invokes the
+callback. Its root GameObject stays active for the app's whole lifetime — same "always-active,
+alpha-driven visibility" convention `SceneTransitionManager`'s own `FadeOverlay` uses — rather than
+being `SetActive(false)`'d like every other overlay, since starting inactive would mean its
+`OnEnable` event subscription to `GameManager.OnLevelHypeRequested` never fires at all (an inactive
+`GameObject`'s `OnEnable` never runs, and nothing else would ever call `SetActive(true)` on it to
+trigger that subscription in the first place). Falls back to firing the callback immediately if no
+banner art is wired, so a missing-art gap can never block a level from starting.
+
 **`SaveManager` gained `AdsRemoved`** (bool, persisted — `NotifyLevelLoaded` already early-outs on
 it; `IAPManager`'s Remove Ads purchase now sets it, see "IAP plumbing" below) **and
 `LevelsSinceLastInterstitial`** (the rolling counter above, exposed via a getter +
@@ -1557,13 +1584,81 @@ the `CosmeticData` asset or the rendering code itself.
 - `TileMapRenderer` doesn't yet consume `CosmeticData.themeWallSprite`/`themeGroundSprite`/
   `themeBackdropSprite` — MazeTheme equip state would persist in `SaveManager` but nothing reads it
   at render time yet, moot until MazeTheme assets exist anyway.
-- Hat art is single-orientation only (one sprite reused across all 8 `hatFrames` slots, for the
-  universal hats same as the baseball caps) — it won't turn/flip meaningfully with the character;
-  matches the "no dedicated directional art yet" fallback convention several base characters
-  already use.
-- No owned/equipped visual state on the new purchase screens (no "Equipped" badge, no disabling an
-  already-owned item) — the old `CosmeticCardController` had this via `EquippedBadge_Icon.png`; the
-  new flat mockups don't show it, and a `NonConsumable` re-purchase is a store-side no-op regardless.
+- Hat art is single-orientation only for 6 of the 8 baseball caps and both universal hats (one
+  sprite reused across all 8 `hatFrames` slots) — it won't turn/flip meaningfully with the
+  character; matches the "no dedicated directional art yet" fallback convention several base
+  characters already use. **Ducky and Woolly's baseball caps are the exception (2026-09-09)** —
+  see `CosmeticData.mirrorLeftHatForRight` below.
+- ~~No owned/equipped visual state on the new purchase screens~~ — **added 2026-09-09.**
+  `CosmeticPurchaseScreen` now overlays the real `EquippedBadge_Icon.png` (the same file the old
+  `CosmeticCardController` used, still living on disk under `Sprites/Cosmetics/`, just never wired
+  into anything until now) top-left on any item button whose product is already owned —
+  `RefreshOwnedBadges()` builds one badge child per `itemButtons` entry at `Awake()` (sized as a
+  fraction of that button's own width, since this same component backs both the Cosmetics hub's
+  170px icons and World Purchase's 350px shields) and re-checks ownership on every `OnEnable()` and
+  right after `HandlePurchaseSucceeded` fires, so a badge appears immediately without needing to
+  close/reopen the screen. `IsProductOwned(productId)` is a plain switch covering all three product
+  families this screen is ever used for: the 6 character-agnostic Cosmetics-hub products
+  (`SaveManager.IsCosmeticOwned`, Baseball Cap resolved via the active character's own
+  `baseball_cap_<character>` variant — `IAPManager.GrantBaseballCapSet` marks every character's
+  variant simultaneously, so checking any one reflects the whole set), and the 3 World Purchase
+  products (`SaveManager.IsWorldPurchased`). Still no disabling of an already-owned item's
+  button — a `NonConsumable` re-purchase is a store-side no-op regardless, so the badge alone is
+  enough signal.
+
+**Baseball cap Left-art + Right-mirror fix (Ducky/Woolly, 2026-09-09).** Real dedicated Left-facing
+cap art landed for these two specifically (`Baseball_Ducky_left.png`/`Baseball_Woolly_left.png`,
+same `Cosmetics_Type_Hat/` folder) — `CosmeticWiringBuilder.BaseballCapEntry` gained an optional
+`LeftSpriteFileName`, and `WireBaseballCaps` now writes that sprite into `hatFrames[4]`/`[5]`
+(Left) **and** `hatFrames[6]`/`[7]` (Right) for these two, setting the new `CosmeticData.
+mirrorLeftHatForRight = true` flag alongside it. Both Ducky and Woolly already have real dedicated
+Right-facing art for their own BODY (`hasDedicatedRightArt = true` on their `CharacterData` —
+`Ducky_right.png`/`Wooly_right.png`), which means `CharacterAnimator` never mirrors their body
+sprite (`IsFlippedX` is always false for them) — so a Left-only hat would otherwise show the plain
+default (front) sprite while facing right, visibly out of sync with the body's own real turn. Fixed
+in `CharacterCosmeticRenderer.LateUpdate`: the hat's flip is now `_animator.IsFlippedX ||
+(_equippedHat.mirrorLeftHatForRight && CurrentDisplayDirection == Direction.Right)` — the first
+term is the pre-existing "hat rides along with a mirrored BODY" case (unaffected by this fix); the
+second is new, and mirrors the hat specifically even when the body itself isn't mirrored. Every
+other hat (the other 6 baseball caps, both universal hats) keeps `mirrorLeftHatForRight = false`
+(the field's default, so nothing wired before this change needed touching) and renders exactly as
+before.
+
+### In-maze Locker (2026-09-09, `Scripts/UI/LockerScreen.cs`)
+
+A "try what you've bought, discover what you haven't" panel reachable mid-run, not just from the
+Shop — per direct feedback that a player who's already bought several cosmetics had nowhere to
+actually switch between them without leaving gameplay. Opened from a new Locker button on Gameplay
+HUD's ability cluster (`Cosmetics_Icon.png`, same size as the Swap Character icon directly below
+it, stacked one more slot up — `abilityBottomY + 2*(abilityButtonSize + clusterSpacing)`) — freezes
+time the exact same way `ChooseCharacterScreen.Show()` does (see that class's own doc comment for
+the real bug — the level timer burning for real behind an unpaused overlay — this pattern avoids),
+and is only ever opened from Gameplay HUD, never from Pause, so unlike `ChooseCharacterScreen`
+there's no "hand back to the Pause menu" branch to worry about on close.
+
+Lists the same 7 items `CosmeticsHubScreen` sells (Baseball Cap resolved to the active character's
+own `baseball_cap_<character>` variant; the other 6 are character-agnostic), each on a real
+`PurchaseCardFrame.png` wood-frame/parchment tile (300×300, square to match the art's own 500×500
+aspect):
+- **Owned** — tap equips it immediately (`SaveManager.SetEquippedCosmetic`/`SetEquippedTrail`, then
+  `CharacterCosmeticRenderer.Refresh()` on the active character); tapping the already-equipped tile
+  again unequips it. No purchase flow involved, purely "try what you own." An equipped tile also
+  shows the same `EquippedBadge_Icon.png` checkmark ribbon `CosmeticPurchaseScreen` uses, top-left.
+- **Not owned** — the whole frame + icon tinted grey (`LockedTint`), status text shows the real IAP
+  price (`IAPManager.GetPriceString`); tapping it opens the existing `CosmeticsHubScreen` purchase
+  surface directly rather than duplicating purchase logic here.
+
+A "You may like" banner picks one random not-yet-owned item every time the Locker opens (or hides
+entirely if everything's owned) and offers the same shortcut into the purchase screen — pure
+discovery/upsell, no separate purchase path from a dimmed tile's own tap.
+
+**Tile content inset was pixel-measured, not eyeballed** — `LockerScreen.TileContentInset` (0.23,
+fractional from each edge) was found by sampling `PurchaseCardFrame.png`'s actual RGB values along
+its horizontal/vertical centre lines: the flat parchment tone starts at x=116/y=110 and ends at
+x=393/y=400 out of 500 (≈0.22-0.23 in from every edge), so tile content (icon/name/status) can never
+bleed onto the wood border baked into the art. **Same class of "box aspect must match the art" fix
+this project has hit repeatedly** — the tile grid's `cellSize` was changed from a mismatched 300×330
+to a true 300×300 square specifically so `Image.preserveAspect` renders the frame art undistorted.
 
 ### World Purchase (`Scripts/Data/MazeType.cs`, `Scripts/Utilities/UnlockProgression.cs`, `Scripts/Core/IAPManager.cs`/`SaveManager.cs`/`GameManager.cs`, `Scripts/UI/LevelSelectController.cs`/`SettingsPanel.cs`)
 
@@ -1927,6 +2022,12 @@ from their original Phase 5 layouts:
   unused). `GameplayHUD` gained `swapCharacterButton`/`chooseCharacterScreen` fields; tapping it
   just calls `chooseCharacterScreen.Show()`, same convention Pause's old button used. Tab
   (`InputController.OnSwapMenuToggleInput`) still works as an independent shortcut, unchanged.
+
+  **Locker button added (2026-09-09)**, directly above Swap Character (same X inset/size, one more
+  `abilityButtonSize + clusterSpacing` step up the stack). Reuses `Cosmetics_Icon.png` (the Shop
+  hub's own Cosmetics icon — same underlying concept, different entry point) rather than
+  commissioning dedicated art. Opens `LockerScreen` — see its own "In-maze Locker" section under
+  Cosmetics for the full flow.
 
   **This "no changes were needed" claim was wrong — a real bug, found and fixed 2026-08-29.**
   Neither the HUD button nor Tab ever called `GameManager.PauseGame()` before opening this screen
@@ -2473,6 +2574,18 @@ the `privacy-policy-link` memory for the URL and its "pending legal review" cave
 Use button left non-interactable/"Coming Soon" until that copy actually exists (same placeholder
 convention Character Story used before it had real content).
 
+**Real art landed for this screen (2026-09-09).** Header swapped from a plain "Legal" TMP text
+title to the real `Legal.png` wood-sign banner via `CreateHeaderSign` — its 666×375 aspect (~1.776)
+happened to almost exactly match `StandardHeaderSignSize`'s own 550×310 (~1.774), so no custom
+sizing was needed. Both buttons now sit on real `Btn_plaque.png` art (`Image.Type.Sliced` + a
+border, same technique `CoinPurchaseScreen`'s Restore Purchases button already uses on this exact
+source file, so the plaque's rounded end caps stay undistorted regardless of the button's actual
+width) instead of a flat placeholder-colour rectangle — `StyleLegalPlaqueButton` also fixes the
+button's real height explicitly (`buttonGroup`'s `CreateVerticalGroup` has `childControlHeight =
+false`, so `CreateButton`'s own `LayoutElement.preferredHeight` argument is otherwise silently
+ignored, same gotcha documented throughout this file) and locks each label to a single centred,
+non-wrapping line so it can never overlap the plaque's own rounded edges.
+
 **World Purchase screen** (`BuildWorldPurchaseScreen`) header swapped from the small `WorldMaze.png`
 map badge to `WorldUnlocked.png` (the same "World Unlocked" sign the New World Unlock celebration
 screen uses) to match a mockup, and shield order changed to Harvest Moon → Frozen Garden → Golden
@@ -2656,6 +2769,30 @@ reading/writing through `SaveManager`'s per-level best score/time (`GetLevelBest
 `GetLevelBestTime`, both already max/min-tracked there) and a few overall rollups
 (`GetTotalCombosTriggered`, `GetCharactersMasteredCount` — the latter approximated as "unlocked
 count" since the GDD text available to this phase doesn't define "mastered" any more precisely).
+`LeaderboardManager` itself is unchanged by the two passes below — only `LeaderboardsScreen`'s own
+display of these numbers changed.
+
+**Leaderboards screen stripped to icon-only, no text at all (2026-09-09)** — per direct feedback
+("remove all other text except the artwork we introduced"). Real `HighScore.png`/`Combo.png`
+word-art (which had replaced the "Total Lifetime Score:"/"Total Combos Triggered:" text prefixes
+earlier the same day) now stand alone with no adjacent value number, and the "Highest Level
+Reached"/"Characters Mastered" text lines are gone entirely — `Phase5ProjectBuilder.BuildLeaderboards`
+just centres the two banners (`BuildStatIcon`, sized from each sprite's own real pixel aspect at a
+fixed height — 583×148 and 339×113 are different aspect ratios) under the header. `LeaderboardsScreen.cs`
+itself lost `statsText`/the 4 value-text fields entirely; the underlying stats are still fully live
+via `LeaderboardManager` if a future pass wants numbers back.
+
+**Leaderboards' back button now returns to Settings, not the landing page (2026-09-09).** This
+screen is only ever reached via `SettingsPanel.leaderboardsButton`, which — since
+`LeaderboardsScreen` is a real `SceneTransitionManager` screenRoot, not an overlay — has to swap
+the active screenRoot away to get here, closing Settings (and whatever opened Settings) in the
+process. Back used to just call `ShowOnly(mainMenuScreen)`, dropping the player on a bare landing
+page with Settings closed. Fixed: `LeaderboardsScreen.HandleBack` now calls
+`ShowOnly(mainMenuScreen)` **and then** `settingsPanel.Show()` — same "screenRoot swap plus overlay
+reopen" shape `SettingsPanel.leaderboardsButton`'s own handler uses in the other direction. Wired
+via a new `settingsPanel` field, set in `WireCrossReferences`. (Legal's own close button needed no
+equivalent fix — it's an overlay shown ON TOP of Settings, which stays active underneath the whole
+time Legal is open, so a plain `SetActive(false)` already reveals Settings correctly.)
 
 **`AudioManager`** now has real clips wired (see "Art status") — `PlayMusic`
 crossfades between two looping `AudioSource`s, `PlaySFX` round-robins a pooled array via
@@ -3815,6 +3952,7 @@ happened rather than which clip field to reach into):
 | `PowerReady.mp3` | `PlayPowerReadySfx` | `AbilityBase.UpdateCooldown`, the single frame a character's ability cooldown reaches exactly 0 (not power-pellet activation — that's a separate, unrelated event; see `PlayEatRobotMusic` below) |
 | `RarePellet_pickup.mp3` | `PlayRarePelletPickupSfx` | `CropCollector`, only when `pellet.pelletType != PowerPelletType.Sunflower` — same "rare tier" gate `PelletCollectBurst` uses. Fires *before* `PowerPelletManager.ActivatePower` (which crossfades music to `EatRobot.mp3`), so the pickup cue is heard first rather than being stepped on by the music swap |
 | `RobotSpawn.mp3` | `PlayRobotRespawnSfx` | `RobotSpawner.SpawnRobot` — every robot spawn, including level-start ones. Used to fire only from a defeated robot's mid-level walk back to the factory (`RobotBase.ArriveAtFactory`); that flow was removed (defeated robots now disappear permanently for the rest of the maze — see the Robot AI state-machine note above), so this was repointed to the only spawn event left, or it would have become dead code with no call site at all |
+| `Combo.mp3` | `PlayComboSfx` | `ComboHypeScreen`, once when its full-screen pre-gameplay banner appears — see the "Ad mediation" section above. Deliberately not muted by the interstitial-ad `AudioListener.pause` block, since it runs before that gate |
 
 When more art lands, wire it into the existing prefabs (`Prefabs/Characters/`, `Prefabs/Robots/`,
 `Prefabs/Blocks/`) via `ArtWiringBuilder` rather than creating new prefabs.

@@ -1,38 +1,42 @@
 using UnityEngine;
 using UnityEngine.UI;
-using TMPro;
 using FarmFuryArcade.Core;
 
 namespace FarmFuryArcade.UI
 {
-    /// <summary>Local overall stats (per spec: "local for now, cloud in Phase 6"). Per-level bests
-    /// are available via SaveManager.GetLevelBestScore/GetLevelBestTime once a real level list UI
-    /// is worth building — kept to overall rollups here to match Level Select's own per-level
-    /// star display rather than duplicating it.</summary>
+    /// <summary>Leaderboards screen — per direct feedback (2026-09-09), stripped down to just the
+    /// header (Leaderboard.png) and the two stat-icon banners (HighScore.png/Combo.png) with no
+    /// text anywhere on the screen at all, not even the numeric values the icons used to sit
+    /// beside. The underlying stats (LeaderboardManager.GetTotalLifetimeScore/
+    /// GetTotalCombosTriggered/GetHighestLevelReached/GetCharactersMasteredCount) are all still
+    /// live and queryable — only this screen's own display of them was removed; if numeric values
+    /// (or the Highest-Level-Reached/Characters-Mastered lines this screen used to show) come back
+    /// later, wire them back onto LeaderboardManager the same way this class used to.
+    ///
+    /// Back button (2026-09-09): this screen is only ever reached via SettingsPanel's own
+    /// Leaderboards icon (SettingsPanel.leaderboardsButton), which — since LeaderboardsScreen is a
+    /// real SceneTransitionManager screenRoot, not an overlay — has to swap the active screenRoot
+    /// away to get here, closing Settings (and whatever opened Settings) in the process. Back used
+    /// to just call ShowOnly(mainMenuScreen), which left the player on a bare landing page with
+    /// Settings closed rather than actually returning them to "the Settings page" as it reads to
+    /// the player. Fixed by restoring the mainMenu screenRoot AND reopening Settings on top of it,
+    /// same "screenRoot swap plus overlay reopen" shape SettingsPanel's own leaderboardsButton
+    /// handler uses in the other direction.</summary>
     public class LeaderboardsScreen : MonoBehaviour
     {
-        [SerializeField] private TextMeshProUGUI statsText;
         [SerializeField] private Button backButton;
         [SerializeField] private GameObject mainMenuScreen;
+        [SerializeField] private SettingsPanel settingsPanel;
 
         private void Awake()
         {
-            backButton.onClick.AddListener(() => SceneTransitionManager.Instance.ShowOnly(mainMenuScreen));
+            backButton.onClick.AddListener(HandleBack);
         }
 
-        private void OnEnable()
+        private void HandleBack()
         {
-            var lb = LeaderboardManager.Instance;
-            if (lb == null || statsText == null)
-            {
-                return;
-            }
-
-            statsText.text =
-                $"Highest Level Reached: {lb.GetHighestLevelReached() + 1}\n" +
-                $"Total Lifetime Score: {lb.GetTotalLifetimeScore():N0}\n" +
-                $"Total Combos Triggered: {lb.GetTotalCombosTriggered()}\n" +
-                $"Characters Mastered: {lb.GetCharactersMasteredCount()}/8";
+            SceneTransitionManager.Instance.ShowOnly(mainMenuScreen);
+            settingsPanel?.Show();
         }
     }
 }

@@ -258,7 +258,18 @@ namespace FarmFuryArcade.Gameplay
 
                 int frameOffset = Mathf.Clamp(_animator.CurrentFrameIndex, 0, 1);
                 _hatRenderer.sprite = _equippedHat.hatFrames[baseIndex + frameOffset];
-                _hatRenderer.flipX = _animator.IsFlippedX;
+                // Two independent reasons a hat needs mirroring, ORed together: the BODY itself is
+                // being flipped (character has no dedicated Right art of its own, so
+                // CharacterAnimator mirrors its Left sprite — the hat rides along with that flip
+                // regardless of the hat's own art), or this specific EQUIPPED HAT has no dedicated
+                // Right art even though the body does (mirrorLeftHatForRight — e.g. Ducky/Woolly's
+                // baseball cap, which only has Left art; see CosmeticData.mirrorLeftHatForRight's
+                // own doc comment). Without this second term the hat would silently stop turning
+                // with the character the moment it faces right, even though the body itself
+                // correctly shows its own real Right-facing pose.
+                bool mirrorForHatOnly = _equippedHat.mirrorLeftHatForRight &&
+                    _animator.CurrentDisplayDirection == Direction.Right;
+                _hatRenderer.flipX = _animator.IsFlippedX || mirrorForHatOnly;
             }
 
             if (_activeGhostSprite != null &&

@@ -30,6 +30,11 @@ namespace FarmFuryArcade.UI
     /// so a mobile player can reach it with a thumb mid-run without opening Pause first. Sits
     /// directly above the ability icon, same size, same tap-to-Show() convention Pause's old button
     /// used — Tab still works as an independent shortcut, unchanged.
+    ///
+    /// Locker button (2026-09-09) — sits directly above Swap Character, same size/spacing, opens
+    /// LockerScreen: an in-maze "try what you've bought" cosmetics panel (owned hats/trails equip
+    /// on tap, not-yet-owned ones open the real purchase screen). See LockerScreen's own doc
+    /// comment for the full flow.
     /// </summary>
     public class GameplayHUD : MonoBehaviour
     {
@@ -40,6 +45,8 @@ namespace FarmFuryArcade.UI
         [SerializeField] private Button abilityButton;
         [SerializeField] private Button swapCharacterButton;
         [SerializeField] private ChooseCharacterScreen chooseCharacterScreen;
+        [SerializeField] private Button lockerButton;
+        [SerializeField] private LockerScreen lockerScreen;
         [SerializeField] private Button pauseButton;
         [SerializeField] private GameObject powerPelletTimerBar;
         [SerializeField] private Image powerPelletTimerFill;
@@ -109,6 +116,10 @@ namespace FarmFuryArcade.UI
             if (swapCharacterButton != null && chooseCharacterScreen != null)
             {
                 swapCharacterButton.onClick.AddListener(() => chooseCharacterScreen.Show());
+            }
+            if (lockerButton != null && lockerScreen != null)
+            {
+                lockerButton.onClick.AddListener(() => lockerScreen.Show());
             }
             if (skipCooldownCoinButton != null)
             {

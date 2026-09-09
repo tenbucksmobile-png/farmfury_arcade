@@ -285,6 +285,9 @@ namespace FarmFuryArcade.EditorTools
         private const string PowerReadySfx = "Assets/_Project/Audio/SFX/PowerReady.mp3";
         private const string RarePelletPickupSfx = "Assets/_Project/Audio/SFX/RarePellet_pickup.mp3";
         private const string RobotSpawnSfx = "Assets/_Project/Audio/SFX/RobotSpawn.mp3";
+        // Stinger played once by ComboHypeScreen when its full-screen pre-gameplay banner appears
+        // (GameManager.OnLevelHypeRequested) — see AudioManager.PlayComboSfx.
+        private const string ComboSfx = "Assets/_Project/Audio/SFX/Combo.mp3";
         private const string EatRobotMusicClip = "Assets/_Project/Audio/SFX/EatRobot.mp3";
         // "Theme" — the Main Menu/Level Select track, plays until a level actually begins and
         // resumes the instant one ends (GameManager.EndLevel/QuitToLevelSelect).
@@ -2172,6 +2175,7 @@ namespace FarmFuryArcade.EditorTools
             var powerReady = AssetDatabase.LoadAssetAtPath<AudioClip>(PowerReadySfx);
             var rarePelletPickup = AssetDatabase.LoadAssetAtPath<AudioClip>(RarePelletPickupSfx);
             var robotSpawn = AssetDatabase.LoadAssetAtPath<AudioClip>(RobotSpawnSfx);
+            var combo = AssetDatabase.LoadAssetAtPath<AudioClip>(ComboSfx);
             var eatRobotMusic = AssetDatabase.LoadAssetAtPath<AudioClip>(EatRobotMusicClip);
             var landingMusic = AssetDatabase.LoadAssetAtPath<AudioClip>(LandingMusicClip);
 
@@ -2200,6 +2204,7 @@ namespace FarmFuryArcade.EditorTools
             if (powerReady != null) so.FindProperty("powerReadyClip").objectReferenceValue = powerReady;
             if (rarePelletPickup != null) so.FindProperty("rarePelletPickupClip").objectReferenceValue = rarePelletPickup;
             if (robotSpawn != null) so.FindProperty("robotRespawnClip").objectReferenceValue = robotSpawn;
+            if (combo != null) so.FindProperty("comboSfxClip").objectReferenceValue = combo;
             if (eatRobotMusic != null) so.FindProperty("eatRobotMusicClip").objectReferenceValue = eatRobotMusic;
             if (landingMusic != null) so.FindProperty("landingMusicClip").objectReferenceValue = landingMusic;
 

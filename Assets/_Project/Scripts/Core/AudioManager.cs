@@ -76,6 +76,7 @@ namespace FarmFuryArcade.Core
         [SerializeField] private AudioClip powerReadyClip;
         [SerializeField] private AudioClip rarePelletPickupClip;
         [SerializeField] private AudioClip robotRespawnClip;
+        [SerializeField] private AudioClip comboSfxClip;
 
         private int _sfxPoolCursor;
         private bool _usingSourceA = true;
@@ -184,6 +185,10 @@ namespace FarmFuryArcade.Core
         public void PlayPowerReadySfx() => PlaySFX(powerReadyClip);
         public void PlayRarePelletPickupSfx() => PlaySFX(rarePelletPickupClip);
         public void PlayRobotRespawnSfx() => PlaySFX(robotRespawnClip);
+        /// <summary>Fires once when ComboHypeScreen's full-screen pre-gameplay banner appears —
+        /// see that class's own doc comment. Deliberately not muted by the interstitial-ad
+        /// AudioListener.pause block in GameManager.LoadLevel, since it runs before that gate.</summary>
+        public void PlayComboSfx() => PlaySFX(comboSfxClip);
 
         /// <summary>Crossfades the looping music track to the "power active" cue for as long as a
         /// power pellet's effect lasts — PowerPelletManager calls this on activation and
