@@ -2635,19 +2635,39 @@ namespace FarmFuryArcade.EditorTools
             logoImage.preserveAspect = true;
             AnchorTopLeft((RectTransform)logoImageGO.transform, new Vector2(LogoImageSize, LogoImageSize), new Vector2(100f, -40f));
 
-            var titleText = CreateText("Title", root.transform, "MY LOCKER", 64f, TextAlignmentOptions.Center, 90f,
-                new Color(0.97f, 0.94f, 0.86f));
-            AnchorTopCenter((RectTransform)titleText.transform, new Vector2(900f, 90f), new Vector2(0f, -60f));
+            // Real LockerBanner.png header (2026-09-10), replacing the plain "MY LOCKER" text title.
+            // 666x375 source (aspect ~1.776, the same wood-sign aspect CreateHeaderSign's
+            // StandardHeaderSignSize already standardizes on elsewhere) but sized well below that
+            // 550x310 default on purpose: this is a compact in-maze popup, not a full-screen nav
+            // destination, and the tile grid below it needs most of the available vertical budget.
+            // Sized/positioned by the same top-down "D = distance below screen top" math
+            // CreateHeaderSign's own doc comment uses, verified (not eyeballed) against the two
+            // elements below it: bottom edge D=25+130=155, leaving a real ~15px gap above the
+            // suggestion banner's own top edge (D=170, unchanged from before this change).
+            var bannerGO = new GameObject("TitleImage", typeof(RectTransform), typeof(Image));
+            bannerGO.transform.SetParent(root.transform, false);
+            var bannerImage = bannerGO.GetComponent<Image>();
+            bannerImage.sprite = LoadUiSprite("LockerBanner.png");
+            bannerImage.preserveAspect = true;
+            AnchorTopCenter((RectTransform)bannerGO.transform, new Vector2(231f, 130f), new Vector2(0f, -25f));
 
             // "You may like" upsell banner — a small pill just below the header, hidden until
             // LockerScreen.RefreshSuggestion picks a not-yet-owned item and fades it in. Built here
             // (not baked art) since no dedicated banner art exists yet — plain layered
             // PlaceholderSprite composition, same "border + background" convention CharacterStoryScreen
             // uses for its own intro box.
+            //
+            // Real bug found and fixed here (2026-09-10): this banner's bottom edge (old D=280, at
+            // height 110/offset -170) reached 10px PAST the tile grid's own top edge (D=270,
+            // untouched below) — since TileGrid is a later sibling than this GameObject, it drew on
+            // top, silently clipping that 10px sliver of the suggestion banner out of view whenever
+            // it was shown. Reported as "the info banner appears... but is behind the cosmetics."
+            // Height trimmed 110->84 (icon/text shrunk to match, see below) to open a real ~16px gap
+            // above the grid instead, at the same unchanged offset (0,-170).
             var suggestionRoot = new GameObject("SuggestionBanner", typeof(RectTransform), typeof(Image), typeof(Button));
             suggestionRoot.transform.SetParent(root.transform, false);
             suggestionRoot.GetComponent<Image>().sprite = PlaceholderSprite.Get(new Color(0.70f, 0.55f, 0.20f));
-            AnchorTopCenter((RectTransform)suggestionRoot.transform, new Vector2(760f, 110f), new Vector2(0f, -170f));
+            AnchorTopCenter((RectTransform)suggestionRoot.transform, new Vector2(760f, 84f), new Vector2(0f, -170f));
             var suggestionGroup = suggestionRoot.AddComponent<CanvasGroup>();
             suggestionGroup.alpha = 0f;
 
@@ -2681,17 +2701,19 @@ namespace FarmFuryArcade.EditorTools
             var suggestionIconImage = suggestionIconGO.GetComponent<Image>();
             suggestionIconImage.preserveAspect = true;
             var suggestionIconLayout = suggestionIconGO.GetComponent<LayoutElement>();
-            suggestionIconLayout.preferredWidth = 80f;
-            suggestionIconLayout.preferredHeight = 80f;
+            // Shrunk 80->64 alongside the banner's own 110->84 height trim above, so the icon still
+            // fits cleanly inside the padded (10 top/bottom) content area (64+20=84, an exact fit).
+            suggestionIconLayout.preferredWidth = 64f;
+            suggestionIconLayout.preferredHeight = 64f;
 
             var suggestionTextGO = new GameObject("Text", typeof(RectTransform), typeof(LayoutElement));
             suggestionTextGO.transform.SetParent(suggestionContentGO.transform, false);
             var suggestionTextLayout = suggestionTextGO.GetComponent<LayoutElement>();
             suggestionTextLayout.preferredWidth = 480f;
-            suggestionTextLayout.preferredHeight = 80f;
+            suggestionTextLayout.preferredHeight = 64f;
             var suggestionText = suggestionTextGO.AddComponent<TextMeshProUGUI>();
             suggestionText.font = TMP_Settings.defaultFontAsset;
-            suggestionText.fontSize = 26f;
+            suggestionText.fontSize = 22f;
             suggestionText.color = new Color(0.97f, 0.94f, 0.86f);
             suggestionText.alignment = TextAlignmentOptions.MidlineLeft;
             suggestionText.enableWordWrapping = true;

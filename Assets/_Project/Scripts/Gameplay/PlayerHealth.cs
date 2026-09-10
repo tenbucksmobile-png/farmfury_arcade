@@ -157,6 +157,13 @@ namespace FarmFuryArcade.Gameplay
                 SetAlpha(1f);
             }
 
+            // Respawn confetti (2026-09-10) — a small world-space burst the instant the character
+            // reappears, so coming back from a death reads as an exciting "you're back!" beat
+            // instead of a plain silent fade-in. This code path is shared by every respawn — a
+            // normal under-the-cap death and a paid coin/ad revive both fall through to it — so the
+            // burst fires either way, which reads fine for a paid revive too.
+            RespawnConfetti.Spawn(_spawnWorldPosition);
+
             _movement.enabled = true;
             IsRespawning = false;
         }
