@@ -6,12 +6,13 @@ namespace FarmFuryArcade.UI
 {
     /// <summary>Sits over the moon baked into ChooseCharacterScreen's World1_Cornfield.png
     /// backdrop and auto-cycles through the combo ("power play") icon art — CrossFire.png/
-    /// DoubleSlam.png/IronStampede.png/KicknRoll.png/SkipShatter.png, the same combo-icon assets
-    /// ComboNotificationBanner shows in-maze — advertising that pairing characters unlocks combo
-    /// power plays. Not the per-character {Name}_ability.png icons (those are a single
-    /// character's own ability, not a "power play" between two); the icon set is assigned
-    /// directly by Phase5ProjectBuilder rather than read from CharacterData, since combos aren't
-    /// per-character data.</summary>
+    /// DoubleSlam.png/IronStampede.png/KicknRoll.png/SkipShatter.png, the same small combo-icon
+    /// assets CosmeticsHubScreen-style breadcrumbs use elsewhere — advertising that pairing
+    /// characters unlocks combo power plays. (The in-maze moment itself is now ComboHypeScreen's
+    /// full-page reveal, not a text toast — see that class's own doc comment.) Not the
+    /// per-character {Name}_ability.png icons (those are a single character's own ability, not a
+    /// "power play" between two); the icon set is assigned directly by Phase5ProjectBuilder rather
+    /// than read from CharacterData, since combos aren't per-character data.</summary>
     public class PowerPlayMoonShowcase : MonoBehaviour
     {
         [SerializeField] private Image targetImage;

@@ -1706,6 +1706,12 @@ namespace FarmFuryArcade.EditorTools
 
             var storyTabButton = CreateButton("StoryTabButton", tabBar.transform, "Story", TabActiveColor, 28f, tabBarHeight, out var storyTabLabel);
             var howToPlayTabButton = CreateButton("HowToPlayTabButton", tabBar.transform, "How to Play", TabInactiveColor, 28f, tabBarHeight, out var howToPlayTabLabel);
+            // Combos tab (2026-09-11) — inserted between How to Play and Characters, matching
+            // CharacterStoryScreen's own tab-index order (0 Story / 1 How to Play / 2 Combos /
+            // 3 Characters / 4 Cosmetics). TabBar's HorizontalLayoutGroup (childControlWidth +
+            // childForceExpandWidth, see CreateHorizontalGroup) auto-divides its fixed 1700px width
+            // across however many buttons it holds, so adding a 5th here needs no width retuning.
+            var combosTabButton = CreateButton("CombosTabButton", tabBar.transform, "Combos", TabInactiveColor, 28f, tabBarHeight, out var combosTabLabel);
             var charactersTabButton = CreateButton("CharactersTabButton", tabBar.transform, "Characters", TabInactiveColor, 28f, tabBarHeight, out var charactersTabLabel);
             var cosmeticsTabButton = CreateButton("CosmeticsTabButton", tabBar.transform, "Cosmetics", TabInactiveColor, 28f, tabBarHeight, out var cosmeticsTabLabel);
 
@@ -1725,6 +1731,7 @@ namespace FarmFuryArcade.EditorTools
             foreach (var (tabButton, tabLabel) in new[]
                      {
                          (storyTabButton, storyTabLabel), (howToPlayTabButton, howToPlayTabLabel),
+                         (combosTabButton, combosTabLabel),
                          (charactersTabButton, charactersTabLabel), (cosmeticsTabButton, cosmeticsTabLabel),
                      })
             {
@@ -1799,6 +1806,7 @@ namespace FarmFuryArcade.EditorTools
             introTextRect.anchoredPosition = Vector2.zero;
 
             var howToPlayScrollView = BuildTabScrollView("HowToPlayScrollView", out var howToPlayContainer);
+            var combosScrollView = BuildTabScrollView("CombosScrollView", out var combosContainer);
             var charactersScrollView = BuildTabScrollView("CharactersScrollView", out var charactersContainer);
             var cosmeticsScrollView = BuildTabScrollView("CosmeticsScrollView", out var cosmeticsContainer);
 
@@ -1815,22 +1823,25 @@ namespace FarmFuryArcade.EditorTools
                 ("introBorderRect", introBorder.transform),
                 ("introBackgroundRect", introBackground.transform),
                 ("howToPlayContainer", howToPlayContainer),
+                ("combosContainer", combosContainer),
                 ("storyTabButton", storyTabButton), ("storyTabContent", storyScrollView),
                 ("howToPlayTabButton", howToPlayTabButton), ("howToPlayTabContent", howToPlayScrollView),
+                ("combosTabButton", combosTabButton), ("combosTabContent", combosScrollView),
                 ("charactersTabButton", charactersTabButton), ("charactersTabContent", charactersScrollView),
                 ("cosmeticsTabButton", cosmeticsTabButton), ("cosmeticsTabContent", cosmeticsScrollView));
 
             // How to Play icons — one per GameplayTopics entry, same order (Coins/Scoring & Stars/
-            // Power Crops & Robot Chains/Abilities & Combos). Reuses existing art rather than
-            // commissioning anything new: the coin pickup icon, a filled score star, a real rare
-            // power-pellet sprite, and one of the combo banners already used elsewhere as a stand-in
-            // for "abilities/combos" as a concept (no single generic ability icon exists).
+            // Power Crops & Robot Chains). Reuses existing art rather than commissioning anything
+            // new: the coin pickup icon, a filled score star, and a real rare power-pellet sprite.
+            // The old 4th entry (a combo banner standing in for "abilities/combos" as a concept) is
+            // gone along with GameplayTopics' own 4th row — the Combos tab below now covers that
+            // ground for real, one real icon per actual combo instead of one icon standing in for
+            // all of them.
             var gameplayTopicIcons = new[]
             {
                 LoadUiSprite("Coin_UI.png"),
                 LoadUiSprite("ScoreStar.png"),
                 ConfigureAndLoadCosmeticChromeSprite("Assets/_Project/Sprites/Environment/RarePellets_sunflower.png"),
-                LoadUiSprite("CrossFire.png"),
             };
             var iconsSO = new SerializedObject(story);
             var iconsProp = iconsSO.FindProperty("gameplayTopicIcons");
@@ -1838,6 +1849,28 @@ namespace FarmFuryArcade.EditorTools
             for (int i = 0; i < gameplayTopicIcons.Length; i++)
             {
                 iconsProp.GetArrayElementAtIndex(i).objectReferenceValue = gameplayTopicIcons[i];
+            }
+
+            // Combos tab icons (2026-09-11) — one real Combo_*.png banner per CharacterStoryScreen.
+            // ComboEntries entry, same order and same art ComboHypeScreen's own comboBannerEntries
+            // table uses (see BuildComboHypeScreen further up) — reusing that exact art means a
+            // player who's seen a combo trigger in-maze recognises the same picture here.
+            var comboIcons = new[]
+            {
+                LoadUiSprite("Combo_Featherstorm.png"),
+                LoadUiSprite("Combo_EarthquakeRoll.png"),
+                LoadUiSprite("Combo_SkipShatter.png"),
+                LoadUiSprite("Combo_DoubleSlam.png"),
+                LoadUiSprite("Combo_CrossFire.png"),
+                LoadUiSprite("Combo_IronStampede.png"),
+                LoadUiSprite("Combo_KicknRoll.png"),
+                LoadUiSprite("Combo_FullFury.png"),
+            };
+            var comboIconsProp = iconsSO.FindProperty("comboIcons");
+            comboIconsProp.arraySize = comboIcons.Length;
+            for (int i = 0; i < comboIcons.Length; i++)
+            {
+                comboIconsProp.GetArrayElementAtIndex(i).objectReferenceValue = comboIcons[i];
             }
 
             // Cosmetics tab entries — the exact same 7 items/icons CosmeticsHubScreen's own purchase
@@ -2613,16 +2646,20 @@ namespace FarmFuryArcade.EditorTools
         /// <summary>In-maze cosmetics "Locker" (2026-09-09) — opened from Gameplay HUD's Locker
         /// button. Backdrop/Logo/round-back-button follow the exact same opaque-overlay convention
         /// Pause uses (Bg_LevelSelect.png, no gameplay visible behind it while browsing). Everything
-        /// below the header (the 7-item grid, the equip/unequip logic, the "You may like" banner) is
-        /// deliberately NOT baked here — LockerScreen builds its own tiles at runtime (same
-        /// "component builds its own list at runtime" convention CharacterStoryScreen's BuildRow
-        /// uses), since the catalog's owned/equipped state and the Baseball Cap item's actual
-        /// cosmeticId (resolved per active character) can only be known live, not at Editor-build
-        /// time. This method only builds the two empty parent containers (tileContainer, a
-        /// GridLayoutGroup so LockerScreen doesn't need to hand-position anything; suggestionRoot,
-        /// the "You may like" banner shell) plus the header/backdrop/close button, and wires
-        /// purchaseScreen to the existing Cosmetics purchase screen (built earlier in BuildAll) so a
-        /// dimmed/not-owned tile's tap reuses the real purchase flow instead of duplicating it.</summary>
+        /// below the header (the owned-items grid, the equip/unequip logic) is deliberately NOT
+        /// baked here — LockerScreen builds its own tiles at runtime (same "component builds its
+        /// own list at runtime" convention CharacterStoryScreen's BuildRow uses), since which items
+        /// are actually owned/equipped, and the Baseball Cap item's real cosmeticId (resolved per
+        /// active character), can only be known live, not at Editor-build time. This method only
+        /// builds the scrollable tile region (tileContainer, a GridLayoutGroup + ContentSizeFitter
+        /// inside a ScrollRect, so LockerScreen doesn't need to hand-position or size anything as
+        /// the owned-item count varies — see its own comment further down for why this needs to
+        /// scroll rather than use a fixed-size box) plus the header/backdrop/close button, and wires
+        /// purchaseScreen to the existing Cosmetics purchase screen (built earlier in BuildAll) —
+        /// currently unused by anything built here, kept wired for when the "You may like" banner
+        /// (see its own removal note below) comes back. LockerScreen only ever builds a tile for an
+        /// item the player actually OWNS — an unowned cosmetic gets no tile here at all right now
+        /// (the suggestion banner that used to mention it elsewhere is temporarily removed).</summary>
         private static GameObject BuildLockerScreen(Transform canvasTransform, CosmeticPurchaseScreen purchaseScreen)
         {
             var root = CreatePanel("LockerScreen", canvasTransform, Color.black);
@@ -2635,135 +2672,99 @@ namespace FarmFuryArcade.EditorTools
             logoImage.preserveAspect = true;
             AnchorTopLeft((RectTransform)logoImageGO.transform, new Vector2(LogoImageSize, LogoImageSize), new Vector2(100f, -40f));
 
-            // Real LockerBanner.png header (2026-09-10), replacing the plain "MY LOCKER" text title.
-            // 666x375 source (aspect ~1.776, the same wood-sign aspect CreateHeaderSign's
-            // StandardHeaderSignSize already standardizes on elsewhere) but sized well below that
-            // 550x310 default on purpose: this is a compact in-maze popup, not a full-screen nav
-            // destination, and the tile grid below it needs most of the available vertical budget.
-            // Sized/positioned by the same top-down "D = distance below screen top" math
-            // CreateHeaderSign's own doc comment uses, verified (not eyeballed) against the two
-            // elements below it: bottom edge D=25+130=155, leaving a real ~15px gap above the
-            // suggestion banner's own top edge (D=170, unchanged from before this change).
-            var bannerGO = new GameObject("TitleImage", typeof(RectTransform), typeof(Image));
-            bannerGO.transform.SetParent(root.transform, false);
-            var bannerImage = bannerGO.GetComponent<Image>();
-            bannerImage.sprite = LoadUiSprite("LockerBanner.png");
-            bannerImage.preserveAspect = true;
-            AnchorTopCenter((RectTransform)bannerGO.transform, new Vector2(231f, 130f), new Vector2(0f, -25f));
+            // Real LockerBanner.png header, sized via the same CreateHeaderSign helper (and its
+            // StandardHeaderSignSize/Offset — 550x310 at (0,-55)) every other screen in this family
+            // uses (2026-09-10, per feedback the header previously read as noticeably smaller than
+            // every other screen's own sign) — this used to be a bespoke 231x130 box specifically
+            // kept small "since this is a compact in-maze popup," but that made it the one outlier
+            // in the whole screen family. LockerBanner.png's own 666x375 source (aspect ~1.776)
+            // already nearly matches StandardHeaderSignSize's own ~1.774 ratio (same aspect-match
+            // noted on the Legal screen's Legal.png header), so no custom sizing is needed here
+            // either. Bottom edge is now D=55+310=365 — every element below (the tile scroll
+            // region, see its own comment further down) was re-derived from that.
+            CreateHeaderSign(root.transform, LoadUiSprite("LockerBanner.png"));
 
-            // "You may like" upsell banner — a small pill just below the header, hidden until
-            // LockerScreen.RefreshSuggestion picks a not-yet-owned item and fades it in.
+            // "You may like" upsell banner — REMOVED FOR NOW (2026-09-11, per direct feedback:
+            // "we struggling to get the ad banner right...remove it for now"). A device screenshot
+            // showed its text spilling out past the LockerAD.png art's own right edge regardless of
+            // sizing pass. LockerScreen.cs's suggestionRoot/suggestionGroup/suggestionIcon/
+            // suggestionText/suggestionButton fields and RefreshSuggestion() logic are left intact
+            // (all already null-safe — RefreshSuggestion early-returns if suggestionRoot/
+            // suggestionGroup are null) so this can come back later just by re-adding the banner
+            // GameObject here and wiring it back into SetRefs below; nothing else needs to change.
+            // Freed the D=380-540 band this used to occupy — TileScroll now starts right below the
+            // header instead.
+
+            // Tile grid — a scrollable region (2026-09-10), not a fixed-size container.
+            // LockerScreen only ever builds a tile for an item the player actually OWNS (see its
+            // own class doc comment), so the real tile count varies from 0 up to all 7 depending on
+            // what's been purchased — a fixed sizeDelta box tuned for "however many rows might
+            // exist" no longer fits under the taller StandardHeaderSignSize header (D=365, up from
+            // the old bespoke D=155) without either shrinking tiles illegibly small or overflowing
+            // past the close button. A vertical ScrollRect (same Viewport/Mask shape
+            // UIBuilderHelpers.CreateVerticalScrollView uses elsewhere, hand-built here since that
+            // helper's Content uses a VerticalLayoutGroup, not the GridLayoutGroup this screen
+            // needs) with a GridLayoutGroup + ContentSizeFitter as its Content sizes itself to
+            // however many owned tiles there actually are, and scrolls if that's still more than
+            // the visible area shows at once — LockerScreen never needs to know any of this, it
+            // just keeps instantiating children under tileContainer exactly as before.
             //
-            // Real LockerAD.png art (2026-09-10) replaces the earlier flat PlaceholderSprite
-            // composition (a commissioned Kling AI banner: mascot + wood-sign border, with open
-            // space left for the dynamic icon/text this code lays on top). Source is 900x356
-            // (aspect ~2.528), a much squatter box than the old 760x84 wide pill, so the container
-            // is resized to that real aspect instead — the old flat "Background" inner panel is
-            // gone entirely too (the art already provides its own frame/backing, so a second dark
-            // rectangle drawn on top of it would just look wrong). Content padding.left is widened
-            // (16->100) to clear the mascot art on the banner's left side — a first-pass estimate,
-            // no visual Editor access this session, nudge once actually seen in Play mode.
-            //
-            // Sizing verified (not eyeballed) against the same top-down D-from-screen-top math used
-            // throughout this method: top D=170 (unchanged, 15px below the header's own D=155
-            // bottom edge), height 119 -> bottom D=289. TileGrid's own top edge was pushed from
-            // D=270 to D=304 (see its anchoredPosition below) to keep a verified ~15px gap instead
-            // of the fixed D=270 this banner used to just barely clear. Real bug this whole pass
-            // fixed originally (2026-09-10): the banner's OLD bottom edge (D=280 at the previous
-            // 110-tall size) reached 10px PAST the grid's old D=270 top edge, and since TileGrid is
-            // a later sibling it drew on top, silently clipping that sliver out of view — reported
-            // as "the info banner appears... but is behind the cosmetics."
-            var suggestionRoot = new GameObject("SuggestionBanner", typeof(RectTransform), typeof(Image), typeof(Button));
-            suggestionRoot.transform.SetParent(root.transform, false);
-            var suggestionImage = suggestionRoot.GetComponent<Image>();
-            // Filename is "LockerAd.png" on disk (lowercase 'd') — matched exactly here since
-            // AssetDatabase.LoadAssetAtPath is case-sensitive regardless of the OS filesystem (see
-            // the CornfieldSign.png note elsewhere in this project for the same gotcha).
-            suggestionImage.sprite = LoadUiSprite("LockerAd.png");
-            suggestionImage.preserveAspect = true;
-            AnchorTopCenter((RectTransform)suggestionRoot.transform, new Vector2(300f, 119f), new Vector2(0f, -170f));
-            var suggestionGroup = suggestionRoot.AddComponent<CanvasGroup>();
-            suggestionGroup.alpha = 0f;
+            // Region sized top-down: top D=385 (20px gap below the header's own D=365 bottom edge,
+            // moved up from D=540 now that the suggestion banner above no longer occupies that
+            // band); bottom kept clear of CreateRoundBackButton's close button (160 tall, 70 bottom
+            // inset -> its own top edge sits at D=1080-70-160=850) with a 20px margin, giving a
+            // visible height of 830-385=445 (up from 290). Cell size stays 260 (spacing 20, padding
+            // 10 top/bottom, row height 280) — the extra room just means more of a multi-row grid
+            // is visible before scrolling kicks in, not a cell-size change.
+            const float tileScrollTopD = 385f;
+            const float tileScrollHeight = 445f;
+            var tileScrollGO = new GameObject("TileScroll", typeof(RectTransform), typeof(ScrollRect));
+            tileScrollGO.transform.SetParent(root.transform, false);
+            AnchorTopCenter((RectTransform)tileScrollGO.transform, new Vector2(1200f, tileScrollHeight), new Vector2(0f, -tileScrollTopD));
 
-            var suggestionContentGO = new GameObject("Content", typeof(RectTransform), typeof(HorizontalLayoutGroup));
-            suggestionContentGO.transform.SetParent(suggestionRoot.transform, false);
-            var suggestionContentRect = (RectTransform)suggestionContentGO.transform;
-            suggestionContentRect.anchorMin = Vector2.zero;
-            suggestionContentRect.anchorMax = Vector2.one;
-            suggestionContentRect.offsetMin = Vector2.zero;
-            suggestionContentRect.offsetMax = Vector2.zero;
-            var suggestionHlg = suggestionContentGO.GetComponent<HorizontalLayoutGroup>();
-            suggestionHlg.spacing = 10f;
-            suggestionHlg.padding = new RectOffset(100, 16, 10, 10);
-            suggestionHlg.childAlignment = TextAnchor.MiddleLeft;
-            suggestionHlg.childControlWidth = false;
-            suggestionHlg.childControlHeight = false;
-            suggestionHlg.childForceExpandWidth = false;
-            suggestionHlg.childForceExpandHeight = false;
+            var tileViewportGO = new GameObject("Viewport", typeof(RectTransform), typeof(Image), typeof(Mask));
+            tileViewportGO.transform.SetParent(tileScrollGO.transform, false);
+            StretchFull((RectTransform)tileViewportGO.transform);
+            tileViewportGO.GetComponent<Image>().sprite = PlaceholderSprite.Get(new Color(1f, 1f, 1f, 0.01f));
+            tileViewportGO.GetComponent<Mask>().showMaskGraphic = false;
 
-            var suggestionIconGO = new GameObject("Icon", typeof(RectTransform), typeof(Image), typeof(LayoutElement));
-            suggestionIconGO.transform.SetParent(suggestionContentGO.transform, false);
-            var suggestionIconImage = suggestionIconGO.GetComponent<Image>();
-            suggestionIconImage.preserveAspect = true;
-            var suggestionIconLayout = suggestionIconGO.GetComponent<LayoutElement>();
-            // Shrunk 64->56 alongside the banner's own narrower real-art footprint, so the
-            // icon+text pair still fits the reduced content width (300 - 100 - 16 padding - 56 icon
-            // - 10 spacing = 118 left for text).
-            suggestionIconLayout.preferredWidth = 56f;
-            suggestionIconLayout.preferredHeight = 56f;
-
-            var suggestionTextGO = new GameObject("Text", typeof(RectTransform), typeof(LayoutElement));
-            suggestionTextGO.transform.SetParent(suggestionContentGO.transform, false);
-            var suggestionTextLayout = suggestionTextGO.GetComponent<LayoutElement>();
-            suggestionTextLayout.preferredWidth = 118f;
-            suggestionTextLayout.preferredHeight = 56f;
-            var suggestionText = suggestionTextGO.AddComponent<TextMeshProUGUI>();
-            suggestionText.font = TMP_Settings.defaultFontAsset;
-            suggestionText.fontSize = 17f;
-            suggestionText.color = new Color(0.97f, 0.94f, 0.86f);
-            suggestionText.alignment = TextAlignmentOptions.MidlineLeft;
-            suggestionText.enableWordWrapping = true;
-
-            var suggestionButton = suggestionRoot.GetComponent<Button>();
-            suggestionButton.targetGraphic = suggestionRoot.GetComponent<Image>();
-
-            // Tile grid — LockerScreen instantiates one child per catalog entry at runtime;
-            // GridLayoutGroup handles all positioning, so LockerScreen never needs to compute a
-            // RectTransform for any tile itself.
-            var tileContainerGO = new GameObject("TileGrid", typeof(RectTransform), typeof(GridLayoutGroup));
-            tileContainerGO.transform.SetParent(root.transform, false);
+            var tileContainerGO = new GameObject("TileGrid", typeof(RectTransform), typeof(GridLayoutGroup), typeof(ContentSizeFitter));
+            tileContainerGO.transform.SetParent(tileViewportGO.transform, false);
             var tileContainerRect = (RectTransform)tileContainerGO.transform;
-            tileContainerRect.anchorMin = new Vector2(0.5f, 0.5f);
-            tileContainerRect.anchorMax = new Vector2(0.5f, 0.5f);
-            tileContainerRect.pivot = new Vector2(0.5f, 0.5f);
-            // Square cells (2026-09-09) to match PurchaseCardFrame.png's own 500x500 aspect exactly
-            // — was 300x330, a mismatched aspect that would have let Image.preserveAspect letterbox
-            // the real art inside each tile instead of filling it cleanly.
-            tileContainerRect.sizeDelta = new Vector2(1360f, 660f);
-            // Pushed down slightly (top-edge D 270->304, anchoredPosition.y -60->-94) alongside the
-            // real LockerAD.png suggestion banner above — see that banner's own doc comment for the
-            // verified D-from-screen-top math this keeps a real ~15px gap against.
-            tileContainerRect.anchoredPosition = new Vector2(0f, -94f);
+            tileContainerRect.anchorMin = new Vector2(0f, 1f);
+            tileContainerRect.anchorMax = new Vector2(1f, 1f);
+            tileContainerRect.pivot = new Vector2(0.5f, 1f);
+            tileContainerRect.offsetMin = Vector2.zero;
+            tileContainerRect.offsetMax = Vector2.zero;
             var tileGrid = tileContainerGO.GetComponent<GridLayoutGroup>();
-            tileGrid.cellSize = new Vector2(300f, 300f);
-            tileGrid.spacing = new Vector2(30f, 30f);
+            // Square cells matching PurchaseCardFrame.png's own 500x500 aspect exactly, so
+            // Image.preserveAspect fills each tile cleanly rather than letterboxing it.
+            tileGrid.cellSize = new Vector2(260f, 260f);
+            tileGrid.spacing = new Vector2(20f, 20f);
+            tileGrid.padding = new RectOffset(0, 0, 10, 10);
             tileGrid.constraint = GridLayoutGroup.Constraint.FixedColumnCount;
             tileGrid.constraintCount = 4;
             tileGrid.childAlignment = TextAnchor.UpperCenter;
+            tileContainerGO.GetComponent<ContentSizeFitter>().verticalFit = ContentSizeFitter.FitMode.PreferredSize;
+
+            var tileScrollRect = tileScrollGO.GetComponent<ScrollRect>();
+            tileScrollRect.viewport = (RectTransform)tileViewportGO.transform;
+            tileScrollRect.content = tileContainerRect;
+            tileScrollRect.horizontal = false;
+            tileScrollRect.vertical = true;
+            tileScrollRect.movementType = ScrollRect.MovementType.Clamped;
+            tileScrollRect.scrollSensitivity = 20f;
 
             var closeButton = CreateRoundBackButton(root.transform, bottomRight: true);
             closeButton.GetComponent<Image>().sprite = LoadUiSprite("Btn_back.png");
 
             var locker = root.AddComponent<LockerScreen>();
+            // suggestionRoot/suggestionGroup/suggestionIcon/suggestionText/suggestionButton are
+            // deliberately left unwired (null) — see the "You may like" banner removal note above.
             SetRefs(locker,
                 ("tileContainer", tileContainerGO.transform),
                 ("closeButton", closeButton),
                 ("purchaseScreen", purchaseScreen),
-                ("suggestionRoot", suggestionRoot),
-                ("suggestionGroup", suggestionGroup),
-                ("suggestionIcon", suggestionIconImage),
-                ("suggestionText", suggestionText),
-                ("suggestionButton", suggestionButton),
                 // Real wood-frame/parchment tile art (2026-09-09), replacing the flat placeholder
                 // border+background — see LockerScreen's own doc comment on tileFrameSprite/
                 // TileContentInset for the pixel-measured interior this content is inset to match.

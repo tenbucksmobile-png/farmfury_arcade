@@ -8,33 +8,42 @@ using FarmFuryArcade.Utilities;
 
 namespace FarmFuryArcade.UI
 {
-    /// <summary>Character Story overlay — 4 tabs (Story / How to Play / Characters / Cosmetics),
-    /// each its own independent ScrollRect, switched via SelectTab. Rebuilt 2026-09-09 (per direct
-    /// feedback) from one long continuous scrollable list holding everything at once, which read as
-    /// "a very long scrolling list" once the How to Play section (GameplayTopics — coins, scoring/
-    /// stars, power crops/chains, abilities/combos) was added on top of the narrative intro and all
-    /// 8 character rows. Cosmetics tab added 2026-09-11 (per direct feedback), same day How to
-    /// Play's rows were made more illustrated/kid-friendly — see each section's own doc comment
-    /// below.
+    /// <summary>Character Story overlay — 5 tabs (Story / How to Play / Combos / Characters /
+    /// Cosmetics), each its own independent ScrollRect, switched via SelectTab. Rebuilt 2026-09-09
+    /// (per direct feedback) from one long continuous scrollable list holding everything at once,
+    /// which read as "a very long scrolling list" once the How to Play section (GameplayTopics —
+    /// coins, scoring/stars, power crops/chains, abilities/combos) was added on top of the
+    /// narrative intro and all 8 character rows. Cosmetics tab added 2026-09-11 (per direct
+    /// feedback), same day How to Play's rows were made more illustrated/kid-friendly. Combos tab
+    /// added 2026-09-11 (per a follow-up request to "break down the combos"): How to Play's old
+    /// single "Abilities & Combos" row only gestured at the system's existence — this tab actually
+    /// lists all 8 of ComboSystem's real combos, each with its own real banner art (the same
+    /// Combo_*.png files ComboHypeScreen shows full-screen in-maze) and a Trigger/Effect blurb, so a
+    /// player can learn exactly what to do to earn each one.
     ///
     /// Story tab: the game's narrative intro (IntroStory). How to Play tab: one bordered card per
-    /// GameplayTopics entry (BuildInfoRow), now icon+short-text like the other tabs' rows rather
-    /// than a text-only wall — this screen is aimed at kids, so a glance at the icon should carry
-    /// half the meaning before they even read the (now much shorter) copy. Characters tab: one row
-    /// per DataManager.GetAllCharacterData() entry (their CharacterSelectCard next to a short
-    /// story/ability blurb, BuildRow), pulled from the GDD's narrative section and the characters'
-    /// actual current abilities (several diverged from the GDD's original spec since v1.0 — e.g.
-    /// Percy's wall-phase became a robot-charging roll, and Billy's wall-destroy became a
-    /// robot-charging headbutt — so the blurbs describe what the ability does today, not the
-    /// original GDD text). Same Cluck-first hierarchy order ChooseCharacterScreen uses; every card
-    /// shows unlocked/non-active/non-interactive — this is a browsing list, not the swap gate
-    /// ChooseCharacterScreen enforces, and tapping a card does nothing since there's no
-    /// per-character sub-screen (the story IS the blurb next to it). Cosmetics tab: one row per
-    /// purchasable hat/trail (BuildCosmeticRow), reusing the exact same price-baked icon art
-    /// (sombrero_price.png etc.) CosmeticsHubScreen's own purchase buttons show, so a browsing kid
-    /// recognises the same picture when they later go looking for it in the Shop — with a short,
-    /// playful blurb per item instead of the Shop's bare price tag. Purely informational, same as
-    /// the Characters tab: tapping a row does nothing, there's no purchase flow here.</summary>
+    /// GameplayTopics entry (BuildInfoRow), icon+short-text like the other tabs' rows rather than a
+    /// text-only wall — this screen is aimed at kids, so a glance at the icon should carry half the
+    /// meaning before they even read the (now much shorter) copy; no longer covers combos in detail
+    /// at all — see the Combos tab. Combos tab: one bordered card per ComboSystem combo
+    /// (BuildComboRow), same icon+text silhouette, real Combo_*.png banner art per combo, and a
+    /// "Trigger:"/"Effect:" two-line blurb spelling out how to get each one and what it does —
+    /// same data ComboSystem.cs and CLAUDE.md's own combo table describe, written in player-facing
+    /// language. Characters tab: one row per DataManager.GetAllCharacterData() entry (their
+    /// CharacterSelectCard next to a short story/ability blurb, BuildRow), pulled from the GDD's
+    /// narrative section and the characters' actual current abilities (several diverged from the
+    /// GDD's original spec since v1.0 — e.g. Percy's wall-phase became a robot-charging roll, and
+    /// Billy's wall-destroy became a robot-charging headbutt — so the blurbs describe what the
+    /// ability does today, not the original GDD text). Same Cluck-first hierarchy order
+    /// ChooseCharacterScreen uses; every card shows unlocked/non-active/non-interactive — this is a
+    /// browsing list, not the swap gate ChooseCharacterScreen enforces, and tapping a card does
+    /// nothing since there's no per-character sub-screen (the story IS the blurb next to it).
+    /// Cosmetics tab: one row per purchasable hat/trail (BuildCosmeticRow), reusing the exact same
+    /// price-baked icon art (sombrero_price.png etc.) CosmeticsHubScreen's own purchase buttons
+    /// show, so a browsing kid recognises the same picture when they later go looking for it in the
+    /// Shop — with a short, playful blurb per item instead of the Shop's bare price tag. Purely
+    /// informational, same as the Characters tab: tapping a row does nothing, there's no purchase
+    /// flow here.</summary>
     public class CharacterStoryScreen : MonoBehaviour
     {
         [System.Serializable]
@@ -46,6 +55,7 @@ namespace FarmFuryArcade.UI
 
         [SerializeField] private Transform charactersContainer;
         [SerializeField] private Transform howToPlayContainer;
+        [SerializeField] private Transform combosContainer;
         [SerializeField] private Transform cosmeticsContainer;
         [SerializeField] private GameObject cardPrefab;
         [SerializeField] private Button closeButton;
@@ -54,15 +64,19 @@ namespace FarmFuryArcade.UI
         [SerializeField] private RectTransform introBackgroundRect;
 
         // Wired by Phase5ProjectBuilder.BuildCharacterStoryPlaceholder — one icon per GameplayTopics
-        // entry (same order) and the 7 Cosmetics rows (icon + display name; blurb text lives here,
-        // keyed by displayName, same convention CharacterStories uses for characters).
+        // entry (same order), one icon per ComboEntries entry (same order — the real Combo_*.png
+        // banner art), and the 7 Cosmetics rows (icon + display name; blurb text lives here, keyed
+        // by displayName, same convention CharacterStories uses for characters).
         [SerializeField] private Sprite[] gameplayTopicIcons;
+        [SerializeField] private Sprite[] comboIcons;
         [SerializeField] private CosmeticEntry[] cosmeticEntries;
 
         [SerializeField] private Button storyTabButton;
         [SerializeField] private GameObject storyTabContent;
         [SerializeField] private Button howToPlayTabButton;
         [SerializeField] private GameObject howToPlayTabContent;
+        [SerializeField] private Button combosTabButton;
+        [SerializeField] private GameObject combosTabContent;
         [SerializeField] private Button charactersTabButton;
         [SerializeField] private GameObject charactersTabContent;
         [SerializeField] private Button cosmeticsTabButton;
@@ -114,7 +128,10 @@ namespace FarmFuryArcade.UI
         // block. Still deliberately player-facing/rounded rather than quoting exact internal
         // constants that are easy to retune later (e.g. GameManager.BaseCoinsPerLevel/CoinsPerStar,
         // LevelData.ComputeMaxPossibleScoreEstimate's chain cap) — if those change, this copy still
-        // reads correctly without needing a matching edit.
+        // reads correctly without needing a matching edit. The old 4th entry here ("Abilities &
+        // Combos") was pulled out into its own dedicated Combos tab (ComboEntries below) — a single
+        // teaser row couldn't actually explain any of the 8 real combos, just gesture at the system
+        // existing.
         private static readonly (string title, string body)[] GameplayTopics =
         {
             ("Coins", "Finish a level to earn coins — more stars means more coins! Spend them on " +
@@ -123,8 +140,33 @@ namespace FarmFuryArcade.UI
                 "level — just 1 star unlocks the next world."),
             ("Power Crops & Robot Chains", "Grab a power crop and the robots get scared! Zap them " +
                 "one after another for huge bonus points."),
-            ("Abilities & Combos", "Every animal has a super move! Swap characters mid-run to " +
-                "combo two abilities together for something extra powerful."),
+        };
+
+        // Combos tab content (2026-09-11) — every combo ComboSystem.cs actually detects, in the
+        // same order CLAUDE.md's own combo table uses. "trigger" is written as a direct instruction
+        // (what to actually swap/do), "effect" as what the buff does the NEXT time the named
+        // ability fires (ComboSystem stores these as one-shot Pending* flags consumed on that
+        // ability's next activation — Full Fury is the one exception, an immediate effect on
+        // trigger, called out as such in its own blurb). icon is matched up with comboIcons by
+        // array index in Phase5ProjectBuilder, same convention gameplayTopicIcons uses.
+        private static readonly (string title, string trigger, string effect)[] ComboEntries =
+        {
+            ("Feather Storm", "Swap Cluck → Woolly.",
+                "Woolly's clones drop eggs as they wander, tripping up extra robots!"),
+            ("Earthquake Roll", "Swap Bessie → Percy.",
+                "Percy's next Bounce Roll blasts 9 tiles instead of 3!"),
+            ("Skip Shatter", "Swap Ducky → Woolly.",
+                "Ducky's next Skip Shot spawns 2 wool clones right where she lands!"),
+            ("Double Slam", "Swap to Bessie, then swap to Bessie again (2nd time this maze).",
+                "Her Ground Slam radius doubles to 4 tiles!"),
+            ("Crossfire", "Swap Billy → Horace.",
+                "Horace's Rear Kick sends robots flying twice as far — 8 tiles!"),
+            ("Iron Stampede", "Swap Bessie → Gerald.",
+                "Gerald's Puff Up smashes through nearby walls too!"),
+            ("Kick and Roll", "Swap Horace → Percy.",
+                "Same big boost as Earthquake Roll — Percy's next roll goes 9 tiles!"),
+            ("Full Fury", "Play as 5 or more different animals in one maze.",
+                "Every robot on the board freezes in fear for 5 seconds — right away!"),
         };
 
         // Cosmetics tab (2026-09-11) — same 7 purchasable items CosmeticsHubScreen sells, short
@@ -187,13 +229,17 @@ namespace FarmFuryArcade.UI
             {
                 howToPlayTabButton.onClick.AddListener(() => SelectTab(1));
             }
+            if (combosTabButton != null)
+            {
+                combosTabButton.onClick.AddListener(() => SelectTab(2));
+            }
             if (charactersTabButton != null)
             {
-                charactersTabButton.onClick.AddListener(() => SelectTab(2));
+                charactersTabButton.onClick.AddListener(() => SelectTab(3));
             }
             if (cosmeticsTabButton != null)
             {
-                cosmeticsTabButton.onClick.AddListener(() => SelectTab(3));
+                cosmeticsTabButton.onClick.AddListener(() => SelectTab(4));
             }
         }
 
@@ -203,20 +249,22 @@ namespace FarmFuryArcade.UI
             SelectTab(0);
         }
 
-        /// <summary>Shows exactly one of the 4 tab content ScrollRects and tints the tab buttons to
+        /// <summary>Shows exactly one of the 5 tab content ScrollRects and tints the tab buttons to
         /// match, same "gold = active, brown = inactive" convention as everywhere else in this
         /// project uses tint-only on/off feedback (no dedicated per-tab art exists).</summary>
         private void SelectTab(int index)
         {
             if (storyTabContent != null) storyTabContent.SetActive(index == 0);
             if (howToPlayTabContent != null) howToPlayTabContent.SetActive(index == 1);
-            if (charactersTabContent != null) charactersTabContent.SetActive(index == 2);
-            if (cosmeticsTabContent != null) cosmeticsTabContent.SetActive(index == 3);
+            if (combosTabContent != null) combosTabContent.SetActive(index == 2);
+            if (charactersTabContent != null) charactersTabContent.SetActive(index == 3);
+            if (cosmeticsTabContent != null) cosmeticsTabContent.SetActive(index == 4);
 
             SetTabButtonActive(storyTabButton, index == 0);
             SetTabButtonActive(howToPlayTabButton, index == 1);
-            SetTabButtonActive(charactersTabButton, index == 2);
-            SetTabButtonActive(cosmeticsTabButton, index == 3);
+            SetTabButtonActive(combosTabButton, index == 2);
+            SetTabButtonActive(charactersTabButton, index == 3);
+            SetTabButtonActive(cosmeticsTabButton, index == 4);
         }
 
         private static void SetTabButtonActive(Button button, bool active)
@@ -257,6 +305,16 @@ namespace FarmFuryArcade.UI
                     var (title, body) = GameplayTopics[i];
                     Sprite icon = gameplayTopicIcons != null && i < gameplayTopicIcons.Length ? gameplayTopicIcons[i] : null;
                     BuildInfoRow(howToPlayContainer, title, body, icon);
+                }
+            }
+
+            if (combosContainer != null)
+            {
+                for (int i = 0; i < ComboEntries.Length; i++)
+                {
+                    var (title, trigger, effect) = ComboEntries[i];
+                    Sprite icon = comboIcons != null && i < comboIcons.Length ? comboIcons[i] : null;
+                    BuildComboRow(title, trigger, effect, icon);
                 }
             }
 
@@ -399,6 +457,129 @@ namespace FarmFuryArcade.UI
             bodyTmp.fontSizeMin = 16f;
             bodyTmp.fontSizeMax = 24f;
             bodyTmp.overflowMode = TextOverflowModes.Truncate;
+        }
+
+        /// <summary>One Combos row — icon-left/text-right silhouette, same general shape
+        /// BuildInfoRow/BuildCosmeticRow/BuildRow all use on this screen (BuildRow's own
+        /// CharacterSelectCard is the closest reference — a real, generously-sized piece of art
+        /// filling its own left-hand column, story text beside it). Reworked twice on 2026-09-11:
+        /// first into a full-width banner-on-top layout (per "enlarge the artwork"), then walked
+        /// back per direct follow-up feedback ("sized too big... keep the container size as it
+        /// was... enlarge the artwork to fit the width - not fill the entire container - very much
+        /// like the character cards") — rowHeight is back to its original fixed 220 (not a
+        /// per-combo computed height), and the art sits in its own left column instead of spanning
+        /// the whole row.
+        ///
+        /// iconWidth (300, up from the original 130/190 square) is sized like BuildRow's character
+        /// card column — big relative to the row, but still just ONE column beside the text, not
+        /// the whole card. Combo_*.png banners are landscape art (roughly 1.3:1 to 2.3:1 depending
+        /// on the combo, not square), so the icon box itself is sized to the row's real available
+        /// content height (iconHeight, not a square) with preserveAspect=true — this fills the box's
+        /// full WIDTH for any combo whose own aspect is wider than the box (several of the 8 are),
+        /// and fills its full HEIGHT with a little side margin for the few narrower/more-square
+        /// ones, but never stretches or overflows either way.</summary>
+        private void BuildComboRow(string title, string trigger, string effect, Sprite icon)
+        {
+            const float rowHeight = 220f; // original container size, unchanged
+            const float iconWidth = 300f; // was a 130 (then 190) square — now a real card-sized column
+            const float iconHeight = 180f; // rowHeight minus the hlg's own 20px top/bottom padding
+
+            var rowGO = new GameObject($"ComboRow_{title}", typeof(RectTransform), typeof(Image));
+            rowGO.transform.SetParent(combosContainer, false);
+            var rowRect = (RectTransform)rowGO.transform;
+            rowRect.sizeDelta = new Vector2(RowWidth, rowHeight);
+            rowGO.GetComponent<Image>().sprite = PlaceholderSprite.Get(RowBorderColor);
+
+            var backgroundGO = new GameObject("RowBackground", typeof(RectTransform), typeof(Image));
+            backgroundGO.transform.SetParent(rowGO.transform, false);
+            var backgroundRect = (RectTransform)backgroundGO.transform;
+            backgroundRect.anchorMin = Vector2.zero;
+            backgroundRect.anchorMax = Vector2.one;
+            backgroundRect.offsetMin = new Vector2(RowBorderThickness, RowBorderThickness);
+            backgroundRect.offsetMax = new Vector2(-RowBorderThickness, -RowBorderThickness);
+            backgroundGO.GetComponent<Image>().sprite = PlaceholderSprite.Get(RowBackgroundColor);
+
+            var contentGO = new GameObject("RowContent", typeof(RectTransform));
+            contentGO.transform.SetParent(backgroundGO.transform, false);
+            var contentRect = (RectTransform)contentGO.transform;
+            contentRect.anchorMin = Vector2.zero;
+            contentRect.anchorMax = Vector2.one;
+            contentRect.offsetMin = Vector2.zero;
+            contentRect.offsetMax = Vector2.zero;
+
+            var hlg = contentGO.AddComponent<HorizontalLayoutGroup>();
+            hlg.childAlignment = TextAnchor.MiddleLeft;
+            hlg.spacing = 30f;
+            hlg.padding = new RectOffset(30, 30, 20, 20);
+            hlg.childControlWidth = false;
+            hlg.childControlHeight = false;
+            hlg.childForceExpandWidth = false;
+            hlg.childForceExpandHeight = false;
+
+            var iconGO = new GameObject("Icon", typeof(RectTransform), typeof(Image));
+            iconGO.transform.SetParent(contentGO.transform, false);
+            ((RectTransform)iconGO.transform).sizeDelta = new Vector2(iconWidth, iconHeight);
+            var iconImage = iconGO.GetComponent<Image>();
+            iconImage.preserveAspect = true;
+            iconImage.sprite = icon != null ? icon : PlaceholderSprite.GetCircle(new Color(0.85f, 0.65f, 0.2f));
+
+            float innerWidth = RowWidth - RowBorderThickness * 2f - 60f - 30f - iconWidth - 60f;
+
+            var textColumnGO = new GameObject("TextColumn", typeof(RectTransform));
+            textColumnGO.transform.SetParent(contentGO.transform, false);
+            ((RectTransform)textColumnGO.transform).sizeDelta = new Vector2(innerWidth, rowHeight - 40f);
+            var vlg = textColumnGO.AddComponent<VerticalLayoutGroup>();
+            vlg.childAlignment = TextAnchor.MiddleLeft;
+            vlg.spacing = 8f;
+            vlg.childControlWidth = false;
+            vlg.childControlHeight = false;
+            vlg.childForceExpandWidth = false;
+            vlg.childForceExpandHeight = false;
+
+            var titleGO = new GameObject("Title", typeof(RectTransform));
+            titleGO.transform.SetParent(textColumnGO.transform, false);
+            ((RectTransform)titleGO.transform).sizeDelta = new Vector2(innerWidth, 40f);
+            var titleTmp = titleGO.AddComponent<TextMeshProUGUI>();
+            titleTmp.text = title;
+            titleTmp.font = TMP_Settings.defaultFontAsset;
+            titleTmp.fontSize = 30f;
+            titleTmp.fontStyle = FontStyles.Bold;
+            titleTmp.color = new Color(0.35f, 0.18f, 0.05f);
+            titleTmp.alignment = TextAlignmentOptions.MidlineLeft;
+
+            float lineHeight = (rowHeight - 40f - 40f - 8f - 6f) / 2f;
+
+            var triggerGO = new GameObject("Trigger", typeof(RectTransform));
+            triggerGO.transform.SetParent(textColumnGO.transform, false);
+            ((RectTransform)triggerGO.transform).sizeDelta = new Vector2(innerWidth, lineHeight);
+            var triggerTmp = triggerGO.AddComponent<TextMeshProUGUI>();
+            triggerTmp.text = $"<b>Trigger:</b> {trigger}";
+            triggerTmp.font = TMP_Settings.defaultFontAsset;
+            triggerTmp.fontSize = 22f;
+            triggerTmp.alignment = TextAlignmentOptions.TopLeft;
+            triggerTmp.color = new Color(0.45f, 0.32f, 0.12f);
+            triggerTmp.enableWordWrapping = true;
+            triggerTmp.enableAutoSizing = true;
+            triggerTmp.fontSizeMin = 14f;
+            triggerTmp.fontSizeMax = 22f;
+            triggerTmp.overflowMode = TextOverflowModes.Truncate;
+
+            var effectGO = new GameObject("Effect", typeof(RectTransform));
+            effectGO.transform.SetParent(textColumnGO.transform, false);
+            ((RectTransform)effectGO.transform).sizeDelta = new Vector2(innerWidth, lineHeight);
+            var effectTmp = effectGO.AddComponent<TextMeshProUGUI>();
+            effectTmp.text = $"<b>Effect:</b> {effect}";
+            effectTmp.font = TMP_Settings.defaultFontAsset;
+            effectTmp.fontSize = 22f;
+            effectTmp.alignment = TextAlignmentOptions.TopLeft;
+            effectTmp.color = new Color(0.15f, 0.5f, 0.2f);
+            effectTmp.enableWordWrapping = true;
+            // Shrink-to-fit so a combo's trigger/effect text can never spill past its own bordered
+            // card, same convention BuildInfoRow's body / BuildRow's story blurb use.
+            effectTmp.enableAutoSizing = true;
+            effectTmp.fontSizeMin = 14f;
+            effectTmp.fontSizeMax = 22f;
+            effectTmp.overflowMode = TextOverflowModes.Truncate;
         }
 
         /// <summary>One Cosmetics row — same left-icon/right-text silhouette as BuildInfoRow, using

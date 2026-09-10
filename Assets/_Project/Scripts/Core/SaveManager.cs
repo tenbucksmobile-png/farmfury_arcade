@@ -97,6 +97,42 @@ namespace FarmFuryArcade.Core
                 Debug.LogWarning($"[SaveManager] Save schema version {savedSchemaVersion} does not match current {CurrentSaveSchemaVersion} — no migration defined yet, data may be read using the current shape as a best effort.");
             }
             PlayerPrefs.SetInt(SaveSchemaVersionKey, CurrentSaveSchemaVersion);
+
+            RepairEquippedCosmeticOwnership();
+        }
+
+        /// <summary>One-time-per-load self-heal for a real bug (found and fixed 2026-09-11):
+        /// DebugForceEquipForTesting used to grant ownership via a raw, unprotected PlayerPrefs
+        /// write that could desync from IsCosmeticOwned's checksum and get silently reset back to
+        /// "not owned" (see that method's own doc comment for the exact mechanism) — while the
+        /// separate, unprotected equip flags (SetEquippedCosmetic/SetEquippedTrail) were never
+        /// touched by that failure, so a character kept visibly wearing/trailing a cosmetic that
+        /// IsCosmeticOwned now denied owning. Reported via a real save: Bessie's baseball cap and a
+        /// trail stayed equipped in gameplay but vanished from the (now owned-only) Locker grid.
+        /// The write path is fixed going forward, but this repairs any save that already has the
+        /// split: "equipped implies owned" is a real invariant nothing should ever violate, so any
+        /// currently-equipped hat/skin (per character) or trail (global) that IsCosmeticOwned denies
+        /// gets its ownership restored here. Cheap (8 characters x 2 slots + 1 global check) and a
+        /// no-op on an already-consistent save, so running it every LoadProgress call is safe.</summary>
+        private void RepairEquippedCosmeticOwnership()
+        {
+            foreach (CharacterType character in System.Enum.GetValues(typeof(CharacterType)))
+            {
+                foreach (CosmeticType type in new[] { CosmeticType.Hat, CosmeticType.Skin })
+                {
+                    string equippedId = GetEquippedCosmetic(type, character);
+                    if (!string.IsNullOrEmpty(equippedId) && !IsCosmeticOwned(equippedId))
+                    {
+                        SetCosmeticOwned(equippedId);
+                    }
+                }
+            }
+
+            string equippedTrail = GetEquippedTrail();
+            if (!string.IsNullOrEmpty(equippedTrail) && !IsCosmeticOwned(equippedTrail))
+            {
+                SetCosmeticOwned(equippedTrail);
+            }
         }
 
         // ---- Economy integrity (audit finding C5.2) --------------------------------------------
@@ -465,14 +501,30 @@ namespace FarmFuryArcade.Core
         /// directly via PlayerPrefs, bypassing PurchaseCosmetic/SpendCoins and needing no live
         /// SaveManager instance (same static-Edit-mode-safe convention as ResetAllProgressKeys),
         /// so a batch-mode wiring tool can pre-equip freshly-authored cosmetics before any Store UI
-        /// exists to do it the real way. Do not call this from gameplay code.</summary>
+        /// exists to do it the real way. Do not call this from gameplay code.
+        ///
+        /// Real bug found and fixed 2026-09-11: this used to write ownership via a raw
+        /// PlayerPrefs.SetInt, bypassing SetProtectedInt's checksum write. IsCosmeticOwned reads
+        /// through the checksum-protected path (GetProtectedBool -&gt; GetProtectedInt) — if
+        /// anything had EVER queried IsCosmeticOwned(cosmeticId) for this item while it was still
+        /// unowned (CosmeticPurchaseScreen's owned-badge refresh and LockerScreen's own tile filter
+        /// both do this for every catalog item on every screen open), that established a "not
+        /// owned" checksum for value 0. The next raw SetInt(1) here then desynced from that
+        /// checksum, so the very next real IsCosmeticOwned check treated it as tampered/corrupted
+        /// and silently reset it back to false — while the equip flags (SetEquippedCosmetic/
+        /// SetEquippedTrail, both plain unprotected PlayerPrefs strings) were untouched and kept
+        /// reporting the item as equipped. Net effect: a character visibly wearing/trailing a
+        /// cosmetic that LockerScreen's owned-only tile grid no longer lists at all. Fixed by
+        /// granting ownership through the same protected setter SetCosmeticOwned uses
+        /// (SetProtectedBool is already static within this class, no instance needed) instead of a
+        /// raw PlayerPrefs write.</summary>
         public static void DebugForceEquipForTesting(CosmeticType type, CharacterType character, string cosmeticId)
         {
             if (string.IsNullOrEmpty(cosmeticId))
             {
                 return;
             }
-            PlayerPrefs.SetInt(CosmeticOwnedKeyPrefix + cosmeticId, 1);
+            SetProtectedBool(CosmeticOwnedKeyPrefix + cosmeticId, true);
             if (type == CosmeticType.Trail)
             {
                 // Trail is character-agnostic (global), unlike Hat/Skin — see GetEquippedTrail/

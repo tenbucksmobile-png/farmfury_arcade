@@ -16,17 +16,17 @@ namespace FarmFuryArcade.UI
     /// the level timer burning for real behind an unpaused overlay — that motivated this pattern)
     /// while the player browses.
     ///
-    /// Lists the same 7 hat/trail items CosmeticsHubScreen sells (Baseball Cap resolves to the
-    /// active character's own per-character variant — see IAPManager.GrantBaseballCapSet; the
-    /// other 6 are character-agnostic):
-    /// - Owned: tap equips it immediately (SaveManager.SetEquippedCosmetic/SetEquippedTrail, then
-    ///   CharacterCosmeticRenderer.Refresh() on the active character) — tapping the already-equipped
-    ///   tile again unequips it. No purchase flow involved, purely "try what you own."
-    /// - Not owned: dimmed, shows its real IAP price (IAPManager.GetPriceString); tapping it opens
-    ///   the existing CosmeticsHubScreen purchase surface directly rather than duplicating purchase
-    ///   logic here.
-    /// A "You may like" banner picks one random not-yet-owned item every time the Locker opens and
-    /// offers the same shortcut into the purchase screen — pure discovery/upsell.
+    /// Only shows items the player actually OWNS (2026-09-10) — this is a "try what you've
+    /// bought" closet, not a storefront, so an unowned item has no tile here at all; tapping it
+    /// equips it immediately (SaveManager.SetEquippedCosmetic/SetEquippedTrail, then
+    /// CharacterCosmeticRenderer.Refresh() on the active character) — tapping the already-equipped
+    /// tile again unequips it. No purchase flow involved, purely "try what you own." (Baseball Cap
+    /// resolves to the active character's own per-character variant — see
+    /// IAPManager.GrantBaseballCapSet; the other 6 are character-agnostic.)
+    /// A "You may like" banner still picks one random NOT-owned item every time the Locker opens
+    /// and offers a shortcut into the real purchase screen — that's the only place an unowned
+    /// cosmetic (e.g. Cowboy Hat, if unbought) is ever shown on this screen; it's a discovery/
+    /// upsell nudge, not a second listing of the same catalog with a lock icon.
     /// </summary>
     public class LockerScreen : MonoBehaviour
     {
@@ -73,11 +73,9 @@ namespace FarmFuryArcade.UI
         /// just inside that measured boundary so tile content can never bleed onto the wood.</summary>
         private const float TileContentInset = 0.23f;
 
-        private static readonly Color LockedTint = new Color(0.55f, 0.55f, 0.55f);
         private static readonly Color NameColor = new Color(0.35f, 0.18f, 0.05f);
         private static readonly Color EquippedStatusColor = new Color(0.15f, 0.5f, 0.2f);
         private static readonly Color OwnedStatusColor = new Color(0.35f, 0.28f, 0.18f);
-        private static readonly Color PriceStatusColor = new Color(0.6f, 0.15f, 0.1f);
 
         private const float SuggestionDelaySeconds = 0.6f;
         private const float SuggestionFadeSeconds = 0.35f;
@@ -88,9 +86,9 @@ namespace FarmFuryArcade.UI
         [SerializeField] private CosmeticPurchaseScreen purchaseScreen;
 
         /// <summary>Real wood-frame-with-parchment art (PurchaseCardFrame.png, 500x500, square) —
-        /// replaces the earlier flat PlaceholderSprite border+background composition. Tinted
-        /// LockedTint for a not-yet-owned item (same "dim it" convention the icon already used) so
-        /// a locked tile still reads as locked at a glance, not just via its status text.</summary>
+        /// replaces the earlier flat PlaceholderSprite border+background composition. Every tile
+        /// built here is already owned (see the class doc comment), so this always renders at full
+        /// white — no locked/dimmed variant needed any more.</summary>
         [SerializeField] private Sprite tileFrameSprite;
 
         /// <summary>Same green checkmark ribbon CosmeticPurchaseScreen overlays on an owned item —
@@ -173,8 +171,11 @@ namespace FarmFuryArcade.UI
             {
                 string cosmeticId = ResolveCosmeticId(entry);
                 bool owned = SaveManager.Instance.IsCosmeticOwned(cosmeticId);
-                BuildTile(entry, cosmeticId, owned);
-                if (!owned)
+                if (owned)
+                {
+                    BuildTile(entry, cosmeticId);
+                }
+                else
                 {
                     _notOwnedScratch.Add(entry);
                 }
@@ -205,17 +206,17 @@ namespace FarmFuryArcade.UI
             return SaveManager.Instance.GetEquippedCosmetic(CosmeticType.Hat, active) == cosmeticId;
         }
 
-        private void BuildTile(CatalogEntry entry, string cosmeticId, bool owned)
+        private void BuildTile(CatalogEntry entry, string cosmeticId)
         {
-            bool equipped = owned && IsEquipped(entry, cosmeticId);
+            bool equipped = IsEquipped(entry, cosmeticId);
 
             var tileGO = new GameObject($"Tile_{cosmeticId}", typeof(RectTransform), typeof(Image), typeof(Button));
             tileGO.transform.SetParent(tileContainer, false);
             var tileImage = tileGO.GetComponent<Image>();
             tileImage.sprite = tileFrameSprite;
             tileImage.preserveAspect = true;
-            tileImage.color = owned ? Color.white : LockedTint;
-            tileGO.GetComponent<Button>().onClick.AddListener(() => HandleTileTapped(entry, cosmeticId, owned));
+            tileImage.color = Color.white;
+            tileGO.GetComponent<Button>().onClick.AddListener(() => HandleTileTapped(entry, cosmeticId));
             _tiles.Add(tileGO);
 
             // Content sits inside TileContentInset..1-TileContentInset — the pixel-measured
@@ -245,30 +246,15 @@ namespace FarmFuryArcade.UI
                 ? cosmeticData.previewSprite
                 : PlaceholderSprite.Get(Color.gray);
             iconImage.preserveAspect = true;
-            iconImage.color = owned ? Color.white : LockedTint;
+            iconImage.color = Color.white;
             var iconLayout = iconGO.GetComponent<LayoutElement>();
             iconLayout.preferredWidth = TileIconSize;
             iconLayout.preferredHeight = TileIconSize;
 
             CreateTileText(contentGO.transform, entry.displayName, 18f, FontStyles.Bold, NameColor, 26f);
 
-            string statusLabel;
-            Color statusColor;
-            if (equipped)
-            {
-                statusLabel = "Equipped";
-                statusColor = EquippedStatusColor;
-            }
-            else if (owned)
-            {
-                statusLabel = "Tap to Equip";
-                statusColor = OwnedStatusColor;
-            }
-            else
-            {
-                statusLabel = IAPManager.Instance != null ? IAPManager.Instance.GetPriceString(entry.productId) : string.Empty;
-                statusColor = PriceStatusColor;
-            }
+            string statusLabel = equipped ? "Equipped" : "Tap to Equip";
+            Color statusColor = equipped ? EquippedStatusColor : OwnedStatusColor;
             CreateTileText(contentGO.transform, statusLabel, 16f, FontStyles.Normal, statusColor, 22f);
 
             if (equipped)
@@ -314,14 +300,8 @@ namespace FarmFuryArcade.UI
             return tmp;
         }
 
-        private void HandleTileTapped(CatalogEntry entry, string cosmeticId, bool owned)
+        private void HandleTileTapped(CatalogEntry entry, string cosmeticId)
         {
-            if (!owned)
-            {
-                OpenPurchaseScreen();
-                return;
-            }
-
             bool equipped = IsEquipped(entry, cosmeticId);
             string newValue = equipped ? string.Empty : cosmeticId;
 

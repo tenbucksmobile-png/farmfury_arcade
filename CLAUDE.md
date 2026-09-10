@@ -383,6 +383,13 @@ mostly-upward with a wide spread, under simple gravity, same "procedural placeho
 and a paid coin/ad revive both fall through to it (see "Monetisation" below) — so the burst fires
 either way.
 
+**Enlarged 2026-09-11 per direct feedback ("I can hardly see it").** Piece scale was 0.06-0.11 world
+units — a sliver against a full 1-unit grid cell at this game's fixed per-tile screen-height ratio
+(`CameraFollow.CellScreenHeightFraction`, ~10.5% of screen height per tile — see "Camera" above) —
+and `Lifetime` was 0.7s, gone almost as soon as it appeared. Piece scale roughly doubled
+(0.14-0.22), `PieceCount` 20→30, `Lifetime` 0.7s→1.0s, launch speed bumped (2.2-4.2 → 2.8-5.2) to
+match the bigger pieces so the burst still pops outward briskly rather than reading as a slow drift.
+
 **Per-robot targeting** (`GetTargetPosition()`, used only in Chase — Scatter/Vulnerable/Returning
 targets are resolved generically by `RobotBase.ResolveTarget()`):
 
@@ -964,32 +971,36 @@ interaction so gameplay code never touches `Unity.Services.LevelPlay` directly) 
   from a stuck ad. `onReady` is now guaranteed to fire within `InterstitialAdTimeoutSeconds`
   regardless of what the SDK does, same resolve-once-guaranteed pattern `ShowRewardedAd` uses.
 
-**Full-screen pre-gameplay "combo hype" flash (2026-09-09, `Scripts/UI/ComboHypeScreen.cs`).**
-Automatic, exciting, full-screen banner shown right before a level actually begins — inserted into
-the SAME freeze gate the interstitial-ad logic above already uses, running FIRST: `GameManager.
-LoadLevel` now fires a new `event Action<Action> OnLevelHypeRequested` (same "manager raises event,
-screen reacts" decoupling convention as `OnReviveOffered` — `GameManager` never references the UI
-screen type directly) before the ad-gate logic, and only proceeds to the ad gate (or unfreezes
-directly) once the hype screen's own callback fires. `Time.timeScale` is frozen for the WHOLE
-combined gate (hype + ad), same convention as before — the freeze condition is now
-`OnLevelHypeRequested != null || AdManager.Instance != null` instead of just the latter.
+**Full-screen "combo hype" reveal, triggered on a REAL combo (`Scripts/UI/ComboHypeScreen.cs`).**
+Originally shipped 2026-09-09 as an automatic banner shown right before every level began
+(picking one of the 8 combo banners at random, regardless of whether the player had ever actually
+triggered a combo) — reworked 2026-09-11 per direct feedback ("we had developed a design when a
+user gets a combo that a page appears showing the combo artwork before going back into gameplay")
+into what that original design actually called for: `ComboHypeScreen` now subscribes directly to
+`ComboSystem.OnComboTriggered` and shows the page **only** the instant a real combo (two specific
+characters swapped-to in the right order) actually fires, never at level start and never on an
+ordinary swap. It looks up the exact `Combo_*.png` banner for the combo that just fired (matched by
+name against `ComboSystem`'s own trigger strings — "Feather Storm"/"Earthquake Roll"/"Skip
+Shatter"/"Double Slam"/"Crossfire"/"Iron Stampede"/"Kick and Roll"/"Full Fury"), shows it centred
+over a dimmed copy of the current world's own gameplay backdrop
+(`TileMapRenderer.MazeArtSet.backdropSprite`, resolved live at trigger time — same "faded scenery,
+not flat black" convention `NewWorldUnlockScreen` uses), freezes `Time.timeScale` for the duration
+(same convention Pause/Revive use, so robots/the level timer don't run behind it), plays the
+`Combo.mp3` stinger, holds ~5s total, fades out, unfreezes, and hands control straight back to
+gameplay — no callback-threading through `GameManager.LoadLevel` needed any more, since this no
+longer has anything to do with level start. `GameManager.OnLevelHypeRequested` (the old
+manager-raises-event plumbing this used to route through) is gone entirely; `LoadLevel`'s own
+freeze gate is unchanged except that it's now purely the interstitial-ad gate described above, with
+an inline comment noting the hype banner is no longer part of it. The older in-maze "COMBO!
+{name}" text toast (`ComboNotificationBanner`) was removed once this full-page reveal replaced it
+as the sole on-screen cue for a triggered combo.
 
-Unlike the ad gate, the hype phase deliberately does **not** set `AudioListener.pause` — its own
-`Combo.mp3` stinger (`AudioManager.PlayComboSfx`) needs to be heard over the level's own world music,
-which already started a moment earlier in `LoadLevel`. Only the interstitial phase that follows
-still mutes audio, exactly as before this feature existed.
-
-`ComboHypeScreen` picks one of the 8 `Combo_*.png` banners (CrossFire/DoubleSlam/EarthquakeRoll/
-Featherstorm/FullFury/IronStampede/KicknRoll/SkipShatter — bigger, full-banner versions of the same
-8 combos `ComboNotificationBanner`'s small in-maze toast already covers, dropped in alongside
-`Combo.mp3`) at random, fades in (~0.4s), holds for a total of 5s, fades out, then invokes the
-callback. Its root GameObject stays active for the app's whole lifetime — same "always-active,
-alpha-driven visibility" convention `SceneTransitionManager`'s own `FadeOverlay` uses — rather than
-being `SetActive(false)`'d like every other overlay, since starting inactive would mean its
-`OnEnable` event subscription to `GameManager.OnLevelHypeRequested` never fires at all (an inactive
-`GameObject`'s `OnEnable` never runs, and nothing else would ever call `SetActive(true)` on it to
-trigger that subscription in the first place). Falls back to firing the callback immediately if no
-banner art is wired, so a missing-art gap can never block a level from starting.
+Its root GameObject stays active for the app's whole lifetime — same "always-active, alpha-driven
+visibility" convention `SceneTransitionManager`'s own `FadeOverlay` uses — rather than being
+`SetActive(false)`'d like every other overlay, since starting inactive would mean its `OnEnable`
+event subscription to `ComboSystem.OnComboTriggered` never fires at all. Skips the celebration
+entirely (rather than showing a random/wrong banner) if no matching banner art is wired for the
+combo that fired.
 
 **`SaveManager` gained `AdsRemoved`** (bool, persisted — `NotifyLevelLoaded` already early-outs on
 it; `IAPManager`'s Remove Ads purchase now sets it, see "IAP plumbing" below) **and
@@ -1577,6 +1588,29 @@ ActiveCharacter` (falling back to Cluck in Edit mode) and, if a live Play-mode c
 call `CharacterCosmeticRenderer.Refresh()` on it directly so the equip is visible immediately with
 no manual character-swap/level-reload step needed.
 
+**`SaveManager.DebugForceEquipForTesting` had a second real bug (found and fixed 2026-09-11):
+ownership granted here could silently revert itself back to "not owned" on the very next check.**
+It wrote ownership via a raw, unprotected `PlayerPrefs.SetInt(CosmeticOwnedKeyPrefix + cosmeticId,
+1)`, bypassing the checksum write `SetCosmeticOwned`'s own `SetProtectedInt` does (see the economy-
+integrity checksum system, `Scripts/Core/SaveManager.cs`'s own "Economy integrity" region doc
+comment). Any earlier `IsCosmeticOwned(cosmeticId)` check made while the item was still genuinely
+unowned (both `CosmeticPurchaseScreen`'s owned-badge refresh and `LockerScreen`'s own tile filter —
+see its own section above — check every catalog item's ownership on every screen open) already
+self-heals by writing a checksum for value `0` the first time it's asked. This debug helper's later
+raw write to `1` then desynced from that checksum, so the very next real `IsCosmeticOwned` call
+treated it as tampered/corrupted and silently reset it back to `false` — while the separate,
+unprotected equip flags (`SetEquippedCosmetic`/`SetEquippedTrail`) were untouched, so a character
+kept visibly wearing/trailing a cosmetic that ownership checks now denied owning (reported via
+Bessie's baseball cap + a trail vanishing from the newly owned-only Locker grid — see that section
+above). Fixed by routing this helper through the same protected `SetProtectedBool` setter
+`SetCosmeticOwned` uses (already `private static` in the same class, no instance needed) instead of
+the raw `PlayerPrefs` write. A save already in the corrupted split-state is repaired automatically
+by a new `SaveManager.RepairEquippedCosmeticOwnership()`, called once from every `LoadProgress()`:
+for every per-character Hat/Skin equip slot and the global Trail slot, if something is currently
+equipped but `IsCosmeticOwned` denies it, ownership is restored — "equipped implies owned" is a
+real invariant nothing should ever violate, so this is cheap and a no-op on an already-consistent
+save.
+
 **Real bug found and fixed (2026-09-08): `CharacterCosmeticRenderer` was missing from all 8
 character prefabs**, despite `CosmeticWiringBuilder.WireBaseballCaps`/`WireUniversalHats` both
 being designed to add it via the standard `LoadPrefabContents → AddComponent → SaveAsPrefabAsset`
@@ -1692,7 +1726,41 @@ real gap below the new, squatter banner shape. On-disk filename is `LockerAd.png
 matched exactly in code since `AssetDatabase.LoadAssetAtPath` is case-sensitive regardless of the OS
 filesystem (same gotcha `CornfieldSign.png` already has documented elsewhere in this file).
 
-### World Purchase (`Scripts/Data/MazeType.cs`, `Scripts/Utilities/UnlockProgression.cs`, `Scripts/Core/IAPManager.cs`/`SaveManager.cs`/`GameManager.cs`, `Scripts/UI/LevelSelectController.cs`/`SettingsPanel.cs`)
+**Reworked into owned-items-only, real-size header, and a scrollable grid (2026-09-11), across
+several rounds of direct feedback.** First: `LockerScreen.Refresh()` no longer builds a tile at all
+for an item the player doesn't own — the earlier "dim it grey + show its price" locked-tile
+behaviour above is gone; an unowned item now has NO tile here whatsoever, only a mention in the
+"You may like" banner (the discovery/upsell nudge). This was a real, confirmed bug fix, not just a
+design call: a player reported Bessie's purchased baseball cap and a trail visibly equipped in
+gameplay but MISSING from the (already owned-only, per this same change) Locker grid — traced to
+`SaveManager.DebugForceEquipForTesting` granting ownership via a raw `PlayerPrefs.SetInt` that
+bypassed the checksum-protected write `SetCosmeticOwned` uses (see that method's own "second real
+bug" writeup above); fixed the write path and added a one-time
+`SaveManager.RepairEquippedCosmeticOwnership()` self-heal on load (restores ownership for anything
+currently equipped but not owned) to repair saves already in that state.
+
+Second: the header (`LockerBanner.png`) was resized from its original bespoke 231×130 box up to the
+same `CreateHeaderSign`/`StandardHeaderSignSize` (550×310) every other screen in this family uses,
+per feedback it read noticeably smaller than the rest of the app — `LockerBanner.png`'s own 666×375
+source (aspect ~1.776) already nearly matches that standard size's own ~1.774 ratio, so no custom
+sizing was needed once switched over.
+
+Third: the "You may like" banner was removed entirely, "for now," per direct feedback
+("we struggling to get the ad banner right...remove it for now") — a device screenshot showed its
+text spilling past the `LockerAD.png` art's own edge. `Phase5ProjectBuilder.BuildLockerScreen` no
+longer builds the `SuggestionBanner` GameObject at all; `LockerScreen.cs`'s own
+`suggestionRoot`/`suggestionGroup`/`suggestionIcon`/`suggestionText`/`suggestionButton` fields and
+`RefreshSuggestion()` logic are left completely intact (all already null-safe) so it can come back
+later just by re-adding the banner GameObject in the builder and re-wiring those refs.
+
+Fourth: since the taller header (bottom edge now D=365, up from the old D=155) and the removed
+banner both changed how much vertical room is left, the tile grid was reworked from a fixed-size
+`GridLayoutGroup` box into a genuinely scrollable region — a hand-built `ScrollRect` (Viewport/Mask,
+same shape `UIBuilderHelpers.CreateVerticalScrollView` uses elsewhere, hand-rolled here since that
+helper's Content is a `VerticalLayoutGroup`, not the `GridLayoutGroup` this screen needs) whose
+Content carries a `GridLayoutGroup` + `ContentSizeFitter` so it auto-sizes to however many owned
+items there actually are (0 up to all 7) and scrolls if that's more than the visible ~445px-tall
+region shows at once, rather than a fixed box sized for "however many rows might exist." (`Scripts/Data/MazeType.cs`, `Scripts/Utilities/UnlockProgression.cs`, `Scripts/Core/IAPManager.cs`/`SaveManager.cs`/`GameManager.cs`, `Scripts/UI/LevelSelectController.cs`/`SettingsPanel.cs`)
 
 2026-08-25: a whole new $3.99-IAP-gated 25-level world, not a cosmetic — replaced an earlier
 "MazeTheme" idea (buy art that reskins a world you already have, see the removal note under
@@ -2396,21 +2464,41 @@ of feedback:**
   margin math needed — the list just gets longer and scrolls further, instead of shrinking the
   cards' own space.
 
-**Character Story rebuilt from one continuous scrollable list into 3 tabs (2026-09-09), per direct
-feedback that it had grown into "a very long scrolling list."** The same session also added a "How
-to Play" section (coins, scoring/stars, power crops & robot chains, abilities/combos —
-`CharacterStoryScreen.GameplayTopics`), which made the single-list version noticeably longer on top
-of the narrative intro and all 8 character rows, prompting the rework. `CharacterStoryScreen` now
-has 3 independent `ScrollRect`s (Story/How to Play/Characters), each built by its own
-`BuildTabScrollView` local function in `Phase5ProjectBuilder.BuildCharacterStoryPlaceholder`, sharing
-the same footprint and toggled via `SetActive` by `CharacterStoryScreen.SelectTab`. A `TabBar`
-(`CreateHorizontalGroup`, 3 `CreateButton`s) sits above them; tab buttons tint gold (active) / brown
-(inactive) — same on/off tint-only convention as `LockedTint` elsewhere, no dedicated tab art yet.
-Defaults to the Story tab on every `OnEnable`. The old single `cardContainer` field was split into
-`charactersContainer` (Characters tab) and `howToPlayContainer` (How to Play tab); `BuildRow`/
-`BuildInfoRow` now take an explicit parent `Transform` instead of always targeting one shared list.
-Running **Phase 5 > Build All** is required to pick this up (a genuine layout/hierarchy change, not
-just script logic) — re-run **Wire Uploaded Art** afterward if you use it.
+**Character Story rebuilt from one continuous scrollable list into tabs (2026-09-09), per direct
+feedback that it had grown into "a very long scrolling list," then grown from 3 tabs to 5 across two
+later sessions.** The original rework (2026-09-09) split the screen into 3 independent `ScrollRect`s
+(Story/How to Play/Characters) after a "How to Play" section (coins, scoring/stars, power crops &
+robot chains, abilities/combos — `CharacterStoryScreen.GameplayTopics`) made the single-list version
+noticeably longer on top of the narrative intro and all 8 character rows. A **Cosmetics tab** was
+added 2026-09-11 (same day How to Play's rows were made more illustrated/kid-friendly) — one row per
+purchasable hat/trail (`BuildCosmeticRow`), reusing the exact price-baked icon art
+(`sombrero_price.png` etc.) `CosmeticsHubScreen`'s own purchase buttons show, with a short playful
+blurb per item (`CharacterStoryScreen.CosmeticBlurbs`) instead of the Shop's bare price tag — purely
+informational, tapping a row does nothing, no purchase flow here. A **Combos tab** was added later
+the same day, per a follow-up request to "break down the combos": How to Play's old single
+"Abilities & Combos" teaser row (dropped from `GameplayTopics`, now only 3 entries) only gestured at
+the system's existence, so this tab actually lists all 8 `ComboSystem` combos, each with its own
+real `Combo_*.png` banner art and a "Trigger:"/"Effect:" blurb spelling out exactly how to earn it
+and what it does (`CharacterStoryScreen.ComboEntries`, `BuildComboRow`). Its icon-left/text-right
+row shape (300x180 art column, 220-tall row, matching `BuildInfoRow`/`BuildCosmeticRow`'s own
+silhouette) went through one round-trip: an initial pass made the art span the row's FULL width at a
+per-combo-computed height (to avoid stretching non-square `Combo_*.png` art into one fixed box), but
+that read as oversized against every other tab — walked back per direct feedback to the original
+fixed 220-tall row with the art enlarged only within its own left column (300 wide, up from the
+original 130/190 square), "very much like the character cards."
+
+`CharacterStoryScreen` now has 5 independent `ScrollRect`s (Story/How to Play/Combos/Characters/
+Cosmetics — in that tab-bar order, index 0-4), each built by its own `BuildTabScrollView` local
+function in `Phase5ProjectBuilder.BuildCharacterStoryPlaceholder`, sharing the same footprint and
+toggled via `SetActive` by `CharacterStoryScreen.SelectTab`. A `TabBar` (`CreateHorizontalGroup`,
+one `CreateButton` per tab — its `HorizontalLayoutGroup` auto-divides the fixed-width bar across
+however many buttons it holds, so adding the 4th/5th tab needed no width retuning) sits above them;
+tab buttons tint gold (active) / brown (inactive) — same on/off tint-only convention as `LockedTint`
+elsewhere, no dedicated tab art yet. Defaults to the Story tab on every `OnEnable`. `BuildRow`/
+`BuildInfoRow`/`BuildComboRow`/`BuildCosmeticRow` each take an explicit parent `Transform` instead
+of targeting one shared list. Running **Phase 5 > Build All** is required to pick up any tab-count/
+layout change here (a genuine layout/hierarchy change, not just script logic) — re-run **Wire
+Uploaded Art** afterward if you use it.
 
 **Several other Settings-family screens got sizing/position fixes (2026-08-21), all per direct
 screenshot review, no new mockup:**
@@ -3535,6 +3623,16 @@ values from the GDD's color palette where one exists (e.g. walls = Wall Brown `#
   UI screen) fires the instant the card reveal starts, landing alongside the pop-in animation above
   rather than waiting for it to finish. Parented last-sibling so it draws over everything else on
   the overlay.
+  **Retimed and enlarged (2026-09-11) per direct feedback ("it currently fires so quickly its over
+  before the character card is seen — perhaps slow it down as well — create more").** Firing at
+  `t=0` meant the burst's own short life was already ticking down while the card was still nearly
+  invisible (alpha only ~24% by `t=0.15s` under the reveal's `*1.6` fade-in curve).
+  `NewCharacterUnlockScreen.FireConfettiDelayed` now waits `ConfettiRevealDelaySeconds` (0.15s,
+  unscaled, in its own parallel coroutine so it never delays the card's own reveal start) before
+  calling `confettiBurst.Burst(ConfettiParticleCount, ConfettiDurationSeconds)` — 110 pieces over
+  3.5s, up from `Burst()`'s own defaults (70/2s) — so the burst lands once the card is actually
+  visible and stays on screen well past the card settling instead of racing to finish during the
+  reveal.
 - **Device-frame screenshot review pass (2026-08-01)**, following up on the 2026-07-31 mockups
   above with actual on-device sizing/positioning corrections, screen by screen:
   - **Settings** — title banner enlarged (~1.23x, `TitleImage`) but kept at its original top
@@ -3992,7 +4090,7 @@ happened rather than which clip field to reach into):
 | `PowerReady.mp3` | `PlayPowerReadySfx` | `AbilityBase.UpdateCooldown`, the single frame a character's ability cooldown reaches exactly 0 (not power-pellet activation — that's a separate, unrelated event; see `PlayEatRobotMusic` below) |
 | `RarePellet_pickup.mp3` | `PlayRarePelletPickupSfx` | `CropCollector`, only when `pellet.pelletType != PowerPelletType.Sunflower` — same "rare tier" gate `PelletCollectBurst` uses. Fires *before* `PowerPelletManager.ActivatePower` (which crossfades music to `EatRobot.mp3`), so the pickup cue is heard first rather than being stepped on by the music swap |
 | `RobotSpawn.mp3` | `PlayRobotRespawnSfx` | `RobotSpawner.SpawnRobot` — every robot spawn, including level-start ones. Used to fire only from a defeated robot's mid-level walk back to the factory (`RobotBase.ArriveAtFactory`); that flow was removed (defeated robots now disappear permanently for the rest of the maze — see the Robot AI state-machine note above), so this was repointed to the only spawn event left, or it would have become dead code with no call site at all |
-| `Combo.mp3` | `PlayComboSfx` | `ComboHypeScreen`, once when its full-screen pre-gameplay banner appears — see the "Ad mediation" section above. Deliberately not muted by the interstitial-ad `AudioListener.pause` block, since it runs before that gate |
+| `Combo.mp3` | `PlayComboSfx` | `ComboHypeScreen`, once when its full-screen reveal appears — now on a real `ComboSystem.OnComboTriggered` mid-gameplay, not at level start (see "Ad mediation" section above for the level-start gate this used to share, which it's no longer part of) |
 
 When more art lands, wire it into the existing prefabs (`Prefabs/Characters/`, `Prefabs/Robots/`,
 `Prefabs/Blocks/`) via `ArtWiringBuilder` rather than creating new prefabs.

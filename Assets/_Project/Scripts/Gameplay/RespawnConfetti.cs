@@ -11,7 +11,15 @@ namespace FarmFuryArcade.Gameplay
     /// (a ring of placeholder-coloured squares flying outward and fading) — this is a denser,
     /// gravity-affected variant matching ConfettiBurst's UI-canvas palette/feel, just built from
     /// SpriteRenderers instead of RectTransform/Image since it needs to sit in world space at the
-    /// character's own grid position (not a full-screen canvas overlay).</summary>
+    /// character's own grid position (not a full-screen canvas overlay).
+    ///
+    /// Enlarged 2026-09-11 per direct feedback ("I can hardly see it") — the original piece scale
+    /// (0.06-0.11 world units) was tiny relative to a 1-unit grid cell, especially at this game's
+    /// fixed per-tile screen-height ratio (CameraFollow.CellScreenHeightFraction, ~10.5% of screen
+    /// height per tile — see CLAUDE.md's "Camera" section), and the short 0.7s lifetime meant it was
+    /// gone again almost as soon as it appeared. Piece scale roughly doubled, piece count and
+    /// lifetime both increased, and launch speed scaled up to match the bigger pieces so the burst
+    /// still reads as a tight celebratory pop rather than a slow-drifting cloud.</summary>
     public static class RespawnConfetti
     {
         private static readonly Color[] Palette =
@@ -25,8 +33,8 @@ namespace FarmFuryArcade.Gameplay
             new Color(0.95f, 0.5f, 0.75f),  // pink
         };
 
-        private const int PieceCount = 20;
-        private const float Lifetime = 0.7f;
+        private const int PieceCount = 30; // was 20
+        private const float Lifetime = 1.0f; // was 0.7f — stays on screen noticeably longer
         private const float Gravity = 6f; // world units/sec^2
 
         /// <summary>Spawns a self-destroying burst rooted at worldPosition. Fire-and-forget — the
@@ -60,12 +68,16 @@ namespace FarmFuryArcade.Gameplay
                 sr.sprite = PlaceholderSprite.Get(color);
                 sr.sortingOrder = 20; // above the character sprite, same reasoning EggHazard uses
 
-                float scale = Random.Range(0.06f, 0.11f);
+                // Roughly doubled (was 0.06-0.11) — the old size read as barely-visible specks
+                // against a full 1-unit grid cell at this game's fixed per-tile screen size.
+                float scale = Random.Range(0.14f, 0.22f);
                 pieceGO.transform.localScale = Vector3.one * scale;
 
                 // Mostly-upward launch with a wide spread (60-120 degrees, centred on straight up
-                // at 90) so it reads as a celebratory pop rather than a directional spray.
-                float speed = Random.Range(2.2f, 4.2f);
+                // at 90) so it reads as a celebratory pop rather than a directional spray. Speed
+                // bumped up to match the larger pieces so the burst still pops outward briskly
+                // rather than looking like it's merely drifting.
+                float speed = Random.Range(2.8f, 5.2f);
                 float angle = Random.Range(60f, 120f) * Mathf.Deg2Rad;
                 var velocity = new Vector2(Mathf.Cos(angle), Mathf.Sin(angle)) * speed;
                 float angularVelocity = Random.Range(-540f, 540f);

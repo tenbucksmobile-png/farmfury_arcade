@@ -23,8 +23,11 @@ namespace FarmFuryArcade.UI
     /// Made more animated/exciting (2026-09-11, per direct feedback) two ways: the card's reveal
     /// now overshoots past full size before settling (EaseOutBack, same "pop" curve
     /// NewWorldUnlockScreen's own badge burst-in already uses) instead of a plain ease-in, and a
-    /// ConfettiBurst fires the instant the reveal starts, so the very first thing the player sees is
-    /// colour raining across the whole screen rather than just the card quietly fading up.
+    /// ConfettiBurst fires a short beat after the reveal starts (ConfettiRevealDelaySeconds — tuned
+    /// again the same day, see that constant's own doc comment: firing at t=0 meant the burst's
+    /// own short life was already ticking down while the card was still nearly invisible), bigger
+    /// and slower than ConfettiBurst's own defaults so it stays on screen well past the card
+    /// settling rather than racing to finish during the reveal.
     /// </summary>
     public class NewCharacterUnlockScreen : MonoBehaviour
     {
@@ -37,6 +40,20 @@ namespace FarmFuryArcade.UI
 
         [Tooltip("Starting scale (as a fraction of full size) the card reveals from.")]
         [SerializeField] private float cardRevealStartScale = 0.4f;
+
+        // Confetti timing/scale tuned 2026-09-11 per direct feedback ("it currently fires so
+        // quickly its over before the character card is seen — perhaps slow it down as well —
+        // create more"). Firing Burst() at t=0 (the old behaviour) meant the confetti's own life
+        // was already ticking down while the card was still nearly invisible (alpha only reaches
+        // ~24% by t=0.15s under the *1.6 fade-in curve below) — by the time the card actually
+        // read as "there," a chunk of a short 2s burst had already played out unseen behind it.
+        // ConfettiRevealDelaySeconds holds the burst until the card is meaningfully visible;
+        // ConfettiParticleCount/ConfettiDurationSeconds replace ConfettiBurst.Burst()'s own
+        // defaults (70 / 2f) with a bigger, slower burst that stays on screen well past the card's
+        // own reveal instead of racing to finish during it.
+        private const float ConfettiRevealDelaySeconds = 0.15f;
+        private const int ConfettiParticleCount = 110;
+        private const float ConfettiDurationSeconds = 3.5f;
 
         private Coroutine _showRoutine;
         private System.Action _onDismissed;
@@ -111,8 +128,9 @@ namespace FarmFuryArcade.UI
 
         /// <summary>Scales the card up from cardRevealStartScale to full size (overshooting past
         /// full size before settling — EaseOutBack, not a plain ease-in) while fading it in, firing
-        /// a ConfettiBurst the instant the reveal starts so the two land together, holds at full
-        /// reveal until tapped, then hides the whole overlay.
+        /// a ConfettiBurst a short beat after the reveal starts — see ConfettiRevealDelaySeconds'
+        /// own doc comment for why not instantly — holds at full reveal until tapped, then hides
+        /// the whole overlay.
         ///
         /// Scale, not rotation: an earlier attempt animated the card via a Y-axis RectTransform
         /// rotation (a cheap "card flip"), but this Canvas renders in RenderMode.ScreenSpaceOverlay,
@@ -122,7 +140,7 @@ namespace FarmFuryArcade.UI
         /// degenerate mid-state.</summary>
         private IEnumerator RevealThenWaitForTap()
         {
-            confettiBurst?.Burst();
+            StartCoroutine(FireConfettiDelayed());
 
             if (characterCardImage != null)
             {
@@ -165,6 +183,17 @@ namespace FarmFuryArcade.UI
             var callback = _onDismissed;
             _onDismissed = null;
             callback?.Invoke();
+        }
+
+        /// <summary>Waits ConfettiRevealDelaySeconds (unscaled, matching the reveal tween's own
+        /// Time.unscaledDeltaTime timing) before firing the burst, then requests the bigger/slower
+        /// burst directly — see the constants' own doc comment above for why. Runs as its own
+        /// coroutine, in parallel with the card's scale/fade tween, rather than inline in
+        /// RevealThenWaitForTap, so a short wait here never delays the card's own reveal start.</summary>
+        private IEnumerator FireConfettiDelayed()
+        {
+            yield return new WaitForSecondsRealtime(ConfettiRevealDelaySeconds);
+            confettiBurst?.Burst(ConfettiParticleCount, ConfettiDurationSeconds);
         }
     }
 }
