@@ -2652,44 +2652,49 @@ namespace FarmFuryArcade.EditorTools
             AnchorTopCenter((RectTransform)bannerGO.transform, new Vector2(231f, 130f), new Vector2(0f, -25f));
 
             // "You may like" upsell banner — a small pill just below the header, hidden until
-            // LockerScreen.RefreshSuggestion picks a not-yet-owned item and fades it in. Built here
-            // (not baked art) since no dedicated banner art exists yet — plain layered
-            // PlaceholderSprite composition, same "border + background" convention CharacterStoryScreen
-            // uses for its own intro box.
+            // LockerScreen.RefreshSuggestion picks a not-yet-owned item and fades it in.
             //
-            // Real bug found and fixed here (2026-09-10): this banner's bottom edge (old D=280, at
-            // height 110/offset -170) reached 10px PAST the tile grid's own top edge (D=270,
-            // untouched below) — since TileGrid is a later sibling than this GameObject, it drew on
-            // top, silently clipping that 10px sliver of the suggestion banner out of view whenever
-            // it was shown. Reported as "the info banner appears... but is behind the cosmetics."
-            // Height trimmed 110->84 (icon/text shrunk to match, see below) to open a real ~16px gap
-            // above the grid instead, at the same unchanged offset (0,-170).
+            // Real LockerAD.png art (2026-09-10) replaces the earlier flat PlaceholderSprite
+            // composition (a commissioned Kling AI banner: mascot + wood-sign border, with open
+            // space left for the dynamic icon/text this code lays on top). Source is 900x356
+            // (aspect ~2.528), a much squatter box than the old 760x84 wide pill, so the container
+            // is resized to that real aspect instead — the old flat "Background" inner panel is
+            // gone entirely too (the art already provides its own frame/backing, so a second dark
+            // rectangle drawn on top of it would just look wrong). Content padding.left is widened
+            // (16->100) to clear the mascot art on the banner's left side — a first-pass estimate,
+            // no visual Editor access this session, nudge once actually seen in Play mode.
+            //
+            // Sizing verified (not eyeballed) against the same top-down D-from-screen-top math used
+            // throughout this method: top D=170 (unchanged, 15px below the header's own D=155
+            // bottom edge), height 119 -> bottom D=289. TileGrid's own top edge was pushed from
+            // D=270 to D=304 (see its anchoredPosition below) to keep a verified ~15px gap instead
+            // of the fixed D=270 this banner used to just barely clear. Real bug this whole pass
+            // fixed originally (2026-09-10): the banner's OLD bottom edge (D=280 at the previous
+            // 110-tall size) reached 10px PAST the grid's old D=270 top edge, and since TileGrid is
+            // a later sibling it drew on top, silently clipping that sliver out of view — reported
+            // as "the info banner appears... but is behind the cosmetics."
             var suggestionRoot = new GameObject("SuggestionBanner", typeof(RectTransform), typeof(Image), typeof(Button));
             suggestionRoot.transform.SetParent(root.transform, false);
-            suggestionRoot.GetComponent<Image>().sprite = PlaceholderSprite.Get(new Color(0.70f, 0.55f, 0.20f));
-            AnchorTopCenter((RectTransform)suggestionRoot.transform, new Vector2(760f, 84f), new Vector2(0f, -170f));
+            var suggestionImage = suggestionRoot.GetComponent<Image>();
+            // Filename is "LockerAd.png" on disk (lowercase 'd') — matched exactly here since
+            // AssetDatabase.LoadAssetAtPath is case-sensitive regardless of the OS filesystem (see
+            // the CornfieldSign.png note elsewhere in this project for the same gotcha).
+            suggestionImage.sprite = LoadUiSprite("LockerAd.png");
+            suggestionImage.preserveAspect = true;
+            AnchorTopCenter((RectTransform)suggestionRoot.transform, new Vector2(300f, 119f), new Vector2(0f, -170f));
             var suggestionGroup = suggestionRoot.AddComponent<CanvasGroup>();
             suggestionGroup.alpha = 0f;
 
-            var suggestionBgGO = new GameObject("Background", typeof(RectTransform), typeof(Image));
-            suggestionBgGO.transform.SetParent(suggestionRoot.transform, false);
-            var suggestionBgRect = (RectTransform)suggestionBgGO.transform;
-            suggestionBgRect.anchorMin = Vector2.zero;
-            suggestionBgRect.anchorMax = Vector2.one;
-            suggestionBgRect.offsetMin = new Vector2(5f, 5f);
-            suggestionBgRect.offsetMax = new Vector2(-5f, -5f);
-            suggestionBgGO.GetComponent<Image>().sprite = PlaceholderSprite.Get(new Color(0.16f, 0.10f, 0.05f, 0.92f));
-
             var suggestionContentGO = new GameObject("Content", typeof(RectTransform), typeof(HorizontalLayoutGroup));
-            suggestionContentGO.transform.SetParent(suggestionBgGO.transform, false);
+            suggestionContentGO.transform.SetParent(suggestionRoot.transform, false);
             var suggestionContentRect = (RectTransform)suggestionContentGO.transform;
             suggestionContentRect.anchorMin = Vector2.zero;
             suggestionContentRect.anchorMax = Vector2.one;
             suggestionContentRect.offsetMin = Vector2.zero;
             suggestionContentRect.offsetMax = Vector2.zero;
             var suggestionHlg = suggestionContentGO.GetComponent<HorizontalLayoutGroup>();
-            suggestionHlg.spacing = 16f;
-            suggestionHlg.padding = new RectOffset(16, 16, 10, 10);
+            suggestionHlg.spacing = 10f;
+            suggestionHlg.padding = new RectOffset(100, 16, 10, 10);
             suggestionHlg.childAlignment = TextAnchor.MiddleLeft;
             suggestionHlg.childControlWidth = false;
             suggestionHlg.childControlHeight = false;
@@ -2701,19 +2706,20 @@ namespace FarmFuryArcade.EditorTools
             var suggestionIconImage = suggestionIconGO.GetComponent<Image>();
             suggestionIconImage.preserveAspect = true;
             var suggestionIconLayout = suggestionIconGO.GetComponent<LayoutElement>();
-            // Shrunk 80->64 alongside the banner's own 110->84 height trim above, so the icon still
-            // fits cleanly inside the padded (10 top/bottom) content area (64+20=84, an exact fit).
-            suggestionIconLayout.preferredWidth = 64f;
-            suggestionIconLayout.preferredHeight = 64f;
+            // Shrunk 64->56 alongside the banner's own narrower real-art footprint, so the
+            // icon+text pair still fits the reduced content width (300 - 100 - 16 padding - 56 icon
+            // - 10 spacing = 118 left for text).
+            suggestionIconLayout.preferredWidth = 56f;
+            suggestionIconLayout.preferredHeight = 56f;
 
             var suggestionTextGO = new GameObject("Text", typeof(RectTransform), typeof(LayoutElement));
             suggestionTextGO.transform.SetParent(suggestionContentGO.transform, false);
             var suggestionTextLayout = suggestionTextGO.GetComponent<LayoutElement>();
-            suggestionTextLayout.preferredWidth = 480f;
-            suggestionTextLayout.preferredHeight = 64f;
+            suggestionTextLayout.preferredWidth = 118f;
+            suggestionTextLayout.preferredHeight = 56f;
             var suggestionText = suggestionTextGO.AddComponent<TextMeshProUGUI>();
             suggestionText.font = TMP_Settings.defaultFontAsset;
-            suggestionText.fontSize = 22f;
+            suggestionText.fontSize = 17f;
             suggestionText.color = new Color(0.97f, 0.94f, 0.86f);
             suggestionText.alignment = TextAlignmentOptions.MidlineLeft;
             suggestionText.enableWordWrapping = true;
@@ -2734,7 +2740,10 @@ namespace FarmFuryArcade.EditorTools
             // — was 300x330, a mismatched aspect that would have let Image.preserveAspect letterbox
             // the real art inside each tile instead of filling it cleanly.
             tileContainerRect.sizeDelta = new Vector2(1360f, 660f);
-            tileContainerRect.anchoredPosition = new Vector2(0f, -60f);
+            // Pushed down slightly (top-edge D 270->304, anchoredPosition.y -60->-94) alongside the
+            // real LockerAD.png suggestion banner above — see that banner's own doc comment for the
+            // verified D-from-screen-top math this keeps a real ~15px gap against.
+            tileContainerRect.anchoredPosition = new Vector2(0f, -94f);
             var tileGrid = tileContainerGO.GetComponent<GridLayoutGroup>();
             tileGrid.cellSize = new Vector2(300f, 300f);
             tileGrid.spacing = new Vector2(30f, 30f);
