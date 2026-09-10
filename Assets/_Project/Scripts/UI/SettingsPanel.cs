@@ -66,23 +66,34 @@ namespace FarmFuryArcade.UI
             {
                 leaderboardsButton.onClick.AddListener(() =>
                 {
-                    gameObject.SetActive(false);
-                    if (_opener != null)
+                    // Real bug found and fixed (2026-09-11): this used to hide Settings/_opener
+                    // synchronously, THEN call ShowOnly — but ShowOnly's own fade only reaches full
+                    // opaque black partway through its ramp (fadeSeconds, not instant), so for that
+                    // whole ramp-up window Main Menu (the screenRoot now exposed underneath the
+                    // just-hidden overlays) was visible through the still-transparent fade before
+                    // Leaderboards actually swapped in — read as "the landing page flashes for a
+                    // split second before Leaderboards opens." Fixed by passing the hide logic in
+                    // as ShowOnly's new beforeSwap callback instead, which only runs once the fade
+                    // has already reached full opaque black, same as every other screenRoot swap.
+                    SceneTransitionManager.Instance.ShowOnly(leaderboardsScreen, () =>
                     {
-                        // Pause needs its own GameState.Paused/Time.timeScale=0 reset too, not just
-                        // hiding — see CloseForNavigation's own doc comment. MenuHubScreen (Main
-                        // Menu's opener) has no such state and just needs to be hidden.
-                        var pause = _opener.GetComponent<PauseMenuController>();
-                        if (pause != null)
+                        gameObject.SetActive(false);
+                        if (_opener != null)
                         {
-                            pause.CloseForNavigation();
+                            // Pause needs its own GameState.Paused/Time.timeScale=0 reset too, not
+                            // just hiding — see CloseForNavigation's own doc comment. MenuHubScreen
+                            // (Main Menu's opener) has no such state and just needs to be hidden.
+                            var pause = _opener.GetComponent<PauseMenuController>();
+                            if (pause != null)
+                            {
+                                pause.CloseForNavigation();
+                            }
+                            else
+                            {
+                                _opener.SetActive(false);
+                            }
                         }
-                        else
-                        {
-                            _opener.SetActive(false);
-                        }
-                    }
-                    SceneTransitionManager.Instance.ShowOnly(leaderboardsScreen);
+                    });
                 });
             }
             if (characterStoryButton != null && characterStoryScreen != null)

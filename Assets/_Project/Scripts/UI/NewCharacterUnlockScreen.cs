@@ -19,13 +19,20 @@ namespace FarmFuryArcade.UI
     /// feedback that a timed fade-out didn't give the player enough control/time to actually look at
     /// the reveal. Progress is already saved by UnlockManager at the moment of unlock; this screen
     /// is purely presentational.
+    ///
+    /// Made more animated/exciting (2026-09-11, per direct feedback) two ways: the card's reveal
+    /// now overshoots past full size before settling (EaseOutBack, same "pop" curve
+    /// NewWorldUnlockScreen's own badge burst-in already uses) instead of a plain ease-in, and a
+    /// ConfettiBurst fires the instant the reveal starts, so the very first thing the player sees is
+    /// colour raining across the whole screen rather than just the card quietly fading up.
     /// </summary>
     public class NewCharacterUnlockScreen : MonoBehaviour
     {
         [SerializeField] private Image characterCardImage;
         [SerializeField] private Button tapButton;
+        [SerializeField] private ConfettiBurst confettiBurst;
 
-        [Tooltip("Seconds the card's fade-in + scale-up reveal takes.")]
+        [Tooltip("Seconds the card's pop-in reveal takes.")]
         [SerializeField] private float cardRevealDuration = 0.6f;
 
         [Tooltip("Starting scale (as a fraction of full size) the card reveals from.")]
@@ -90,9 +97,22 @@ namespace FarmFuryArcade.UI
             gameObject.SetActive(false);
         }
 
-        /// <summary>Scales the card up from cardRevealStartScale to full size while fading it in
-        /// (a "pop into view" reveal, same convention CharacterSelectCard's selection animation
-        /// uses), holds at full reveal for autoDismissSeconds, then hides the whole overlay.
+        /// <summary>Standard "ease out back" overshoot curve — rises past 1 around 70-90% through
+        /// the tween, then settles to exactly 1 at t=1, giving the pop-in its "burst" feel without
+        /// needing a separate two-phase lerp. Same curve NewWorldUnlockScreen's own badge burst-in
+        /// uses.</summary>
+        private static float EaseOutBack(float t)
+        {
+            const float c1 = 1.70158f;
+            const float c3 = c1 + 1f;
+            float x = t - 1f;
+            return 1f + c3 * x * x * x + c1 * x * x;
+        }
+
+        /// <summary>Scales the card up from cardRevealStartScale to full size (overshooting past
+        /// full size before settling — EaseOutBack, not a plain ease-in) while fading it in, firing
+        /// a ConfettiBurst the instant the reveal starts so the two land together, holds at full
+        /// reveal until tapped, then hides the whole overlay.
         ///
         /// Scale, not rotation: an earlier attempt animated the card via a Y-axis RectTransform
         /// rotation (a cheap "card flip"), but this Canvas renders in RenderMode.ScreenSpaceOverlay,
@@ -102,6 +122,8 @@ namespace FarmFuryArcade.UI
         /// degenerate mid-state.</summary>
         private IEnumerator RevealThenWaitForTap()
         {
+            confettiBurst?.Burst();
+
             if (characterCardImage != null)
             {
                 var cardTransform = characterCardImage.rectTransform;
@@ -113,10 +135,13 @@ namespace FarmFuryArcade.UI
                 {
                     t += Time.unscaledDeltaTime;
                     float progress = Mathf.Clamp01(t / cardRevealDuration);
-                    float eased = Mathf.Sin(progress * Mathf.PI * 0.5f);
+                    float eased = EaseOutBack(progress);
+                    // Fade uses a simple clamp (not the overshooting eased value directly) so alpha
+                    // never overshoots past 1 or dips below 0 during the bounce.
+                    float alpha = Mathf.Clamp01(progress * 1.6f);
 
-                    cardTransform.localScale = Vector3.Lerp(targetScale * cardRevealStartScale, targetScale, eased);
-                    characterCardImage.color = new Color(baseColor.r, baseColor.g, baseColor.b, eased);
+                    cardTransform.localScale = Vector3.LerpUnclamped(targetScale * cardRevealStartScale, targetScale, eased);
+                    characterCardImage.color = new Color(baseColor.r, baseColor.g, baseColor.b, alpha);
 
                     yield return null;
                 }

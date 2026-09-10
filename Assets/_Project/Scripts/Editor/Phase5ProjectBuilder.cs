@@ -66,12 +66,13 @@ namespace FarmFuryArcade.EditorTools
             // continue. Built new for FFArcade_Icon.png/PressStart.png, which landed with no
             // existing slot (there was no title screen in the flow before this).
             var titleScreen = BuildTitleScreen(canvas.transform, mainMenu);
-            var (gameplay, comboBanner) = BuildGameplayHUD(canvas.transform);
-            // Full-screen pre-gameplay hype flash (2026-09-09) — not a screenRoots entry and not
-            // SetActive(false)'d below like every other overlay; its own CanvasGroup alpha (0 at
-            // rest) drives visibility instead, same "always-active, alpha-driven" convention
+            var gameplay = BuildGameplayHUD(canvas.transform);
+            // Full-screen combo hype flash (2026-09-09, rewired 2026-09-10 to fire only on a real
+            // ComboSystem.OnComboTriggered instead of every level start) — not a screenRoots entry
+            // and not SetActive(false)'d below like every other overlay; its own CanvasGroup alpha
+            // (0 at rest) drives visibility instead, same "always-active, alpha-driven" convention
             // BuildFadeOverlay uses, so its OnEnable event subscription to
-            // GameManager.OnLevelHypeRequested fires exactly once at scene load. See
+            // ComboSystem.OnComboTriggered fires exactly once at scene load. See
             // BuildComboHypeScreen's own doc comment.
             BuildComboHypeScreen(canvas.transform);
             var pause = BuildPauseMenu(canvas.transform);
@@ -117,7 +118,7 @@ namespace FarmFuryArcade.EditorTools
             var levelSelect = BuildLevelSelect(canvas.transform, levelTilePrefab, worldShieldPrefab);
 
             WireCrossReferences(mainMenu, gameplay, pause, settings,
-                levelComplete, unlockScreen, levelFailed, roster, leaderboards, chooseCharacter, comboBanner, levelSelect, storeComingSoon, characterStory, worldPurchase, legal, menuHub);
+                levelComplete, unlockScreen, levelFailed, roster, leaderboards, chooseCharacter, levelSelect, storeComingSoon, characterStory, worldPurchase, legal, menuHub);
             // LockerScreen isn't built until after cosmeticsHub (see its own build call above,
             // which happens after gameplay is built) — wired here directly rather than threading a
             // 17th parameter through WireCrossReferences for one extra reference.
@@ -414,24 +415,24 @@ namespace FarmFuryArcade.EditorTools
             return group;
         }
 
-        /// <summary>Full-screen "hype" flash automatically shown right before a level actually
-        /// begins — GameManager.LoadLevel fires OnLevelHypeRequested (freezing Time.timeScale for
-        /// the duration, see that method's own doc comment) and this screen picks one of the 8
-        /// Combo_*.png banners at random, plays the Combo.mp3 stinger (AudioManager.PlayComboSfx,
-        /// wired via ArtWiringBuilder.WireAudio), holds it fullscreen for 5s, then fades out into
-        /// the maze — see ComboHypeScreen.cs for the full sequence. Self-contained, same
-        /// "bake everything at construction time" convention MenuHubScreen/ShopController use —
-        /// nothing here needs ArtWiringBuilder for the sprites themselves (only the SFX clip goes
-        /// through ArtWiringBuilder, since that's the established convention for AudioManager
-        /// fields). Opaque black root Image (from CreatePanel) doubles as the full-bleed backing
-        /// behind the banner art — even if a banner sprite doesn't itself fill 100% of its own
-        /// canvas, the flash still reads as covering the whole screen.
+        /// <summary>Full-screen "hype" flash shown only when ComboSystem.OnComboTriggered actually
+        /// fires (see ComboHypeScreen.cs) — never at level start, never on an ordinary character
+        /// swap. Shows the specific Combo_*.png banner for the combo that fired, at a reduced,
+        /// centred size (the old near-fullscreen box stretched some banners past a readable size),
+        /// over a dimmed copy of the current world's own gameplay backdrop (TileMapRenderer.
+        /// MazeArtSet.backdropSprite, resolved live at trigger time — same "faded scenery, not flat
+        /// black" convention NewWorldUnlockScreen uses) instead of a flat black backing. Plays the
+        /// Combo.mp3 stinger (AudioManager.PlayComboSfx, wired via ArtWiringBuilder.WireAudio).
+        /// Self-contained, same "bake everything at construction time" convention MenuHubScreen/
+        /// ShopController use — nothing here needs ArtWiringBuilder for the sprites themselves
+        /// (only the SFX clip goes through ArtWiringBuilder, since that's the established
+        /// convention for AudioManager fields).
         ///
         /// Deliberately stays active for the app's whole lifetime (like BuildFadeOverlay's own
         /// FadeOverlay) rather than being SetActive(false)'d in BuildAll's usual overlay sweep —
         /// its CanvasGroup starts at alpha 0/non-interactable, so it's invisible at rest, but its
-        /// OnEnable event subscription to GameManager.OnLevelHypeRequested only fires once, at
-        /// scene load, and must not be missed by starting the GameObject inactive.</summary>
+        /// OnEnable event subscription to ComboSystem.OnComboTriggered only fires once, at scene
+        /// load, and must not be missed by starting the GameObject inactive.</summary>
         private static GameObject BuildComboHypeScreen(Transform canvasTransform)
         {
             var root = CreatePanel("ComboHypeScreen", canvasTransform, Color.black);
@@ -440,37 +441,56 @@ namespace FarmFuryArcade.EditorTools
             canvasGroup.blocksRaycasts = false;
             canvasGroup.interactable = false;
 
+            // Current world's gameplay backdrop, dimmed — resolved live at trigger time
+            // (ComboHypeScreen.ResolveCurrentWorldBackdrop), this Image just needs to exist.
+            var backdropGO = new GameObject("Backdrop", typeof(RectTransform), typeof(Image));
+            backdropGO.transform.SetParent(root.transform, false);
+            var backdropImage = backdropGO.GetComponent<Image>();
+            backdropImage.color = new Color(0f, 0f, 0f, 0f);
+            backdropImage.preserveAspect = false; // covers full-bleed; ComboHypeScreen only ever
+            StretchFull((RectTransform)backdropGO.transform); // sets a real sprite, never distorts art meant to fill the frame
+
+            // Banner art, reduced from the old near-fullscreen box and middle-aligned — a fixed,
+            // centred box (not edge-to-edge) so a wide/tall Combo_*.png reads as a clean centred
+            // card over the backdrop instead of being blown up to fill the whole screen.
             var bannerGO = new GameObject("BannerImage", typeof(RectTransform), typeof(Image));
             bannerGO.transform.SetParent(root.transform, false);
             var bannerImage = bannerGO.GetComponent<Image>();
             bannerImage.preserveAspect = true; // each Combo_*.png can have its own aspect ratio
             var bannerRect = (RectTransform)bannerGO.transform;
-            bannerRect.anchorMin = new Vector2(0.04f, 0.04f);
-            bannerRect.anchorMax = new Vector2(0.96f, 0.96f);
-            bannerRect.offsetMin = Vector2.zero;
-            bannerRect.offsetMax = Vector2.zero;
+            bannerRect.anchorMin = new Vector2(0.5f, 0.5f);
+            bannerRect.anchorMax = new Vector2(0.5f, 0.5f);
+            bannerRect.pivot = new Vector2(0.5f, 0.5f);
+            bannerRect.sizeDelta = new Vector2(900f, 900f);
+            bannerRect.anchoredPosition = Vector2.zero;
 
-            var comboBannerSprites = new[]
+            // Name -> banner sprite, keyed by ComboSystem's own trigger names (ComboSystem.
+            // Trigger("Feather Storm", ...) etc.) so HandleComboTriggered can look up the exact
+            // combo that fired instead of picking one at random.
+            var comboBannerEntries = new (string comboName, Sprite banner)[]
             {
-                LoadUiSprite("Combo_CrossFire.png"),
-                LoadUiSprite("Combo_DoubleSlam.png"),
-                LoadUiSprite("Combo_EarthquakeRoll.png"),
-                LoadUiSprite("Combo_Featherstorm.png"),
-                LoadUiSprite("Combo_FullFury.png"),
-                LoadUiSprite("Combo_IronStampede.png"),
-                LoadUiSprite("Combo_KicknRoll.png"),
-                LoadUiSprite("Combo_SkipShatter.png"),
+                ("Crossfire", LoadUiSprite("Combo_CrossFire.png")),
+                ("Double Slam", LoadUiSprite("Combo_DoubleSlam.png")),
+                ("Earthquake Roll", LoadUiSprite("Combo_EarthquakeRoll.png")),
+                ("Feather Storm", LoadUiSprite("Combo_Featherstorm.png")),
+                ("Full Fury", LoadUiSprite("Combo_FullFury.png")),
+                ("Iron Stampede", LoadUiSprite("Combo_IronStampede.png")),
+                ("Kick and Roll", LoadUiSprite("Combo_KicknRoll.png")),
+                ("Skip Shatter", LoadUiSprite("Combo_SkipShatter.png")),
             };
 
             var hype = root.AddComponent<ComboHypeScreen>();
             var hypeSo = new SerializedObject(hype);
             hypeSo.FindProperty("canvasGroup").objectReferenceValue = canvasGroup;
+            hypeSo.FindProperty("backdropImage").objectReferenceValue = backdropImage;
             hypeSo.FindProperty("bannerImage").objectReferenceValue = bannerImage;
             var bannersProp = hypeSo.FindProperty("comboBanners");
-            bannersProp.arraySize = comboBannerSprites.Length;
-            for (int i = 0; i < comboBannerSprites.Length; i++)
+            bannersProp.arraySize = comboBannerEntries.Length;
+            for (int i = 0; i < comboBannerEntries.Length; i++)
             {
-                bannersProp.GetArrayElementAtIndex(i).objectReferenceValue = comboBannerSprites[i];
+                var element = bannersProp.GetArrayElementAtIndex(i);
+                element.FindPropertyRelative("comboName").stringValue = comboBannerEntries[i].comboName;
+                element.FindPropertyRelative("banner").objectReferenceValue = comboBannerEntries[i].banner;
             }
             hypeSo.ApplyModifiedPropertiesWithoutUndo();
 
@@ -891,7 +911,7 @@ namespace FarmFuryArcade.EditorTools
 
         // ---- Gameplay HUD -----------------------------------------------------------------------
 
-        private static (GameObject root, ComboNotificationBanner banner) BuildGameplayHUD(Transform canvasTransform)
+        private static GameObject BuildGameplayHUD(Transform canvasTransform)
         {
             var root = CreateEmpty("GameplayScreen", canvasTransform);
             StretchFull((RectTransform)root.transform);
@@ -1017,52 +1037,9 @@ namespace FarmFuryArcade.EditorTools
             StretchFull((RectTransform)chainText.transform);
             AnchorTopCenter((RectTransform)chainRoot.transform, new Vector2(200f, 34f), new Vector2(0f, -112f));
 
-            // Combo notification banner
-            var bannerGO = CreatePanel("ComboBanner", safeArea.transform, new Color(0.75f, 0.55f, 0.15f));
-            var bannerRect = (RectTransform)bannerGO.transform;
-            AnchorTopCenter(bannerRect, new Vector2(600f, 60f), new Vector2(0f, -150f));
-            var bannerGroup = bannerGO.AddComponent<CanvasGroup>();
-            var bannerText = CreateText("Text", bannerGO.transform, string.Empty, 26f, TextAlignmentOptions.Center, 60f);
-            StretchFull((RectTransform)bannerText.transform);
-
-            // Combo icon — art now exists for 5 of the 8 combos (CrossFire.png/DoubleSlam.png/
-            // IronStampede.png/KicknRoll.png/SkipShatter.png — Feather Storm/Earthquake Roll/Full
-            // Fury still don't), hidden by default and shown/hidden per-trigger by
-            // ComboNotificationBanner itself depending on whether that combo has matching art.
-            var comboIconGO = new GameObject("Icon", typeof(RectTransform), typeof(Image));
-            comboIconGO.transform.SetParent(bannerGO.transform, false);
-            var comboIconImage = comboIconGO.GetComponent<Image>();
-            comboIconImage.preserveAspect = true;
-            var comboIconRect = (RectTransform)comboIconGO.transform;
-            comboIconRect.anchorMin = new Vector2(0f, 0.5f);
-            comboIconRect.anchorMax = new Vector2(0f, 0.5f);
-            comboIconRect.pivot = new Vector2(0f, 0.5f);
-            comboIconRect.sizeDelta = new Vector2(52f, 52f);
-            comboIconRect.anchoredPosition = new Vector2(6f, 0f);
-            comboIconGO.SetActive(false);
-
-            var banner = bannerGO.AddComponent<ComboNotificationBanner>();
-            var bannerSO = new SerializedObject(banner);
-            bannerSO.FindProperty("bannerText").objectReferenceValue = bannerText;
-            bannerSO.FindProperty("canvasGroup").objectReferenceValue = bannerGroup;
-            bannerSO.FindProperty("comboIcon").objectReferenceValue = comboIconImage;
-            var comboIconEntries = new (string comboName, Sprite icon)[]
-            {
-                ("Crossfire", LoadUiSprite("CrossFire.png")),
-                ("Double Slam", LoadUiSprite("DoubleSlam.png")),
-                ("Kick and Roll", LoadUiSprite("KicknRoll.png")),
-                ("Iron Stampede", LoadUiSprite("IronStampede.png")),
-                ("Skip Shatter", LoadUiSprite("SkipShatter.png")),
-            };
-            var comboIconsProp = bannerSO.FindProperty("comboIcons");
-            comboIconsProp.arraySize = comboIconEntries.Length;
-            for (int i = 0; i < comboIconEntries.Length; i++)
-            {
-                var element = comboIconsProp.GetArrayElementAtIndex(i);
-                element.FindPropertyRelative("comboName").stringValue = comboIconEntries[i].comboName;
-                element.FindPropertyRelative("icon").objectReferenceValue = comboIconEntries[i].icon;
-            }
-            bannerSO.ApplyModifiedPropertiesWithoutUndo();
+            // The in-maze "COMBO! {name}" text toast (ComboNotificationBanner) was removed —
+            // ComboHypeScreen's own full-screen page (real banner art + world backdrop) now covers
+            // this moment, so no separate HUD text container is built here anymore.
 
             // Character portrait / ability icon cluster (bottom-right). Pause used to sit directly
             // above it here, forming a two-button stack — it's since moved to sit above the D-pad
@@ -1183,11 +1160,14 @@ namespace FarmFuryArcade.EditorTools
                 new Vector2(abilityInsetX, abilityBottomY + abilityButtonSize + clusterSpacing));
 
             // Locker button (2026-09-09) — sits directly above Swap Character, same size/spacing,
-            // opens LockerScreen (see its own doc comment). Reuses Cosmetics_Icon.png (already the
-            // Shop hub's own Cosmetics icon) rather than commissioning dedicated art, since it's the
-            // same underlying concept (hats/trails) just accessed from a different screen.
+            // opens LockerScreen (see its own doc comment). Originally reused Cosmetics_Icon.png
+            // (the Shop hub's own Cosmetics icon) as a placeholder, which read as a random character
+            // prop rather than "open your cosmetics locker" (caught via a gameplay screenshot
+            // review) — now uses dedicated Locker.png art (a wardrobe/trunk badge, generated
+            // specifically to read clearly as a locker at HUD-icon size and not compete visually
+            // with the ability/swap icons the way a character-forward icon would).
             var lockerButton = CreateIconButton("LockerButton", safeArea.transform,
-                LoadUiSprite("Cosmetics_Icon.png"), abilityButtonSize);
+                LoadUiSprite("Locker.png"), abilityButtonSize);
             AnchorBottomRight((RectTransform)lockerButton.transform, new Vector2(abilityButtonSize, abilityButtonSize),
                 new Vector2(abilityInsetX, abilityBottomY + 2f * (abilityButtonSize + clusterSpacing)));
 
@@ -1400,7 +1380,7 @@ namespace FarmFuryArcade.EditorTools
             so.FindProperty("watchAdSkipCooldownButton").objectReferenceValue = watchAdSkipCooldownButton;
             so.ApplyModifiedPropertiesWithoutUndo();
 
-            return (root, banner);
+            return root;
         }
 
         // ---- Pause Menu -------------------------------------------------------------------------
@@ -1724,11 +1704,43 @@ namespace FarmFuryArcade.EditorTools
             var tabBar = CreateHorizontalGroup("TabBar", root.transform, 12f);
             AnchorTopCenter((RectTransform)tabBar.transform, new Vector2(1700f, tabBarHeight), new Vector2(0f, -tabBarTopMargin));
 
-            var storyTabButton = CreateButton("StoryTabButton", tabBar.transform, "Story", TabActiveColor, 28f, tabBarHeight, out _);
-            var howToPlayTabButton = CreateButton("HowToPlayTabButton", tabBar.transform, "How to Play", TabInactiveColor, 28f, tabBarHeight, out _);
-            var charactersTabButton = CreateButton("CharactersTabButton", tabBar.transform, "Characters", TabInactiveColor, 28f, tabBarHeight, out _);
+            var storyTabButton = CreateButton("StoryTabButton", tabBar.transform, "Story", TabActiveColor, 28f, tabBarHeight, out var storyTabLabel);
+            var howToPlayTabButton = CreateButton("HowToPlayTabButton", tabBar.transform, "How to Play", TabInactiveColor, 28f, tabBarHeight, out var howToPlayTabLabel);
+            var charactersTabButton = CreateButton("CharactersTabButton", tabBar.transform, "Characters", TabInactiveColor, 28f, tabBarHeight, out var charactersTabLabel);
+            var cosmeticsTabButton = CreateButton("CosmeticsTabButton", tabBar.transform, "Cosmetics", TabInactiveColor, 28f, tabBarHeight, out var cosmeticsTabLabel);
 
-            GameObject BuildTabScrollView(string name, out Transform content)
+            // Real Btn_plaque.png background (2026-09-10), replacing the flat solid-colour "pill"
+            // squares CreateButton's placeholder sprite drew — same Image.Type.Sliced + border
+            // technique StyleLegalPlaqueButton/CoinPurchaseScreen's Restore Purchases button already
+            // use on this exact source file, so the plaque's rounded ends stay undistorted at
+            // whatever width TabBar's HorizontalLayoutGroup stretches each of the 3 equal-width tabs
+            // to. Border proportioned smaller than the taller Legal/Restore buttons' (90,70,90,70)
+            // since this row is only tabBarHeight (70) tall — an unscaled copy of that border would
+            // overlap itself vertically. Labels are still tinted via SelectTab's existing
+            // TabActiveColor/TabInactiveColor .color assignment (unchanged runtime code — it targets
+            // whatever Image is on button.targetGraphic regardless of sprite) and locked to a
+            // single centred, non-wrapping line with side padding so "How to Play" can never
+            // overlap the plaque's own rounded edges.
+            var tabPlaqueBorder = new Vector4(40f, 24f, 40f, 24f);
+            foreach (var (tabButton, tabLabel) in new[]
+                     {
+                         (storyTabButton, storyTabLabel), (howToPlayTabButton, howToPlayTabLabel),
+                         (charactersTabButton, charactersTabLabel), (cosmeticsTabButton, cosmeticsTabLabel),
+                     })
+            {
+                var tabImage = tabButton.GetComponent<Image>();
+                tabImage.sprite = LoadUiSprite("Btn_plaque.png", tabPlaqueBorder);
+                tabImage.type = Image.Type.Sliced;
+
+                tabLabel.alignment = TextAlignmentOptions.Center; // horizontally AND vertically centred
+                tabLabel.enableWordWrapping = false;
+                tabLabel.overflowMode = TextOverflowModes.Overflow;
+                var labelRect = (RectTransform)tabLabel.transform;
+                labelRect.offsetMin = new Vector2(28f, labelRect.offsetMin.y);
+                labelRect.offsetMax = new Vector2(-28f, labelRect.offsetMax.y);
+            }
+
+            GameObject BuildTabScrollView(string name, out Transform content, bool centerContentVertically = false)
             {
                 var scrollRect = CreateVerticalScrollView(name, root.transform, out content);
                 var scrollRT = (RectTransform)scrollRect.transform;
@@ -1737,10 +1749,28 @@ namespace FarmFuryArcade.EditorTools
                 scrollRT.pivot = new Vector2(0f, 0.5f);
                 scrollRT.anchoredPosition = new Vector2(100f, (scrollBottomMargin - scrollTopMargin) / 2f);
                 scrollRT.sizeDelta = new Vector2(1700f, -(scrollTopMargin + scrollBottomMargin));
+
+                if (centerContentVertically)
+                {
+                    // CreateVerticalScrollView anchors Content to the TOP of its viewport (pivot
+                    // (0.5,1)) — correct for a genuinely scrollable list, but for the Story tab's
+                    // single short intro box it left the whole lower half of the tab visibly empty
+                    // (ContentSizeFitter only grows Content to fit its own ~300px of children, which
+                    // then sits pinned to the top of a much taller viewport). Re-anchoring Content to
+                    // the viewport's vertical middle instead centres that box in the available page
+                    // area; ContentSizeFitter still drives its height the same way either way, this
+                    // only changes where that sized rect sits.
+                    var contentRect = (RectTransform)content;
+                    contentRect.anchorMin = new Vector2(0f, 0.5f);
+                    contentRect.anchorMax = new Vector2(1f, 0.5f);
+                    contentRect.pivot = new Vector2(0.5f, 0.5f);
+                    contentRect.anchoredPosition = Vector2.zero;
+                }
+
                 return scrollRect.gameObject;
             }
 
-            var storyScrollView = BuildTabScrollView("StoryScrollView", out var storyContainer);
+            var storyScrollView = BuildTabScrollView("StoryScrollView", out var storyContainer, centerContentVertically: true);
 
             // Framed intro box — sole content of the Story tab now (used to be the first item in one
             // shared list with everything else below it). No dedicated wood-sign art exists for a
@@ -1770,6 +1800,7 @@ namespace FarmFuryArcade.EditorTools
 
             var howToPlayScrollView = BuildTabScrollView("HowToPlayScrollView", out var howToPlayContainer);
             var charactersScrollView = BuildTabScrollView("CharactersScrollView", out var charactersContainer);
+            var cosmeticsScrollView = BuildTabScrollView("CosmeticsScrollView", out var cosmeticsContainer);
 
             var closeButton = CreateRoundBackButton(root.transform);
             closeButton.GetComponent<Image>().sprite = LoadUiSprite("Btn_back.png");
@@ -1777,6 +1808,7 @@ namespace FarmFuryArcade.EditorTools
             var story = root.AddComponent<CharacterStoryScreen>();
             SetRefs(story,
                 ("charactersContainer", charactersContainer),
+                ("cosmeticsContainer", cosmeticsContainer),
                 ("cardPrefab", characterSelectCardPrefab),
                 ("closeButton", closeButton),
                 ("introText", introText),
@@ -1785,7 +1817,52 @@ namespace FarmFuryArcade.EditorTools
                 ("howToPlayContainer", howToPlayContainer),
                 ("storyTabButton", storyTabButton), ("storyTabContent", storyScrollView),
                 ("howToPlayTabButton", howToPlayTabButton), ("howToPlayTabContent", howToPlayScrollView),
-                ("charactersTabButton", charactersTabButton), ("charactersTabContent", charactersScrollView));
+                ("charactersTabButton", charactersTabButton), ("charactersTabContent", charactersScrollView),
+                ("cosmeticsTabButton", cosmeticsTabButton), ("cosmeticsTabContent", cosmeticsScrollView));
+
+            // How to Play icons — one per GameplayTopics entry, same order (Coins/Scoring & Stars/
+            // Power Crops & Robot Chains/Abilities & Combos). Reuses existing art rather than
+            // commissioning anything new: the coin pickup icon, a filled score star, a real rare
+            // power-pellet sprite, and one of the combo banners already used elsewhere as a stand-in
+            // for "abilities/combos" as a concept (no single generic ability icon exists).
+            var gameplayTopicIcons = new[]
+            {
+                LoadUiSprite("Coin_UI.png"),
+                LoadUiSprite("ScoreStar.png"),
+                ConfigureAndLoadCosmeticChromeSprite("Assets/_Project/Sprites/Environment/RarePellets_sunflower.png"),
+                LoadUiSprite("CrossFire.png"),
+            };
+            var iconsSO = new SerializedObject(story);
+            var iconsProp = iconsSO.FindProperty("gameplayTopicIcons");
+            iconsProp.arraySize = gameplayTopicIcons.Length;
+            for (int i = 0; i < gameplayTopicIcons.Length; i++)
+            {
+                iconsProp.GetArrayElementAtIndex(i).objectReferenceValue = gameplayTopicIcons[i];
+            }
+
+            // Cosmetics tab entries — the exact same 7 items/icons CosmeticsHubScreen's own purchase
+            // buttons show (their price-baked art), so a kid recognises the same picture when they
+            // later find it for sale in the Shop. Blurb text lives in CharacterStoryScreen itself
+            // (CosmeticBlurbs, keyed by this same displayName).
+            var cosmeticEntryData = new (string displayName, Sprite icon)[]
+            {
+                ("Sombrero", LoadCosmeticsSprite("sombrero_price.png")),
+                ("Baseball Cap", LoadCosmeticsSprite("baseball_price.png")),
+                ("Cowboy Hat", LoadCosmeticsSprite("cowboy_price.png")),
+                ("Rainbow Ribbon", LoadCosmeticsSprite("RainbowRibbon_price.png")),
+                ("Sparkle Dust", LoadCosmeticsSprite("SparkleDust_Price.png")),
+                ("Corn Husk Trail", LoadCosmeticsSprite("CornHusk_price.png")),
+                ("Ember Trail", LoadCosmeticsSprite("EmberTrail_price.png")),
+            };
+            var cosmeticEntriesProp = iconsSO.FindProperty("cosmeticEntries");
+            cosmeticEntriesProp.arraySize = cosmeticEntryData.Length;
+            for (int i = 0; i < cosmeticEntryData.Length; i++)
+            {
+                var element = cosmeticEntriesProp.GetArrayElementAtIndex(i);
+                element.FindPropertyRelative("displayName").stringValue = cosmeticEntryData[i].displayName;
+                element.FindPropertyRelative("icon").objectReferenceValue = cosmeticEntryData[i].icon;
+            }
+            iconsSO.ApplyModifiedPropertiesWithoutUndo();
 
             return root;
         }
@@ -1811,23 +1888,48 @@ namespace FarmFuryArcade.EditorTools
             var buttonGroup = CreateVerticalGroup("Content", root.transform, 24f, 20);
 
             // Real Btn_plaque.png background (2026-09-09), replacing the flat placeholder-colour
-            // rectangle — same Image.Type.Sliced + border technique CoinPurchaseScreen's Restore
-            // Purchases button already uses on this exact source file (485x256), so the plaque's
-            // rounded end caps stay undistorted at whatever width the vertical group's
-            // childControlWidth stretches these buttons to, rather than being squashed the way a
-            // plain Type.Simple stretch would.
+            // rectangle — Image.Type.Sliced + border, same technique CoinPurchaseScreen's Restore
+            // Purchases button already uses on this exact source file (485x256).
+            //
+            // Real bug found and fixed (2026-09-11): each button used to be a DIRECT child of
+            // buttonGroup (CreateVerticalGroup), whose VerticalLayoutGroup has
+            // childForceExpandWidth=true — for the cross (width) axis this stretches every direct
+            // child's RectTransform to the FULL container width regardless of its own
+            // sizeDelta/LayoutElement. Invisible for a plain aspect-preserved icon Image (the
+            // sprite still renders at its own correct size, centred within the oversized box), but
+            // an Image.Type.Sliced plaque fills its ENTIRE given rect by design — so the plaque
+            // visibly stretched into a long flat bar with barely-visible rounded ends (caught via a
+            // gameplay screenshot: "the btn_plaque... is too stretched"). Fixed by giving each
+            // button its own plain, non-layout-group "Slot" child of buttonGroup (which itself
+            // still gets stretched full-width by the group — harmless, it has no visual component)
+            // and centring the real plaque button inside that slot at a fixed, content-hugging
+            // width instead — with no LayoutGroup on the slot, nothing overrides the plaque's own
+            // anchors/sizeDelta.
             const float legalButtonHeight = 110f;
+            const float legalButtonWidth = 460f; // hugs "Privacy Policy"/"Terms of Use" at 34pt with light padding
             var legalPlaqueBorder = new Vector4(90f, 70f, 90f, 70f);
 
-            var privacyPolicyButton = CreateButton("PrivacyPolicyButton", buttonGroup.transform, "Privacy Policy",
-                Color.white, 34f, legalButtonHeight, out var privacyPolicyLabel);
-            StyleLegalPlaqueButton(privacyPolicyButton, privacyPolicyLabel, legalPlaqueBorder, legalButtonHeight);
+            Button BuildLegalPlaqueButton(string name, string labelText, out TextMeshProUGUI label)
+            {
+                var slot = new GameObject(name + "Slot", typeof(RectTransform));
+                slot.transform.SetParent(buttonGroup.transform, false);
+                ((RectTransform)slot.transform).sizeDelta = new Vector2(0f, legalButtonHeight);
+
+                var button = CreateButton(name, slot.transform, labelText, Color.white, 34f, legalButtonHeight, out label);
+                var rect = (RectTransform)button.transform;
+                rect.anchorMin = rect.anchorMax = new Vector2(0.5f, 0.5f);
+                rect.pivot = new Vector2(0.5f, 0.5f);
+                rect.sizeDelta = new Vector2(legalButtonWidth, legalButtonHeight);
+                rect.anchoredPosition = Vector2.zero;
+                StyleLegalPlaqueButton(button, label, legalPlaqueBorder, legalButtonHeight);
+                return button;
+            }
+
+            var privacyPolicyButton = BuildLegalPlaqueButton("PrivacyPolicyButton", "Privacy Policy", out _);
 
             // Audit finding F9.6: Terms of Use now has real drafted content — no longer left
             // non-interactable behind a "Coming Soon" label.
-            var termsOfUseButton = CreateButton("TermsOfUseButton", buttonGroup.transform, "Terms of Use",
-                Color.white, 34f, legalButtonHeight, out var termsOfUseLabel);
-            StyleLegalPlaqueButton(termsOfUseButton, termsOfUseLabel, legalPlaqueBorder, legalButtonHeight);
+            var termsOfUseButton = BuildLegalPlaqueButton("TermsOfUseButton", "Terms of Use", out _);
 
             var closeButton = CreateRoundBackButton(root.transform);
             closeButton.GetComponent<Image>().sprite = LoadUiSprite("Btn_back.png");
@@ -2796,46 +2898,48 @@ namespace FarmFuryArcade.EditorTools
             var starDisplayGO = CreateStarDisplay("Stars", shelfGO.transform, 28);
 
             // Monetisation rewarded-ad placement #2 ("double coins" — see CLAUDE.md's Monetisation
-            // section and LevelCompleteController's own doc comment). Bottom-right, in the space
-            // Home/Settings used to share (both removed 2026-08-20 per a screenshot review — Play
-            // is the only real navigation left on this screen) — mirrors PlayButton's own
-            // bottom-left inset/size exactly (StandardIconButtonSize, 150/110 inset) for symmetry.
+            // section and LevelCompleteController's own doc comment).
+            //
+            // Moved as one unit onto the backdrop's own moon (2026-09-10, per direct feedback:
+            // "move the icon and watch ad as one container to be neatly hovered over the moon, so
+            // the user's eye will catch it") — previously sat bottom-right against the card's own
+            // horseshoe decoration; now both pieces are built under a single "DoubleCoinsAdGroup"
+            // container, anchored top-right over World1_Cornfield.png's baked-in moon (its own
+            // small "wobble" or resize later only needs this one container's anchoredPosition/
+            // sizeDelta touched, not two separately-tuned elements). Position is pixel-estimated
+            // off the reference screenshot (no visual Editor access this session) — expect to nudge
+            // further once seen live.
+            var doubleCoinsGroup = new GameObject("DoubleCoinsAdGroup", typeof(RectTransform));
+            doubleCoinsGroup.transform.SetParent(root.transform, false);
+            const float doubleCoinsGroupGap = 6f;
+            float doubleCoinsGroupHeight = StandardIconButtonSize + doubleCoinsGroupGap + StandardIconButtonSize * 214f / 512f;
+            AnchorTopRight((RectTransform)doubleCoinsGroup.transform,
+                new Vector2(StandardIconButtonSize, doubleCoinsGroupHeight), new Vector2(-230f, -160f));
+
             // Previously a wide 240x90 text-label button; DoubleCoins.png is actually square
             // (501x500), so that box squashed it badly (the same Sliced-ignores-preserveAspect
             // box-aspect-must-match-the-art bug this project has hit repeatedly elsewhere) — square
             // box + real art + preserveAspect fixes it, and the auto-created text label is
             // destroyed (icon only now, matching the mockup review that called out "remove the
             // white text overlay").
-            var doubleCoinsButton = CreateIconButton("DoubleCoinsButton", root.transform, LoadUiSprite("DoubleCoins.png"), StandardIconButtonSize);
-            // Lifted higher/left again (2026-08-29 screenshot feedback: "align with the right
-            // horseshoe") — was (-190, 150). PanelArt is a square AspectRatioFitter filling the full
-            // screen height (1080 in the 1920x1080 reference canvas), so the card's own bottom edge
-            // sits at canvas y=0, same as this button's own anchor origin. The horseshoe decoration
-            // baked into LevelComplete.png sits roughly a third of the way up the card and a modest
-            // distance in from its right edge (pixel-estimated off the screenshot, no visual Editor
-            // access this session — expect to nudge further if it's still off). WatchAdLabel below
-            // moves by the same delta so the two stay tucked together as a pair.
-            AnchorBottomRight((RectTransform)doubleCoinsButton.transform, new Vector2(StandardIconButtonSize, StandardIconButtonSize), new Vector2(-260f, 340f));
+            var doubleCoinsButton = CreateIconButton("DoubleCoinsButton", doubleCoinsGroup.transform, LoadUiSprite("DoubleCoins.png"), StandardIconButtonSize);
+            AnchorTopCenter((RectTransform)doubleCoinsButton.transform, new Vector2(StandardIconButtonSize, StandardIconButtonSize), Vector2.zero);
 
-            // "Watch Ad" label plaque tucked neatly under the x2 coin icon — same WatchAd.png
-            // banner Gameplay HUD's own skip-cooldown-via-ad button already uses. Purely a visual
-            // label (the coin icon above is the actual tap target, unchanged) — not interactive, so
-            // no Button/onClick.
-            //
-            // Resized 2026-08-30 to exactly match DoubleCoinsButton's own width (StandardIconButtonSize)
-            // instead of an independently hand-tuned 140 — and reuses that same button's own X
-            // inset (-260) rather than a separate one, so the two are guaranteed centre-aligned
-            // (same width + same X offset = same centre) instead of needing two numbers kept in
-            // sync by hand. Sits 10px below the icon's own bottom edge (340 - 10 - height).
+            // "Watch Ad" label plaque tucked neatly under the x2 coin icon, inside the same group —
+            // same WatchAd.png banner Gameplay HUD's own skip-cooldown-via-ad button already uses.
+            // Purely a visual label (the coin icon above is the actual tap target, unchanged) — not
+            // interactive, so no Button/onClick. Matches DoubleCoinsButton's own width
+            // (StandardIconButtonSize) so the pair share a centre with no separate X to keep in sync.
             const float watchAdLabelWidth = StandardIconButtonSize;
             const float watchAdLabelHeight = watchAdLabelWidth * 214f / 512f;
             var watchAdLabelGO = new GameObject("WatchAdLabel", typeof(RectTransform), typeof(Image));
-            watchAdLabelGO.transform.SetParent(root.transform, false);
+            watchAdLabelGO.transform.SetParent(doubleCoinsGroup.transform, false);
             var watchAdLabelImage = watchAdLabelGO.GetComponent<Image>();
             watchAdLabelImage.sprite = LoadUiSprite("WatchAd.png");
             watchAdLabelImage.preserveAspect = true;
             watchAdLabelImage.raycastTarget = false;
-            AnchorBottomRight((RectTransform)watchAdLabelGO.transform, new Vector2(watchAdLabelWidth, watchAdLabelHeight), new Vector2(-260f, 340f - 10f - watchAdLabelHeight));
+            AnchorTopCenter((RectTransform)watchAdLabelGO.transform, new Vector2(watchAdLabelWidth, watchAdLabelHeight),
+                new Vector2(0f, -(StandardIconButtonSize + doubleCoinsGroupGap)));
 
             var playButton = CreateButton("PlayButton", root.transform, string.Empty, new Color(0.85f, 0.55f, 0.1f), 28f, StandardIconButtonSize, out _);
             Object.DestroyImmediate(playButton.transform.Find("PlayButton_Label").gameObject);
@@ -2890,10 +2994,23 @@ namespace FarmFuryArcade.EditorTools
             // same convention NewWorldUnlockScreen's worldBadge uses.
             unlockCard.raycastTarget = false;
 
+            // Confetti layer (2026-09-11, per direct feedback: "more animated - exciting - maybe
+            // with confetti") — a plain full-screen, non-raycasting RectTransform particles spawn
+            // under; built LAST so it's the last sibling and therefore draws on top of the card
+            // reveal, letting confetti visibly rain down over the card rather than behind it.
+            var confettiLayerGO = new GameObject("ConfettiLayer", typeof(RectTransform));
+            confettiLayerGO.transform.SetParent(unlockRoot.transform, false);
+            StretchFull((RectTransform)confettiLayerGO.transform);
+            var confettiBurst = confettiLayerGO.AddComponent<ConfettiBurst>();
+
             var unlockScreen = unlockRoot.AddComponent<NewCharacterUnlockScreen>();
             var unlockSO = new SerializedObject(unlockScreen);
             unlockSO.FindProperty("characterCardImage").objectReferenceValue = unlockCard;
             unlockSO.FindProperty("tapButton").objectReferenceValue = unlockTapButton;
+            unlockSO.FindProperty("confettiBurst").objectReferenceValue = confettiBurst;
+            var confettiSO = new SerializedObject(confettiBurst);
+            confettiSO.FindProperty("particlesRoot").objectReferenceValue = (RectTransform)confettiLayerGO.transform;
+            confettiSO.ApplyModifiedPropertiesWithoutUndo();
             unlockSO.ApplyModifiedPropertiesWithoutUndo();
             unlockRoot.SetActive(false);
 
@@ -3148,18 +3265,61 @@ namespace FarmFuryArcade.EditorTools
 
             CreateHeaderSign(root.transform, LoadUiSprite("Leaderboard.png"));
 
-            // Stats block — icon-only (2026-09-09, per direct feedback: "remove all other text
-            // except the artwork we introduced"). No numeric values, no Highest-Level-Reached/
-            // Characters-Mastered text lines — just the two real word-art banners stacked and
-            // centred. See LeaderboardsScreen's own doc comment for where the underlying stats
-            // still live if a future pass wants to bring numbers back.
+            // Stats block — icon-only through 2026-09-09 (per direct feedback: "remove all other
+            // text except the artwork we introduced"). Combo.png removed entirely 2026-09-10 (this
+            // page is being built out further, starting with a real high-score readout) — just the
+            // HighScore.png word-art banner remains, now paired with a real Btn_plaque.png +
+            // TextMeshProUGUI directly underneath it showing LeaderboardManager.
+            // GetTotalLifetimeScore(), same Sliced+border/no-wrap-centred-label technique
+            // StyleLegalPlaqueButton already uses so the number can never overlap the plaque's
+            // rounded edges. CreateVerticalGroup itself is already anchor-centred (0.5,0.5) on the
+            // screen (see its own implementation), so this whole block reads as vertically centred
+            // in the page, not just under the header.
             var statsContainer = CreateVerticalGroup("StatsContainer", root.transform, 40f, 0, TextAnchor.MiddleCenter);
             var statsContainerRect = (RectTransform)statsContainer.transform;
             statsContainerRect.sizeDelta = new Vector2(900f, statsContainerRect.sizeDelta.y);
             statsContainerRect.anchoredPosition = new Vector2(0f, -40f);
 
             BuildStatIcon(statsContainer.transform, "HighScoreIcon", "HighScore.png");
-            BuildStatIcon(statsContainer.transform, "ComboIcon", "Combo.png");
+
+            // Real bug found and fixed (2026-09-11), same root cause/fix as BuildLegalScreen's
+            // plaque buttons above: a direct child of statsContainer (a CreateVerticalGroup, whose
+            // childForceExpandWidth=true stretches the cross/width axis to the full container width
+            // regardless of the child's own sizeDelta) rendered this Image.Type.Sliced plaque as a
+            // long flat bar instead of a neat content-hugging plaque. Fixed the same way: a plain
+            // non-layout-group "Slot" child of statsContainer (itself harmlessly stretched full
+            // width, no visual component) holding the real plaque centred at a fixed width.
+            // scorePlaqueWidth is a reasonable default for a few digits with light padding;
+            // LeaderboardsScreen.RefreshScoreText widens it further at runtime (real TMP-measured
+            // text width, same GetPreferredValues technique CoinPurchaseScreen's Restore Purchases
+            // button uses) for a longer lifetime-score number.
+            const float scorePlaqueWidth = 260f;
+            const float scorePlaqueHeight = 110f;
+            var scorePlaqueBorder = new Vector4(90f, 70f, 90f, 70f);
+
+            var scorePlaqueSlot = new GameObject("ScorePlaqueSlot", typeof(RectTransform));
+            scorePlaqueSlot.transform.SetParent(statsContainer.transform, false);
+            ((RectTransform)scorePlaqueSlot.transform).sizeDelta = new Vector2(0f, scorePlaqueHeight);
+
+            var scorePlaqueGO = new GameObject("ScorePlaque", typeof(RectTransform), typeof(Image));
+            scorePlaqueGO.transform.SetParent(scorePlaqueSlot.transform, false);
+            var scorePlaqueRect = (RectTransform)scorePlaqueGO.transform;
+            scorePlaqueRect.anchorMin = scorePlaqueRect.anchorMax = new Vector2(0.5f, 0.5f);
+            scorePlaqueRect.pivot = new Vector2(0.5f, 0.5f);
+            scorePlaqueRect.sizeDelta = new Vector2(scorePlaqueWidth, scorePlaqueHeight);
+            scorePlaqueRect.anchoredPosition = Vector2.zero;
+            var scorePlaqueImage = scorePlaqueGO.GetComponent<Image>();
+            scorePlaqueImage.sprite = LoadUiSprite("Btn_plaque.png", scorePlaqueBorder);
+            scorePlaqueImage.type = Image.Type.Sliced;
+
+            var scoreText = CreateText("ScoreText", scorePlaqueGO.transform, "0", 44f, TextAlignmentOptions.Center,
+                scorePlaqueHeight, new Color(0.97f, 0.93f, 0.82f));
+            var scoreTextRect = (RectTransform)scoreText.transform;
+            StretchFull(scoreTextRect);
+            scoreTextRect.offsetMin = new Vector2(36f, scoreTextRect.offsetMin.y);
+            scoreTextRect.offsetMax = new Vector2(-36f, scoreTextRect.offsetMax.y);
+            scoreText.enableWordWrapping = false;
+            scoreText.overflowMode = TextOverflowModes.Overflow;
 
             // Moved bottom-left -> bottom-right (per a screenshot review) to match every other
             // screen in this redesign wave — Settings, Shop, Cosmetics hub, Hat/Trail purchase all
@@ -3170,6 +3330,8 @@ namespace FarmFuryArcade.EditorTools
             var controller = root.AddComponent<LeaderboardsScreen>();
             var so = new SerializedObject(controller);
             so.FindProperty("backButton").objectReferenceValue = backButton;
+            so.FindProperty("scoreText").objectReferenceValue = scoreText;
+            so.FindProperty("scorePlaqueRect").objectReferenceValue = scorePlaqueRect;
             so.ApplyModifiedPropertiesWithoutUndo();
 
             return root;
@@ -3421,7 +3583,7 @@ namespace FarmFuryArcade.EditorTools
             GameObject gameplay, GameObject pause, GameObject settings,
             GameObject levelComplete, NewCharacterUnlockScreen unlockScreen, GameObject levelFailed,
             GameObject roster, GameObject leaderboards, ChooseCharacterScreen chooseCharacterScreen,
-            ComboNotificationBanner comboBanner, GameObject levelSelect, GameObject shop, GameObject characterStory, GameObject worldPurchase, GameObject legal, GameObject menuHub)
+            GameObject levelSelect, GameObject shop, GameObject characterStory, GameObject worldPurchase, GameObject legal, GameObject menuHub)
         {
             var settingsPanel = settings.GetComponent<SettingsPanel>();
             SetRefs(settingsPanel,
@@ -3461,7 +3623,8 @@ namespace FarmFuryArcade.EditorTools
                 ("mainMenuScreen", mainMenu));
 
             SetRefs(leaderboards.GetComponent<LeaderboardsScreen>(),
-                ("mainMenuScreen", mainMenu), ("settingsPanel", settingsPanel));
+                ("mainMenuScreen", mainMenu), ("settingsPanel", settingsPanel),
+                ("menuHubScreen", menuHub.GetComponent<MenuHubScreen>()));
         }
 
         /// <summary>Sets one or more [SerializeField] object references on a component by name in

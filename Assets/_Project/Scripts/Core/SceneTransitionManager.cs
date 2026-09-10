@@ -29,11 +29,24 @@ namespace FarmFuryArcade.Core
         private bool _isTransitioning;
         public bool IsTransitioning => _isTransitioning;
 
-        /// <summary>Deactivates every registered screen and activates only screenToShow, faded.</summary>
-        public void ShowOnly(GameObject screenToShow)
+        /// <summary>Deactivates every registered screen and activates only screenToShow, faded.
+        /// beforeSwap (optional) runs immediately before the screenRoot swap, still inside the
+        /// fully-faded-to-black window — for a caller that also needs to hide a non-screenRoot
+        /// overlay sitting on top of the CURRENT screenRoot (e.g. SettingsPanel/MenuHubScreen over
+        /// Main Menu) as part of the same navigation. Real bug fixed 2026-09-11: SettingsPanel's
+        /// leaderboardsButton used to call gameObject.SetActive(false) on itself/its opener BEFORE
+        /// calling ShowOnly — since TransitionRoutine only reaches full opacity partway through its
+        /// fade-in (fadeSeconds ramp, not instant), Main Menu (the screenRoot underneath those now-
+        /// hidden overlays) was visible through the still-transparent fade for a split second before
+        /// the cover finished and the swap to Leaderboards happened — read as "the landing page
+        /// flashes before Leaderboards opens." Passing that hide logic in as beforeSwap instead
+        /// means it only runs once the fade has already reached full opaque black, matching every
+        /// other screenRoot's own swap.</summary>
+        public void ShowOnly(GameObject screenToShow, Action beforeSwap = null)
         {
             TransitionTo(() =>
             {
+                beforeSwap?.Invoke();
                 foreach (var screen in screenRoots)
                 {
                     if (screen != null)

@@ -285,8 +285,8 @@ namespace FarmFuryArcade.EditorTools
         private const string PowerReadySfx = "Assets/_Project/Audio/SFX/PowerReady.mp3";
         private const string RarePelletPickupSfx = "Assets/_Project/Audio/SFX/RarePellet_pickup.mp3";
         private const string RobotSpawnSfx = "Assets/_Project/Audio/SFX/RobotSpawn.mp3";
-        // Stinger played once by ComboHypeScreen when its full-screen pre-gameplay banner appears
-        // (GameManager.OnLevelHypeRequested) — see AudioManager.PlayComboSfx.
+        // Stinger played once by ComboHypeScreen when its full-screen combo banner appears
+        // (ComboSystem.OnComboTriggered) — see AudioManager.PlayComboSfx.
         private const string ComboSfx = "Assets/_Project/Audio/SFX/Combo.mp3";
         private const string EatRobotMusicClip = "Assets/_Project/Audio/SFX/EatRobot.mp3";
         // "Theme" — the Main Menu/Level Select track, plays until a level actually begins and

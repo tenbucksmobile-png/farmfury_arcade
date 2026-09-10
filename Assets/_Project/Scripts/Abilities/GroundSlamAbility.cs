@@ -65,20 +65,41 @@ namespace FarmFuryArcade.Abilities
             float elapsed = 0f;
             while (elapsed < KillzoneDurationSeconds)
             {
-                DefeatRobotsInRadius(origin, radius);
+                DefeatRobotsInRadius(origin, radius, verbose: false);
                 elapsed += Time.deltaTime;
                 yield return null;
             }
             IsActive = false;
         }
 
-        private static void DefeatRobotsInRadius(Vector2Int origin, float radius)
+        // TEMP diagnostic (remove once the "Ground Slam does nothing" report is root-caused) —
+        // verbose=true (the initial cast only, not the per-frame lingering-zone re-checks, which
+        // would otherwise flood the console for 3s every cast) logs every robot's grid
+        // position/distance/state, so a failing case shows exactly where the chain breaks: no
+        // robots found at all vs. found-but-out-of-radius vs. in-radius-but-ForceDefeat no-op'd
+        // because it was already Defeated.
+        private static void DefeatRobotsInRadius(Vector2Int origin, float radius, bool verbose = true)
         {
-            foreach (var robot in FindObjectsByType<RobotBase>(FindObjectsSortMode.None))
+            var allRobots = FindObjectsByType<RobotBase>(FindObjectsSortMode.None);
+            if (verbose)
             {
-                if (Vector2Int.Distance(origin, robot.CurrentGridPosition) <= radius)
+                Debug.Log($"[GroundSlamAbility] origin={origin} radius={radius} robotsInScene={allRobots.Length}");
+            }
+            foreach (var robot in allRobots)
+            {
+                float dist = Vector2Int.Distance(origin, robot.CurrentGridPosition);
+                bool inRadius = dist <= radius;
+                if (verbose)
+                {
+                    Debug.Log($"[GroundSlamAbility]  - {robot.name}: gridPos={robot.CurrentGridPosition} dist={dist:F2} inRadius={inRadius} stateBefore={robot.CurrentState}");
+                }
+                if (inRadius)
                 {
                     robot.ForceDefeat();
+                    if (verbose)
+                    {
+                        Debug.Log($"[GroundSlamAbility]    -> ForceDefeat() called, stateAfter={robot.CurrentState}");
+                    }
                 }
             }
         }

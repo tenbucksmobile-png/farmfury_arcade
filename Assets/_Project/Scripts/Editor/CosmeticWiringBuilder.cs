@@ -264,11 +264,14 @@ namespace FarmFuryArcade.EditorTools
             },
             // Cluck was fine at the shared 0.65 default for every other character but read as
             // "slightly too high" on her specifically — a small nudge down, not the large
-            // corrections the other 3 overrides above needed.
+            // corrections the other 3 overrides above needed. Still showed a visible gap between
+            // the brim and her head on a real gameplay screenshot (2026-09-10), so nudged down
+            // again by another small step (0.58 -> 0.50) — same "slight drop" scale as the first
+            // correction, not a re-run of the large 0.1-0.2 jumps above.
             new CharacterHatOverride
             {
                 character = CharacterType.Cluck,
-                hatOffset = new Vector2(0f, 0.58f),
+                hatOffset = new Vector2(0f, 0.50f),
                 hatScale = 1.15f,
             },
         };

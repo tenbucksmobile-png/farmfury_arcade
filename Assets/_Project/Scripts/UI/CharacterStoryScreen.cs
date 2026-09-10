@@ -8,33 +8,56 @@ using FarmFuryArcade.Utilities;
 
 namespace FarmFuryArcade.UI
 {
-    /// <summary>Character Story overlay — 3 tabs (Story / How to Play / Characters), each its own
-    /// independent ScrollRect, switched via SelectTab. Rebuilt 2026-09-09 (per direct feedback) from
-    /// one long continuous scrollable list holding all three sections at once, which read as "a
-    /// very long scrolling list" once the How to Play section (GameplayTopics — coins, scoring/
+    /// <summary>Character Story overlay — 4 tabs (Story / How to Play / Characters / Cosmetics),
+    /// each its own independent ScrollRect, switched via SelectTab. Rebuilt 2026-09-09 (per direct
+    /// feedback) from one long continuous scrollable list holding everything at once, which read as
+    /// "a very long scrolling list" once the How to Play section (GameplayTopics — coins, scoring/
     /// stars, power crops/chains, abilities/combos) was added on top of the narrative intro and all
-    /// 8 character rows.
+    /// 8 character rows. Cosmetics tab added 2026-09-11 (per direct feedback), same day How to
+    /// Play's rows were made more illustrated/kid-friendly — see each section's own doc comment
+    /// below.
     ///
     /// Story tab: the game's narrative intro (IntroStory). How to Play tab: one bordered card per
-    /// GameplayTopics entry (BuildInfoRow). Characters tab: one row per DataManager.
-    /// GetAllCharacterData() entry (their CharacterSelectCard next to a short story/ability blurb,
-    /// BuildRow), pulled from the GDD's narrative section and the characters' actual current
-    /// abilities (several diverged from the GDD's original spec since v1.0 — e.g. Percy's
-    /// wall-phase became a robot-charging roll, and Billy's wall-destroy became a robot-charging
-    /// headbutt — so the blurbs describe what the ability does today, not the original GDD text).
-    /// Same Cluck-first hierarchy order ChooseCharacterScreen uses; every card shows unlocked/
-    /// non-active/non-interactive — this is a browsing list, not the swap gate ChooseCharacterScreen
-    /// enforces, and tapping a card does nothing since there's no per-character sub-screen (the
-    /// story IS the blurb next to it).</summary>
+    /// GameplayTopics entry (BuildInfoRow), now icon+short-text like the other tabs' rows rather
+    /// than a text-only wall — this screen is aimed at kids, so a glance at the icon should carry
+    /// half the meaning before they even read the (now much shorter) copy. Characters tab: one row
+    /// per DataManager.GetAllCharacterData() entry (their CharacterSelectCard next to a short
+    /// story/ability blurb, BuildRow), pulled from the GDD's narrative section and the characters'
+    /// actual current abilities (several diverged from the GDD's original spec since v1.0 — e.g.
+    /// Percy's wall-phase became a robot-charging roll, and Billy's wall-destroy became a
+    /// robot-charging headbutt — so the blurbs describe what the ability does today, not the
+    /// original GDD text). Same Cluck-first hierarchy order ChooseCharacterScreen uses; every card
+    /// shows unlocked/non-active/non-interactive — this is a browsing list, not the swap gate
+    /// ChooseCharacterScreen enforces, and tapping a card does nothing since there's no
+    /// per-character sub-screen (the story IS the blurb next to it). Cosmetics tab: one row per
+    /// purchasable hat/trail (BuildCosmeticRow), reusing the exact same price-baked icon art
+    /// (sombrero_price.png etc.) CosmeticsHubScreen's own purchase buttons show, so a browsing kid
+    /// recognises the same picture when they later go looking for it in the Shop — with a short,
+    /// playful blurb per item instead of the Shop's bare price tag. Purely informational, same as
+    /// the Characters tab: tapping a row does nothing, there's no purchase flow here.</summary>
     public class CharacterStoryScreen : MonoBehaviour
     {
+        [System.Serializable]
+        private struct CosmeticEntry
+        {
+            public string displayName;
+            public Sprite icon;
+        }
+
         [SerializeField] private Transform charactersContainer;
         [SerializeField] private Transform howToPlayContainer;
+        [SerializeField] private Transform cosmeticsContainer;
         [SerializeField] private GameObject cardPrefab;
         [SerializeField] private Button closeButton;
         [SerializeField] private TextMeshProUGUI introText;
         [SerializeField] private RectTransform introBorderRect;
         [SerializeField] private RectTransform introBackgroundRect;
+
+        // Wired by Phase5ProjectBuilder.BuildCharacterStoryPlaceholder — one icon per GameplayTopics
+        // entry (same order) and the 7 Cosmetics rows (icon + display name; blurb text lives here,
+        // keyed by displayName, same convention CharacterStories uses for characters).
+        [SerializeField] private Sprite[] gameplayTopicIcons;
+        [SerializeField] private CosmeticEntry[] cosmeticEntries;
 
         [SerializeField] private Button storyTabButton;
         [SerializeField] private GameObject storyTabContent;
@@ -42,6 +65,8 @@ namespace FarmFuryArcade.UI
         [SerializeField] private GameObject howToPlayTabContent;
         [SerializeField] private Button charactersTabButton;
         [SerializeField] private GameObject charactersTabContent;
+        [SerializeField] private Button cosmeticsTabButton;
+        [SerializeField] private GameObject cosmeticsTabContent;
 
         // Same warm-gold-active / brown-inactive tint convention used throughout this project for
         // on/off feedback with no dedicated per-state art (LockedTint, InactiveTabTint, etc.) —
@@ -82,34 +107,38 @@ namespace FarmFuryArcade.UI
             "Four fields. One farm. All night to save the harvest.\n\n" +
             "Cluck. Chase. Collect. Chaos.";
 
-        // "How to Play" tab content (2026-09-09, per direct feedback). Kept deliberately player-
-        // facing/rounded rather than quoting exact internal constants that are easy to retune later
-        // (e.g. GameManager.BaseCoinsPerLevel/CoinsPerStar, LevelData.
-        // ComputeMaxPossibleScoreEstimate's chain cap) — if those change, this copy still reads
-        // correctly without needing a matching edit.
+        // "How to Play" tab content — rewritten 2026-09-11 (per direct feedback: this screen is for
+        // kids, it needs to be fun and illustrated, not a wall of text) into short, punchy 1-2
+        // sentence blurbs, each paired with a real gameplay icon (gameplayTopicIcons, same index
+        // order, wired by Phase5ProjectBuilder) instead of the original paragraph-per-topic text
+        // block. Still deliberately player-facing/rounded rather than quoting exact internal
+        // constants that are easy to retune later (e.g. GameManager.BaseCoinsPerLevel/CoinsPerStar,
+        // LevelData.ComputeMaxPossibleScoreEstimate's chain cap) — if those change, this copy still
+        // reads correctly without needing a matching edit.
         private static readonly (string title, string body)[] GameplayTopics =
         {
-            ("Coins", "Every level pays out coins when you finish it — a base amount plus a bonus " +
-                "for every star you earn, so a clean 3-star run pays more than a bare scrape-by. " +
-                "Coins can revive you mid-run if you're down to your last life, skip an ability's " +
-                "cooldown early, and can be spent in the Shop on coin top-ups, cosmetics, and new " +
-                "worlds."),
-            ("Scoring & Stars", "Your score comes from the crops you collect, the robots you " +
-                "defeat, how quickly you clear the maze, and finishing without dying once. Every " +
-                "level rates you 1 to 3 stars against its own maximum possible score: finishing at " +
-                "all earns 1 star, a strong run earns 2, and a near-flawless one earns 3 — and " +
-                "clearing a world's last level with at least 1 star is what unlocks the next " +
-                "world."),
-            ("Power Crops & Robot Chains", "A power crop turns the tables — for a few seconds, " +
-                "every robot on the board can be defeated instead of the other way around. Chain " +
-                "your kills within that one window and each robot is worth more than the last, with " +
-                "a big bonus for clearing every robot before the power runs out. Some power crops " +
-                "are rarer than others and last even longer."),
-            ("Abilities & Combos", "Every animal has their own special move on a cooldown, from " +
-                "Cluck's egg trap to Bessie's ground-shaking slam. Switch characters mid-run (the " +
-                "swap button, or Tab) to line up combos — certain character pairings unlock a bonus " +
-                "effect the next time that character's ability goes off, like Bessie into Percy " +
-                "supercharging his next roll."),
+            ("Coins", "Finish a level to earn coins — more stars means more coins! Spend them on " +
+                "revives, ability skips, cosmetics, and new worlds."),
+            ("Scoring & Stars", "Collect crops and zap robots to score big! Earn 1 to 3 stars a " +
+                "level — just 1 star unlocks the next world."),
+            ("Power Crops & Robot Chains", "Grab a power crop and the robots get scared! Zap them " +
+                "one after another for huge bonus points."),
+            ("Abilities & Combos", "Every animal has a super move! Swap characters mid-run to " +
+                "combo two abilities together for something extra powerful."),
+        };
+
+        // Cosmetics tab (2026-09-11) — same 7 purchasable items CosmeticsHubScreen sells, short
+        // playful blurbs keyed by display name (matches cosmeticEntries' own displayName field,
+        // wired by Phase5ProjectBuilder). Kid-facing tone to match the rest of this screen.
+        private static readonly Dictionary<string, string> CosmeticBlurbs = new Dictionary<string, string>
+        {
+            { "Sombrero", "Ole! A wide, sun-shading hat with a ton of farm-fiesta flair." },
+            { "Baseball Cap", "Sporty and snug — every animal's got a favourite colour." },
+            { "Cowboy Hat", "Yeehaw! Perfect for rounding up robots instead of cattle." },
+            { "Rainbow Ribbon", "A trail of shimmering rainbow colour follows every step." },
+            { "Sparkle Dust", "Leaves a shimmering trail of magic sparkles behind you." },
+            { "Corn Husk Trail", "A rustling trail of golden corn husks, straight off the stalk." },
+            { "Ember Trail", "A trail of glowing embers — warm, cozy, and a little bit fiery." },
         };
 
         private static readonly Dictionary<CharacterType, string> CharacterStories = new Dictionary<CharacterType, string>
@@ -162,6 +191,10 @@ namespace FarmFuryArcade.UI
             {
                 charactersTabButton.onClick.AddListener(() => SelectTab(2));
             }
+            if (cosmeticsTabButton != null)
+            {
+                cosmeticsTabButton.onClick.AddListener(() => SelectTab(3));
+            }
         }
 
         private void OnEnable()
@@ -170,7 +203,7 @@ namespace FarmFuryArcade.UI
             SelectTab(0);
         }
 
-        /// <summary>Shows exactly one of the 3 tab content ScrollRects and tints the tab buttons to
+        /// <summary>Shows exactly one of the 4 tab content ScrollRects and tints the tab buttons to
         /// match, same "gold = active, brown = inactive" convention as everywhere else in this
         /// project uses tint-only on/off feedback (no dedicated per-tab art exists).</summary>
         private void SelectTab(int index)
@@ -178,10 +211,12 @@ namespace FarmFuryArcade.UI
             if (storyTabContent != null) storyTabContent.SetActive(index == 0);
             if (howToPlayTabContent != null) howToPlayTabContent.SetActive(index == 1);
             if (charactersTabContent != null) charactersTabContent.SetActive(index == 2);
+            if (cosmeticsTabContent != null) cosmeticsTabContent.SetActive(index == 3);
 
             SetTabButtonActive(storyTabButton, index == 0);
             SetTabButtonActive(howToPlayTabButton, index == 1);
             SetTabButtonActive(charactersTabButton, index == 2);
+            SetTabButtonActive(cosmeticsTabButton, index == 3);
         }
 
         private static void SetTabButtonActive(Button button, bool active)
@@ -217,9 +252,28 @@ namespace FarmFuryArcade.UI
 
             if (howToPlayContainer != null)
             {
-                foreach (var (title, body) in GameplayTopics)
+                for (int i = 0; i < GameplayTopics.Length; i++)
                 {
-                    BuildInfoRow(howToPlayContainer, title, body);
+                    var (title, body) = GameplayTopics[i];
+                    Sprite icon = gameplayTopicIcons != null && i < gameplayTopicIcons.Length ? gameplayTopicIcons[i] : null;
+                    BuildInfoRow(howToPlayContainer, title, body, icon);
+                }
+            }
+
+            if (cosmeticsContainer != null && cosmeticEntries != null)
+            {
+                if (cosmeticsContainer.TryGetComponent<VerticalLayoutGroup>(out var cosmeticsLayout))
+                {
+                    cosmeticsLayout.childAlignment = TextAnchor.UpperLeft;
+                    var padding = cosmeticsLayout.padding;
+                    padding.left = (int)RowLeftPadding;
+                    cosmeticsLayout.padding = padding;
+                }
+
+                foreach (var entry in cosmeticEntries)
+                {
+                    string blurb = CosmeticBlurbs.TryGetValue(entry.displayName, out var text) ? text : string.Empty;
+                    BuildCosmeticRow(entry.displayName, entry.icon, blurb);
                 }
             }
 
@@ -247,12 +301,17 @@ namespace FarmFuryArcade.UI
             _populated = true;
         }
 
-        /// <summary>One "How to Play" topic — same bordered-card look as a character BuildRow, but
-        /// full width with no card portrait (there's no single character each topic belongs to) and
-        /// a bold title above the body text instead of sitting beside a card.</summary>
-        private void BuildInfoRow(Transform parent, string title, string body)
+        /// <summary>One "How to Play" topic — rebuilt 2026-09-11 (per direct feedback: this screen
+        /// is for kids, it needs to be illustrated and fun, not a text-only wall) from a full-width
+        /// title-above-body text card into a real icon beside a short blurb, same left-icon/
+        /// right-text silhouette as BuildRow/BuildCosmeticRow so all 3 illustrated tabs read as one
+        /// family. Row height shrunk (260 -> 180) to match the now much shorter copy — the tall box
+        /// this row used to need for a full paragraph would just be awkward empty space around 1-2
+        /// short sentences now.</summary>
+        private void BuildInfoRow(Transform parent, string title, string body, Sprite icon)
         {
-            const float rowHeight = 260f;
+            const float rowHeight = 180f;
+            const float iconSize = 130f;
 
             var rowGO = new GameObject($"InfoRow_{title}", typeof(RectTransform), typeof(Image));
             rowGO.transform.SetParent(parent, false);
@@ -277,35 +336,60 @@ namespace FarmFuryArcade.UI
             contentRect.offsetMin = Vector2.zero;
             contentRect.offsetMax = Vector2.zero;
 
-            var vlg = contentGO.AddComponent<VerticalLayoutGroup>();
-            vlg.childAlignment = TextAnchor.UpperLeft;
-            vlg.spacing = 10f;
-            vlg.padding = new RectOffset(30, 30, 20, 20);
+            var hlg = contentGO.AddComponent<HorizontalLayoutGroup>();
+            hlg.childAlignment = TextAnchor.MiddleLeft;
+            hlg.spacing = 30f;
+            hlg.padding = new RectOffset(30, 30, 20, 20);
+            hlg.childControlWidth = false;
+            hlg.childControlHeight = false;
+            hlg.childForceExpandWidth = false;
+            hlg.childForceExpandHeight = false;
+
+            var iconGO = new GameObject("Icon", typeof(RectTransform), typeof(Image));
+            iconGO.transform.SetParent(contentGO.transform, false);
+            ((RectTransform)iconGO.transform).sizeDelta = new Vector2(iconSize, iconSize);
+            var iconImage = iconGO.GetComponent<Image>();
+            iconImage.preserveAspect = true;
+            if (icon != null)
+            {
+                iconImage.sprite = icon;
+            }
+            else
+            {
+                iconImage.sprite = PlaceholderSprite.GetCircle(new Color(0.85f, 0.65f, 0.2f));
+            }
+
+            float innerWidth = RowWidth - RowBorderThickness * 2f - 60f - 30f - iconSize - 60f;
+
+            var textColumnGO = new GameObject("TextColumn", typeof(RectTransform));
+            textColumnGO.transform.SetParent(contentGO.transform, false);
+            ((RectTransform)textColumnGO.transform).sizeDelta = new Vector2(innerWidth, rowHeight - 40f);
+            var vlg = textColumnGO.AddComponent<VerticalLayoutGroup>();
+            vlg.childAlignment = TextAnchor.MiddleLeft;
+            vlg.spacing = 8f;
             vlg.childControlWidth = false;
             vlg.childControlHeight = false;
             vlg.childForceExpandWidth = false;
             vlg.childForceExpandHeight = false;
 
-            float innerWidth = RowWidth - RowBorderThickness * 2f - 60f;
-
             var titleGO = new GameObject("Title", typeof(RectTransform));
-            titleGO.transform.SetParent(contentGO.transform, false);
-            ((RectTransform)titleGO.transform).sizeDelta = new Vector2(innerWidth, 44f);
+            titleGO.transform.SetParent(textColumnGO.transform, false);
+            ((RectTransform)titleGO.transform).sizeDelta = new Vector2(innerWidth, 40f);
             var titleTmp = titleGO.AddComponent<TextMeshProUGUI>();
             titleTmp.text = title;
             titleTmp.font = TMP_Settings.defaultFontAsset;
-            titleTmp.fontSize = 32f;
+            titleTmp.fontSize = 30f;
             titleTmp.fontStyle = FontStyles.Bold;
             titleTmp.color = new Color(0.35f, 0.18f, 0.05f);
             titleTmp.alignment = TextAlignmentOptions.MidlineLeft;
 
             var bodyGO = new GameObject("Body", typeof(RectTransform));
-            bodyGO.transform.SetParent(contentGO.transform, false);
-            ((RectTransform)bodyGO.transform).sizeDelta = new Vector2(innerWidth, rowHeight - 44f - 10f - 40f);
+            bodyGO.transform.SetParent(textColumnGO.transform, false);
+            ((RectTransform)bodyGO.transform).sizeDelta = new Vector2(innerWidth, rowHeight - 40f - 40f - 8f);
             var bodyTmp = bodyGO.AddComponent<TextMeshProUGUI>();
             bodyTmp.text = body;
             bodyTmp.font = TMP_Settings.defaultFontAsset;
-            bodyTmp.fontSize = 26f;
+            bodyTmp.fontSize = 24f;
             bodyTmp.alignment = TextAlignmentOptions.TopLeft;
             bodyTmp.color = Color.black;
             bodyTmp.enableWordWrapping = true;
@@ -313,7 +397,104 @@ namespace FarmFuryArcade.UI
             // convention BuildRow's story blurb uses.
             bodyTmp.enableAutoSizing = true;
             bodyTmp.fontSizeMin = 16f;
-            bodyTmp.fontSizeMax = 26f;
+            bodyTmp.fontSizeMax = 24f;
+            bodyTmp.overflowMode = TextOverflowModes.Truncate;
+        }
+
+        /// <summary>One Cosmetics row — same left-icon/right-text silhouette as BuildInfoRow, using
+        /// the item's own real price-baked art (the same sprite CosmeticsHubScreen's purchase
+        /// button shows) instead of a generic placeholder, so a kid recognises the exact same
+        /// picture when they go looking for it in the Shop later. Purely informational — no tap
+        /// action, no purchase flow here (matches BuildRow's own "browsing list" convention for
+        /// characters).</summary>
+        private void BuildCosmeticRow(string displayName, Sprite icon, string blurb)
+        {
+            const float rowHeight = 180f;
+            const float iconSize = 130f;
+
+            var rowGO = new GameObject($"CosmeticRow_{displayName}", typeof(RectTransform), typeof(Image));
+            rowGO.transform.SetParent(cosmeticsContainer, false);
+            var rowRect = (RectTransform)rowGO.transform;
+            rowRect.sizeDelta = new Vector2(RowWidth, rowHeight);
+            rowGO.GetComponent<Image>().sprite = PlaceholderSprite.Get(RowBorderColor);
+
+            var backgroundGO = new GameObject("RowBackground", typeof(RectTransform), typeof(Image));
+            backgroundGO.transform.SetParent(rowGO.transform, false);
+            var backgroundRect = (RectTransform)backgroundGO.transform;
+            backgroundRect.anchorMin = Vector2.zero;
+            backgroundRect.anchorMax = Vector2.one;
+            backgroundRect.offsetMin = new Vector2(RowBorderThickness, RowBorderThickness);
+            backgroundRect.offsetMax = new Vector2(-RowBorderThickness, -RowBorderThickness);
+            backgroundGO.GetComponent<Image>().sprite = PlaceholderSprite.Get(RowBackgroundColor);
+
+            var contentGO = new GameObject("RowContent", typeof(RectTransform));
+            contentGO.transform.SetParent(backgroundGO.transform, false);
+            var contentRect = (RectTransform)contentGO.transform;
+            contentRect.anchorMin = Vector2.zero;
+            contentRect.anchorMax = Vector2.one;
+            contentRect.offsetMin = Vector2.zero;
+            contentRect.offsetMax = Vector2.zero;
+
+            var hlg = contentGO.AddComponent<HorizontalLayoutGroup>();
+            hlg.childAlignment = TextAnchor.MiddleLeft;
+            hlg.spacing = 30f;
+            hlg.padding = new RectOffset(30, 30, 20, 20);
+            hlg.childControlWidth = false;
+            hlg.childControlHeight = false;
+            hlg.childForceExpandWidth = false;
+            hlg.childForceExpandHeight = false;
+
+            var iconGO = new GameObject("Icon", typeof(RectTransform), typeof(Image));
+            iconGO.transform.SetParent(contentGO.transform, false);
+            ((RectTransform)iconGO.transform).sizeDelta = new Vector2(iconSize, iconSize);
+            var iconImage = iconGO.GetComponent<Image>();
+            iconImage.preserveAspect = true;
+            if (icon != null)
+            {
+                iconImage.sprite = icon;
+            }
+            else
+            {
+                iconImage.sprite = PlaceholderSprite.GetCircle(new Color(0.85f, 0.65f, 0.2f));
+            }
+
+            float innerWidth = RowWidth - RowBorderThickness * 2f - 60f - 30f - iconSize - 60f;
+
+            var textColumnGO = new GameObject("TextColumn", typeof(RectTransform));
+            textColumnGO.transform.SetParent(contentGO.transform, false);
+            ((RectTransform)textColumnGO.transform).sizeDelta = new Vector2(innerWidth, rowHeight - 40f);
+            var vlg = textColumnGO.AddComponent<VerticalLayoutGroup>();
+            vlg.childAlignment = TextAnchor.MiddleLeft;
+            vlg.spacing = 8f;
+            vlg.childControlWidth = false;
+            vlg.childControlHeight = false;
+            vlg.childForceExpandWidth = false;
+            vlg.childForceExpandHeight = false;
+
+            var titleGO = new GameObject("Title", typeof(RectTransform));
+            titleGO.transform.SetParent(textColumnGO.transform, false);
+            ((RectTransform)titleGO.transform).sizeDelta = new Vector2(innerWidth, 40f);
+            var titleTmp = titleGO.AddComponent<TextMeshProUGUI>();
+            titleTmp.text = displayName;
+            titleTmp.font = TMP_Settings.defaultFontAsset;
+            titleTmp.fontSize = 30f;
+            titleTmp.fontStyle = FontStyles.Bold;
+            titleTmp.color = new Color(0.35f, 0.18f, 0.05f);
+            titleTmp.alignment = TextAlignmentOptions.MidlineLeft;
+
+            var bodyGO = new GameObject("Body", typeof(RectTransform));
+            bodyGO.transform.SetParent(textColumnGO.transform, false);
+            ((RectTransform)bodyGO.transform).sizeDelta = new Vector2(innerWidth, rowHeight - 40f - 40f - 8f);
+            var bodyTmp = bodyGO.AddComponent<TextMeshProUGUI>();
+            bodyTmp.text = blurb;
+            bodyTmp.font = TMP_Settings.defaultFontAsset;
+            bodyTmp.fontSize = 24f;
+            bodyTmp.alignment = TextAlignmentOptions.TopLeft;
+            bodyTmp.color = Color.black;
+            bodyTmp.enableWordWrapping = true;
+            bodyTmp.enableAutoSizing = true;
+            bodyTmp.fontSizeMin = 16f;
+            bodyTmp.fontSizeMax = 24f;
             bodyTmp.overflowMode = TextOverflowModes.Truncate;
         }
 
