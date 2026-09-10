@@ -373,6 +373,16 @@ anymore. `PlayerHealth` calls `RegisterHit()` on contact with a Vulnerable robot
 death sequence on contact with a Chase/Scatter robot (a Defeated robot's disabled collider means no
 contact is possible with it at all).
 
+**Respawn confetti (2026-09-10, `Scripts/Gameplay/RespawnConfetti.cs`)** — `PlayerHealth.
+DeathSequence` calls `RespawnConfetti.Spawn(_spawnWorldPosition)` right before re-enabling movement,
+so the character reappearing after a death reads as an exciting "you're back!" beat instead of a
+plain silent fade-in. World-space equivalent of `ConfettiBurst` (see the New Character Unlock
+bullet under "Screens & scene flow" below) — a small burst of `SpriteRenderer` pieces launched
+mostly-upward with a wide spread, under simple gravity, same "procedural placeholder VFX" convention
+`PelletCollectBurst` uses. This code path is shared by every respawn — a normal under-the-cap death
+and a paid coin/ad revive both fall through to it (see "Monetisation" below) — so the burst fires
+either way.
+
 **Per-robot targeting** (`GetTargetPosition()`, used only in Chase — Scatter/Vulnerable/Returning
 targets are resolved generically by `RobotBase.ResolveTarget()`):
 
@@ -1659,6 +1669,28 @@ x=393/y=400 out of 500 (≈0.22-0.23 in from every edge), so tile content (icon/
 bleed onto the wood border baked into the art. **Same class of "box aspect must match the art" fix
 this project has hit repeatedly** — the tile grid's `cellSize` was changed from a mismatched 300×330
 to a true 300×300 square specifically so `Image.preserveAspect` renders the frame art undistorted.
+
+**Header replaced with real art, and a real overlap bug fixed (2026-09-10).** The plain "MY LOCKER"
+TMP text title was swapped for `LockerBanner.png` (666×375, sized well below `CreateHeaderSign`'s
+shared `StandardHeaderSignSize` — this is a compact in-maze popup, not a full-screen nav
+destination, and the tile grid below needs most of the vertical budget). Fixed a real bug in the
+same pass: the "You may like" banner's bottom edge used to land 10px past the tile grid's own top
+edge, and since the grid is a later sibling it drew on top, silently clipping that sliver of the
+banner out of view whenever it showed — reported as "the info banner appears... but is behind the
+cosmetics." Trimmed the banner's height (icon/text shrunk to match) to open a real ~16px gap
+instead, at the same unchanged Y offset.
+
+**The "You may like" banner's own flat PlaceholderSprite composition was then replaced with real
+commissioned art (`LockerAD.png`, 2026-09-10)** — a Kling AI banner (mascot + wood-sign border, with
+open space left for the dynamic icon/text this code lays on top). Source is 900×356 (aspect
+~2.528), a much squatter box than the old 760×84 wide pill, so `SuggestionBanner`'s container was
+resized to that real aspect instead, its content padding.left widened to clear the mascot art on
+the banner's left side (a first-pass estimate, no visual Editor access when wired — nudge once
+actually seen in Play mode), and the tile grid nudged down slightly (top edge D=270→304, verified
+by the same top-down D-from-screen-top math `CreateHeaderSign`'s own doc comment uses) to keep a
+real gap below the new, squatter banner shape. On-disk filename is `LockerAd.png` (lowercase 'd') —
+matched exactly in code since `AssetDatabase.LoadAssetAtPath` is case-sensitive regardless of the OS
+filesystem (same gotcha `CornfieldSign.png` already has documented elsewhere in this file).
 
 ### World Purchase (`Scripts/Data/MazeType.cs`, `Scripts/Utilities/UnlockProgression.cs`, `Scripts/Core/IAPManager.cs`/`SaveManager.cs`/`GameManager.cs`, `Scripts/UI/LevelSelectController.cs`/`SettingsPanel.cs`)
 
@@ -3495,6 +3527,14 @@ values from the GDD's color palette where one exists (e.g. walls = Wall Brown `#
   all), so a rotated RectTransform is drawn via a flat orthographic squash with zero depth cue —
   for most of the rotation sweep the card was a razor-thin, unreadable sliver overlapping
   neighbouring UI. Scale has no equivalent degenerate mid-state.
+- **Confetti added (2026-09-10, `Scripts/UI/ConfettiBurst.cs`)** — a `ConfettiBurst` component (a
+  code-driven UI-canvas particle burst: dozens of small coloured squares/streamers rain down from
+  the top of the screen, spinning and arcing under simple constant gravity, fading near the end of
+  their life — same "procedural placeholder burst" convention `PelletCollectBurst` already uses for
+  world-space VFX, just built from RectTransform/Image instead since it needs to layer on top of a
+  UI screen) fires the instant the card reveal starts, landing alongside the pop-in animation above
+  rather than waiting for it to finish. Parented last-sibling so it draws over everything else on
+  the overlay.
 - **Device-frame screenshot review pass (2026-08-01)**, following up on the 2026-07-31 mockups
   above with actual on-device sizing/positioning corrections, screen by screen:
   - **Settings** — title banner enlarged (~1.23x, `TitleImage`) but kept at its original top
@@ -4073,6 +4113,31 @@ Xcode/Unity version stops injecting that flag. Compiled and verified directly ag
 `UnityEditor.iOS.Xcode` API (batch-mode compile with `-buildTarget iOS`) — this environment has the
 iOS Build Support module installed, so this class actually builds, not just "should."
 
+**Same file also injects the app-level Privacy Manifest (2026-09-10) — closes a real upload-time
+P0.** Apple's binary-validation step at upload rejects an app that uses a "required-reason API"
+(PlayerPrefs → NSUserDefaults, which every progress/economy value in this project goes through —
+see `SaveManager.cs`) with no manifest declaring a reason code, independent of human review. The
+source manifest lives at `Assets/_Project/iOS/PrivacyInfo.xcprivacy` (declares
+`NSPrivacyAccessedAPICategoryUserDefaults`/`CA92.1`, with `NSPrivacyTracking`/
+`NSPrivacyCollectedDataTypes` left empty — no first-party tracking or data collection) — kept
+outside `Assets/Plugins/iOS` deliberately, since that folder's importer only recognizes standard
+native-plugin extensions and a plain `.xcprivacy` file dropped there has no guarantee of being
+copied into the app bundle with correct target membership. `IOSPostProcessBuild.AddPrivacyManifest`
+copies it into the generated Xcode project directly and registers it on the main app target, the
+same way third-party SDKs bundle their own manifests (LevelPlay/AdMob/Unity IAP each ship their own
+under `Library/PackageCache`, unrelated to this app-level one). **This is a first-pass declaration
+covering only what this app's own code triggers** — review against the ad/IAP SDKs' own bundled
+manifests before *public* submission, not before the first internal TestFlight build.
+
+**Gotcha hit verifying this:** compiling `IOSPostProcessBuild.cs`'s `#if UNITY_IOS` block requires
+a real `-buildTarget iOS` batch-mode invocation (the default Windows-target compile silently skips
+that code entirely) — but switching the active build target this way causes Unity to re-save
+`Game.unity` with a large unrelated diff, surfacing the already-documented "`PlaceholderSprite.Get()`
+sprites don't reliably survive a scene save/reload" fragility (see "Settings backdrop/header
+gotchas" above) on a plain platform switch. Always diff-review and `git checkout --` anything the
+`-buildTarget iOS` invocation touches in the scene/prefabs before committing — the actual code
+change is the only thing that should land.
+
 **Corrected: Cloud Build has no built-in "auto-publish to TestFlight" toggle.** An earlier version
 of this section assumed one existed — confirmed wrong against Unity's own support docs
 (https://support.unity.com/hc/en-us/articles/27576236407956). Build Automation's job stops at
@@ -4121,11 +4186,21 @@ the full one-time-setup sequence (already completed for this project — summari
    automatically). Machine spec: Standard (4 vCPU/16GB/512GB) is sufficient.
 4. **Credentials** — the `.p12`/`.mobileprovision`/Bundle ID setup described above.
 5. **Environment Variables + Post-Build Script** — the API key auth setup described above.
-6. **First build** — not yet triggered as of 2026-08-29; plan is to click **Build** on the target
-   manually next session and watch the log. Two likely first-run failure points: a missing/wrong
-   env var (the script fails fast with a named error) or an unanswered Export Compliance question
-   in App Store Connect for this app (answer No/exempt — no custom encryption is used) blocking
-   `xcrun altool`'s upload.
+6. **First build** — not yet triggered as of 2026-09-10; the code/architecture side has been
+   reviewed and is considered ready (the Privacy Manifest P0 above was the last concrete code gap —
+   see [[project_monetisation_status]] for the full 2026-09-10 readiness review). The remaining
+   blocker to actually clicking **Build** is external — Unity Cloud Build billing (a credit card)
+   was still unconfirmed as of the last check-in; verify that's cleared before triggering. Two
+   likely first-run failure points once triggered: a missing/wrong env var (the script fails fast
+   with a named error) or an unanswered Export Compliance question in App Store Connect for this
+   app (answer No/exempt — no custom encryption is used) blocking `xcrun altool`'s upload.
+
+**`PlayerSettings.iOS.targetDevice` is `0` (iPhone-only) as of 2026-09-10** — worth flagging since
+the 2026-08-28 iOS Submission Audit found it at `2` (Universal/iPad-targeted) and raised an untested
+iPad Split View/Stage Manager risk against the fixed-corner landscape HUD as a result. iPhone-only
+resolves that risk automatically (no iPad target = no iPad multi-window surface to test) — confirm
+with whoever changed it that this was intentional, since it also changes the App Store listing's
+supported-device story, not just a risk mitigation.
 
 **After a successful build, two local cleanup items** (not yet done as of 2026-08-29 — do these
 once the first build/upload is confirmed working): delete the plaintext `.p8` key and the `.p12`
