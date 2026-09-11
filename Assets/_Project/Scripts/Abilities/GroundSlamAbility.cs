@@ -38,6 +38,8 @@ namespace FarmFuryArcade.Abilities
 
         protected override void Execute()
         {
+            AudioManager.Instance?.PlayGroundSlamSfx();
+
             bool doubled = ComboSystem.Instance != null && ComboSystem.Instance.ConsumeDoubleSlamRadius();
             float radius = doubled ? ComboRadiusTiles : BaseRadiusTiles;
             Vector2Int origin = Movement.CurrentGridPosition;

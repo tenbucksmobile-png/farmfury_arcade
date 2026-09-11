@@ -72,6 +72,10 @@ namespace FarmFuryArcade.UI
         /// visually overlapping this card's own reveal/hold.</summary>
         public void Show(CharacterType type, System.Action onDismissed = null)
         {
+            // Same "always draw on top of whatever's currently showing" guarantee
+            // NewWorldUnlockScreen's own Show() uses — see its doc comment.
+            transform.SetAsLastSibling();
+
             _onDismissed = onDismissed;
             var data = DataManager.Instance.GetCharacterData(type);
 

@@ -6,28 +6,25 @@ using FarmFuryArcade.Core;
 
 namespace FarmFuryArcade.UI
 {
-    /// <summary>Full-screen "hype" flash shown ONLY when ComboSystem.OnComboTriggered actually
+    /// <summary>In-gameplay combo callout, shown ONLY when ComboSystem.OnComboTriggered actually
     /// fires — i.e. a real combo (two specific characters swapped-to in the right order) was just
     /// triggered, never on an ordinary character swap and never at level start. Shows the exact
-    /// banner art for the combo that fired (looked up by name against comboBanners) over a dimmed
-    /// version of the current world's own gameplay backdrop, plays the Combo.mp3 stinger, holds
-    /// for totalSeconds, then fades out and hands control back to gameplay. This is now the only
-    /// on-screen cue for a triggered combo — the older in-maze "COMBO! {name}" text toast
-    /// (ComboNotificationBanner) was removed once this full page replaced it.
+    /// banner art for the combo that fired (looked up by name against comboBanners), plays the
+    /// Combo.mp3 stinger, then fades in and back out over TotalSeconds (3s).
     ///
-    /// This replaced an earlier version tied to GameManager.OnLevelHypeRequested, which fired once
-    /// per level load regardless of whether any combo had ever been triggered — that read as a
-    /// combo celebration for something that hadn't happened yet. See GameManager.LoadLevel's own
-    /// doc comment for the pre-gameplay ad-gate logic this screen used to also drive (now
-    /// independent of it).
+    /// Reworked 2026-09-11 (per direct feedback) from a full-screen "page" — opaque black
+    /// background, the current world's own dimmed backdrop, Time.timeScale frozen for the whole
+    /// duration — into a lightweight overlay ON TOP of live gameplay instead: no background at
+    /// all (the maze/HUD stay fully visible and playable behind the banner), no backdrop lookup,
+    /// and only a brief real-time freeze right at the trigger instant (GameStartDelaySeconds) so
+    /// the moment registers before gameplay keeps moving underneath the fading banner, rather than
+    /// gating the whole celebration behind a multi-second freeze like the old page did. This is now
+    /// purely a callout, not a scene transition.
     ///
     /// The root GameObject stays active for the app's whole lifetime (same convention
     /// SceneTransitionManager's own FadeOverlay uses) — visibility is driven purely by the
     /// CanvasGroup, never SetActive, so OnEnable's event subscription fires exactly once at scene
-    /// load rather than needing to re-subscribe every time the banner shows. Time.timeScale is
-    /// frozen for the duration (same convention Pause/Revive/the old pre-gameplay gate all use) so
-    /// the celebration isn't fought over by robots/timer still running behind it; fades run on
-    /// unscaled time accordingly.</summary>
+    /// load rather than needing to re-subscribe every time the banner shows.</summary>
     public class ComboHypeScreen : MonoBehaviour
     {
         [Serializable]
@@ -38,26 +35,20 @@ namespace FarmFuryArcade.UI
         }
 
         [SerializeField] private CanvasGroup canvasGroup;
-        [SerializeField] private Image backdropImage;
         [SerializeField] private Image bannerImage;
         [SerializeField] private ComboBannerEntry[] comboBanners;
-        [SerializeField] private float totalSeconds = 5f;
-        [SerializeField] private float fadeSeconds = 0.4f;
 
-        /// <summary>Alpha the current world's gameplay backdrop is shown at behind the combo
-        /// banner — same "faded scenery, not flat black" convention NewWorldUnlockScreen uses.</summary>
-        private const float BackdropAlpha = 0.55f;
+        [Tooltip("Total seconds the banner is visible for, fade-in and fade-out included.")]
+        [SerializeField] private float totalSeconds = 3f;
+
+        [Tooltip("Seconds each fade (in, then out) takes — the remainder of totalSeconds is a full-opacity hold.")]
+        [SerializeField] private float fadeSeconds = 0.75f;
+
+        [Tooltip("Brief real-time freeze right at the trigger instant, so the combo actually " +
+                 "registers before gameplay resumes moving underneath the fading banner.")]
+        [SerializeField] private float gameStartDelaySeconds = 0.25f;
 
         private Coroutine _routine;
-
-        /// <summary>True only while THIS screen is the one holding Time.timeScale at 0 — persists
-        /// across an overlapping combo trigger cutting the previous ShowRoutine off mid-flight
-        /// (HandleComboTriggered's StopCoroutine below), unlike a plain local "did I freeze it"
-        /// bool scoped to one coroutine run, which would lose that fact the instant the routine
-        /// holding it gets stopped and leave Time.timeScale stuck at 0 forever — the next combo's
-        /// fresh routine would see time already frozen, correctly skip re-freezing, but then also
-        /// skip un-freezing at ITS OWN end since (from its own local view) it never froze anything.</summary>
-        private bool _isFrozenByThisScreen;
 
         private void OnEnable()
         {
@@ -100,27 +91,11 @@ namespace FarmFuryArcade.UI
             if (banner == null || bannerImage == null || canvasGroup == null)
             {
                 // No matching banner art wired for this combo (or the screen isn't fully wired
-                // yet) — skip the celebration entirely rather than showing a random/wrong banner.
+                // yet) — skip the callout entirely rather than showing a random/wrong banner.
                 return;
             }
 
             bannerImage.sprite = banner;
-
-            if (backdropImage != null)
-            {
-                var backdropSprite = ResolveCurrentWorldBackdrop();
-                if (backdropSprite != null)
-                {
-                    backdropImage.sprite = backdropSprite;
-                    backdropImage.color = new Color(1f, 1f, 1f, BackdropAlpha);
-                }
-                else
-                {
-                    // No backdrop registered for this world yet — stay invisible so the root
-                    // panel's own solid black shows through.
-                    backdropImage.color = new Color(0f, 0f, 0f, 0f);
-                }
-            }
 
             if (_routine != null)
             {
@@ -129,46 +104,25 @@ namespace FarmFuryArcade.UI
             _routine = StartCoroutine(ShowRoutine());
         }
 
-        private static Sprite ResolveCurrentWorldBackdrop()
-        {
-            var level = GameManager.Instance != null ? GameManager.Instance.CurrentLevel : null;
-            if (level == null)
-            {
-                return null;
-            }
-            var tileMapRenderer = FindFirstObjectByType<TileMapRenderer>();
-            if (tileMapRenderer == null)
-            {
-                return null;
-            }
-            return tileMapRenderer.GetOrAddArtSet(level.mazeType).backdropSprite;
-        }
-
         private IEnumerator ShowRoutine()
         {
-            transform.SetAsLastSibling(); // always draw on top of whatever's currently showing
-            canvasGroup.blocksRaycasts = true;
-
-            if (!_isFrozenByThisScreen && Time.timeScale != 0f)
-            {
-                Time.timeScale = 0f;
-                _isFrozenByThisScreen = true;
-            }
+            transform.SetAsLastSibling(); // always draw on top of the live gameplay HUD
 
             AudioManager.Instance?.PlayComboSfx();
+
+            // Brief real freeze right at the trigger instant — long enough for the moment to
+            // register, short enough that it reads as a beat, not a pause. Real-time based
+            // (WaitForSecondsRealtime) so it elapses correctly even while Time.timeScale is 0.
+            float previousTimeScale = Time.timeScale;
+            Time.timeScale = 0f;
+            yield return new WaitForSecondsRealtime(gameStartDelaySeconds);
+            Time.timeScale = previousTimeScale;
 
             yield return Fade(0f, 1f);
             float holdSeconds = Mathf.Max(0f, totalSeconds - fadeSeconds * 2f);
             yield return new WaitForSecondsRealtime(holdSeconds);
             yield return Fade(1f, 0f);
 
-            canvasGroup.blocksRaycasts = false;
-            if (_isFrozenByThisScreen && GameManager.Instance != null &&
-                GameManager.Instance.CurrentState != GameState.Paused)
-            {
-                Time.timeScale = 1f;
-                _isFrozenByThisScreen = false;
-            }
             _routine = null;
         }
 

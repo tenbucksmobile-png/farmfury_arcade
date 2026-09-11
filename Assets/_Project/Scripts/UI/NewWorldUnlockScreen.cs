@@ -70,6 +70,14 @@ namespace FarmFuryArcade.UI
 
         public void Show(Sprite badgeSprite, Sprite worldBackdropSprite, Action onComplete)
         {
+            // Draw on top of whatever else is currently showing on LevelComplete (its own star/
+            // score UI, or a character-unlock card that just finished) — same "always draw on top"
+            // convention ComboHypeScreen already uses. This screen's build-time sibling order
+            // already happens to be last, but that's a build-order coincidence, not a runtime
+            // guarantee; a future reorder of BuildLevelComplete's element creation could silently
+            // put something else on top of this overlay without this call.
+            transform.SetAsLastSibling();
+
             if (worldBadgeImage != null && badgeSprite != null)
             {
                 worldBadgeImage.sprite = badgeSprite;

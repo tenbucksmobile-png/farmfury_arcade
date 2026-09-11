@@ -42,6 +42,7 @@ namespace FarmFuryArcade.Abilities
                 return;
             }
 
+            AudioManager.Instance?.PlayGeraldPuffSfx();
             StartCoroutine(PuffRoutine());
         }
 

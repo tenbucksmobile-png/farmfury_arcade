@@ -67,10 +67,12 @@ namespace FarmFuryArcade.EditorTools
             // existing slot (there was no title screen in the flow before this).
             var titleScreen = BuildTitleScreen(canvas.transform, mainMenu);
             var gameplay = BuildGameplayHUD(canvas.transform);
-            // Full-screen combo hype flash (2026-09-09, rewired 2026-09-10 to fire only on a real
-            // ComboSystem.OnComboTriggered instead of every level start) — not a screenRoots entry
-            // and not SetActive(false)'d below like every other overlay; its own CanvasGroup alpha
-            // (0 at rest) drives visibility instead, same "always-active, alpha-driven" convention
+            // In-gameplay combo callout (2026-09-09, rewired 2026-09-10 to fire only on a real
+            // ComboSystem.OnComboTriggered instead of every level start; reworked 2026-09-11 from a
+            // full-screen freeze-and-cover page into a lightweight overlay on top of live gameplay
+            // — no background, brief freeze then a live fade) — not a screenRoots entry and not
+            // SetActive(false)'d below like every other overlay; its own CanvasGroup alpha (0 at
+            // rest) drives visibility instead, same "always-active, alpha-driven" convention
             // BuildFadeOverlay uses, so its OnEnable event subscription to
             // ComboSystem.OnComboTriggered fires exactly once at scene load. See
             // BuildComboHypeScreen's own doc comment.
@@ -415,18 +417,21 @@ namespace FarmFuryArcade.EditorTools
             return group;
         }
 
-        /// <summary>Full-screen "hype" flash shown only when ComboSystem.OnComboTriggered actually
+        /// <summary>In-gameplay combo callout shown only when ComboSystem.OnComboTriggered actually
         /// fires (see ComboHypeScreen.cs) — never at level start, never on an ordinary character
-        /// swap. Shows the specific Combo_*.png banner for the combo that fired, at a reduced,
-        /// centred size (the old near-fullscreen box stretched some banners past a readable size),
-        /// over a dimmed copy of the current world's own gameplay backdrop (TileMapRenderer.
-        /// MazeArtSet.backdropSprite, resolved live at trigger time — same "faded scenery, not flat
-        /// black" convention NewWorldUnlockScreen uses) instead of a flat black backing. Plays the
-        /// Combo.mp3 stinger (AudioManager.PlayComboSfx, wired via ArtWiringBuilder.WireAudio).
-        /// Self-contained, same "bake everything at construction time" convention MenuHubScreen/
-        /// ShopController use — nothing here needs ArtWiringBuilder for the sprites themselves
-        /// (only the SFX clip goes through ArtWiringBuilder, since that's the established
-        /// convention for AudioManager fields).
+        /// swap. Shows the specific Combo_*.png banner for the combo that fired, centred, fading in
+        /// and back out on top of live gameplay. Plays the Combo.mp3 stinger (AudioManager.
+        /// PlayComboSfx, wired via ArtWiringBuilder.WireAudio). Self-contained, same "bake
+        /// everything at construction time" convention MenuHubScreen/ShopController use — nothing
+        /// here needs ArtWiringBuilder for the sprites themselves (only the SFX clip goes through
+        /// ArtWiringBuilder, since that's the established convention for AudioManager fields).
+        ///
+        /// Reworked 2026-09-11 from a full-screen "page" (opaque black root, the current world's
+        /// own dimmed backdrop, a multi-second Time.timeScale freeze) into a lightweight overlay —
+        /// the root has NO Image/backing at all (a plain RectTransform, not CreatePanel's usual
+        /// opaque-backed panel) so gameplay stays fully visible and playable behind the banner; only
+        /// the banner Image itself is drawn. See ComboHypeScreen's own doc comment for the timing
+        /// (brief real freeze right at the trigger instant, then a live 3-second fade in/out).
         ///
         /// Deliberately stays active for the app's whole lifetime (like BuildFadeOverlay's own
         /// FadeOverlay) rather than being SetActive(false)'d in BuildAll's usual overlay sweep —
@@ -435,28 +440,22 @@ namespace FarmFuryArcade.EditorTools
         /// load, and must not be missed by starting the GameObject inactive.</summary>
         private static GameObject BuildComboHypeScreen(Transform canvasTransform)
         {
-            var root = CreatePanel("ComboHypeScreen", canvasTransform, Color.black);
+            var root = new GameObject("ComboHypeScreen", typeof(RectTransform));
+            root.transform.SetParent(canvasTransform, false);
+            StretchFull((RectTransform)root.transform);
             var canvasGroup = root.AddComponent<CanvasGroup>();
             canvasGroup.alpha = 0f;
             canvasGroup.blocksRaycasts = false;
             canvasGroup.interactable = false;
 
-            // Current world's gameplay backdrop, dimmed — resolved live at trigger time
-            // (ComboHypeScreen.ResolveCurrentWorldBackdrop), this Image just needs to exist.
-            var backdropGO = new GameObject("Backdrop", typeof(RectTransform), typeof(Image));
-            backdropGO.transform.SetParent(root.transform, false);
-            var backdropImage = backdropGO.GetComponent<Image>();
-            backdropImage.color = new Color(0f, 0f, 0f, 0f);
-            backdropImage.preserveAspect = false; // covers full-bleed; ComboHypeScreen only ever
-            StretchFull((RectTransform)backdropGO.transform); // sets a real sprite, never distorts art meant to fill the frame
-
-            // Banner art, reduced from the old near-fullscreen box and middle-aligned — a fixed,
-            // centred box (not edge-to-edge) so a wide/tall Combo_*.png reads as a clean centred
-            // card over the backdrop instead of being blown up to fill the whole screen.
+            // Banner art, centred — a fixed, centred box (not edge-to-edge) so a wide/tall
+            // Combo_*.png reads as a clean centred card over live gameplay instead of covering the
+            // whole screen.
             var bannerGO = new GameObject("BannerImage", typeof(RectTransform), typeof(Image));
             bannerGO.transform.SetParent(root.transform, false);
             var bannerImage = bannerGO.GetComponent<Image>();
             bannerImage.preserveAspect = true; // each Combo_*.png can have its own aspect ratio
+            bannerImage.raycastTarget = false; // purely a callout — never intercepts gameplay taps
             var bannerRect = (RectTransform)bannerGO.transform;
             bannerRect.anchorMin = new Vector2(0.5f, 0.5f);
             bannerRect.anchorMax = new Vector2(0.5f, 0.5f);
@@ -482,7 +481,6 @@ namespace FarmFuryArcade.EditorTools
             var hype = root.AddComponent<ComboHypeScreen>();
             var hypeSo = new SerializedObject(hype);
             hypeSo.FindProperty("canvasGroup").objectReferenceValue = canvasGroup;
-            hypeSo.FindProperty("backdropImage").objectReferenceValue = backdropImage;
             hypeSo.FindProperty("bannerImage").objectReferenceValue = bannerImage;
             var bannersProp = hypeSo.FindProperty("comboBanners");
             bannersProp.arraySize = comboBannerEntries.Length;
@@ -3116,16 +3114,22 @@ namespace FarmFuryArcade.EditorTools
             worldUnlockBannerImage.raycastTarget = false;
             AnchorTopCenter((RectTransform)worldUnlockBannerGO.transform, new Vector2(900f, 260f), new Vector2(0f, -60f));
 
-            var worldBadge = CreateImage("WorldBadge", worldUnlockRoot.transform, new Color(1f, 0.84f, 0f), 850f, 850f);
+            // Shrunk 2026-09-11 (850x850 -> 600x600) per a direct screenshot showing it overlapping
+            // the screen's own edges/safe-area guide on a real device aspect — 850 (44% of the
+            // 1920-wide reference canvas) left far too little margin once CanvasScaler's actual
+            // match-width-or-height blend narrowed the effective canvas width below 1920 on a
+            // device aspect narrower than the reference 16:9. 600 leaves real breathing room on
+            // both sides even in that case.
+            var worldBadge = CreateImage("WorldBadge", worldUnlockRoot.transform, new Color(1f, 0.84f, 0f), 600f, 600f);
             var worldBadgeRect = (RectTransform)worldBadge.transform;
-            worldBadgeRect.anchorMin = worldBadgeRect.anchorMax = new Vector2(0.5f, 0.6f);
+            worldBadgeRect.anchorMin = worldBadgeRect.anchorMax = new Vector2(0.5f, 0.55f);
             // CreateImage's width/height args only set a LayoutElement's preferredWidth/Height,
             // which worldUnlockRoot (a plain CreatePanel, no LayoutGroup) never reads — sizeDelta
             // must be set explicitly or the rect silently stays at Unity's default 100x100
             // regardless of what was passed in. This is why the badge rendered tiny even after its
             // burst-in/pulse animation "finished" — the animation itself was correct, it was just
-            // animating up to a 100x100 target instead of the intended 850x850.
-            worldBadgeRect.sizeDelta = new Vector2(850f, 850f);
+            // animating up to a 100x100 target instead of the intended size.
+            worldBadgeRect.sizeDelta = new Vector2(600f, 600f);
             worldBadgeRect.anchoredPosition = Vector2.zero;
             worldBadge.preserveAspect = true;
             // Badge itself shouldn't swallow the tap before it reaches the root Button underneath.

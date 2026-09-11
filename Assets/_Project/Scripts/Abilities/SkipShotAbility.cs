@@ -30,6 +30,7 @@ namespace FarmFuryArcade.Abilities
 
             transform.position = source.PairedWater.transform.position;
             source.MarkUsed();
+            AudioManager.Instance?.PlayDuckyTeleportSfx();
             SpawnSplashEffect(departurePosition, movingRight);
 
             if (ComboSystem.Instance != null && ComboSystem.Instance.ConsumeDoubleWoolClones())

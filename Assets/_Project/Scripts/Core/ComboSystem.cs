@@ -74,6 +74,14 @@ namespace FarmFuryArcade.Core
 
         public void RegisterCharacterSwap(CharacterType previous, CharacterType next)
         {
+            // Diagnostic (2026-09-11) — added while investigating a "combos aren't firing" report
+            // with no reproducible code-level bug found on review. This makes the full chain
+            // (swap registered -> pair checked -> matched/not) visible in the Console on the next
+            // real playtest, since the actual break point (if any) couldn't be confirmed by static
+            // review alone. Safe to remove once the report is confirmed resolved or the real cause
+            // is found some other way.
+            Debug.Log($"[ComboSystem] RegisterCharacterSwap: {previous} -> {next} (usedDistinct={_usedDistinct.Count}, bessieActivations={_bessieActivations})");
+
             _usedOrder.Add(next);
             _usedDistinct.Add(next);
             if (next == CharacterType.Bessie)
@@ -114,6 +122,13 @@ namespace FarmFuryArcade.Core
             else if (previous == CharacterType.Horace && next == CharacterType.Percy)
             {
                 Trigger("Kick and Roll", () => PendingTripleWallPhase = true);
+            }
+            else
+            {
+                // Same diagnostic pass as RegisterCharacterSwap above — confirms when a swap
+                // genuinely doesn't match any of the 6 pair combos (expected for most swaps) vs.
+                // this method never being reached at all.
+                Debug.Log($"[ComboSystem] No pair combo matched for {previous} -> {next}.");
             }
         }
 

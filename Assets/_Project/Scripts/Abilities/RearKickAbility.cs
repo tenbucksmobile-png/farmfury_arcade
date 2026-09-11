@@ -25,6 +25,8 @@ namespace FarmFuryArcade.Abilities
                 return;
             }
 
+            AudioManager.Instance?.PlayHoraceKickSfx();
+
             bool doubled = ComboSystem.Instance != null && ComboSystem.Instance.ConsumeDoubleKnockback();
             int distance = doubled ? KnockbackTiles * 2 : KnockbackTiles;
 

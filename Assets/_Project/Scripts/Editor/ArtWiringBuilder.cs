@@ -285,6 +285,18 @@ namespace FarmFuryArcade.EditorTools
         private const string PowerReadySfx = "Assets/_Project/Audio/SFX/PowerReady.mp3";
         private const string RarePelletPickupSfx = "Assets/_Project/Audio/SFX/RarePellet_pickup.mp3";
         private const string RobotSpawnSfx = "Assets/_Project/Audio/SFX/RobotSpawn.mp3";
+        // On-disk filenames match exactly, including "Clucky_abiltiy.mp3"'s own typo (not
+        // "ability") — AssetDatabase.LoadAssetAtPath is case/spelling-sensitive regardless of OS
+        // filesystem, same gotcha this project has hit before for sprite filenames.
+        private const string GroundSlamSfx = "Assets/_Project/Audio/SFX/Bessie-ability.mp3";
+        private const string DuckyTeleportSfx = "Assets/_Project/Audio/SFX/DuckyTeleport.mp3";
+        private const string EggDropSfx = "Assets/_Project/Audio/SFX/Clucky_abiltiy.mp3";
+        // "Percy_ability.mp3" (capital P) vs "billy_ability.mp3" (lowercase b) — exact on-disk
+        // casing, not a copy-paste inconsistency.
+        private const string PercyRollSfx = "Assets/_Project/Audio/SFX/Percy_ability.mp3";
+        private const string BillyChargeSfx = "Assets/_Project/Audio/SFX/billy_ability.mp3";
+        private const string HoraceKickSfx = "Assets/_Project/Audio/SFX/Horace_ability.mp3";
+        private const string GeraldPuffSfx = "Assets/_Project/Audio/SFX/Gerald_ability.mp3";
         // Stinger played once by ComboHypeScreen when its full-screen combo banner appears
         // (ComboSystem.OnComboTriggered) — see AudioManager.PlayComboSfx.
         private const string ComboSfx = "Assets/_Project/Audio/SFX/Combo.mp3";
@@ -2176,6 +2188,13 @@ namespace FarmFuryArcade.EditorTools
             var rarePelletPickup = AssetDatabase.LoadAssetAtPath<AudioClip>(RarePelletPickupSfx);
             var robotSpawn = AssetDatabase.LoadAssetAtPath<AudioClip>(RobotSpawnSfx);
             var combo = AssetDatabase.LoadAssetAtPath<AudioClip>(ComboSfx);
+            var groundSlam = AssetDatabase.LoadAssetAtPath<AudioClip>(GroundSlamSfx);
+            var duckyTeleport = AssetDatabase.LoadAssetAtPath<AudioClip>(DuckyTeleportSfx);
+            var eggDrop = AssetDatabase.LoadAssetAtPath<AudioClip>(EggDropSfx);
+            var percyRoll = AssetDatabase.LoadAssetAtPath<AudioClip>(PercyRollSfx);
+            var billyCharge = AssetDatabase.LoadAssetAtPath<AudioClip>(BillyChargeSfx);
+            var horaceKick = AssetDatabase.LoadAssetAtPath<AudioClip>(HoraceKickSfx);
+            var geraldPuff = AssetDatabase.LoadAssetAtPath<AudioClip>(GeraldPuffSfx);
             var eatRobotMusic = AssetDatabase.LoadAssetAtPath<AudioClip>(EatRobotMusicClip);
             var landingMusic = AssetDatabase.LoadAssetAtPath<AudioClip>(LandingMusicClip);
 
@@ -2205,6 +2224,13 @@ namespace FarmFuryArcade.EditorTools
             if (rarePelletPickup != null) so.FindProperty("rarePelletPickupClip").objectReferenceValue = rarePelletPickup;
             if (robotSpawn != null) so.FindProperty("robotRespawnClip").objectReferenceValue = robotSpawn;
             if (combo != null) so.FindProperty("comboSfxClip").objectReferenceValue = combo;
+            if (groundSlam != null) so.FindProperty("groundSlamClip").objectReferenceValue = groundSlam;
+            if (duckyTeleport != null) so.FindProperty("duckyTeleportClip").objectReferenceValue = duckyTeleport;
+            if (eggDrop != null) so.FindProperty("eggDropClip").objectReferenceValue = eggDrop;
+            if (percyRoll != null) so.FindProperty("percyRollClip").objectReferenceValue = percyRoll;
+            if (billyCharge != null) so.FindProperty("billyChargeClip").objectReferenceValue = billyCharge;
+            if (horaceKick != null) so.FindProperty("horaceKickClip").objectReferenceValue = horaceKick;
+            if (geraldPuff != null) so.FindProperty("geraldPuffClip").objectReferenceValue = geraldPuff;
             if (eatRobotMusic != null) so.FindProperty("eatRobotMusicClip").objectReferenceValue = eatRobotMusic;
             if (landingMusic != null) so.FindProperty("landingMusicClip").objectReferenceValue = landingMusic;
 

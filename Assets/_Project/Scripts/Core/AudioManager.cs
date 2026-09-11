@@ -26,7 +26,9 @@ namespace FarmFuryArcade.Core
     /// SFX clips under Assets/_Project/Audio/SFX/ are wired to specific gameplay triggers — see
     /// PlayAnimalDeathSfx/PlayCornPickupSfx/PlayCoinPickupSfx/PlayPowerReadySfx/
     /// PlayRarePelletPickupSfx/PlayRobotRespawnSfx and their call sites (PlayerHealth,
-    /// CropCollector, AbilityBase, RobotBase respectively). Unchanged by the per-world music work.
+    /// CropCollector, AbilityBase, RobotBase respectively), plus 3 per-character ability cues
+    /// (PlayGroundSlamSfx/PlayDuckyTeleportSfx/PlayEggDropSfx — GroundSlamAbility/SkipShotAbility/
+    /// EggDropAbility, added 2026-09-11). Unchanged by the per-world music work.
     /// </summary>
     public class AudioManager : Singleton<AudioManager>
     {
@@ -77,6 +79,13 @@ namespace FarmFuryArcade.Core
         [SerializeField] private AudioClip rarePelletPickupClip;
         [SerializeField] private AudioClip robotRespawnClip;
         [SerializeField] private AudioClip comboSfxClip;
+        [SerializeField] private AudioClip groundSlamClip;
+        [SerializeField] private AudioClip duckyTeleportClip;
+        [SerializeField] private AudioClip eggDropClip;
+        [SerializeField] private AudioClip percyRollClip;
+        [SerializeField] private AudioClip billyChargeClip;
+        [SerializeField] private AudioClip horaceKickClip;
+        [SerializeField] private AudioClip geraldPuffClip;
 
         private int _sfxPoolCursor;
         private bool _usingSourceA = true;
@@ -189,6 +198,27 @@ namespace FarmFuryArcade.Core
         /// see that class's own doc comment. Deliberately not muted by the interstitial-ad
         /// AudioListener.pause block in GameManager.LoadLevel, since it runs before that gate.</summary>
         public void PlayComboSfx() => PlaySFX(comboSfxClip);
+        /// <summary>Bessie's Ground Slam — fires from GroundSlamAbility.Execute().</summary>
+        public void PlayGroundSlamSfx() => PlaySFX(groundSlamClip);
+        /// <summary>Ducky's Skip Shot — fires from SkipShotAbility.Execute() only on a successful
+        /// teleport (not the no-op case where no adjacent unused water tile pair exists).</summary>
+        public void PlayDuckyTeleportSfx() => PlaySFX(duckyTeleportClip);
+        /// <summary>Cluck's Egg Drop — fires from EggDropAbility.Execute() only when the egg is
+        /// actually spawned (not the no-op case where her current tile isn't walkable).</summary>
+        public void PlayEggDropSfx() => PlaySFX(eggDropClip);
+        /// <summary>Percy's Bounce Roll — fires from BounceRollAbility.Execute() (guarded the same
+        /// way Execute() itself is, so it can't double-fire on the reachable double-activation
+        /// edge case while a roll is already in progress).</summary>
+        public void PlayPercyRollSfx() => PlaySFX(percyRollClip);
+        /// <summary>Billy's Headbutt Through — fires from HeadbuttThroughAbility.Execute(), same
+        /// double-activation guard as PlayPercyRollSfx above.</summary>
+        public void PlayBillyChargeSfx() => PlaySFX(billyChargeClip);
+        /// <summary>Horace's Rear Kick — fires from RearKickAbility.Execute() only when a target
+        /// robot is actually found within range (not the no-op case with nothing nearby).</summary>
+        public void PlayHoraceKickSfx() => PlaySFX(horaceKickClip);
+        /// <summary>Gerald's Puff Up — fires from PuffUpAbility.Execute(), guarded the same way
+        /// Execute() itself is against the reachable double-activation edge case.</summary>
+        public void PlayGeraldPuffSfx() => PlaySFX(geraldPuffClip);
 
         /// <summary>Crossfades the looping music track to the "power active" cue for as long as a
         /// power pellet's effect lasts — PowerPelletManager calls this on activation and

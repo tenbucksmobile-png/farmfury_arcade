@@ -302,6 +302,58 @@ namespace FarmFuryArcade.EditorTools
             Debug.Log("[SceneCleanupBuilder] Cleared equipped Hat slot for all characters — baseball caps (and any other hat) will no longer render until re-equipped.");
         }
 
+        /// <summary>Grants ownership of every cosmetic in the game (2026-09-11) — all 8 characters'
+        /// own Baseball Cap and Cowboy Hat variants, the 3 universal hats (Sombrero/Chef Hat/Crown),
+        /// and all 6 trails — via the same checksum-protected SaveManager.DebugForceEquipForTesting
+        /// path every other testing tool in this file uses (bypasses IAPManager.PurchaseProduct —
+        /// no real store connection exists in the Editor). Static/Edit-mode-safe, no Play mode
+        /// needed first.
+        ///
+        /// Per-character hats are granted for EVERY character (not just whichever is active) so
+        /// swapping characters in Play mode always shows them owned in the Locker regardless of who
+        /// happens to be equipped when this runs. The method also equips each cosmetic for whichever
+        /// character/global slot it targets as a side effect (that's what
+        /// DebugForceEquipForTesting does) — the LAST hat/trail call for a given slot is simply
+        /// whichever one ends up shown as "equipped" at first glance; ownership (what actually
+        /// matters for "available to test") is unaffected by that, and any item can be freely
+        /// re-equipped from the in-maze Locker afterward.</summary>
+        [MenuItem("Farm Fury Arcade/Debug/Unlock All Cosmetics (Testing)")]
+        public static void UnlockAllCosmeticsForTesting()
+        {
+            int grantedCount = 0;
+
+            foreach (CharacterType character in System.Enum.GetValues(typeof(CharacterType)))
+            {
+                SaveManager.DebugForceEquipForTesting(CosmeticType.Hat, character, $"baseball_cap_{character}".ToLowerInvariant());
+                SaveManager.DebugForceEquipForTesting(CosmeticType.Hat, character, $"cowboy_hat_{character}".ToLowerInvariant());
+                grantedCount += 2;
+            }
+
+            string[] universalHats = { IAPManager.SombreroCosmeticId, IAPManager.ChefHatCosmeticId, IAPManager.CrownCosmeticId };
+            foreach (string cosmeticId in universalHats)
+            {
+                SaveManager.DebugForceEquipForTesting(CosmeticType.Hat, CharacterType.Cluck, cosmeticId);
+                grantedCount++;
+            }
+
+            string[] trails =
+            {
+                IAPManager.TrailCornHuskProductId, IAPManager.TrailEmberProductId,
+                IAPManager.TrailSparkleDustProductId, IAPManager.TrailRainbowRibbonProductId,
+                IAPManager.TrailConfettiProductId, IAPManager.TrailBubblesProductId,
+            };
+            foreach (string cosmeticId in trails)
+            {
+                SaveManager.DebugForceEquipForTesting(CosmeticType.Trail, CharacterType.Cluck, cosmeticId);
+                grantedCount++;
+            }
+
+            Debug.Log($"[SceneCleanupBuilder] Granted ownership of all {grantedCount} cosmetic assets " +
+                      "(8 characters x 2 per-character hats + 3 universal hats + 6 trails) — every item " +
+                      "now shows owned in the Locker/Shop badges. Press Play, open the in-maze Locker, and " +
+                      "everything is tappable to equip and test.");
+        }
+
         /// <summary>Force-equips one Trail cosmetic for testing, bypassing IAPManager.PurchaseProduct
         /// (no real store connection exists in the Editor — see CLAUDE.md's IAP plumbing notes).
         /// Trail is character-agnostic/global (CharacterType passed is irrelevant, kept only because

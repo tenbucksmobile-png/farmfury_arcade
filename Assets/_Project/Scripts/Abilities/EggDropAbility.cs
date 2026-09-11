@@ -1,4 +1,5 @@
 using UnityEngine;
+using FarmFuryArcade.Core;
 using FarmFuryArcade.Gameplay;
 
 namespace FarmFuryArcade.Abilities
@@ -24,6 +25,7 @@ namespace FarmFuryArcade.Abilities
             }
 
             Instantiate(eggPrefab, TileMap.GridToWorld(origin), Quaternion.identity);
+            AudioManager.Instance?.PlayEggDropSfx();
         }
     }
 }

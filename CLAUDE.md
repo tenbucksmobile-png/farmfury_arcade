@@ -1044,6 +1044,23 @@ event subscription to `ComboSystem.OnComboTriggered` never fires at all. Skips t
 entirely (rather than showing a random/wrong banner) if no matching banner art is wired for the
 combo that fired.
 
+**Reworked again 2026-09-11 (per direct feedback) from the full-screen "page" described above into
+a lightweight in-gameplay callout** — the root GameObject has NO background Image at all now (not
+even a transparent one; `BuildComboHypeScreen` builds a bare `RectTransform`, not `CreatePanel`'s
+usual opaque-backed panel), so the maze/HUD stay fully visible and playable behind the banner
+instead of being covered by a full-screen page. The dimmed world-backdrop lookup
+(`ResolveCurrentWorldBackdrop`/`TileMapRenderer.MazeArtSet.backdropSprite`) is gone entirely — there
+is no backdrop of any kind anymore, just the banner art on transparent. `Time.timeScale` is no
+longer frozen for the whole ~5s hold; instead a brief real freeze (`gameStartDelaySeconds`, 0.25s,
+`WaitForSecondsRealtime` so it elapses correctly even while frozen) happens right at the trigger
+instant so the moment actually registers before gameplay resumes moving underneath, then the
+banner fades in, holds, and fades out over a live-gameplay `totalSeconds` (3s) — `fadeSeconds`
+(0.75s each way) leaves `totalSeconds - fadeSeconds*2` (1.5s) as a full-opacity hold. The
+freeze-then-restore captures `Time.timeScale`'s value rather than hardcoding a restore to `1f`, so
+a combo that happens to trigger while the game is already paused for an unrelated reason (shouldn't
+happen in practice — combos only fire from a character swap, and `ChooseCharacterScreen` already
+pauses before swapping — but defensive regardless) can't accidentally un-pause it early.
+
 **`SaveManager` gained `AdsRemoved`** (bool, persisted — `NotifyLevelLoaded` already early-outs on
 it; `IAPManager`'s Remove Ads purchase now sets it, see "IAP plumbing" below) **and
 `LevelsSinceLastInterstitial`** (the rolling counter above, exposed via a getter +
@@ -2427,6 +2444,35 @@ backdropSprite`, so it works for all 4 worlds generically with no per-world spec
 `LevelCompleteController` fetches it via `FindFirstObjectByType<TileMapRenderer>()` before calling
 `Show`.
 
+**Badge shrunk again, and the transition into it hardened (2026-09-11), per a direct screenshot
+showing the badge overlapping the screen's own edges/safe-area guide on a real device.** 850x850
+(44% of the 1920-wide reference canvas) left too little margin once `CanvasScaler`'s actual
+match-width-or-height blend narrows the effective canvas width below 1920 on an aspect narrower
+than the reference 16:9 — shrunk to 600x600, anchor nudged from 0.6 to 0.55 to keep clear of the
+`WorldUnlockedBanner` above it. The same report also flagged the badge appearing to interfere with
+Level Complete's own still-settling star/score reveal — reviewed the whole `CelebrationSequence`
+coroutine and confirmed it was already strictly sequenced (stars → score countup → optional
+character-unlock card → world badge, each step genuinely `yield`-awaited, never fired
+concurrently), so there was no literal race to fix, but three real hardening changes went in
+anyway: (1) `PreWorldUnlockDelaySeconds` (0.8s, new — was reusing the much shorter
+`PreUnlockDelaySeconds`, 0.3s, meant for the smaller character-unlock hand-off) gives the badge
+its own more generous pause after the score finishes counting up, so the transition doesn't read
+as cutting the reveal off early; (2) both `NewWorldUnlockScreen.Show` and
+`NewCharacterUnlockScreen.Show` now call `transform.SetAsLastSibling()` on entry (same convention
+`ComboHypeScreen` already used) — their build-time sibling order already happens to put them last,
+but that was a coincidence of `BuildLevelComplete`'s own element-creation order, not a runtime
+guarantee, so this closes off a future reorder silently breaking draw order; (3)
+`LevelCompleteController.OnEnable` now stops any already-running `_celebrationRoutine` before
+starting a new one, so two overlapping celebration coroutines can never run at once even if
+`OnEnable` somehow fires twice in a row. A `Debug.LogWarning` was also added for the case
+`GetOrAddArtSet(...).backdropSprite` resolves null (distinguishes "no `TileMapRenderer` found at
+all" from "this world's `MazeArtSet.backdropSprite` genuinely isn't wired" from the Console instead
+of only from a screenshot) — the reported screenshot showed a plain black background instead of
+Veg Patch's own scenery despite the scene's own serialized `mazeArtSets` data having a real
+`backdropSprite` GUID for `mazeType: 1` (Veg Patch) when checked directly, so if this warning does
+NOT fire on a repro, the cause is somewhere in `Image` rendering rather than data resolution and
+needs a different investigation.
+
 **`ChooseCharacterScreen`** (real uGUI, `Scripts/UI/ChooseCharacterScreen.cs` +
 `CharacterSelectCard.cs`) replaced the Phase 4 `CharacterSwapUI` `OnGUI` panel. Not a
 `SceneTransitionManager` screen — like Pause/Settings, it's an overlay shown/hidden directly
@@ -3250,7 +3296,8 @@ phase made for art (solid-colour placeholders instead of real sprites).
   Progress (Testing)` / `Farm Fury Arcade > Wire AdManager Config` / `Farm Fury Arcade > Debug >
   Diagnose Level Select Scroll Range` / `Farm Fury Arcade > Debug > Diagnose Dimmed Backdrops` /
   `Farm Fury Arcade > Debug > Diagnose DPad Wiring` / `Farm Fury Arcade > Debug > Diagnose Audio
-  Wiring` / `Farm Fury Arcade > Debug > Unequip All Hats (Testing)` / `Farm Fury Arcade > Debug > Equip
+  Wiring` / `Farm Fury Arcade > Debug > Unequip All Hats (Testing)` / `Farm Fury Arcade > Debug >
+  Unlock All Cosmetics (Testing)` / `Farm Fury Arcade > Debug > Equip
   Trail (Testing) > ...` / `Farm Fury Arcade > Debug > Fix Level Crop Counts (Power Pellet Cap)`) —
   small targeted scene-hygiene
   fixes that are neither "wire art" nor "rebuild a phase's content." `DisableDebugTestOverlays`
@@ -3262,7 +3309,13 @@ phase made for art (solid-colour placeholders instead of real sprites).
   `ResetAllProgress` specifically so it can run from Edit mode with no live `SaveManager` instance
   (`Singleton<T>` only ever assigns `Instance` from a real scene `Awake()`, so the instance method
   needs Play mode first — this static half only touches `PlayerPrefs`, nothing instance-state-
-  dependent). `WireAdManagerConfig` sets `AdManager`'s LevelPlay app-key/placement-ID fields on the
+  dependent). `UnlockAllCosmeticsForTesting` (2026-09-11) grants ownership of every cosmetic in the
+  game at once — all 8 characters' own Baseball Cap/Cowboy Hat variants, the 3 universal hats, and
+  all 6 trails — via the same checksum-protected `SaveManager.DebugForceEquipForTesting` path every
+  other cosmetic testing tool here uses (not a raw `PlayerPrefs` write), so it can't hit the
+  ownership-desync bug documented under `DebugForceEquipForTesting`'s own doc comment. Static/
+  Edit-mode-safe like `ResetAllProgressForTesting` — run it, then open the in-maze Locker in Play
+  mode and every item shows owned and tappable. `WireAdManagerConfig` sets `AdManager`'s LevelPlay app-key/placement-ID fields on the
   scene's `AdManager` component (see "Ad mediation" above) — only overwrites a field when a
   non-empty value is passed in, so it's safe to re-run as new platform values arrive piecemeal
   without clobbering ones already set. `DiagnoseLevelSelectScrollRange`/`DiagnoseDimmedBackdrops`/
@@ -4239,7 +4292,16 @@ happened rather than which clip field to reach into):
 | `PowerReady.mp3` | `PlayPowerReadySfx` | `AbilityBase.UpdateCooldown`, the single frame a character's ability cooldown reaches exactly 0 (not power-pellet activation — that's a separate, unrelated event; see `PlayEatRobotMusic` below) |
 | `RarePellet_pickup.mp3` | `PlayRarePelletPickupSfx` | `CropCollector`, only when `pellet.pelletType != PowerPelletType.Sunflower` — same "rare tier" gate `PelletCollectBurst` uses. Fires *before* `PowerPelletManager.ActivatePower` (which crossfades music to `EatRobot.mp3`), so the pickup cue is heard first rather than being stepped on by the music swap |
 | `RobotSpawn.mp3` | `PlayRobotRespawnSfx` | `RobotSpawner.SpawnRobot` — every robot spawn, including level-start ones. Used to fire only from a defeated robot's mid-level walk back to the factory (`RobotBase.ArriveAtFactory`); that flow was removed (defeated robots now disappear permanently for the rest of the maze — see the Robot AI state-machine note above), so this was repointed to the only spawn event left, or it would have become dead code with no call site at all |
-| `Combo.mp3` | `PlayComboSfx` | `ComboHypeScreen`, once when its full-screen reveal appears — now on a real `ComboSystem.OnComboTriggered` mid-gameplay, not at level start (see "Ad mediation" section above for the level-start gate this used to share, which it's no longer part of) |
+| `Combo.mp3` | `PlayComboSfx` | `ComboHypeScreen`, once when its callout appears — on a real `ComboSystem.OnComboTriggered` mid-gameplay, not at level start (see "Ad mediation" section above for the level-start gate this used to share, which it's no longer part of) |
+| `Bessie-ability.mp3` | `PlayGroundSlamSfx` | `GroundSlamAbility.Execute()`, the instant Ground Slam casts |
+| `DuckyTeleport.mp3` | `PlayDuckyTeleportSfx` | `SkipShotAbility.Execute()`, only on a successful teleport (not the no-op case with no adjacent unused water tile pair) |
+| `Clucky_abiltiy.mp3` | `PlayEggDropSfx` | `EggDropAbility.Execute()`, only when the egg is actually spawned (not the no-op case where her current tile isn't walkable) — filename typo ("abiltiy") is on-disk, not a doc typo |
+| `Percy_ability.mp3` | `PlayPercyRollSfx` | `BounceRollAbility.Execute()`, guarded the same way `Execute()` itself is against the reachable double-activation edge case |
+| `billy_ability.mp3` | `PlayBillyChargeSfx` | `HeadbuttThroughAbility.Execute()`, same double-activation guard — note the lowercase 'b', unlike `Percy_ability.mp3`'s capital 'P' |
+| `Horace_ability.mp3` | `PlayHoraceKickSfx` | `RearKickAbility.Execute()`, only when a target robot is actually found within range (not the no-op case with nothing nearby) |
+| `Gerald_ability.mp3` | `PlayGeraldPuffSfx` | `PuffUpAbility.Execute()`, same double-activation guard as `PlayBillyChargeSfx` |
+
+All 8 characters now have a dedicated ability SFX cue.
 
 When more art lands, wire it into the existing prefabs (`Prefabs/Characters/`, `Prefabs/Robots/`,
 `Prefabs/Blocks/`) via `ArtWiringBuilder` rather than creating new prefabs.

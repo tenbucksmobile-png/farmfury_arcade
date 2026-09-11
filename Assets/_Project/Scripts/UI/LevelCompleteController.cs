@@ -49,6 +49,13 @@ namespace FarmFuryArcade.UI
         private const float StarStepSeconds = 0.35f;
         private const float PreStarDelaySeconds = 0.3f;
         private const float PreUnlockDelaySeconds = 0.3f;
+        // Deliberately longer than PreUnlockDelaySeconds — the world-unlock celebration is a much
+        // bigger beat (full-screen badge burst) than the character-unlock hand-off, so it gets its
+        // own more generous pause after the score finishes counting up, so it doesn't read as
+        // cutting the star/score reveal off before the player has had a moment to actually see it.
+        private const float PreWorldUnlockDelaySeconds = 0.8f;
+
+        private Coroutine _celebrationRoutine;
 
         private void Awake()
         {
@@ -62,7 +69,15 @@ namespace FarmFuryArcade.UI
         private void OnEnable()
         {
             RefreshDoubleCoinsButton();
-            StartCoroutine(CelebrationSequence());
+            // Defensive — guarantees only one celebration sequence ever runs at a time even if
+            // OnEnable somehow fires twice in a row (e.g. a future ShowOnly call re-activating an
+            // already-active screen) instead of two overlapping coroutines racing each other and
+            // both trying to show their own unlock overlay independently.
+            if (_celebrationRoutine != null)
+            {
+                StopCoroutine(_celebrationRoutine);
+            }
+            _celebrationRoutine = StartCoroutine(CelebrationSequence());
         }
 
         private IEnumerator CelebrationSequence()
@@ -100,7 +115,7 @@ namespace FarmFuryArcade.UI
 
             if (justUnlockedWorld.HasValue && worldUnlockScreen != null && levelSelectController != null)
             {
-                yield return new WaitForSecondsRealtime(PreUnlockDelaySeconds);
+                yield return new WaitForSecondsRealtime(PreWorldUnlockDelaySeconds);
                 Sprite badge = levelSelectController.GetWorldSignSprite(justUnlockedWorld.Value);
                 // The just-unlocked world's own gameplay backdrop, shown faded behind the badge —
                 // see NewWorldUnlockScreen's doc comment. MazeType's enum order matches world index
@@ -110,8 +125,20 @@ namespace FarmFuryArcade.UI
                 Sprite backdrop = tileMapRenderer != null
                     ? tileMapRenderer.GetOrAddArtSet((MazeType)justUnlockedWorld.Value).backdropSprite
                     : null;
+                if (backdrop == null)
+                {
+                    // Diagnostic for a real report ("world unlock page shows plain black, not the
+                    // world's own backdrop") — this makes the two possible causes (no TileMapRenderer
+                    // found at all vs. a genuinely-unwired MazeArtSet.backdropSprite for this world)
+                    // distinguishable from the Console instead of only from a screenshot.
+                    Debug.LogWarning($"[LevelCompleteController] No backdrop resolved for world index " +
+                        $"{justUnlockedWorld.Value} (tileMapRenderer {(tileMapRenderer == null ? "NOT FOUND" : "found")}) " +
+                        "— NewWorldUnlockScreen will show a plain black background instead of the world's own scenery.");
+                }
                 worldUnlockScreen.Show(badge, backdrop, () => SceneTransitionManager.Instance.ShowOnly(levelSelectScreen));
             }
+
+            _celebrationRoutine = null;
         }
 
         private IEnumerator CountUpScore(int target)

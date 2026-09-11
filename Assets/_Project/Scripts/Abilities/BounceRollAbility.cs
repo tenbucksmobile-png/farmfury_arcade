@@ -80,6 +80,8 @@ namespace FarmFuryArcade.Abilities
                 return;
             }
 
+            AudioManager.Instance?.PlayPercyRollSfx();
+
             bool extendedBuff = ComboSystem.Instance != null && ComboSystem.Instance.ConsumeTripleWallPhase();
             int tiles = extendedBuff ? RollTilesBuffed : RollTilesBase;
             // LastFacingDirection (not CurrentDirection, which resets to None the instant no

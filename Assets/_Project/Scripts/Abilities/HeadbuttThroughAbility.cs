@@ -1,5 +1,6 @@
 using System.Collections;
 using UnityEngine;
+using FarmFuryArcade.Core;
 using FarmFuryArcade.Enemies;
 using FarmFuryArcade.Gameplay;
 
@@ -66,6 +67,8 @@ namespace FarmFuryArcade.Abilities
             {
                 return;
             }
+
+            AudioManager.Instance?.PlayBillyChargeSfx();
 
             Direction facing = Movement.LastFacingDirection;
             StartCoroutine(ChargeRoutine(facing, ChargeTilesBase));
