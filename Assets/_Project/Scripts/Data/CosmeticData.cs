@@ -86,12 +86,22 @@ namespace FarmFuryArcade.Data
         public float hatScale = 1f;
 
         [Tooltip("Hat only. Optional per-character overrides of hatOffset/hatScale above, for a " +
-                 "universal hat (e.g. Cowboy Hat/Sombrero) shared by one CosmeticData asset across " +
+                 "universal hat (e.g. Sombrero) shared by one CosmeticData asset across " +
                  "every character instead of one asset per character (unlike the baseball caps, " +
                  "which already get their own per-character offset/scale via a dedicated asset " +
                  "each). A character with no entry here falls back to the shared hatOffset/hatScale " +
                  "above. See CharacterCosmeticRenderer.ResolveHatOffsetAndScale.")]
         public CharacterHatOverride[] characterHatOverrides;
+
+        [Tooltip("Hat only, optional. When set (2+ entries), CharacterCosmeticRenderer shows one of " +
+                 "these instead of hatFrames — picked deterministically from the current level's " +
+                 "own levelNumber (levelNumber % hatVariantSprites.Length), re-resolved every time " +
+                 "the character (re)spawns, so the shown variant changes as the player progresses " +
+                 "through levels. Every entry replaces ALL 8 hatFrames slots (no per-direction art " +
+                 "for these variants) — built for Sombrero's 4 alternate designs (Sombrero_1..4.png), " +
+                 "but works for any hat with several interchangeable single-pose looks. Leave empty " +
+                 "for a normal hat that always shows the same hatFrames.")]
+        public Sprite[] hatVariantSprites;
 
         [Tooltip("Skin only. A full replacement walk-cycle set, same 8-entry order as " +
                  "CharacterData.walkAnimationFrames — CharacterCosmeticRenderer feeds this into " +

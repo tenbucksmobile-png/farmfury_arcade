@@ -10,7 +10,7 @@ namespace FarmFuryArcade.UI
 {
     /// <summary>
     /// Generic cosmetic-style purchase surface. As of the 2026-08-30 mockup, one instance
-    /// (Phase5ProjectBuilder.BuildCosmeticsHubScreen) hosts all 7 hat/trail items at once, each
+    /// (Phase5ProjectBuilder.BuildCosmeticsHubScreen) hosts all 11 hat/trail items at once, each
     /// item's own plaque art baking in both its icon AND its $1.99 price — no separate breadcrumb
     /// icon or shared price plaque needed (the earlier 2026-08-20 design split Hats/Trails across
     /// two screens, each with a shared $3.99 price sign; both are gone now). The same component
@@ -170,18 +170,29 @@ namespace FarmFuryArcade.UI
             switch (productId)
             {
                 case IAPManager.HatBaseballCapProductId:
-                    CharacterType active = CharacterManager.Instance != null
+                    CharacterType activeCap = CharacterManager.Instance != null
                         ? CharacterManager.Instance.ActiveCharacter
                         : CharacterType.Cluck;
-                    return SaveManager.Instance.IsCosmeticOwned($"baseball_cap_{active}".ToLowerInvariant());
+                    return SaveManager.Instance.IsCosmeticOwned($"baseball_cap_{activeCap}".ToLowerInvariant());
                 case IAPManager.HatCowboyHatProductId:
-                    return SaveManager.Instance.IsCosmeticOwned(IAPManager.CowboyHatCosmeticId);
+                    // Per-character asset set (2026-09-11), same shape as Baseball Cap — see
+                    // IAPManager.GrantCowboyHatSet.
+                    CharacterType activeCowboy = CharacterManager.Instance != null
+                        ? CharacterManager.Instance.ActiveCharacter
+                        : CharacterType.Cluck;
+                    return SaveManager.Instance.IsCosmeticOwned($"cowboy_hat_{activeCowboy}".ToLowerInvariant());
                 case IAPManager.HatSombreroProductId:
                     return SaveManager.Instance.IsCosmeticOwned(IAPManager.SombreroCosmeticId);
+                case IAPManager.HatChefHatProductId:
+                    return SaveManager.Instance.IsCosmeticOwned(IAPManager.ChefHatCosmeticId);
+                case IAPManager.HatCrownProductId:
+                    return SaveManager.Instance.IsCosmeticOwned(IAPManager.CrownCosmeticId);
                 case IAPManager.TrailCornHuskProductId:
                 case IAPManager.TrailEmberProductId:
                 case IAPManager.TrailSparkleDustProductId:
                 case IAPManager.TrailRainbowRibbonProductId:
+                case IAPManager.TrailConfettiProductId:
+                case IAPManager.TrailBubblesProductId:
                     // Trail product ids intentionally match their CosmeticData.cosmeticId exactly.
                     return SaveManager.Instance.IsCosmeticOwned(productId);
                 case IAPManager.WorldFrostbiteGardenProductId:

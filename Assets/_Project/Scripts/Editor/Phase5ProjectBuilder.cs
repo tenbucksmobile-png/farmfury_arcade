@@ -83,7 +83,7 @@ namespace FarmFuryArcade.EditorTools
             var storeComingSoon = BuildShopOverlay(canvas.transform);
             var coinPurchase = BuildCoinPurchaseScreen(canvas.transform);
             var menuHub = BuildMenuHubScreen(canvas.transform);
-            // Cosmetics (2026-08-30 mockup) — one flat screen with all 7 hat/trail items directly
+            // Cosmetics (2026-08-30 mockup) — one flat screen with all 11 hat/trail items directly
             // tappable, each item's own art baking in its price ($1.99 each) — no more Hat/Trail
             // sub-screens or a shared breadcrumb/price-plaque row. See its own doc comment.
             var cosmeticsHub = BuildCosmeticsHubScreen(canvas.transform);
@@ -1423,17 +1423,22 @@ namespace FarmFuryArcade.EditorTools
             // Settings/Quit bottom-right pair, identical StandardIconButtonSize + insets. Pause
             // keeps all 4 (unaffected by LevelFailed's own 2026-08-30 "GAME OVER" redesign, which
             // dropped Skip and re-iconed Quit to Home — see BuildLevelFailed's own doc comment).
+            // Bottom inset raised from 110 to 110+BannerAdBottomClearance (2026-09-11) to leave
+            // clear room below for AdManager's banner ad (see PauseMenuController's own doc comment
+            // — the banner is a native overlay, not something this Canvas can lay out around, so
+            // this row just needs to stay clear of the strip it'll occupy).
+            const float pauseButtonBottomInset = 110f + BannerAdBottomClearance;
             var playButton = CreateIconButton("PlayButton", root.transform, LoadUiSprite("Btn_play.png"), StandardIconButtonSize);
-            AnchorBottomLeft((RectTransform)playButton.transform, new Vector2(StandardIconButtonSize, StandardIconButtonSize), new Vector2(150f, 110f));
+            AnchorBottomLeft((RectTransform)playButton.transform, new Vector2(StandardIconButtonSize, StandardIconButtonSize), new Vector2(150f, pauseButtonBottomInset));
 
             var skipButton = CreateIconButton("SkipButton", root.transform, LoadUiSprite("Btn_skip.png"), StandardIconButtonSize);
-            AnchorBottomLeft((RectTransform)skipButton.transform, new Vector2(StandardIconButtonSize, StandardIconButtonSize), new Vector2(150f + StandardIconButtonSize + 30f, 110f));
+            AnchorBottomLeft((RectTransform)skipButton.transform, new Vector2(StandardIconButtonSize, StandardIconButtonSize), new Vector2(150f + StandardIconButtonSize + 30f, pauseButtonBottomInset));
 
             var quitButton = CreateIconButton("QuitButton", root.transform, LoadUiSprite("Btn_quit.png"), StandardIconButtonSize);
-            AnchorBottomRight((RectTransform)quitButton.transform, new Vector2(StandardIconButtonSize, StandardIconButtonSize), new Vector2(-150f, 110f));
+            AnchorBottomRight((RectTransform)quitButton.transform, new Vector2(StandardIconButtonSize, StandardIconButtonSize), new Vector2(-150f, pauseButtonBottomInset));
 
             var settingsButton = CreateIconButton("SettingsButton", root.transform, LoadUiSprite("Btn_settings.png"), StandardIconButtonSize);
-            AnchorBottomRight((RectTransform)settingsButton.transform, new Vector2(StandardIconButtonSize, StandardIconButtonSize), new Vector2(-150f - StandardIconButtonSize - 30f, 110f));
+            AnchorBottomRight((RectTransform)settingsButton.transform, new Vector2(StandardIconButtonSize, StandardIconButtonSize), new Vector2(-150f - StandardIconButtonSize - 30f, pauseButtonBottomInset));
 
             var controller = root.AddComponent<PauseMenuController>();
             var so = new SerializedObject(controller);
@@ -1873,19 +1878,25 @@ namespace FarmFuryArcade.EditorTools
                 comboIconsProp.GetArrayElementAtIndex(i).objectReferenceValue = comboIcons[i];
             }
 
-            // Cosmetics tab entries — the exact same 7 items/icons CosmeticsHubScreen's own purchase
-            // buttons show (their price-baked art), so a kid recognises the same picture when they
-            // later find it for sale in the Shop. Blurb text lives in CharacterStoryScreen itself
-            // (CosmeticBlurbs, keyed by this same displayName).
+            // Cosmetics tab entries — 2026-09-11: swapped from the Shop's price-baked purchase art
+            // (sombrero_price.png etc.) to new plain icon-only art dropped under Sprites/UI/ with no
+            // price baked in, since this tab is informational, not a purchase surface. Blurb text
+            // lives in CharacterStoryScreen itself (CosmeticBlurbs, keyed by this same displayName).
             var cosmeticEntryData = new (string displayName, Sprite icon)[]
             {
-                ("Sombrero", LoadCosmeticsSprite("sombrero_price.png")),
-                ("Baseball Cap", LoadCosmeticsSprite("baseball_price.png")),
-                ("Cowboy Hat", LoadCosmeticsSprite("cowboy_price.png")),
-                ("Rainbow Ribbon", LoadCosmeticsSprite("RainbowRibbon_price.png")),
-                ("Sparkle Dust", LoadCosmeticsSprite("SparkleDust_Price.png")),
-                ("Corn Husk Trail", LoadCosmeticsSprite("CornHusk_price.png")),
-                ("Ember Trail", LoadCosmeticsSprite("EmberTrail_price.png")),
+                ("Sombrero", LoadUiSprite("Sombrero.png")),
+                ("Baseball Cap", LoadUiSprite("BaseballHat.png")),
+                ("Cowboy Hat", LoadUiSprite("CowboyHat.png")),
+                ("Chef Hat", LoadUiSprite("ChefHat.png")),
+                ("Crown", LoadUiSprite("CrownHat.png")),
+                ("Rainbow Ribbon", LoadUiSprite("Ribbon.png")),
+                ("Sparkle Dust", LoadUiSprite("SparkleDust.png")),
+                ("Corn Husk Trail", LoadUiSprite("CornHusk.png")),
+                ("Ember Trail", LoadUiSprite("Ember.png")),
+                // Confetti / Bubbles (2026-09-11) — note the on-disk filename is lowercase
+                // "bubbles.png", unlike every other icon-only UI sprite here.
+                ("Confetti Trail", LoadUiSprite("Confetti.png")),
+                ("Bubbles Trail", LoadUiSprite("bubbles.png")),
             };
             var cosmeticEntriesProp = iconsSO.FindProperty("cosmeticEntries");
             cosmeticEntriesProp.arraySize = cosmeticEntryData.Length;
@@ -2113,6 +2124,17 @@ namespace FarmFuryArcade.EditorTools
         // aren't touched — forcing their wide banner-style buttons into a square box would squash
         // them, the exact bug this same session already fixed once for DoubleCoins.png.
         private const float StandardIconButtonSize = 160f;
+
+        // Reserved bottom strip (2026-09-11 monetisation pass) for AdManager's banner ad on Pause/
+        // Level Failed (see PauseMenuController/LevelFailedController's own OnEnable/OnDisable) —
+        // a LevelPlay banner renders as a native overlay anchored to the screen's bottom edge, NOT
+        // a Unity UI element inside this Canvas, so nothing here can visually contain it; this
+        // constant only exists to push this project's own button row (and Level Failed's Insert
+        // Coin row) up far enough that neither one visually clashes with it. Sized generously above
+        // a standard/adaptive banner's real height on any device (typically 50-100dp) since exact
+        // on-device dp-to-canvas-unit conversion varies by device and isn't worth chasing precisely
+        // here — err on the side of more clearance.
+        private const float BannerAdBottomClearance = 160f;
 
         // Shared top-left LogoImage box (Pause, Level Complete, New Character Unlock, Choose
         // Character) — every call site used a non-square 300x170 box despite Logo.png itself being
@@ -2550,6 +2572,13 @@ namespace FarmFuryArcade.EditorTools
                 (IAPManager.HatSombreroProductId, LoadCosmeticsSprite("sombrero_price.png")),
                 (IAPManager.HatBaseballCapProductId, LoadCosmeticsSprite("baseball_price.png")),
                 (IAPManager.HatCowboyHatProductId, LoadCosmeticsSprite("cowboy_price.png")),
+                // Chef Hat / Crown (2026-09-11) — 4th/5th hats, brings this row to parity with the 4
+                // trails below. ChefHat_price.png sits under Sprites/Cosmetics/ like every other
+                // price-baked hat icon here (LoadCosmeticsSprite); Crown_price.png was instead
+                // dropped under Sprites/UI/, so it needs LoadUiSprite specifically — same $1.99
+                // price-baked-into-the-art convention as the rest of this row either way.
+                (IAPManager.HatChefHatProductId, LoadCosmeticsSprite("ChefHat_price.png")),
+                (IAPManager.HatCrownProductId, LoadUiSprite("Crown_price.png")),
             };
             var trailItems = new (string productId, Sprite sprite)[]
             {
@@ -2557,6 +2586,10 @@ namespace FarmFuryArcade.EditorTools
                 (IAPManager.TrailSparkleDustProductId, LoadCosmeticsSprite("SparkleDust_Price.png")),
                 (IAPManager.TrailCornHuskProductId, LoadCosmeticsSprite("CornHusk_price.png")),
                 (IAPManager.TrailEmberProductId, LoadCosmeticsSprite("EmberTrail_price.png")),
+                // Confetti / Bubbles (2026-09-11) — 5th/6th trails, both price plaques sit under
+                // Sprites/Cosmetics/ like every other price-baked trail icon here.
+                (IAPManager.TrailConfettiProductId, LoadCosmeticsSprite("Confetti_price.png")),
+                (IAPManager.TrailBubblesProductId, LoadCosmeticsSprite("Bubble_price.png")),
             };
 
             // Row Y positions computed top-down from the header's own real bottom edge (215): hat
@@ -3187,16 +3220,17 @@ namespace FarmFuryArcade.EditorTools
             // drive both — moved to sit near the bottom of the screen (was near vertical centre,
             // sitting awkwardly close to the character card row) and given the same pulsing
             // "flash" TitleScreenController's PRESS START prompt uses on the landing page, per
-            // direct request. Bottom inset (130) sits just above the Play/Home/Settings button
-            // row's own top edge (110 inset + 160 size = 270 is their top; this row's own 70-tall
-            // box top-caps at 130+70=200, comfortably clear) and matches the safe-area inset
-            // convention CreateRoundBackButton/CreateGenericBackButton already use for bottom
-            // elements (70-110), so it stays inside the yellow safe-area guide.
+            // direct request. Bottom inset (130, +BannerAdBottomClearance since 2026-09-11 —
+            // see the Play/Home/Settings row below) sits just above that row's own top edge
+            // (its bottom inset + 160 size is its top; this row's own 70-tall box top-caps
+            // comfortably below that) and matches the safe-area inset convention
+            // CreateRoundBackButton/CreateGenericBackButton already use for bottom elements
+            // (70-110), so it stays inside the yellow safe-area guide.
             const float insertCoinHeight = 70f; // smaller than HeaderBannerHeight (130) on purpose
             float insertCoinWidth = insertCoinHeight * (500f / 85f);
             const float insertCoinCoinSpacing = 15f;
             float insertCoinRowWidth = insertCoinWidth + insertCoinCoinSpacing + insertCoinHeight;
-            const float insertCoinBottomInset = 130f;
+            const float insertCoinBottomInset = 130f + BannerAdBottomClearance;
 
             var insertCoinRowGO = new GameObject("InsertCoinRow", typeof(RectTransform), typeof(CanvasGroup));
             insertCoinRowGO.transform.SetParent(root.transform, false);
@@ -3229,14 +3263,18 @@ namespace FarmFuryArcade.EditorTools
             insertCoinIconRect.sizeDelta = new Vector2(insertCoinHeight, insertCoinHeight);
             insertCoinIconRect.anchoredPosition = new Vector2(insertCoinRowWidth / 2f - insertCoinHeight / 2f, 0f);
 
+            // Bottom inset raised from 110 to 110+BannerAdBottomClearance (2026-09-11), same reason
+            // and same shared constant as PauseMenuController's identical row — see BuildPauseMenu's
+            // own comment.
+            const float levelFailedButtonBottomInset = 110f + BannerAdBottomClearance;
             var playButton = CreateIconButton("PlayButton", root.transform, LoadUiSprite("Btn_play.png"), StandardIconButtonSize);
-            AnchorBottomLeft((RectTransform)playButton.transform, new Vector2(StandardIconButtonSize, StandardIconButtonSize), new Vector2(150f, 110f));
+            AnchorBottomLeft((RectTransform)playButton.transform, new Vector2(StandardIconButtonSize, StandardIconButtonSize), new Vector2(150f, levelFailedButtonBottomInset));
 
             var homeButton = CreateIconButton("HomeButton", root.transform, LoadUiSprite("Btn_home.png"), StandardIconButtonSize);
-            AnchorBottomRight((RectTransform)homeButton.transform, new Vector2(StandardIconButtonSize, StandardIconButtonSize), new Vector2(-150f, 110f));
+            AnchorBottomRight((RectTransform)homeButton.transform, new Vector2(StandardIconButtonSize, StandardIconButtonSize), new Vector2(-150f, levelFailedButtonBottomInset));
 
             var settingsButton = CreateIconButton("SettingsButton", root.transform, LoadUiSprite("Btn_settings.png"), StandardIconButtonSize);
-            AnchorBottomRight((RectTransform)settingsButton.transform, new Vector2(StandardIconButtonSize, StandardIconButtonSize), new Vector2(-150f - StandardIconButtonSize - 30f, 110f));
+            AnchorBottomRight((RectTransform)settingsButton.transform, new Vector2(StandardIconButtonSize, StandardIconButtonSize), new Vector2(-150f - StandardIconButtonSize - 30f, levelFailedButtonBottomInset));
 
             var controller = root.AddComponent<LevelFailedController>();
             var so = new SerializedObject(controller);

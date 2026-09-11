@@ -23,6 +23,14 @@ namespace FarmFuryArcade.UI
     /// just failed, same "jump straight to the relevant world" convention LevelCompleteController's
     /// own Play button uses), so the player can choose to retry it or pick a different level rather
     /// than being dropped straight back into another attempt with no choice.
+    ///
+    /// Shows AdManager's banner ad while this screen is open (2026-09-11 monetisation pass), same
+    /// OnEnable/OnDisable convention as PauseMenuController's own banner — see that class' doc
+    /// comment for why it can't be baked into this screen's own art (native overlay, not a Unity UI
+    /// element). This screen IS a real SceneTransitionManager screenRoot (unlike Pause), so
+    /// ShowOnly's own deactivation already guarantees OnDisable fires on every exit path (Play,
+    /// GoHome) with nothing extra needed here. The 3-button row was shifted up to leave clear room
+    /// for it — see BuildLevelFailed's own layout comment.
     /// </summary>
     public class LevelFailedController : MonoBehaviour
     {
@@ -48,6 +56,12 @@ namespace FarmFuryArcade.UI
         private void OnEnable()
         {
             _levelIndex = GameManager.Instance.CurrentLevel != null ? GameManager.Instance.CurrentLevel.levelNumber : 0;
+            AdManager.Instance?.ShowBanner();
+        }
+
+        private void OnDisable()
+        {
+            AdManager.Instance?.HideBanner();
         }
 
         private void Play()

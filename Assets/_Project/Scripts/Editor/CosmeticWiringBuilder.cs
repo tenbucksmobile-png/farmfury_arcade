@@ -34,22 +34,23 @@ namespace FarmFuryArcade.EditorTools
             public Vector2 HatOffset;
             public float HatScale;
             // Optional dedicated Left-facing art (hatFrames[4]/[5]) — null means Left keeps
-            // reusing the single front sprite every other slot falls back to. Both Ducky and
-            // Woolly already have hasDedicatedRightArt=true on their own CharacterData (real
-            // Wooly_right.png/Ducky_right.png — see ArtWiringBuilder.WireWoolly/WireDucky), so
-            // their own base sprite's Right-facing pose is NEVER the flipX-mirrored-Left trick —
-            // meaning a Left-only hat sprite here has no mirroring implications for Right at all;
-            // Right simply keeps falling back to the single default sprite until dedicated Right
-            // hat art exists too.
+            // reusing the single front sprite every other slot falls back to.
             public string LeftSpriteFileName;
+            // Optional dedicated Right-facing art (hatFrames[6]/[7]) — added 2026-09-11 once real
+            // per-character Right art landed for all 8 characters. When set, this is used directly
+            // (mirrorLeftHatForRight stays false) instead of the old "duplicate Left, flip at
+            // render time" fallback — a real Right-facing render reads better than a mirrored Left
+            // one, and every character now has one.
+            public string RightSpriteFileName;
 
-            public BaseballCapEntry(CharacterType character, string spriteFileName, Vector2 hatOffset, float hatScale, string leftSpriteFileName = null)
+            public BaseballCapEntry(CharacterType character, string spriteFileName, Vector2 hatOffset, float hatScale, string leftSpriteFileName = null, string rightSpriteFileName = null)
             {
                 Character = character;
                 SpriteFileName = spriteFileName;
                 HatOffset = hatOffset;
                 HatScale = hatScale;
                 LeftSpriteFileName = leftSpriteFileName;
+                RightSpriteFileName = rightSpriteFileName;
             }
         }
 
@@ -59,20 +60,31 @@ namespace FarmFuryArcade.EditorTools
         // 2026-08-18 playtest feedback: caps sat too low (sunk toward the face) on every character.
         // Raised hatOffset.y by +0.15 world units across the board as a first-pass correction —
         // still eyeballed (no live render access), re-tune further if it overshoots.
+        // 2026-09-11: real per-character Left AND Right art now exists for all 8 characters (a
+        // much bigger art drop than the earlier Ducky/Woolly-only Left art) — every entry below now
+        // wires a genuine 3-pose set (Front for Up/Down, real Left, real Right), so the cap actually
+        // turns with the character in every direction instead of only Left (or nothing at all).
+        // Filenames match on-disk casing exactly (AssetDatabase.LoadAssetAtPath is case-sensitive
+        // regardless of OS filesystem, same gotcha CLAUDE.md documents elsewhere) — note
+        // "Baseball_horace_right.png" has a lowercase 'h', unlike every other Horace file.
         private static readonly BaseballCapEntry[] Caps =
         {
-            new BaseballCapEntry(CharacterType.Cluck, "Baseball_Clucky.png", new Vector2(0f, 0.55f), 0.64f),
-            new BaseballCapEntry(CharacterType.Bessie, "Baseball_Bessie.png", new Vector2(0f, 0.55f), 0.58f),
-            new BaseballCapEntry(CharacterType.Percy, "Baseball_Percy.png", new Vector2(0f, 0.51f), 0.77f),
-            // Baseball_Woolly_left.png (2026-09-09) — real dedicated Left-facing cap art, applied
-            // to hatFrames[4]/[5] only; every other slot (Up/Down/Right) still falls back to the
-            // single front sprite as before.
-            new BaseballCapEntry(CharacterType.Woolly, "Baseball_Woolly.png", new Vector2(0f, 0.47f), 0.96f, "Baseball_Woolly_left.png"),
-            // Baseball_Ducky_left.png (2026-09-09) — same treatment.
-            new BaseballCapEntry(CharacterType.Ducky, "Baseball_Ducky.png", new Vector2(0f, 0.53f), 0.70f, "Baseball_Ducky_left.png"),
-            new BaseballCapEntry(CharacterType.Horace, "Baseball_Horace.png", new Vector2(0f, 0.47f), 0.70f),
-            new BaseballCapEntry(CharacterType.Gerald, "Baseball_Gerald.png", new Vector2(0f, 0.53f), 0.45f),
-            new BaseballCapEntry(CharacterType.Billy, "Baseball_Billy.png", new Vector2(0f, 0.47f), 0.58f),
+            new BaseballCapEntry(CharacterType.Cluck, "Baseball_Clucky.png", new Vector2(0f, 0.55f), 0.64f, "Baseball_Clucky_left.png", "Baseball_Clucky_right.png"),
+            new BaseballCapEntry(CharacterType.Bessie, "Baseball_Bessie.png", new Vector2(0f, 0.55f), 0.58f, "Baseball_Bessie_left.png", "Baseball_Bessie_right.png"),
+            new BaseballCapEntry(CharacterType.Percy, "Baseball_Percy.png", new Vector2(0f, 0.51f), 0.77f, "Baseball_Percy_left.png", "Baseball_Percy_right.png"),
+            // Woolly's scale corrected 2026-09-11 (0.96 -> 0.50) — the Cosmetic Preview Renderer's
+            // first real render showed it comically oversized, covering her whole head like a
+            // helmet rather than sitting on top of it. Offset nudged down slightly (0.47 -> 0.40)
+            // since a smaller cap needs less headroom above her.
+            new BaseballCapEntry(CharacterType.Woolly, "Baseball_Woolly.png", new Vector2(0f, 0.40f), 0.50f, "Baseball_Woolly_left.png", "Baseball_Woolly_right.png"),
+            new BaseballCapEntry(CharacterType.Ducky, "Baseball_Ducky.png", new Vector2(0f, 0.53f), 0.70f, "Baseball_Ducky_left.png", "Baseball_Ducky_right.png"),
+            new BaseballCapEntry(CharacterType.Horace, "Baseball_Horace.png", new Vector2(0f, 0.47f), 0.70f, "Baseball_Horace_left.png", "Baseball_horace_right.png"),
+            // Gerald's scale corrected 2026-09-11 (0.45 -> 0.70) — the opposite problem from Woolly:
+            // the preview showed his cap tiny and floating well above his head, barely visible.
+            // Offset lowered too (0.53 -> 0.40) so the larger cap actually sits close to his head
+            // instead of opening an even bigger gap now that it's bigger.
+            new BaseballCapEntry(CharacterType.Gerald, "Baseball_Gerald.png", new Vector2(0f, 0.40f), 0.70f, "Baseball_Gerald_left.png", "Baseball_Gerald_right.png"),
+            new BaseballCapEntry(CharacterType.Billy, "Baseball_Billy.png", new Vector2(0f, 0.47f), 0.58f, "Baseball_Billy_left.png", "Baseball_Billy_right.png"),
         };
 
         private const string TrailSpriteFolder = "Assets/_Project/Sprites/Cosmetics/CosmeticType.Trail";
@@ -121,6 +133,14 @@ namespace FarmFuryArcade.EditorTools
             new TrailEntry("trail_ember", "Ember Trail", "EmberTrail.png", 100),
             new TrailEntry("trail_sparkledust", "Sparkle Dust Trail", "SparkleDust.png", 100),
             new TrailEntry("trail_rainbowribbon", "Rainbow Ribbon Trail", "RainbowRibbon.png", 150),
+            // Confetti / Bubbles (2026-09-11) — 5th/6th trails, real art dropped under
+            // CosmeticType.Trail/ as ConfettiTrail.png/BubblesTrail.png. coinCost is unused dead
+            // weight on every trail here now (all 6 are sold via real-money IAP, see IAPManager's
+            // TrailConfettiProductId/TrailBubblesProductId) — kept populated only for consistency
+            // with the other 4 entries, same "field still exists, unused for these" note CLAUDE.md
+            // already carries for cosmetics.
+            new TrailEntry("trail_confetti", "Confetti Trail", "ConfettiTrail.png", 120),
+            new TrailEntry("trail_bubbles", "Bubbles Trail", "BubblesTrail.png", 120),
         };
 
         [MenuItem("Farm Fury Arcade/Wire Cosmetic Art (Trails)")]
@@ -168,7 +188,7 @@ namespace FarmFuryArcade.EditorTools
 
             AssetDatabase.SaveAssets();
             AssetDatabase.Refresh();
-            Debug.Log($"[CosmeticWiringBuilder] Wired {Trails.Length} trail cosmetics with coin pricing (60/100/100/150) and imported {StoreChromeFiles.Length} Store UI chrome sprites (not yet wired into any screen — no cosmetics Store UI exists yet).");
+            Debug.Log($"[CosmeticWiringBuilder] Wired {Trails.Length} trail cosmetics ($1.99 real-money IAP each) and imported {StoreChromeFiles.Length} Store UI chrome sprites.");
         }
 
         private struct UniversalHatEntry
@@ -180,7 +200,11 @@ namespace FarmFuryArcade.EditorTools
             public float HatScale;
             public CharacterHatOverride[] CharacterOverrides;
 
-            public UniversalHatEntry(string id, string displayName, string spriteFileName, Vector2 hatOffset, float hatScale, CharacterHatOverride[] characterOverrides = null)
+            // Optional alternate single-pose designs (e.g. Sombrero's 4 variants) — see
+            // CosmeticData.hatVariantSprites. Null/empty means this hat always shows SpriteFileName.
+            public string[] VariantSpriteFileNames;
+
+            public UniversalHatEntry(string id, string displayName, string spriteFileName, Vector2 hatOffset, float hatScale, CharacterHatOverride[] characterOverrides = null, string[] variantSpriteFileNames = null)
             {
                 Id = id;
                 DisplayName = displayName;
@@ -188,26 +212,28 @@ namespace FarmFuryArcade.EditorTools
                 HatOffset = hatOffset;
                 HatScale = hatScale;
                 CharacterOverrides = characterOverrides;
+                VariantSpriteFileNames = variantSpriteFileNames;
             }
         }
 
-        // Cowboy Hat / Sombrero (2026-08-20 Shop redesign) — unlike the 8 per-character baseball
-        // caps above, only one piece of art exists for each of these two styles (not fitted per
-        // character), so each is a single universal CosmeticData asset instead of one per
-        // character. The unframed source art (no wood-frame border) is used here for the in-game
-        /// overlay sprite — the framed versions (FrameCowboy.png/FrameSombrero.png) are used only
-        // as the Shop's own purchase-button icon, wired directly in Phase5ProjectBuilder. Offset/
-        // scale are first-pass eyeballed against Cluck's own head size (this session has no visual
-        // Editor/Play mode access) — same "expect to nudge later" convention as the baseball caps.
+        // Sombrero, Chef Hat, Crown — genuinely universal, single-piece-of-art-fits-every-character
+        // cosmetics. Cowboy Hat used to live here too (its original art, kling_20260818_IMAGE_
+        // Prop_shots_3923_0.png, was a single pig-face design shared by every character) but was
+        // moved out 2026-09-11 once a full set of real PER-CHARACTER Cowboy Hat art landed —
+        // see CowboyHats/WireCowboyHats below, same per-character shape as the baseball caps.
         private static readonly UniversalHatEntry[] UniversalHats =
         {
-            new UniversalHatEntry(IAPManagerHatCowboyId, "Cowboy Hat", "kling_20260818_IMAGE_Prop_shots_3923_0.png", new Vector2(0f, 0.55f), 0.62f),
-            // Original source file (kling_20260818_IMAGE_isolated_g_4590_0.png) was deleted from
-            // disk and replaced with 4 new re-generated variants (2026-09-08) — Sombrero_1.png
-            // (classic red/green/tan) picked as the most immediately recognisable of the 4 for a
-            // universal asset shown across all 8 characters; Sombrero_2/3/4.png (cow-print, pink/
-            // green floral, orange with pom-poms) are real, usable art too if a different look or a
-            // future second sombrero style is ever wanted — just swap the filename here.
+            // Sombrero_1.png (classic red/green/tan) is the DEFAULT/fallback single-pose sprite
+            // (data.hatFrames, used if hatVariantSprites is ever empty) — but the real 4-variant
+            // array below (VariantSpriteFileNames) is what actually shows in-game: CosmeticData.
+            // hatVariantSprites, read by CharacterCosmeticRenderer.ResolveActiveHatFrames, picks one
+            // of the 4 deterministically from the current level's own levelNumber every time the
+            // character (re)spawns — so an equipped Sombrero visibly cycles through all 4 designs
+            // (classic, cow-print, pink/green floral, orange-with-pom-poms) as the player progresses
+            // through levels, rather than always showing the same one. Offset/scale (shared below,
+            // plus SombreroCharacterOverrides) apply identically to all 4, since they're the same
+            // general shape/size — only the surface pattern differs between them.
+            //
             // Sized/positioned against several direct gameplay screenshots (2026-09-08), across
             // multiple rounds — the shared default alone went 0.55 -> 0.35 -> 0.45 -> 0.65 as
             // "too low" feedback kept coming in for characters with no per-character override
@@ -218,7 +244,27 @@ namespace FarmFuryArcade.EditorTools
             // (confirmed once a screenshot showed it specifically mis-fit on Percy), but the whole
             // group was ALSO reading too low at the same time, hence raising both independently
             // here rather than assuming the override characters were the only ones affected.
-            new UniversalHatEntry(IAPManagerHatSombreroId, "Sombrero", "Sombrero_1.png", new Vector2(0f, 0.65f), 1.15f, SombreroCharacterOverrides),
+            //
+            // Scale corrected 2026-09-11 (1.15 -> 0.65, offset 0.65 -> 0.45) — the Cosmetic Preview
+            // Renderer's first real render showed it badly oversized on every character, the brim
+            // clipping the top of frame. All 4 SombreroCharacterOverrides below were rescaled by the
+            // same ratio (0.65/1.15) and shifted by the same offset delta (-0.20) to keep their
+            // relative sizing to each other and to the new shared default intact, rather than
+            // leaving them huge while only the fallback shrank.
+            new UniversalHatEntry(IAPManagerHatSombreroId, "Sombrero", "Sombrero_1.png", new Vector2(0f, 0.45f), 0.65f, SombreroCharacterOverrides,
+                new[] { "Sombrero_1.png", "Sombrero_2.png", "Sombrero_3.png", "Sombrero_4.png" }),
+            // Chef Hat / Crown (2026-09-11) — 4th/5th universal hats, brings the Shop's hat row to
+            // parity with the 4 already-shipped trails. Both source files (ChefHat.png/Crown.png)
+            // fill nearly their whole 500x500 canvas edge-to-edge (measured: ~98% both dimensions),
+            // same "large standalone prop render, not pre-scaled to a head" situation the baseball
+            // caps and Cowboy Hat's own pig-face art were in — so both start at a scale well below 1,
+            // closer to Cowboy Hat's 0.62 than Sombrero_1's tighter-cropped 1.15. Offset.y 0.55
+            // matches Cowboy Hat's own starting value. First-pass eyeballed (no visual Editor/Play
+            // mode access this session) — same "expect to nudge later" convention as every other hat
+            // here; use Farm Fury Arcade > Debug > Render Cosmetic Preview Sheet to check/tune
+            // without needing Play mode at all.
+            new UniversalHatEntry(IAPManagerHatChefId, "Chef Hat", "ChefHat.png", new Vector2(0f, 0.55f), 0.55f),
+            new UniversalHatEntry(IAPManagerHatCrownId, "Crown", "Crown.png", new Vector2(0f, 0.55f), 0.55f),
         };
 
         // Per-character overrides of the shared Sombrero offset/scale above — added once real
@@ -236,43 +282,43 @@ namespace FarmFuryArcade.EditorTools
         {
             // Percy's baseball cap asset (see Caps above, tuned for his actual head) uses
             // offset.y 0.51 / scale 0.77 for a snug-fitting cap; the sombrero's wide brim still
-            // needs to render smaller than the universal 1.15 default.
+            // needs to render smaller than the universal default.
+            // Rescaled 2026-09-11 alongside the shared default above (x0.565 scale, -0.20 offset)
+            // — see that entry's own comment.
             new CharacterHatOverride
             {
                 character = CharacterType.Percy,
-                hatOffset = new Vector2(0f, 0.75f),
-                hatScale = 0.85f,
+                hatOffset = new Vector2(0f, 0.55f),
+                hatScale = 0.48f,
             },
-            // Woolly's own baseball cap scale (0.96, the largest of the 8 — his fluffy head reads
-            // wide) means the sombrero's width was already roughly right; only its height needed
-            // tuning, same as Percy.
+            // Woolly's own baseball cap scale (now 0.50, corrected the same session — see Caps
+            // above) means the sombrero's width was already roughly right; only its height needed
+            // tuning, same as Percy. Rescaled 2026-09-11 alongside the shared default.
             new CharacterHatOverride
             {
                 character = CharacterType.Woolly,
-                hatOffset = new Vector2(0f, 0.60f),
-                hatScale = 1.0f,
+                hatOffset = new Vector2(0f, 0.40f),
+                hatScale = 0.57f,
             },
-            // Bessie's baseball cap is the smallest of the 8 (scale 0.58, offset.y 0.55) — the
-            // universal 1.15 sombrero scale rendered wildly oversized and floating well off to the
-            // side of her head. Scale kept from the first correction; offset raised per the same
-            // "still too low" feedback Percy got.
+            // Bessie's baseball cap is the smallest of the 8 — the universal sombrero scale
+            // rendered wildly oversized and floating well off to the side of her head. Rescaled
+            // 2026-09-11 alongside the shared default.
             new CharacterHatOverride
             {
                 character = CharacterType.Bessie,
-                hatOffset = new Vector2(0f, 0.80f),
-                hatScale = 0.64f,
+                hatOffset = new Vector2(0f, 0.60f),
+                hatScale = 0.36f,
             },
-            // Cluck was fine at the shared 0.65 default for every other character but read as
+            // Cluck was fine at the shared default for every other character but read as
             // "slightly too high" on her specifically — a small nudge down, not the large
-            // corrections the other 3 overrides above needed. Still showed a visible gap between
-            // the brim and her head on a real gameplay screenshot (2026-09-10), so nudged down
-            // again by another small step (0.58 -> 0.50) — same "slight drop" scale as the first
-            // correction, not a re-run of the large 0.1-0.2 jumps above.
+            // corrections the other 3 overrides above needed. Rescaled 2026-09-11 alongside the
+            // shared default (this puts her back at exactly the new shared value, same as before
+            // this rescale — she was already tracking the shared default 1:1).
             new CharacterHatOverride
             {
                 character = CharacterType.Cluck,
-                hatOffset = new Vector2(0f, 0.50f),
-                hatScale = 1.15f,
+                hatOffset = new Vector2(0f, 0.30f),
+                hatScale = 0.65f,
             },
         };
 
@@ -284,6 +330,8 @@ namespace FarmFuryArcade.EditorTools
         // doc comment).
         private const string IAPManagerHatCowboyId = "cowboy_hat";
         private const string IAPManagerHatSombreroId = "sombrero_hat";
+        private const string IAPManagerHatChefId = "chef_hat";
+        private const string IAPManagerHatCrownId = "crown";
 
         [MenuItem("Farm Fury Arcade/Wire Cosmetic Art (Universal Hats)")]
         public static void WireUniversalHats()
@@ -321,6 +369,20 @@ namespace FarmFuryArcade.EditorTools
                 data.hatOffset = entry.HatOffset;
                 data.hatScale = entry.HatScale;
                 data.characterHatOverrides = entry.CharacterOverrides;
+
+                if (entry.VariantSpriteFileNames != null && entry.VariantSpriteFileNames.Length > 0)
+                {
+                    var variants = new Sprite[entry.VariantSpriteFileNames.Length];
+                    for (int i = 0; i < entry.VariantSpriteFileNames.Length; i++)
+                    {
+                        variants[i] = ConfigureAndLoadSprite($"{CosmeticSpriteFolder}/{entry.VariantSpriteFileNames[i]}");
+                    }
+                    data.hatVariantSprites = variants;
+                }
+                else
+                {
+                    data.hatVariantSprites = null;
+                }
                 EditorUtility.SetDirty(data);
             }
 
@@ -334,7 +396,7 @@ namespace FarmFuryArcade.EditorTools
 
             AssetDatabase.SaveAssets();
             AssetDatabase.Refresh();
-            Debug.Log("[CosmeticWiringBuilder] Wired universal Cowboy Hat / Sombrero cosmetics ($3.99 IAP each, applies to whichever character is active on purchase).");
+            Debug.Log("[CosmeticWiringBuilder] Wired universal Sombrero (4 cycling variants) / Chef Hat / Crown cosmetics ($1.99 IAP each, applies to whichever character is active on purchase).");
         }
 
         [MenuItem("Farm Fury Arcade/Wire Cosmetic Art (Baseball Caps)")]
@@ -361,30 +423,40 @@ namespace FarmFuryArcade.EditorTools
                 data.character = entry.Character;
                 data.coinCost = 50;
                 data.previewSprite = sprite;
-                // Only one orientation exists yet — every slot reuses it, same convention
-                // CharacterAnimator already falls back to for characters missing per-direction art.
+                // Front sprite covers Up/Down (no dedicated back/up art exists for any cap) — every
+                // slot starts here, then Left/Right below override their own 2 slots when real art
+                // exists for them.
                 var hatFrames = new[] { sprite, sprite, sprite, sprite, sprite, sprite, sprite, sprite };
                 data.mirrorLeftHatForRight = false;
-                if (entry.LeftSpriteFileName != null)
+
+                Sprite leftSprite = entry.LeftSpriteFileName != null
+                    ? ConfigureAndLoadSprite($"{CosmeticSpriteFolder}/{entry.LeftSpriteFileName}")
+                    : null;
+                if (leftSprite != null)
                 {
-                    Sprite leftSprite = ConfigureAndLoadSprite($"{CosmeticSpriteFolder}/{entry.LeftSpriteFileName}");
-                    if (leftSprite != null)
-                    {
-                        // [Up0,Up1,Down0,Down1,Left0,Left1,Right0,Right1] — indices 4/5 are Left.
-                        // Right (6/7) gets the SAME sprite reference — this character already has
-                        // real dedicated Right art for its own body (Ducky/Woolly both do), so a
-                        // Left-only hat would otherwise show the plain default sprite while facing
-                        // right, visibly out of sync with the body's real turn. Duplicating it here
-                        // and flipping at render time (mirrorLeftHatForRight, read by
-                        // CharacterCosmeticRenderer) makes the hat track the body's facing
-                        // direction correctly, same "flip Left to fake Right" trick
-                        // CharacterAnimator itself uses for a character with no dedicated Right art.
-                        hatFrames[4] = leftSprite;
-                        hatFrames[5] = leftSprite;
-                        hatFrames[6] = leftSprite;
-                        hatFrames[7] = leftSprite;
-                        data.mirrorLeftHatForRight = true;
-                    }
+                    // [Up0,Up1,Down0,Down1,Left0,Left1,Right0,Right1] — indices 4/5 are Left.
+                    hatFrames[4] = leftSprite;
+                    hatFrames[5] = leftSprite;
+                }
+
+                Sprite rightSprite = entry.RightSpriteFileName != null
+                    ? ConfigureAndLoadSprite($"{CosmeticSpriteFolder}/{entry.RightSpriteFileName}")
+                    : null;
+                if (rightSprite != null)
+                {
+                    // Real dedicated Right art — use it directly, no mirroring needed.
+                    hatFrames[6] = rightSprite;
+                    hatFrames[7] = rightSprite;
+                }
+                else if (leftSprite != null)
+                {
+                    // No real Right art for this character — fall back to the old "duplicate Left,
+                    // flip at render time" trick (mirrorLeftHatForRight, read by
+                    // CharacterCosmeticRenderer), same as every hat used before real Right art
+                    // existed for anyone.
+                    hatFrames[6] = leftSprite;
+                    hatFrames[7] = leftSprite;
+                    data.mirrorLeftHatForRight = true;
                 }
                 data.hatFrames = hatFrames;
                 data.hatOffset = entry.HatOffset;
@@ -401,6 +473,148 @@ namespace FarmFuryArcade.EditorTools
             AssetDatabase.SaveAssets();
             AssetDatabase.Refresh();
             Debug.Log("[CosmeticWiringBuilder] Wired baseball caps for all 8 characters (50 coins each, purchasable via the Cosmetics Store).");
+        }
+
+        private struct CowboyHatEntry
+        {
+            public CharacterType Character;
+            // Right-facing art — the "default" pose, also reused for Up/Down (see WireCowboyHats'
+            // own doc comment for why: this art has no true front/back pose at all, only Left and
+            // Right). Null for Gerald/Percy, who currently only have Left art.
+            public string RightSpriteFileName;
+            public string LeftSpriteFileName;
+            public Vector2 HatOffset;
+            public float HatScale;
+
+            public CowboyHatEntry(CharacterType character, string rightSpriteFileName, string leftSpriteFileName, Vector2 hatOffset, float hatScale)
+            {
+                Character = character;
+                RightSpriteFileName = rightSpriteFileName;
+                LeftSpriteFileName = leftSpriteFileName;
+                HatOffset = hatOffset;
+                HatScale = hatScale;
+            }
+        }
+
+        // Cowboy Hat (2026-09-11) — converted from one universal single-pose asset (see
+        // UniversalHats' own doc comment) to a per-character set once real directional art landed,
+        // same shape as the baseball caps: one CosmeticData asset per character, cosmeticId
+        // "cowboy_hat_<character>", granted as a full set on one $1.99 IAP purchase (see
+        // IAPManager.GrantCowboyHatSet, mirroring GrantBaseballCapSet).
+        //
+        // Unlike baseball caps, this art has NO true front-facing pose at all — only Left and
+        // Right (per direct instruction: "either one can be used for up and down") — so Up/Down
+        // both reuse whichever of Right/Left is available (Right preferred, since it's the "default"
+        // slot every character but Gerald has — Percy's own Right art landed 2026-09-11).
+        //
+        // Filenames match on-disk casing exactly (case-sensitive regardless of OS filesystem, same
+        // gotcha CLAUDE.md documents elsewhere) — note "Cowboy_horace.png" (Right) is lowercase
+        // while "Cowboy_Horace_left.png" (Left) is capitalized, and every character's own files use
+        // "Clucky" not "Cluck" in the filename despite the CharacterType enum being Cluck.
+        //
+        // Bessie's art landed 2026-09-11 (Cowboy_bessie.png — lowercase 'b', unlike her own
+        // Cowboy_Bessie_left.png which IS capitalized; same per-file casing inconsistency every
+        // other character's Cowboy Hat art already has) — the "no Bessie art" gap flagged when this
+        // array was first built is closed.
+        //
+        // hatOffset/hatScale below are first-pass estimates carried over from each character's own
+        // baseball cap values (a reasonable starting point — the head size driving the fit is the
+        // same character either way) — expect to nudge via the Cosmetic Preview Renderer tool.
+        private static readonly CowboyHatEntry[] CowboyHats =
+        {
+            new CowboyHatEntry(CharacterType.Cluck, "Cowboy_Clucky.png", "Cowboy_Clucky_left.png", new Vector2(0f, 0.55f), 0.64f),
+            new CowboyHatEntry(CharacterType.Bessie, "Cowboy_bessie.png", "Cowboy_Bessie_left.png", new Vector2(0f, 0.55f), 0.58f),
+            // Cowboy_Percy.png (Right) landed 2026-09-11, closing the last "Left-only" gap — Gerald
+            // remains the only character still missing a Right/default pose. Offset raised (0.51 ->
+            // 0.80) after the preview showed the brim sunk down over his eyes — overshot, floating
+            // almost entirely off the top of frame, so pulled back down to 0.62 (between the two).
+            new CowboyHatEntry(CharacterType.Percy, "Cowboy_Percy.png", "Cowboy_Percy_left.png", new Vector2(0f, 0.62f), 0.77f),
+            // Scale corrected 2026-09-11 (0.96 -> 0.50), same fix and same reason as her Baseball
+            // Cap entry above — the preview showed it comically oversized, covering her whole head.
+            // Offset needed a SEPARATE correction from the Baseball Cap fix, though (0.40 -> 0.65)
+            // — the same offset.y that sat a baseball cap correctly on her wool poof left this
+            // hat's own art (a taller cowboy-hat silhouette with a different internal vertical
+            // anchor point) sunk down over her whole face instead. Confirms hatOffset/hatScale
+            // don't transfer 1:1 between different hat STYLES on the same character, only within
+            // the same style.
+            new CowboyHatEntry(CharacterType.Woolly, "Cowboy_Woolly.png", "Cowboy_Woolly_left.png", new Vector2(0f, 0.55f), 0.50f),
+            // Offset nudged up slightly (0.53 -> 0.60) — preview showed the brim sitting a touch
+            // low, partly covering one eye.
+            new CowboyHatEntry(CharacterType.Ducky, "Cowboy_Ducky.png", "Cowboy_Ducky_left.png", new Vector2(0f, 0.60f), 0.70f),
+            new CowboyHatEntry(CharacterType.Horace, "Cowboy_horace.png", "Cowboy_Horace_left.png", new Vector2(0f, 0.47f), 0.70f),
+            new CowboyHatEntry(CharacterType.Gerald, null, "Cowboy_Gerald_left.png", new Vector2(0f, 0.53f), 0.45f),
+            new CowboyHatEntry(CharacterType.Billy, "Cowboy_Billy.png", "Cowboy_Billy_left.png", new Vector2(0f, 0.47f), 0.58f),
+        };
+
+        [MenuItem("Farm Fury Arcade/Wire Cosmetic Art (Cowboy Hats)")]
+        public static void WireCowboyHats()
+        {
+            Directory.CreateDirectory(CosmeticDataFolder);
+
+            foreach (var entry in CowboyHats)
+            {
+                Sprite rightSprite = entry.RightSpriteFileName != null
+                    ? ConfigureAndLoadSprite($"{CosmeticSpriteFolder}/{entry.RightSpriteFileName}")
+                    : null;
+                Sprite leftSprite = entry.LeftSpriteFileName != null
+                    ? ConfigureAndLoadSprite($"{CosmeticSpriteFolder}/{entry.LeftSpriteFileName}")
+                    : null;
+
+                if (rightSprite == null && leftSprite == null)
+                {
+                    // No art at all for this character (or it failed to load) — nothing to wire.
+                    continue;
+                }
+
+                CosmeticData data = CreateOrLoadCosmeticData(entry.Character, "CowboyHat");
+                string cosmeticId = $"cowboy_hat_{entry.Character}".ToLowerInvariant();
+
+                data.cosmeticId = cosmeticId;
+                data.setId = "cowboy_hat";
+                data.displayName = "Cowboy Hat";
+                data.cosmeticType = CosmeticType.Hat;
+                data.character = entry.Character;
+                data.coinCost = 0; // sold via real-money IAP, not coins — see IAPManager.
+
+                data.mirrorLeftHatForRight = false;
+                Sprite defaultSprite; // used for Up/Down and previewSprite
+                Sprite[] hatFrames;
+                if (rightSprite != null && leftSprite != null)
+                {
+                    defaultSprite = rightSprite;
+                    hatFrames = new[] { rightSprite, rightSprite, rightSprite, rightSprite, leftSprite, leftSprite, rightSprite, rightSprite };
+                }
+                else if (rightSprite != null)
+                {
+                    // Right-only (shouldn't happen given the current art, but handled defensively) —
+                    // every slot falls back to it.
+                    defaultSprite = rightSprite;
+                    hatFrames = new[] { rightSprite, rightSprite, rightSprite, rightSprite, rightSprite, rightSprite, rightSprite, rightSprite };
+                }
+                else
+                {
+                    // Left-only (Gerald) — Up/Down/Right all fall back to Left, mirrored for
+                    // Right via mirrorLeftHatForRight so it at least visually turns with the
+                    // character instead of always showing the Left-facing art unmirrored.
+                    defaultSprite = leftSprite;
+                    hatFrames = new[] { leftSprite, leftSprite, leftSprite, leftSprite, leftSprite, leftSprite, leftSprite, leftSprite };
+                    data.mirrorLeftHatForRight = true;
+                }
+
+                data.previewSprite = defaultSprite;
+                data.hatFrames = hatFrames;
+                data.hatOffset = entry.HatOffset;
+                data.hatScale = entry.HatScale;
+                data.characterHatOverrides = null;
+                data.hatVariantSprites = null;
+                EditorUtility.SetDirty(data);
+
+                AddCosmeticRendererToPrefab(entry.Character);
+            }
+
+            AssetDatabase.SaveAssets();
+            AssetDatabase.Refresh();
+            Debug.Log("[CosmeticWiringBuilder] Wired Cowboy Hat for all 8 characters. $1.99 IAP, one purchase grants every character's variant.");
         }
 
         private static Sprite ConfigureAndLoadSprite(string path)
@@ -435,9 +649,16 @@ namespace FarmFuryArcade.EditorTools
             return AssetDatabase.LoadAssetAtPath<Sprite>(path);
         }
 
-        private static CosmeticData CreateOrLoadCosmeticData(CharacterType character)
+        private static CosmeticData CreateOrLoadCosmeticData(CharacterType character) =>
+            CreateOrLoadCosmeticData(character, "BaseballCap");
+
+        /// <summary>Generic per-character CosmeticData asset load-or-create, keyed by an asset-name
+        /// prefix (e.g. "BaseballCap" -&gt; CosmeticData_BaseballCap_&lt;character&gt;.asset,
+        /// "CowboyHat" -&gt; CosmeticData_CowboyHat_&lt;character&gt;.asset) — any per-character hat
+        /// style shares this instead of each getting its own bespoke load-or-create method.</summary>
+        private static CosmeticData CreateOrLoadCosmeticData(CharacterType character, string assetNamePrefix)
         {
-            string path = $"{CosmeticDataFolder}/CosmeticData_BaseballCap_{character}.asset";
+            string path = $"{CosmeticDataFolder}/CosmeticData_{assetNamePrefix}_{character}.asset";
             var data = AssetDatabase.LoadAssetAtPath<CosmeticData>(path);
             if (data == null)
             {

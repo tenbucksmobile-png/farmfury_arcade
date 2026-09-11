@@ -38,12 +38,12 @@ namespace FarmFuryArcade.UI
     /// ChooseCharacterScreen uses; every card shows unlocked/non-active/non-interactive — this is a
     /// browsing list, not the swap gate ChooseCharacterScreen enforces, and tapping a card does
     /// nothing since there's no per-character sub-screen (the story IS the blurb next to it).
-    /// Cosmetics tab: one row per purchasable hat/trail (BuildCosmeticRow), reusing the exact same
-    /// price-baked icon art (sombrero_price.png etc.) CosmeticsHubScreen's own purchase buttons
-    /// show, so a browsing kid recognises the same picture when they later go looking for it in the
-    /// Shop — with a short, playful blurb per item instead of the Shop's bare price tag. Purely
-    /// informational, same as the Characters tab: tapping a row does nothing, there's no purchase
-    /// flow here.</summary>
+    /// Cosmetics tab: one row per purchasable hat/trail (BuildCosmeticRow). Originally reused the
+    /// Shop's price-baked icon art (sombrero_price.png etc.); swapped 2026-09-11 for new plain
+    /// icon-only art (Sombrero.png etc., Sprites/UI/, no price baked in — this tab is informational,
+    /// not a purchase surface) sized like BuildComboRow's own art column, with a short, playful
+    /// blurb per item instead of a price tag. Purely informational, same as the Characters tab:
+    /// tapping a row does nothing, there's no purchase flow here.</summary>
     public class CharacterStoryScreen : MonoBehaviour
     {
         [System.Serializable]
@@ -177,10 +177,14 @@ namespace FarmFuryArcade.UI
             { "Sombrero", "Ole! A wide, sun-shading hat with a ton of farm-fiesta flair." },
             { "Baseball Cap", "Sporty and snug — every animal's got a favourite colour." },
             { "Cowboy Hat", "Yeehaw! Perfect for rounding up robots instead of cattle." },
+            { "Chef Hat", "A crisp toque fit for a top chef — bring farm-fresh flavour to the kitchen." },
+            { "Crown", "Fit for royalty — every animal deserves to feel like king (or queen) of the farm." },
             { "Rainbow Ribbon", "A trail of shimmering rainbow colour follows every step." },
             { "Sparkle Dust", "Leaves a shimmering trail of magic sparkles behind you." },
             { "Corn Husk Trail", "A rustling trail of golden corn husks, straight off the stalk." },
             { "Ember Trail", "A trail of glowing embers — warm, cozy, and a little bit fiery." },
+            { "Confetti Trail", "A burst of colourful confetti with every step — instant party!" },
+            { "Bubbles Trail", "Leaves a trail of soft, shimmering bubbles floating behind you." },
         };
 
         private static readonly Dictionary<CharacterType, string> CharacterStories = new Dictionary<CharacterType, string>
@@ -582,16 +586,20 @@ namespace FarmFuryArcade.UI
             effectTmp.overflowMode = TextOverflowModes.Truncate;
         }
 
-        /// <summary>One Cosmetics row — same left-icon/right-text silhouette as BuildInfoRow, using
-        /// the item's own real price-baked art (the same sprite CosmeticsHubScreen's purchase
-        /// button shows) instead of a generic placeholder, so a kid recognises the exact same
-        /// picture when they go looking for it in the Shop later. Purely informational — no tap
-        /// action, no purchase flow here (matches BuildRow's own "browsing list" convention for
+        /// <summary>One Cosmetics row — same left-icon/right-text silhouette as BuildInfoRow.
+        /// Icon art swapped 2026-09-11 from the Shop's price-baked purchase art (sombrero_price.png
+        /// etc.) to new plain icon-only art (Sombrero.png etc., Sprites/UI/) with no price baked in
+        /// — this tab is informational, not a purchase surface, so the price no longer belongs here.
+        /// Icon box sized the same way BuildComboRow's own art column is (a wide, non-square
+        /// landscape/portrait box with preserveAspect, sized to the row's real content height rather
+        /// than a small fixed square) instead of the old 130x130 square. Purely informational — no
+        /// tap action, no purchase flow here (matches BuildRow's own "browsing list" convention for
         /// characters).</summary>
         private void BuildCosmeticRow(string displayName, Sprite icon, string blurb)
         {
             const float rowHeight = 180f;
-            const float iconSize = 130f;
+            const float iconSize = 300f; // matches BuildComboRow's iconWidth
+            const float iconHeight = 140f; // rowHeight minus the hlg's own 20px top/bottom padding
 
             var rowGO = new GameObject($"CosmeticRow_{displayName}", typeof(RectTransform), typeof(Image));
             rowGO.transform.SetParent(cosmeticsContainer, false);
@@ -627,7 +635,7 @@ namespace FarmFuryArcade.UI
 
             var iconGO = new GameObject("Icon", typeof(RectTransform), typeof(Image));
             iconGO.transform.SetParent(contentGO.transform, false);
-            ((RectTransform)iconGO.transform).sizeDelta = new Vector2(iconSize, iconSize);
+            ((RectTransform)iconGO.transform).sizeDelta = new Vector2(iconSize, iconHeight);
             var iconImage = iconGO.GetComponent<Image>();
             iconImage.preserveAspect = true;
             if (icon != null)

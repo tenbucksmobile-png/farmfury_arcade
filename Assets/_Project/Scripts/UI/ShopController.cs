@@ -9,7 +9,7 @@ namespace FarmFuryArcade.UI
     /// (ShopBanner.png) and a single row of 4 icons: Cash (Shop.png, opens
     /// <see cref="CoinPurchaseScreen"/> for the actual coin packs), Worlds (WorldMaze.png, opens
     /// the World Purchase screen), Ads (Ads.png, a direct Remove Ads purchase — no sub-screen), and
-    /// Cosmetics (Cosmetics_Icon.png, opens the unified Cosmetics purchase screen — all 7 hat/trail
+    /// Cosmetics (Cosmetics_Icon.png, opens the unified Cosmetics purchase screen — all 11 hat/trail
     /// items on one screen, see Phase5ProjectBuilder.BuildCosmeticsHubScreen). Discards the old
     /// layout entirely (the 4 coin-pack icons + a big Cosmetics banner button used to live directly
     /// on this screen — they're now one tap further in, behind the Cash/Cosmetics icons).

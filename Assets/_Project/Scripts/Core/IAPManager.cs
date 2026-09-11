@@ -41,6 +41,11 @@ namespace FarmFuryArcade.Core
         public const string HatBaseballCapProductId = "hat_baseball_cap";
         public const string HatCowboyHatProductId = "hat_cowboy_hat";
         public const string HatSombreroProductId = "hat_sombrero";
+        // 4th/5th universal hats (2026-09-11) — brings the Shop's hat row to parity with the 4
+        // already-shipped trails. Both are single-art, character-agnostic assets like Cowboy Hat/
+        // Sombrero (see CosmeticWiringBuilder.UniversalHats), not per-character like Baseball Cap.
+        public const string HatChefHatProductId = "hat_chef_hat";
+        public const string HatCrownProductId = "hat_crown";
 
         // Trail product ids intentionally match their CosmeticData.cosmeticId exactly (see
         // CosmeticWiringBuilder.WireTrails) — trails are already character-agnostic, so the
@@ -49,6 +54,10 @@ namespace FarmFuryArcade.Core
         public const string TrailEmberProductId = "trail_ember";
         public const string TrailSparkleDustProductId = "trail_sparkledust";
         public const string TrailRainbowRibbonProductId = "trail_rainbowribbon";
+        // 5th/6th trails (2026-09-11) — same product-id-doubles-as-cosmeticId convention as the
+        // other 4, see CosmeticWiringBuilder.WireTrails.
+        public const string TrailConfettiProductId = "trail_confetti";
+        public const string TrailBubblesProductId = "trail_bubbles";
 
         // World Purchase (new content world, not a cosmetic) — $3.99 NonConsumable that unlocks a
         // full 25-level world independent of star progress. See UnlockProgression's purchase-gated
@@ -57,12 +66,18 @@ namespace FarmFuryArcade.Core
         public const string WorldGoldenSunsetProductId = "world_goldensunset";
         public const string WorldHarvestMoonProductId = "world_harvestmoon";
 
-        /// <summary>Universal (character-agnostic) cosmeticId for the two new single-art hat
-        /// styles — unlike the 8 per-character "baseball_cap_&lt;character&gt;" assets, Cowboy Hat
-        /// and Sombrero only have one piece of art (not fitted per character), so one CosmeticData
-        /// asset each covers every character. See CosmeticWiringBuilder.WireUniversalHats.</summary>
-        public const string CowboyHatCosmeticId = "cowboy_hat";
+        /// <summary>Universal (character-agnostic) cosmeticId for the single-art hat styles —
+        /// unlike the 8 per-character "baseball_cap_&lt;character&gt;"/"cowboy_hat_&lt;character&gt;"
+        /// assets, these 3 only have one piece of art (not fitted per character), so one
+        /// CosmeticData asset each covers every character. See CosmeticWiringBuilder.
+        /// WireUniversalHats. (Cowboy Hat moved OUT of this universal shape 2026-09-11 once real
+        /// per-character directional art landed for it — see CowboyHatCosmeticId's own removal note
+        /// and CosmeticWiringBuilder.WireCowboyHats; there is no longer a single Cowboy Hat
+        /// cosmeticId constant, "cowboy_hat_&lt;character&gt;" is computed inline wherever
+        /// needed, same convention Baseball Cap already used.)</summary>
         public const string SombreroCosmeticId = "sombrero_hat";
+        public const string ChefHatCosmeticId = "chef_hat";
+        public const string CrownCosmeticId = "crown";
 
         /// <summary>GDD Section 11: "Includes 100 bonus coins."</summary>
         public const int RemoveAdsBonusCoins = 100;
@@ -78,6 +93,7 @@ namespace FarmFuryArcade.Core
         private static readonly string[] TrailProductIds =
         {
             TrailCornHuskProductId, TrailEmberProductId, TrailSparkleDustProductId, TrailRainbowRibbonProductId,
+            TrailConfettiProductId, TrailBubblesProductId,
         };
 
 
@@ -94,10 +110,14 @@ namespace FarmFuryArcade.Core
             { HatBaseballCapProductId, "$1.99" },
             { HatCowboyHatProductId, "$1.99" },
             { HatSombreroProductId, "$1.99" },
+            { HatChefHatProductId, "$1.99" },
+            { HatCrownProductId, "$1.99" },
             { TrailCornHuskProductId, "$1.99" },
             { TrailEmberProductId, "$1.99" },
             { TrailSparkleDustProductId, "$1.99" },
             { TrailRainbowRibbonProductId, "$1.99" },
+            { TrailConfettiProductId, "$1.99" },
+            { TrailBubblesProductId, "$1.99" },
             { WorldFrostbiteGardenProductId, "$3.99" },
             { WorldGoldenSunsetProductId, "$3.99" },
             { WorldHarvestMoonProductId, "$3.99" },
@@ -149,10 +169,14 @@ namespace FarmFuryArcade.Core
                 new ProductDefinition(HatBaseballCapProductId, ProductType.NonConsumable),
                 new ProductDefinition(HatCowboyHatProductId, ProductType.NonConsumable),
                 new ProductDefinition(HatSombreroProductId, ProductType.NonConsumable),
+                new ProductDefinition(HatChefHatProductId, ProductType.NonConsumable),
+                new ProductDefinition(HatCrownProductId, ProductType.NonConsumable),
                 new ProductDefinition(TrailCornHuskProductId, ProductType.NonConsumable),
                 new ProductDefinition(TrailEmberProductId, ProductType.NonConsumable),
                 new ProductDefinition(TrailSparkleDustProductId, ProductType.NonConsumable),
                 new ProductDefinition(TrailRainbowRibbonProductId, ProductType.NonConsumable),
+                new ProductDefinition(TrailConfettiProductId, ProductType.NonConsumable),
+                new ProductDefinition(TrailBubblesProductId, ProductType.NonConsumable),
                 new ProductDefinition(WorldFrostbiteGardenProductId, ProductType.NonConsumable),
                 new ProductDefinition(WorldGoldenSunsetProductId, ProductType.NonConsumable),
                 new ProductDefinition(WorldHarvestMoonProductId, ProductType.NonConsumable),
@@ -309,11 +333,19 @@ namespace FarmFuryArcade.Core
             }
             else if (productId == HatCowboyHatProductId)
             {
-                GrantAndEquipHat(CowboyHatCosmeticId);
+                GrantCowboyHatSet();
             }
             else if (productId == HatSombreroProductId)
             {
                 GrantAndEquipHat(SombreroCosmeticId);
+            }
+            else if (productId == HatChefHatProductId)
+            {
+                GrantAndEquipHat(ChefHatCosmeticId);
+            }
+            else if (productId == HatCrownProductId)
+            {
+                GrantAndEquipHat(CrownCosmeticId);
             }
             else if (Array.IndexOf(TrailProductIds, productId) >= 0)
             {
@@ -361,7 +393,28 @@ namespace FarmFuryArcade.Core
             GrantAndEquipHat($"baseball_cap_{active}".ToLowerInvariant(), active);
         }
 
-        /// <summary>Cowboy Hat / Sombrero — single universal CosmeticData (no per-character art),
+        /// <summary>Cowboy Hat (2026-09-11) — same "buy once as a whole style" shape as
+        /// GrantBaseballCapSet above, now that real per-character directional art exists for all 8
+        /// characters (see CosmeticWiringBuilder.WireCowboyHats). Grants every character's own
+        /// "cowboy_hat_&lt;character&gt;" CosmeticData and auto-equips the active character's
+        /// variant.</summary>
+        private void GrantCowboyHatSet()
+        {
+            if (SaveManager.Instance == null)
+            {
+                return;
+            }
+
+            foreach (CharacterType character in Enum.GetValues(typeof(CharacterType)))
+            {
+                SaveManager.Instance.SetCosmeticOwned($"cowboy_hat_{character}".ToLowerInvariant());
+            }
+
+            CharacterType active = CharacterManager.Instance != null ? CharacterManager.Instance.ActiveCharacter : CharacterType.Cluck;
+            GrantAndEquipHat($"cowboy_hat_{active}".ToLowerInvariant(), active);
+        }
+
+        /// <summary>Sombrero/Chef Hat/Crown — single universal CosmeticData (no per-character art),
         /// so the same cosmeticId is granted/equipped regardless of which character is active.</summary>
         private void GrantAndEquipHat(string cosmeticId)
         {

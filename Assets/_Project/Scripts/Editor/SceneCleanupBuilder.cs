@@ -48,14 +48,16 @@ namespace FarmFuryArcade.EditorTools
             SetIfNotEmpty(so, "androidAppKey", "800356804");
             SetIfNotEmpty(so, "androidRewardedAdUnitId", "Rewarded_Android");
             SetIfNotEmpty(so, "androidInterstitialAdUnitId", "Interstitial_Android");
+            SetIfNotEmpty(so, "androidBannerAdUnitId", "Banner_Android");
             SetIfNotEmpty(so, "iosAppKey", "800356807");
             SetIfNotEmpty(so, "iosRewardedAdUnitId", "Rewarded_iOS");
             SetIfNotEmpty(so, "iosInterstitialAdUnitId", "Interstitial_iOS");
+            SetIfNotEmpty(so, "iosBannerAdUnitId", "Banner_iOS");
             so.ApplyModifiedPropertiesWithoutUndo();
 
             EditorUtility.SetDirty(adManager);
             EditorSceneManager.SaveScene(EditorSceneManager.GetActiveScene());
-            Debug.Log("[SceneCleanupBuilder] AdManager Android config wired (app key + 2 placement IDs). iOS still pending.");
+            Debug.Log("[SceneCleanupBuilder] AdManager Android config wired (app key + 3 placement IDs, including the new Banner placement). iOS still pending.");
         }
 
         private static void SetIfNotEmpty(SerializedObject so, string propertyName, string value)
@@ -379,11 +381,23 @@ namespace FarmFuryArcade.EditorTools
             DebugEquipHat($"baseball_cap_{character}".ToLowerInvariant(), "Baseball Cap");
         }
 
+        // Per-character asset set (2026-09-11), same shape as Baseball Cap — see
+        // IAPManager.GrantCowboyHatSet.
         [MenuItem("Farm Fury Arcade/Debug/Equip Hat (Testing)/Cowboy Hat (Active Character)")]
-        public static void EquipHatCowboy() => DebugEquipHat(IAPManager.CowboyHatCosmeticId, "Cowboy Hat");
+        public static void EquipHatCowboy()
+        {
+            CharacterType character = GetActiveOrDefaultCharacter();
+            DebugEquipHat($"cowboy_hat_{character}".ToLowerInvariant(), "Cowboy Hat");
+        }
 
         [MenuItem("Farm Fury Arcade/Debug/Equip Hat (Testing)/Sombrero (Active Character)")]
         public static void EquipHatSombrero() => DebugEquipHat(IAPManager.SombreroCosmeticId, "Sombrero");
+
+        [MenuItem("Farm Fury Arcade/Debug/Equip Hat (Testing)/Chef Hat (Active Character)")]
+        public static void EquipHatChef() => DebugEquipHat(IAPManager.ChefHatCosmeticId, "Chef Hat");
+
+        [MenuItem("Farm Fury Arcade/Debug/Equip Hat (Testing)/Crown (Active Character)")]
+        public static void EquipHatCrown() => DebugEquipHat(IAPManager.CrownCosmeticId, "Crown");
 
         /// <summary>Clears the equipped Hat slot for whichever character is currently active —
         /// narrower than UnequipAllHatsForTesting above (which clears all 8 at once).</summary>

@@ -31,6 +31,8 @@ namespace FarmFuryArcade.Core
         [SerializeField] private string iosRewardedAdUnitId;
         [SerializeField] private string androidInterstitialAdUnitId;
         [SerializeField] private string iosInterstitialAdUnitId;
+        [SerializeField] private string androidBannerAdUnitId;
+        [SerializeField] private string iosBannerAdUnitId;
 
         [Tooltip("Enables LevelPlay's in-app test suite UI (SetMetaData \"is_test_suite\") in an " +
                  "Editor or Development Build only — see EnableTestSuite below, which forces this " +
@@ -57,6 +59,7 @@ namespace FarmFuryArcade.Core
 
         private LevelPlayRewardedAd _rewardedAd;
         private LevelPlayInterstitialAd _interstitialAd;
+        private LevelPlayBannerAd _bannerAd;
 
         private static string AppKey =>
 #if UNITY_IOS
@@ -77,6 +80,13 @@ namespace FarmFuryArcade.Core
             iosInterstitialAdUnitId;
 #else
             androidInterstitialAdUnitId;
+#endif
+
+        private string BannerAdUnitId =>
+#if UNITY_IOS
+            iosBannerAdUnitId;
+#else
+            androidBannerAdUnitId;
 #endif
 
         private void Start()
@@ -124,6 +134,7 @@ namespace FarmFuryArcade.Core
             Debug.Log("[AdManager] LevelPlay initialized.");
             CreateRewardedAd();
             CreateInterstitialAd();
+            CreateBannerAd();
         }
 
         private void HandleInitFailed(LevelPlayInitError error)
@@ -151,6 +162,8 @@ namespace FarmFuryArcade.Core
         private float _rewardedRetryDelay = AdRetryBaseDelaySeconds;
         private Coroutine _interstitialRetryRoutine;
         private float _interstitialRetryDelay = AdRetryBaseDelaySeconds;
+        private Coroutine _bannerRetryRoutine;
+        private float _bannerRetryDelay = AdRetryBaseDelaySeconds;
 
         private System.Collections.IEnumerator RetryLoadAfterDelay(System.Action loadAction, float delaySeconds)
         {
@@ -374,6 +387,79 @@ namespace FarmFuryArcade.Core
         {
             yield return new WaitForSecondsRealtime(InterstitialAdTimeoutSeconds);
             onTimeout?.Invoke();
+        }
+
+        // ---- Banner ------------------------------------------------------------------------------
+
+        /// <summary>Unlike Rewarded/Interstitial (one-shot, reload-after-close), a banner is loaded
+        /// ONCE and then just shown/hidden in place (ShowAd/HideAd toggle visibility of the same
+        /// already-loaded ad, no reload needed) — so screens that want a banner while they're open
+        /// (Pause, Game Over — see PauseMenuController/LevelFailedController) just call
+        /// ShowBanner()/HideBanner() around their own Show/Close, same convention every other
+        /// per-screen ad call already uses. BottomCenter placement, respectRespectSafeArea so it
+        /// never renders under a device notch/home-indicator area (same reasoning SafeArea.cs
+        /// already documents for the rest of Gameplay HUD), displayOnLoad false since we want
+        /// explicit control over when it's actually visible rather than it popping up the instant
+        /// the very first load completes (which could be well before Pause/Game Over are ever
+        /// shown).</summary>
+        private void CreateBannerAd()
+        {
+            if (string.IsNullOrEmpty(BannerAdUnitId))
+            {
+                Debug.LogWarning("[AdManager] No banner ad unit ID configured for this platform.");
+                return;
+            }
+
+            var config = new LevelPlayBannerAd.Config.Builder()
+                .SetSize(LevelPlayAdSize.BANNER)
+                .SetPosition(LevelPlayBannerPosition.BottomCenter)
+                .SetDisplayOnLoad(false)
+                .SetRespectSafeArea(true)
+                .Build();
+
+            _bannerAd = new LevelPlayBannerAd(BannerAdUnitId, config);
+            _bannerAd.OnAdLoaded += (LevelPlayAdInfo info) =>
+            {
+                IsBannerAdReady = true;
+                _bannerRetryDelay = AdRetryBaseDelaySeconds;
+            };
+            _bannerAd.OnAdLoadFailed += (LevelPlayAdError error) =>
+            {
+                Debug.LogWarning($"[AdManager] Banner ad failed to load: {error} — retrying in {_bannerRetryDelay}s.");
+                if (_bannerRetryRoutine != null)
+                {
+                    StopCoroutine(_bannerRetryRoutine);
+                }
+                _bannerRetryRoutine = StartCoroutine(RetryLoadAfterDelay(() => _bannerAd.LoadAd(), _bannerRetryDelay));
+                _bannerRetryDelay = Mathf.Min(_bannerRetryDelay * 2f, AdRetryMaxDelaySeconds);
+            };
+            _bannerAd.OnAdDisplayFailed += (LevelPlayAdInfo info, LevelPlayAdError error) =>
+                Debug.LogWarning($"[AdManager] Banner ad failed to display: {error}");
+
+            _bannerAd.LoadAd();
+        }
+
+        public bool IsBannerAdReady { get; private set; }
+
+        /// <summary>Shows the banner (loading it first if this is the very first call and the
+        /// initial load hasn't completed yet — harmless no-op if it's already loaded/showing).
+        /// Safe to call even if ads never initialized (e.g. no app key configured yet) — just does
+        /// nothing, same "never show a dead placement" convention as every other ad entry point.</summary>
+        public void ShowBanner()
+        {
+            if (_bannerAd == null || !IsBannerAdReady)
+            {
+                return;
+            }
+            _bannerAd.ShowAd();
+        }
+
+        /// <summary>Hides the banner without destroying/reloading it — call on every screen that
+        /// shows one when that screen closes (Pause resume/quit, Game Over play/home), so it never
+        /// lingers on top of gameplay or another screen.</summary>
+        public void HideBanner()
+        {
+            _bannerAd?.HideAd();
         }
     }
 }

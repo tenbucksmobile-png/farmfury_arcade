@@ -390,6 +390,20 @@ and `Lifetime` was 0.7s, gone almost as soon as it appeared. Piece scale roughly
 (0.14-0.22), `PieceCount` 20→30, `Lifetime` 0.7s→1.0s, launch speed bumped (2.2-4.2 → 2.8-5.2) to
 match the bigger pieces so the burst still pops outward briskly rather than reading as a slow drift.
 
+**Reworked from confetti squares to twinkling stars (2026-09-11), per direct feedback ("make it
+more prominent and magical").** Three changes: (1) real star shapes — `PlaceholderSprite.GetStar()`
+(the same anti-aliased rasterized star `StarDisplay` already uses for score stars, tinted via
+`SpriteRenderer.color`) instead of `PlaceholderSprite.Get(color)`'s flat solid squares; (2) a warm
+gold/white/pale-cyan "magic sparkle" palette (5 entries) replacing the old 7-colour full-rainbow
+confetti spread, plus a brief bright white flash (`PlaceholderSprite.GetCircle`, `FlashLifetime`
+0.35s) at the burst's own origin so the moment itself reads as a magical pop, not just particles
+appearing; (3) each star now twinkles — a sine-wave scale pulse (`TwinkleCyclesPerSecond` 3,
+`TwinkleDepth` 0.35, random phase per piece) layered on top of its outward flight and fade, same
+"pulse" convention `GameplayHUD`'s ability-ready flash already uses. `Gravity` was also cut
+drastically (6 → 1.5 world units/sec²) so stars drift and hang rather than dropping hard like
+confetti, and piece scale was enlarged again (0.14-0.22 → 0.22-0.34) with gentler spin (±540°/sec →
+±220°/sec, tumbling read as confetti, not twinkling).
+
 **Per-robot targeting** (`GetTargetPosition()`, used only in Chase — Scatter/Vulnerable/Returning
 targets are resolved generically by `RobotBase.ResolveTarget()`):
 
@@ -971,6 +985,34 @@ interaction so gameplay code never touches `Unity.Services.LevelPlay` directly) 
   from a stuck ad. `onReady` is now guaranteed to fire within `InterstitialAdTimeoutSeconds`
   regardless of what the SDK does, same resolve-once-guaranteed pattern `ShowRewardedAd` uses.
 
+- **Banner ads** (`LevelPlayBannerAd`, added 2026-09-11) — a persistent strip while Pause or Game
+  Over is open, part of monetisation. Unlike Rewarded/Interstitial, a banner is loaded ONCE
+  (`CreateBannerAd`, `BottomCenter` position, `LevelPlayAdSize.BANNER`, `SetRespectSafeArea(true)`,
+  `SetDisplayOnLoad(false)`) and then just shown/hidden in place via `ShowBanner()`/`HideBanner()`
+  — no reload cycle needed, same idea as a lamp switch rather than a one-shot firework.
+  `IsBannerAdReady` is tracked manually (unlike Rewarded/Interstitial, `LevelPlayBannerAd` exposes
+  no `IsAdReady()` of its own) and set from `OnAdLoaded`; `ShowBanner()` no-ops if it's not ready
+  yet, same "never show a dead placement" convention every other ad entry point uses. Same
+  exponential-backoff retry-on-load-failure as Rewarded/Interstitial.
+
+  **A LevelPlay banner renders as a native overlay anchored to a screen edge — it is NOT a Unity UI
+  element and cannot be nested inside a screen's own Canvas/panel art.** `PauseMenuController`/
+  `LevelFailedController` call `ShowBanner()`/`HideBanner()` from `OnEnable`/`OnDisable` (not from
+  each individual close path — `GameObject.SetActive(false)` always fires `OnDisable` regardless of
+  which of Pause's 4 close paths triggered it, so this can't be missed by a future 5th one). Same
+  "no native ad surface in the Unity Editor" limitation as every other LevelPlay ad type applies —
+  it only ever renders on a real device build, never in Editor Play Mode.
+
+  **Button rows on both screens were shifted up to leave clear room for it** — `Phase5ProjectBuilder
+  .BannerAdBottomClearance` (160px, shared by `BuildPauseMenu`/`BuildLevelFailed`) raises the
+  Play/Skip/Settings/Quit row's (and Level Failed's own decorative "Insert Coin" row's) bottom inset
+  so neither one visually clashes with the banner strip along the bottom edge.
+
+  **Config:** `androidBannerAdUnitId`/`iosBannerAdUnitId` (new `AdManager` Inspector fields) are
+  wired via `SceneCleanupBuilder.WireAdManagerConfig` alongside the existing Rewarded/Interstitial
+  placement IDs (placeholder names `Banner_Android`/`Banner_iOS`, same convention — a matching real
+  placement must exist in the LevelPlay dashboard before this resolves to a real ad).
+
 **Full-screen "combo hype" reveal, triggered on a REAL combo (`Scripts/UI/ComboHypeScreen.cs`).**
 Originally shipped 2026-09-09 as an automatic banner shown right before every level began
 (picking one of the 8 combo banners at random, regardless of whether the player had ever actually
@@ -1388,14 +1430,18 @@ grants ownership and equips a cosmetic directly via PlayerPrefs, bypassing
 editor tooling can pre-equip freshly-authored cosmetics before any Store UI exists to do it the
 real way.
 
-**Trail cosmetics (4, character-agnostic):** `CosmeticWiringBuilder.WireTrails` wires
+**Trail cosmetics (originally 4, character-agnostic):** `CosmeticWiringBuilder.WireTrails` wires
 `CornHuskTrail.png`/`EmberTrail.png`/`SparkleDust.png`/`RainbowRibbon.png` (dropped in under
 `Sprites/Cosmetics/CosmeticType.Trail/`) as real `CosmeticData` assets with first-pass coin pricing
 (Corn Husk 60, Ember 100, Sparkle Dust 100, Rainbow Ribbon 150 — "Rainbow" already means the rarest
 tier elsewhere in this game, power pellets, so it's priced highest; not from any design doc, easy
-to retune per-asset). `trailEffectPrefab` is left null on all 4 — see "Not built yet" below, there's
-still no Trail rendering hook, so equipping one persists correctly (ownership + equip state) but
-has no visible effect in gameplay yet.
+to retune per-asset). `trailEffectPrefab` is left null on all of them — see "Not built yet" below,
+there's still no Trail rendering hook, so equipping one persists correctly (ownership + equip
+state) but has no visible effect in gameplay yet. **Confetti Trail and Bubbles Trail were added as
+a 5th/6th trail 2026-09-11** — see the "Hat/trail expansion" section above for the full writeup;
+`coinCost` is unused dead weight on every trail now regardless (all 6 sell via real-money IAP, see
+`IAPManager`'s Trail\*ProductId constants), kept populated on each entry only for consistency with
+the original 4.
 
 ### Cosmetics Store UI (2026-08-20 redesign, consolidated 2026-08-30 — `Scripts/UI/CosmeticPurchaseScreen.cs`)
 
@@ -1667,6 +1713,104 @@ second is new, and mirrors the hat specifically even when the body itself isn't 
 other hat (the other 6 baseball caps, both universal hats) keeps `mirrorLeftHatForRight = false`
 (the field's default, so nothing wired before this change needed touching) and renders exactly as
 before.
+
+### Hat/trail expansion — full directional art, Cowboy Hat goes per-character, 2 new universal hats, level-cycling Sombrero, 2 new trails (2026-09-11)
+
+A single large art drop turned into several structural changes at once, all in
+`CosmeticWiringBuilder.cs` unless noted:
+
+**Baseball Cap — real per-character Left AND Right art for all 8 characters**, replacing the
+Ducky/Woolly-only mirror-fix above. `BaseballCapEntry` gained `RightSpriteFileName`; `WireBaseballCaps`
+uses it directly (`mirrorLeftHatForRight = false`, real art in `hatFrames[6]`/`[7]`) when present,
+falling back to the old duplicate-Left-and-flip trick only if a character genuinely has no Right art
+(none currently do). Filenames use on-disk casing exactly — `Baseball_horace_right.png` has a
+lowercase 'h', unlike every other Horace file, and every character's own files say "Clucky" not
+"Cluck" despite the `CharacterType` enum being `Cluck`.
+
+**Cowboy Hat converted from one universal single-pose asset to a per-character set**, same shape as
+Baseball Cap, once real per-character directional art landed for it too (its original art, a single
+pig-face design shared by every character, is gone — replaced entirely). New `CowboyHatEntry`
+struct/`CowboyHats` array/`WireCowboyHats()` method (own menu item, `Wire Cosmetic Art (Cowboy
+Hats)`), `CosmeticData_CowboyHat_<character>.asset`, cosmeticId `cowboy_hat_<character>`. This art
+has no true front-facing pose at all — only Left and Right — so Up/Down reuse whichever is
+available (Right preferred). **Gerald is the only character still missing Right art** (Left-only,
+mirrored via `mirrorLeftHatForRight` same as the old Baseball Cap fallback). `IAPManager.
+GrantCowboyHatSet()` (mirrors `GrantBaseballCapSet`) grants the whole set on one $1.99 purchase and
+auto-equips the active character's variant; the old single `CowboyHatCosmeticId` constant is gone
+— `"cowboy_hat_<character>"` is computed inline wherever needed, matching Baseball Cap's own
+convention. `LockerScreen.ResolveCosmeticId` and `CosmeticPurchaseScreen.IsProductOwned` both
+updated to resolve per-character for `HatCowboyHatProductId` the same way they already did for
+Baseball Cap (keyed by `productId`, not by "null `fixedCosmeticId`" alone, now that two entries
+share that).
+
+**Sombrero now cycles through all 4 variants (Sombrero_1-4.png) by level**, instead of always
+showing Sombrero_1. `CosmeticData.hatVariantSprites` (new field) holds the 4 sprites;
+`CharacterCosmeticRenderer.ResolveActiveHatFrames` picks `levelNumber % hatVariantSprites.Length`
+every time the character (re)spawns (once per `Refresh()`, not every frame) and substitutes that
+sprite across all 8 `hatFrames` slots — `hatFrames` itself stays a plain single-sprite fallback for
+any hat that doesn't set `hatVariantSprites`. `UniversalHatEntry` gained
+`VariantSpriteFileNames` to wire this from `WireUniversalHats`.
+
+**Chef Hat and Crown — 4th/5th universal (one-asset-fits-every-character) hats**, bringing the
+Shop's hat row to parity with the (now 6) trails below. Both are genuinely universal by design — a
+toque and a jeweled crown are both close to rotationally/radially symmetric, so neither has the
+"which way is this facing" problem a brimmed hat like the Sombrero or Cowboy Hat has. `IAPManager.
+HatChefHatProductId`/`HatCrownProductId` ($1.99 each), `ChefHatCosmeticId`/`CrownCosmeticId`.
+
+**Confetti Trail and Bubbles Trail — 5th/6th trails**, same shape as the original 4 (`IAPManager.
+TrailConfettiProductId`/`TrailBubblesProductId`, `CosmeticWiringBuilder.Trails` entries pointing at
+`ConfettiTrail.png`/`BubblesTrail.png`). Art follows the same "cluster burst of the material itself,
+scattered outward with loose dots around it" composition the original 4 trail icons use (confetti
+paper scraps / soft iridescent bubbles) rather than a generic sparkle.
+
+**The Shop's Cosmetics hub, Character Story's Cosmetics tab, and the in-maze Locker's catalog all
+updated together** to the new 11-item total (5 hats + 6 trails) — `Phase5ProjectBuilder.
+BuildCosmeticsHubScreen`'s `hatItems`/`trailItems` arrays, its `cosmeticEntryData` array (feeding
+`CharacterStoryScreen`'s icon-only, no-price art), `CharacterStoryScreen.CosmeticBlurbs`, and
+`LockerScreen.Catalog` all list all 11 now. Two real gaps found and fixed while wiring this: Chef
+Hat/Crown had no `IsProductOwned` case in `CosmeticPurchaseScreen` at all (their Shop "owned"
+checkmark badge could never appear), and the Character Story Cosmetics tab's icons were swapped
+from the Shop's own price-baked purchase art to new plain icon-only art (no price baked in, since
+that tab is informational, not a purchase surface) — both `Sombrero.png`-style UI icons and the
+`BuildCosmeticRow` icon box (130×130 square → 300×140, matching `BuildComboRow`'s own art column
+sizing) changed together.
+
+**Positioning tuned against the Cosmetic Preview Renderer tool** (see "Editor tooling" below) rather
+than guessed — real fixes, not just first-pass estimates: Sombrero's shared default and all 4
+`SombreroCharacterOverrides` were rescaled together (scale ×0.565, offset −0.20) after the tool's
+first real render showed it clipping the top of frame on every character; Woolly's Baseball
+Cap/Cowboy Hat scale (was 0.96, covered her whole head like a helmet) dropped to 0.50, with a
+SEPARATE offset correction needed per hat STYLE (0.40 fit Baseball Cap but sank Cowboy Hat's own
+art down over her face — confirms offset/scale don't transfer between different hat styles on the
+same character, only within one style); Gerald's Baseball Cap (was 0.45, nearly invisible) raised to
+0.70; Percy's and Ducky's Cowboy Hat offsets were each tuned in two rounds (first correction
+overshot, second pass split the difference) since a preview render was needed to actually see the
+overshoot. Bessie's Cowboy Hat art landed after this pass started (`Cowboy_bessie.png` — lowercase
+'b', unlike her own `Cowboy_Bessie_left.png` — plus a same-session `Cowboy_Percy.png` Right pose
+that closed the "Left-only" gap for Percy, leaving Gerald the sole Left-only character) and slotted
+into the same array once it arrived.
+
+**`CosmeticPreviewRenderer.cs`** (`Scripts/Editor/`, `Farm Fury Arcade > Debug > Render Cosmetic
+Preview Sheet`) — built this same session specifically to make the above possible without Play
+mode. Edit-mode-only (no Play mode needed at all): composites each character's real sprite with
+each hat's real sprite at that (character, hat) pair's actual `hatOffset`/`hatScale`/
+`characterHatOverrides` — the exact same lookup `CharacterCosmeticRenderer.ResolveHatOffsetAndScale`
+does at runtime, copied here since this is an Editor-only assembly — driven directly from the
+`CosmeticData`/`CharacterData` assets, and renders the result via a temporary offscreen Camera into
+one contact-sheet PNG at `CosmeticPreviews/cosmetic_preview_sheet.png` (project root — NOT
+`Temp/`, which Unity actively clears; that ate the tool's first-ever render before it could be
+read). 8 character columns × (hat × 3-pose) rows — Front/Left/Right per hat, reproducing
+`CharacterAnimator`'s own Right-mirroring exactly (mirrors from Left when a character has no
+dedicated Right art, plus `CosmeticData.mirrorLeftHatForRight` for a hat with only Left art on an
+otherwise-dedicated-Right-art character) — with a small magenta dot marking each cell's local
+origin (the point `hatOffset` is measured from) and the exact offset/scale values logged to the
+Console per cell. Safe to re-run after any positioning edit; nothing it creates persists in the
+scene or on disk except the output PNG. The tool's own tight camera framing (tuned to fill the frame
+with just the character + hat) is deliberately much closer than the real gameplay camera's zoom, so
+a hat clipping the top of this preview's frame is real evidence of oversizing relative to the
+character (camera-zoom-independent), but a hat that merely looks "a little large" in this preview
+may read fine at actual gameplay zoom — a final live Play/build check is still worth doing once a
+hat looks right here.
 
 ### In-maze Locker (2026-09-09, `Scripts/UI/LockerScreen.cs`)
 
@@ -3096,6 +3240,11 @@ phase made for art (solid-colour placeholders instead of real sprites).
   group to reposition since the landing-page cleanup (see "Landing/Gameplay-HUD cleanup"
   above); re-run `Phase5ProjectBuilder.BuildAll` if Main Menu ever needs rebuilding from scratch.
   Also no longer wires `matchup.png`/its buttons (see "Removed: Matchup screen").
+- **`CosmeticPreviewRenderer`** (`Farm Fury Arcade > Debug > Render Cosmetic Preview Sheet`,
+  added 2026-09-11) — Edit-mode-only, no Play mode needed at all. Renders every (character, hat)
+  pair's real sprite at its real `hatOffset`/`hatScale` into one contact-sheet PNG so hat
+  positioning can be checked/tuned without ever entering Play mode. See the "Hat/trail expansion"
+  section under Cosmetics above for the full writeup and its known camera-framing caveat.
 - **`SceneCleanupBuilder`** (`Farm Fury Arcade > Disable Debug Test Overlays` /
   `Farm Fury Arcade > Fit Gameplay Camera To Maze` / `Farm Fury Arcade > Debug > Reset All
   Progress (Testing)` / `Farm Fury Arcade > Wire AdManager Config` / `Farm Fury Arcade > Debug >

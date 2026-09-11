@@ -21,8 +21,8 @@ namespace FarmFuryArcade.UI
     /// equips it immediately (SaveManager.SetEquippedCosmetic/SetEquippedTrail, then
     /// CharacterCosmeticRenderer.Refresh() on the active character) — tapping the already-equipped
     /// tile again unequips it. No purchase flow involved, purely "try what you own." (Baseball Cap
-    /// resolves to the active character's own per-character variant — see
-    /// IAPManager.GrantBaseballCapSet; the other 6 are character-agnostic.)
+    /// and Cowboy Hat each resolve to the active character's own per-character variant — see
+    /// IAPManager.GrantBaseballCapSet/GrantCowboyHatSet; the other 9 are character-agnostic.)
     /// A "You may like" banner still picks one random NOT-owned item every time the Locker opens
     /// and offers a shortcut into the real purchase screen — that's the only place an unowned
     /// cosmetic (e.g. Cowboy Hat, if unbought) is ever shown on this screen; it's a discovery/
@@ -48,20 +48,26 @@ namespace FarmFuryArcade.UI
             }
         }
 
-        // Same 7 items CosmeticsHubScreen sells (Phase5ProjectBuilder.BuildCosmeticsHubScreen) —
+        // Same 11 items CosmeticsHubScreen sells (Phase5ProjectBuilder.BuildCosmeticsHubScreen) —
         // kept in sync by hand, same convention CosmeticWiringBuilder's own local copies of
-        // IAPManager's cosmeticId constants already use.
+        // IAPManager's cosmeticId constants already use. Cowboy Hat's fixedCosmeticId became null
+        // 2026-09-11 once it moved to a per-character asset set (see CosmeticWiringBuilder.
+        // WireCowboyHats) — resolved the same way Baseball Cap already is, via ResolveCosmeticId.
         private static readonly CatalogEntry[] Catalog =
         {
             new CatalogEntry("Baseball Cap", CosmeticType.Hat, IAPManager.HatBaseballCapProductId, null),
-            new CatalogEntry("Cowboy Hat", CosmeticType.Hat, IAPManager.HatCowboyHatProductId, IAPManager.CowboyHatCosmeticId),
+            new CatalogEntry("Cowboy Hat", CosmeticType.Hat, IAPManager.HatCowboyHatProductId, null),
             new CatalogEntry("Sombrero", CosmeticType.Hat, IAPManager.HatSombreroProductId, IAPManager.SombreroCosmeticId),
+            new CatalogEntry("Chef Hat", CosmeticType.Hat, IAPManager.HatChefHatProductId, IAPManager.ChefHatCosmeticId),
+            new CatalogEntry("Crown", CosmeticType.Hat, IAPManager.HatCrownProductId, IAPManager.CrownCosmeticId),
             // Trail product ids intentionally match their CosmeticData.cosmeticId exactly (see
             // IAPManager's own doc comment on TrailCornHuskProductId etc.).
             new CatalogEntry("Corn Husk Trail", CosmeticType.Trail, IAPManager.TrailCornHuskProductId, IAPManager.TrailCornHuskProductId),
             new CatalogEntry("Ember Trail", CosmeticType.Trail, IAPManager.TrailEmberProductId, IAPManager.TrailEmberProductId),
             new CatalogEntry("Sparkle Dust Trail", CosmeticType.Trail, IAPManager.TrailSparkleDustProductId, IAPManager.TrailSparkleDustProductId),
             new CatalogEntry("Rainbow Ribbon Trail", CosmeticType.Trail, IAPManager.TrailRainbowRibbonProductId, IAPManager.TrailRainbowRibbonProductId),
+            new CatalogEntry("Confetti Trail", CosmeticType.Trail, IAPManager.TrailConfettiProductId, IAPManager.TrailConfettiProductId),
+            new CatalogEntry("Bubbles Trail", CosmeticType.Trail, IAPManager.TrailBubblesProductId, IAPManager.TrailBubblesProductId),
         };
 
         private const float TileIconSize = 90f;
@@ -190,10 +196,13 @@ namespace FarmFuryArcade.UI
             {
                 return entry.fixedCosmeticId;
             }
-            // Baseball Cap — per-character variant id, matching IAPManager.GrantBaseballCapSet's
-            // own $"baseball_cap_{character}".ToLowerInvariant() pattern exactly.
+            // Both remaining per-character hat sets (Baseball Cap, Cowboy Hat) key off productId
+            // rather than assuming "null fixedCosmeticId" always means one specific style — matches
+            // IAPManager.GrantBaseballCapSet/GrantCowboyHatSet's own
+            // $"{style}_{character}".ToLowerInvariant() pattern exactly.
             CharacterType active = CharacterManager.Instance != null ? CharacterManager.Instance.ActiveCharacter : CharacterType.Cluck;
-            return $"baseball_cap_{active}".ToLowerInvariant();
+            string prefix = entry.productId == IAPManager.HatCowboyHatProductId ? "cowboy_hat" : "baseball_cap";
+            return $"{prefix}_{active}".ToLowerInvariant();
         }
 
         private bool IsEquipped(CatalogEntry entry, string cosmeticId)

@@ -63,6 +63,10 @@ namespace FarmFuryArcade.Gameplay
         private Transform _hatTransform;
         private SpriteRenderer _hatRenderer;
         private CosmeticData _equippedHat;
+        // Normally just _equippedHat.hatFrames — re-resolved to one of hatVariantSprites (repeated
+        // across all 8 slots) instead, on every Refresh(), when the equipped hat has variants. See
+        // ResolveActiveHatFrames.
+        private Sprite[] _activeHatFrames;
 
         private TrailRenderer _trailRenderer;
         private GameObject _trailEffectInstance;
@@ -124,6 +128,7 @@ namespace FarmFuryArcade.Gameplay
             _hatRenderer.enabled = _equippedHat != null && _equippedHat.hatFrames != null && _equippedHat.hatFrames.Length >= 8;
             if (_hatRenderer.enabled)
             {
+                _activeHatFrames = ResolveActiveHatFrames(_equippedHat);
                 (Vector2 offset, float scale) = ResolveHatOffsetAndScale(_equippedHat, character);
                 _hatTransform.localPosition = offset;
                 _hatTransform.localScale = Vector3.one * scale;
@@ -134,11 +139,11 @@ namespace FarmFuryArcade.Gameplay
             ApplyTrail(trail);
         }
 
-        /// <summary>Universal hats (Cowboy Hat/Sombrero) share one CosmeticData asset across every
-        /// character, so a single hatOffset/hatScale can't fit every head — falls back to that
+        /// <summary>Universal hats (Sombrero/Chef Hat/Crown) share one CosmeticData asset across
+        /// every character, so a single hatOffset/hatScale can't fit every head — falls back to that
         /// shared value if this character has no entry in characterHatOverrides (per-character
-        /// baseball caps never need an entry here, since each of those already has its own asset
-        /// with hatOffset/hatScale tuned for exactly one character).</summary>
+        /// baseball caps/Cowboy Hats never need an entry here, since each of those already has its
+        /// own asset with hatOffset/hatScale tuned for exactly one character).</summary>
         private static (Vector2 offset, float scale) ResolveHatOffsetAndScale(CosmeticData hat, CharacterType character)
         {
             if (hat.characterHatOverrides != null)
@@ -152,6 +157,27 @@ namespace FarmFuryArcade.Gameplay
                 }
             }
             return (hat.hatOffset, hat.hatScale);
+        }
+
+        /// <summary>Normally just hat.hatFrames. When hat.hatVariantSprites has 2+ entries (e.g.
+        /// Sombrero's 4 alternate designs), picks one deterministically from the CURRENT level's
+        /// own levelNumber instead — re-read here (called once per Refresh, i.e. once per spawn/
+        /// swap, not every frame) rather than cached, so a new level load always re-resolves which
+        /// variant shows. The chosen sprite replaces all 8 hatFrames slots since these variants have
+        /// no per-direction art of their own (same "one pose, every slot" convention a plain single-
+        /// sprite hat already uses).</summary>
+        private static Sprite[] ResolveActiveHatFrames(CosmeticData hat)
+        {
+            if (hat.hatVariantSprites != null && hat.hatVariantSprites.Length > 1)
+            {
+                int levelNumber = GameManager.Instance != null && GameManager.Instance.CurrentLevel != null
+                    ? GameManager.Instance.CurrentLevel.levelNumber
+                    : 0;
+                int index = Mathf.Abs(levelNumber) % hat.hatVariantSprites.Length;
+                Sprite variant = hat.hatVariantSprites[index];
+                return new[] { variant, variant, variant, variant, variant, variant, variant, variant };
+            }
+            return hat.hatFrames;
         }
 
         private void ApplyTrail(CosmeticData trail)
@@ -257,7 +283,7 @@ namespace FarmFuryArcade.Gameplay
                 }
 
                 int frameOffset = Mathf.Clamp(_animator.CurrentFrameIndex, 0, 1);
-                _hatRenderer.sprite = _equippedHat.hatFrames[baseIndex + frameOffset];
+                _hatRenderer.sprite = _activeHatFrames[baseIndex + frameOffset];
                 // Two independent reasons a hat needs mirroring, ORed together: the BODY itself is
                 // being flipped (character has no dedicated Right art of its own, so
                 // CharacterAnimator mirrors its Left sprite — the hat rides along with that flip

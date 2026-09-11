@@ -24,7 +24,13 @@ namespace FarmFuryArcade.UI
     /// outright. ChooseCharacterScreen itself, its own Tab-key shortcut
     /// (InputController.OnSwapMenuToggleInput), and its pauseMenuScreen back-reference (wired in
     /// Phase5ProjectBuilder.WireCrossReferences, entirely independent of this class) are all still
-    /// fully intact and untouched — only this screen's own button pointing at it is gone.</summary>
+    /// fully intact and untouched — only this screen's own button pointing at it is gone.
+    ///
+    /// Shows AdManager's banner ad while this screen is open (2026-09-11 monetisation pass) —
+    /// OnEnable/OnDisable, not a native panel of the button row: LevelPlay renders a banner as a
+    /// native overlay anchored to a screen edge (BottomCenter here), not a Unity UI element nested
+    /// inside this Canvas, so it can't be baked into Pause.png's own art. The 4-button row below was
+    /// shifted up to leave clear room for it — see BuildPauseMenu's own layout comment.</summary>
     public class PauseMenuController : MonoBehaviour
     {
         [SerializeField] private Button playButton;
@@ -49,6 +55,20 @@ namespace FarmFuryArcade.UI
         public void Show()
         {
             gameObject.SetActive(true);
+        }
+
+        // OnEnable/OnDisable (not called directly from Show/Resume/Skip/etc.) so the banner tracks
+        // this screen's actual active state regardless of which of the 4 close paths below fires —
+        // GameObject.SetActive(false) always triggers OnDisable no matter who calls it, so there's
+        // no risk of a future 5th close path forgetting to hide it.
+        private void OnEnable()
+        {
+            AdManager.Instance?.ShowBanner();
+        }
+
+        private void OnDisable()
+        {
+            AdManager.Instance?.HideBanner();
         }
 
         // Public — audit finding C3.2's AndroidBackButtonHandler calls this directly so the
