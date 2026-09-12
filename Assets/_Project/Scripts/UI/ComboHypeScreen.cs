@@ -50,22 +50,42 @@ namespace FarmFuryArcade.UI
 
         private Coroutine _routine;
 
+        private bool _subscribed;
+
         private void OnEnable()
         {
-            if (ComboSystem.Instance != null)
-            {
-                ComboSystem.Instance.OnComboTriggered += HandleComboTriggered;
-            }
             canvasGroup.alpha = 0f;
             canvasGroup.blocksRaycasts = false;
             canvasGroup.interactable = false;
         }
 
+        /// <summary>Subscribing here rather than in OnEnable is the actual fix for the long-standing
+        /// "combos aren't firing" report (visually, at least — ComboSystem's own detection/buff
+        /// logic was always correct). This GameObject lives under Canvas, which precedes GameManagers
+        /// in the scene hierarchy — Unity does not guarantee "all Awake calls, then all OnEnable
+        /// calls" across independent root GameObjects; it interleaves Awake+OnEnable per object in
+        /// roughly hierarchy order, so this screen's OnEnable could run before ComboSystem.Awake()
+        /// ever assigns ComboSystem.Instance. That left ComboSystem.Instance null at subscribe time,
+        /// so the null-check silently skipped the subscription forever — the combo still triggered
+        /// internally (a buffed Percy roll would genuinely go 9 tiles) but no banner/SFX ever played,
+        /// reading to the player as "the combo did not kick in." Start() is the one lifecycle method
+        /// Unity guarantees runs only after every object's Awake() has already completed, so
+        /// ComboSystem.Instance is guaranteed non-null here regardless of hierarchy order.</summary>
+        private void Start()
+        {
+            if (!_subscribed && ComboSystem.Instance != null)
+            {
+                ComboSystem.Instance.OnComboTriggered += HandleComboTriggered;
+                _subscribed = true;
+            }
+        }
+
         private void OnDisable()
         {
-            if (ComboSystem.Instance != null)
+            if (_subscribed && ComboSystem.Instance != null)
             {
                 ComboSystem.Instance.OnComboTriggered -= HandleComboTriggered;
+                _subscribed = false;
             }
         }
 

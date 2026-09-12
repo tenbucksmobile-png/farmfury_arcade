@@ -43,7 +43,16 @@ namespace FarmFuryArcade.EditorTools
             // one, and every character now has one.
             public string RightSpriteFileName;
 
-            public BaseballCapEntry(CharacterType character, string spriteFileName, Vector2 hatOffset, float hatScale, string leftSpriteFileName = null, string rightSpriteFileName = null)
+            // Optional (see CosmeticData.hasSideOffset) — a character whose Left/Right walk pose
+            // puts its head somewhere very different than its Front pose (e.g. a galloping horse)
+            // needs its own offset for the side-facing directions, or the cap floats disconnected
+            // from the head as the character moves. Authored as though always facing Left; Right
+            // mirrors the X component automatically at runtime.
+            public bool HasSideOffset;
+            public Vector2 HatOffsetSide;
+            public float HatScaleSide;
+
+            public BaseballCapEntry(CharacterType character, string spriteFileName, Vector2 hatOffset, float hatScale, string leftSpriteFileName = null, string rightSpriteFileName = null, Vector2? hatOffsetSide = null, float hatScaleSide = 0f)
             {
                 Character = character;
                 SpriteFileName = spriteFileName;
@@ -51,6 +60,9 @@ namespace FarmFuryArcade.EditorTools
                 HatScale = hatScale;
                 LeftSpriteFileName = leftSpriteFileName;
                 RightSpriteFileName = rightSpriteFileName;
+                HasSideOffset = hatOffsetSide.HasValue;
+                HatOffsetSide = hatOffsetSide ?? Vector2.zero;
+                HatScaleSide = hatOffsetSide.HasValue ? hatScaleSide : 0f;
             }
         }
 
@@ -70,7 +82,13 @@ namespace FarmFuryArcade.EditorTools
         private static readonly BaseballCapEntry[] Caps =
         {
             new BaseballCapEntry(CharacterType.Cluck, "Baseball_Clucky.png", new Vector2(0f, 0.55f), 0.64f, "Baseball_Clucky_left.png", "Baseball_Clucky_right.png"),
-            new BaseballCapEntry(CharacterType.Bessie, "Baseball_Bessie.png", new Vector2(0f, 0.55f), 0.58f, "Baseball_Bessie_left.png", "Baseball_Bessie_right.png"),
+            // Scale corrected 2026-09-12 (0.58 -> 0.32) — the Cosmetic Preview Renderer's latest
+            // render showed it wildly oversized, covering her whole head/horns/ears like a full
+            // helmet rather than sitting on top of it (same class of bug Woolly's own cap had before
+            // its 2026-09-11 fix below). Offset lowered to match the smaller cap (0.55 -> 0.46) — a
+            // cap this much smaller needs less headroom above her to still sit ON her head rather
+            // than floating.
+            new BaseballCapEntry(CharacterType.Bessie, "Baseball_Bessie.png", new Vector2(0f, 0.46f), 0.32f, "Baseball_Bessie_left.png", "Baseball_Bessie_right.png"),
             new BaseballCapEntry(CharacterType.Percy, "Baseball_Percy.png", new Vector2(0f, 0.51f), 0.77f, "Baseball_Percy_left.png", "Baseball_Percy_right.png"),
             // Woolly's scale corrected 2026-09-11 (0.96 -> 0.50) — the Cosmetic Preview Renderer's
             // first real render showed it comically oversized, covering her whole head like a
@@ -78,12 +96,23 @@ namespace FarmFuryArcade.EditorTools
             // since a smaller cap needs less headroom above her.
             new BaseballCapEntry(CharacterType.Woolly, "Baseball_Woolly.png", new Vector2(0f, 0.40f), 0.50f, "Baseball_Woolly_left.png", "Baseball_Woolly_right.png"),
             new BaseballCapEntry(CharacterType.Ducky, "Baseball_Ducky.png", new Vector2(0f, 0.53f), 0.70f, "Baseball_Ducky_left.png", "Baseball_Ducky_right.png"),
-            new BaseballCapEntry(CharacterType.Horace, "Baseball_Horace.png", new Vector2(0f, 0.47f), 0.70f, "Baseball_Horace_left.png", "Baseball_horace_right.png"),
-            // Gerald's scale corrected 2026-09-11 (0.45 -> 0.70) — the opposite problem from Woolly:
-            // the preview showed his cap tiny and floating well above his head, barely visible.
-            // Offset lowered too (0.53 -> 0.40) so the larger cap actually sits close to his head
-            // instead of opening an even bigger gap now that it's bigger.
-            new BaseballCapEntry(CharacterType.Gerald, "Baseball_Gerald.png", new Vector2(0f, 0.40f), 0.70f, "Baseball_Gerald_left.png", "Baseball_Gerald_right.png"),
+            // Side offset added 2026-09-12 — despite having real dedicated Left/Right art, the
+            // preview still showed the cap floating well above and behind Horace's actual head in
+            // his galloping Left/Right pose (his stride/head-drop is far more pronounced than any
+            // other character's, so even real per-direction art isn't enough on its own — the cap's
+            // POSITION is still driven by one fixed offset regardless of pose). Authored as though
+            // facing Left (head drops and swings forward-left); mirrored automatically for Right.
+            new BaseballCapEntry(CharacterType.Horace, "Baseball_Horace.png", new Vector2(0f, 0.47f), 0.70f, "Baseball_Horace_left.png", "Baseball_horace_right.png",
+                hatOffsetSide: new Vector2(-0.35f, 0.30f), hatScaleSide: 0.70f),
+            // Scale corrected 2026-09-11 (0.45 -> 0.70) — the opposite problem from Woolly: the
+            // preview showed his cap tiny and floating well above his head, barely visible. Offset
+            // lowered too (0.53 -> 0.40) so the larger cap actually sits close to his head instead of
+            // opening an even bigger gap now that it's bigger. Corrected AGAIN 2026-09-12 — the
+            // latest render showed it had overshot the other way, the enlarged cap now sinking down
+            // and covering his whole short neck/head. Gerald's head/neck is much smaller than most
+            // other characters', so a "normal" cap scale still reads as oversized on him
+            // specifically — scaled down further (0.70 -> 0.55) and raised (0.40 -> 0.50).
+            new BaseballCapEntry(CharacterType.Gerald, "Baseball_Gerald.png", new Vector2(0f, 0.50f), 0.55f, "Baseball_Gerald_left.png", "Baseball_Gerald_right.png"),
             new BaseballCapEntry(CharacterType.Billy, "Baseball_Billy.png", new Vector2(0f, 0.47f), 0.58f, "Baseball_Billy_left.png", "Baseball_Billy_right.png"),
         };
 
@@ -216,6 +245,112 @@ namespace FarmFuryArcade.EditorTools
             }
         }
 
+        // Per-character overrides of the shared Sombrero offset/scale below — added once real
+        // gameplay screenshots showed it badly mis-fit on specific characters. First-pass
+        // eyeballed corrections (no visual Editor/Play mode access this session) — nudge further
+        // once seen. "We will reposition for every character" per direct feedback — add further
+        // entries here as each remaining character gets checked in Play mode.
+        //
+        // Offset.y history, all per direct "too low"/"too high" feedback rounds: Percy 0.45(shared)
+        // -> 0.30 -> 0.43 -> 0.55 -> 0.75; Woolly 0.45(shared) -> 0.28 -> 0.40 -> 0.60; Bessie
+        // 0.45(shared) -> 0.47 -> 0.60 -> 0.80. Each raise moved every character (shared default
+        // included) up together once "still too low" feedback covered the whole group rather than
+        // just the ones with their own override entry.
+        //
+        // MOVED HERE 2026-09-12 (was declared AFTER UniversalHats, which references it) — this was
+        // a real, previously-undiscovered bug: C# initializes static fields in the textual order
+        // they're declared in the class, so UniversalHats' own initializer was reading this field
+        // (and ChefHatCharacterOverrides below) BEFORE either had been assigned, always seeing
+        // `null` regardless of what either array actually contained. Verified directly against a
+        // standalone repro (a class with the same forward-reference shape prints the default value,
+        // not the later initializer's value). Every per-character Sombrero override tuned across
+        // every session documented above (Percy/Woolly/Bessie/Cluck) has therefore NEVER actually
+        // applied at runtime — every character has only ever rendered the shared default the whole
+        // time, which is the real reason "still too low" kept being reported even after repeatedly
+        // "fixing" a specific character's own override: raising the SHARED default was the only
+        // edit that was ever doing anything, and every override-only edit was silently a no-op.
+        // Reordering these two arrays to be declared BEFORE UniversalHats (which now genuinely reads
+        // fully-initialized arrays) is the actual fix — re-run Wire Cosmetic Art (Universal Hats)
+        // and Render Cosmetic Preview Sheet to see the per-character values finally take effect.
+        private static readonly CharacterHatOverride[] SombreroCharacterOverrides =
+        {
+            // Percy's baseball cap asset (see Caps above, tuned for his actual head) uses
+            // offset.y 0.51 / scale 0.77 for a snug-fitting cap; the sombrero's wide brim still
+            // needs to render smaller than the universal default.
+            // Rescaled 2026-09-11 alongside the shared default above (x0.565 scale, -0.20 offset)
+            // — see that entry's own comment.
+            new CharacterHatOverride
+            {
+                character = CharacterType.Percy,
+                hatOffset = new Vector2(0f, 0.55f),
+                hatScale = 0.48f,
+            },
+            // Woolly's own baseball cap scale (now 0.50, corrected the same session — see Caps
+            // above) means the sombrero's width was already roughly right; only its height needed
+            // tuning, same as Percy. Rescaled 2026-09-11 alongside the shared default.
+            new CharacterHatOverride
+            {
+                character = CharacterType.Woolly,
+                hatOffset = new Vector2(0f, 0.40f),
+                hatScale = 0.57f,
+            },
+            // Bessie's baseball cap is the smallest of the 8 — the universal sombrero scale
+            // rendered wildly oversized and floating well off to the side of her head. Rescaled
+            // 2026-09-11 alongside the shared default. Corrected AGAIN 2026-09-12 — the latest
+            // preview showed this was still sitting far too low, covering her eyes/ears/whole face
+            // rather than sitting on top of her head. Raised substantially (0.60 -> 0.88) and
+            // shrunk slightly further (0.36 -> 0.30). (This is the first time this override will
+            // actually render at all — see the field-ordering bug note above.)
+            new CharacterHatOverride
+            {
+                character = CharacterType.Bessie,
+                hatOffset = new Vector2(0f, 0.88f),
+                hatScale = 0.30f,
+            },
+            // Cluck was fine at the shared default for every other character but read as
+            // "slightly too high" on her specifically — a small nudge down, not the large
+            // corrections the other 3 overrides above needed. Rescaled 2026-09-11 alongside the
+            // shared default (this puts her back at exactly the new shared value, same as before
+            // this rescale — she was already tracking the shared default 1:1).
+            new CharacterHatOverride
+            {
+                character = CharacterType.Cluck,
+                hatOffset = new Vector2(0f, 0.30f),
+                hatScale = 0.65f,
+            },
+            // Side offset added 2026-09-12 — Horace's Front pose was fine at the shared default
+            // (front values here just duplicate it), but his galloping Left/Right pose drops and
+            // swings his head forward-left/right far more dramatically than any other character
+            // (confirmed across every hat type in the preview render, not unique to the sombrero),
+            // so a single fixed offset leaves the hat floating well above/behind wherever his head
+            // actually ends up. Authored as though facing Left; mirrored for Right.
+            new CharacterHatOverride
+            {
+                character = CharacterType.Horace,
+                hatOffset = new Vector2(0f, 0.45f),
+                hatScale = 0.65f,
+                hasSideOffset = true,
+                hatOffsetSide = new Vector2(-0.35f, 0.35f),
+                hatScaleSide = 0.65f,
+            },
+        };
+
+        // Per-character overrides of Chef Hat's shared offset/scale — added 2026-09-12 once the
+        // Cosmetic Preview Renderer showed Gerald's own short neck/small head (already documented
+        // on his Baseball Cap fix above) left a visible gap between the hat's own bottom rim and the
+        // top of his head, unlike every other character which fit reasonably close. Declared before
+        // UniversalHats for the same real ordering-bug reason SombreroCharacterOverrides was moved
+        // above — see that field's own doc comment.
+        private static readonly CharacterHatOverride[] ChefHatCharacterOverrides =
+        {
+            new CharacterHatOverride
+            {
+                character = CharacterType.Gerald,
+                hatOffset = new Vector2(0f, 0.72f),
+                hatScale = 0.42f,
+            },
+        };
+
         // Sombrero, Chef Hat, Crown — genuinely universal, single-piece-of-art-fits-every-character
         // cosmetics. Cowboy Hat used to live here too (its original art, kling_20260818_IMAGE_
         // Prop_shots_3923_0.png, was a single pig-face design shared by every character) but was
@@ -263,63 +398,8 @@ namespace FarmFuryArcade.EditorTools
             // mode access this session) — same "expect to nudge later" convention as every other hat
             // here; use Farm Fury Arcade > Debug > Render Cosmetic Preview Sheet to check/tune
             // without needing Play mode at all.
-            new UniversalHatEntry(IAPManagerHatChefId, "Chef Hat", "ChefHat.png", new Vector2(0f, 0.55f), 0.55f),
+            new UniversalHatEntry(IAPManagerHatChefId, "Chef Hat", "ChefHat.png", new Vector2(0f, 0.55f), 0.55f, ChefHatCharacterOverrides),
             new UniversalHatEntry(IAPManagerHatCrownId, "Crown", "Crown.png", new Vector2(0f, 0.55f), 0.55f),
-        };
-
-        // Per-character overrides of the shared Sombrero offset/scale above — added once real
-        // gameplay screenshots showed it badly mis-fit on specific characters. First-pass
-        // eyeballed corrections (no visual Editor/Play mode access this session) — nudge further
-        // once seen. "We will reposition for every character" per direct feedback — add further
-        // entries here as each remaining character gets checked in Play mode.
-        //
-        // Offset.y history, all per direct "too low"/"too high" feedback rounds: Percy 0.45(shared)
-        // -> 0.30 -> 0.43 -> 0.55 -> 0.75; Woolly 0.45(shared) -> 0.28 -> 0.40 -> 0.60; Bessie
-        // 0.45(shared) -> 0.47 -> 0.60 -> 0.80. Each raise moved every character (shared default
-        // included) up together once "still too low" feedback covered the whole group rather than
-        // just the ones with their own override entry.
-        private static readonly CharacterHatOverride[] SombreroCharacterOverrides =
-        {
-            // Percy's baseball cap asset (see Caps above, tuned for his actual head) uses
-            // offset.y 0.51 / scale 0.77 for a snug-fitting cap; the sombrero's wide brim still
-            // needs to render smaller than the universal default.
-            // Rescaled 2026-09-11 alongside the shared default above (x0.565 scale, -0.20 offset)
-            // — see that entry's own comment.
-            new CharacterHatOverride
-            {
-                character = CharacterType.Percy,
-                hatOffset = new Vector2(0f, 0.55f),
-                hatScale = 0.48f,
-            },
-            // Woolly's own baseball cap scale (now 0.50, corrected the same session — see Caps
-            // above) means the sombrero's width was already roughly right; only its height needed
-            // tuning, same as Percy. Rescaled 2026-09-11 alongside the shared default.
-            new CharacterHatOverride
-            {
-                character = CharacterType.Woolly,
-                hatOffset = new Vector2(0f, 0.40f),
-                hatScale = 0.57f,
-            },
-            // Bessie's baseball cap is the smallest of the 8 — the universal sombrero scale
-            // rendered wildly oversized and floating well off to the side of her head. Rescaled
-            // 2026-09-11 alongside the shared default.
-            new CharacterHatOverride
-            {
-                character = CharacterType.Bessie,
-                hatOffset = new Vector2(0f, 0.60f),
-                hatScale = 0.36f,
-            },
-            // Cluck was fine at the shared default for every other character but read as
-            // "slightly too high" on her specifically — a small nudge down, not the large
-            // corrections the other 3 overrides above needed. Rescaled 2026-09-11 alongside the
-            // shared default (this puts her back at exactly the new shared value, same as before
-            // this rescale — she was already tracking the shared default 1:1).
-            new CharacterHatOverride
-            {
-                character = CharacterType.Cluck,
-                hatOffset = new Vector2(0f, 0.30f),
-                hatScale = 0.65f,
-            },
         };
 
         // Local copies of IAPManager's cosmeticId constants — CosmeticWiringBuilder is an Editor-
@@ -461,6 +541,9 @@ namespace FarmFuryArcade.EditorTools
                 data.hatFrames = hatFrames;
                 data.hatOffset = entry.HatOffset;
                 data.hatScale = entry.HatScale;
+                data.hasSideOffset = entry.HasSideOffset;
+                data.hatOffsetSide = entry.HatOffsetSide;
+                data.hatScaleSide = entry.HatScaleSide;
                 EditorUtility.SetDirty(data);
 
                 AddCosmeticRendererToPrefab(entry.Character);
@@ -486,13 +569,22 @@ namespace FarmFuryArcade.EditorTools
             public Vector2 HatOffset;
             public float HatScale;
 
-            public CowboyHatEntry(CharacterType character, string rightSpriteFileName, string leftSpriteFileName, Vector2 hatOffset, float hatScale)
+            // Optional (see CosmeticData.hasSideOffset) — same purpose as BaseballCapEntry's own
+            // side-offset fields.
+            public bool HasSideOffset;
+            public Vector2 HatOffsetSide;
+            public float HatScaleSide;
+
+            public CowboyHatEntry(CharacterType character, string rightSpriteFileName, string leftSpriteFileName, Vector2 hatOffset, float hatScale, Vector2? hatOffsetSide = null, float hatScaleSide = 0f)
             {
                 Character = character;
                 RightSpriteFileName = rightSpriteFileName;
                 LeftSpriteFileName = leftSpriteFileName;
                 HatOffset = hatOffset;
                 HatScale = hatScale;
+                HasSideOffset = hatOffsetSide.HasValue;
+                HatOffsetSide = hatOffsetSide ?? Vector2.zero;
+                HatScaleSide = hatOffsetSide.HasValue ? hatScaleSide : 0f;
             }
         }
 
@@ -537,11 +629,22 @@ namespace FarmFuryArcade.EditorTools
             // anchor point) sunk down over her whole face instead. Confirms hatOffset/hatScale
             // don't transfer 1:1 between different hat STYLES on the same character, only within
             // the same style.
-            new CowboyHatEntry(CharacterType.Woolly, "Cowboy_Woolly.png", "Cowboy_Woolly_left.png", new Vector2(0f, 0.55f), 0.50f),
+            // Side offset added 2026-09-12 — the Front pose (offset above) looked fine, but the
+            // latest preview render showed the hat floating well above/behind her head in the
+            // Left/Right walking pose (her walk cycle lowers/shifts her head forward, this fixed
+            // offset didn't follow). Authored as though facing Left; mirrored for Right.
+            new CowboyHatEntry(CharacterType.Woolly, "Cowboy_Woolly.png", "Cowboy_Woolly_left.png", new Vector2(0f, 0.55f), 0.50f,
+                hatOffsetSide: new Vector2(-0.18f, 0.40f), hatScaleSide: 0.50f),
             // Offset nudged up slightly (0.53 -> 0.60) — preview showed the brim sitting a touch
             // low, partly covering one eye.
             new CowboyHatEntry(CharacterType.Ducky, "Cowboy_Ducky.png", "Cowboy_Ducky_left.png", new Vector2(0f, 0.60f), 0.70f),
-            new CowboyHatEntry(CharacterType.Horace, "Cowboy_horace.png", "Cowboy_Horace_left.png", new Vector2(0f, 0.47f), 0.70f),
+            // Side offset added 2026-09-12 — Horace's galloping Left/Right pose drops and swings his
+            // head forward far more dramatically than any other character (confirmed across every
+            // hat type in the preview, not just this one), so the hat floats disconnected above/
+            // behind the actual head whenever he's moving. Authored as though facing Left; mirrored
+            // for Right.
+            new CowboyHatEntry(CharacterType.Horace, "Cowboy_horace.png", "Cowboy_Horace_left.png", new Vector2(0f, 0.47f), 0.70f,
+                hatOffsetSide: new Vector2(-0.35f, 0.30f), hatScaleSide: 0.70f),
             new CowboyHatEntry(CharacterType.Gerald, null, "Cowboy_Gerald_left.png", new Vector2(0f, 0.53f), 0.45f),
             new CowboyHatEntry(CharacterType.Billy, "Cowboy_Billy.png", "Cowboy_Billy_left.png", new Vector2(0f, 0.47f), 0.58f),
         };
@@ -605,6 +708,9 @@ namespace FarmFuryArcade.EditorTools
                 data.hatFrames = hatFrames;
                 data.hatOffset = entry.HatOffset;
                 data.hatScale = entry.HatScale;
+                data.hasSideOffset = entry.HasSideOffset;
+                data.hatOffsetSide = entry.HatOffsetSide;
+                data.hatScaleSide = entry.HatScaleSide;
                 data.characterHatOverrides = null;
                 data.hatVariantSprites = null;
                 EditorUtility.SetDirty(data);

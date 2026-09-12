@@ -48,11 +48,13 @@ namespace FarmFuryArcade.UI
             }
         }
 
-        // Same 11 items CosmeticsHubScreen sells (Phase5ProjectBuilder.BuildCosmeticsHubScreen) —
-        // kept in sync by hand, same convention CosmeticWiringBuilder's own local copies of
-        // IAPManager's cosmeticId constants already use. Cowboy Hat's fixedCosmeticId became null
-        // 2026-09-11 once it moved to a per-character asset set (see CosmeticWiringBuilder.
-        // WireCowboyHats) — resolved the same way Baseball Cap already is, via ResolveCosmeticId.
+        // Same 11 items the Cosmetics Hats/Trails purchase pages sell (Phase5ProjectBuilder.
+        // BuildCosmeticsHatsScreen/BuildCosmeticsTrailsScreen — split from one flat
+        // CosmeticsHubScreen into a chooser + 2 dedicated pages 2026-09-12) — kept in sync by hand,
+        // same convention CosmeticWiringBuilder's own local copies of IAPManager's cosmeticId
+        // constants already use. Cowboy Hat's fixedCosmeticId became null 2026-09-11 once it moved
+        // to a per-character asset set (see CosmeticWiringBuilder.WireCowboyHats) — resolved the
+        // same way Baseball Cap already is, via ResolveCosmeticId.
         private static readonly CatalogEntry[] Catalog =
         {
             new CatalogEntry("Baseball Cap", CosmeticType.Hat, IAPManager.HatBaseballCapProductId, null),

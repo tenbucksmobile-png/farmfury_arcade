@@ -129,9 +129,11 @@ namespace FarmFuryArcade.Gameplay
             if (_hatRenderer.enabled)
             {
                 _activeHatFrames = ResolveActiveHatFrames(_equippedHat);
-                (Vector2 offset, float scale) = ResolveHatOffsetAndScale(_equippedHat, character);
-                _hatTransform.localPosition = offset;
-                _hatTransform.localScale = Vector3.one * scale;
+                // Position/scale themselves are no longer applied here — see LateUpdate, which
+                // re-resolves them every frame from the character's CURRENT facing instead of
+                // whatever direction happened to be active at spawn time (the real cause behind
+                // hats reading as "lagging behind"/floating disconnected from the head while a
+                // character moved — see hasSideOffset's own doc comment on CosmeticData).
             }
 
             string equippedTrailId = SaveManager.Instance.GetEquippedTrail();
@@ -143,8 +145,13 @@ namespace FarmFuryArcade.Gameplay
         /// every character, so a single hatOffset/hatScale can't fit every head — falls back to that
         /// shared value if this character has no entry in characterHatOverrides (per-character
         /// baseball caps/Cowboy Hats never need an entry here, since each of those already has its
-        /// own asset with hatOffset/hatScale tuned for exactly one character).</summary>
-        private static (Vector2 offset, float scale) ResolveHatOffsetAndScale(CosmeticData hat, CharacterType character)
+        /// own asset with hatOffset/hatScale tuned for exactly one character).
+        ///
+        /// <paramref name="isSide"/> selects the Left/Right variant (hatOffsetSide/hatScaleSide)
+        /// over the Front/Up/Down one when the character/hat combination has opted into it via
+        /// hasSideOffset — see that field's own doc comment. The side offset is always authored as
+        /// though facing Left; the caller (LateUpdate) negates the X component for Right.</summary>
+        private static (Vector2 offset, float scale) ResolveHatOffsetAndScale(CosmeticData hat, CharacterType character, bool isSide)
         {
             if (hat.characterHatOverrides != null)
             {
@@ -152,9 +159,17 @@ namespace FarmFuryArcade.Gameplay
                 {
                     if (overrideEntry.character == character)
                     {
+                        if (isSide && overrideEntry.hasSideOffset)
+                        {
+                            return (overrideEntry.hatOffsetSide, overrideEntry.hatScaleSide);
+                        }
                         return (overrideEntry.hatOffset, overrideEntry.hatScale);
                     }
                 }
+            }
+            if (isSide && hat.hasSideOffset)
+            {
+                return (hat.hatOffsetSide, hat.hatScaleSide);
             }
             return (hat.hatOffset, hat.hatScale);
         }
@@ -293,9 +308,24 @@ namespace FarmFuryArcade.Gameplay
                 // own doc comment). Without this second term the hat would silently stop turning
                 // with the character the moment it faces right, even though the body itself
                 // correctly shows its own real Right-facing pose.
-                bool mirrorForHatOnly = _equippedHat.mirrorLeftHatForRight &&
-                    _animator.CurrentDisplayDirection == Direction.Right;
+                Direction facing = _animator.CurrentDisplayDirection;
+                bool mirrorForHatOnly = _equippedHat.mirrorLeftHatForRight && facing == Direction.Right;
                 _hatRenderer.flipX = _animator.IsFlippedX || mirrorForHatOnly;
+
+                // Position/scale re-resolved every frame from the CURRENT facing (not just once at
+                // spawn/swap in Refresh) — this is what actually fixes a hat reading as "lagging
+                // behind"/floating disconnected from the head as a character moves: the previous
+                // code only ever computed this once, using whatever direction happened to be active
+                // the instant the character spawned or was last swapped to. hatOffsetSide is always
+                // authored as though facing Left, so Right just negates its X component.
+                bool isSide = facing == Direction.Left || facing == Direction.Right;
+                (Vector2 offset, float scale) = ResolveHatOffsetAndScale(_equippedHat, _characterBase.CharacterType, isSide);
+                if (isSide && facing == Direction.Right)
+                {
+                    offset.x = -offset.x;
+                }
+                _hatTransform.localPosition = offset;
+                _hatTransform.localScale = Vector3.one * scale;
             }
 
             if (_activeGhostSprite != null &&

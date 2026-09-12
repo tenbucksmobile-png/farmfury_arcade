@@ -29,7 +29,9 @@ namespace FarmFuryArcade.UI
         [SerializeField] private ParentalGateController parentalGate;
         [SerializeField] private CosmeticPurchaseScreen worldPurchaseScreen;
         [SerializeField] private CoinPurchaseScreen coinPurchaseScreen;
-        [SerializeField] private CosmeticPurchaseScreen cosmeticsHubScreen;
+        [SerializeField] private CosmeticPurchaseScreen cosmeticsHatsScreen;
+        [SerializeField] private CosmeticPurchaseScreen cosmeticsTrailsScreen;
+        [SerializeField] private CosmeticsChooserScreen cosmeticsChooserScreen;
         [SerializeField] private LegalScreen legalScreen;
         [SerializeField] private SettingsPanel settingsPanel;
         [SerializeField] private ShopController shopController;
@@ -52,7 +54,9 @@ namespace FarmFuryArcade.UI
             if (CloseIfActive(parentalGate)) return;
             if (CloseIfActive(worldPurchaseScreen)) return;
             if (CloseIfActive(coinPurchaseScreen)) return;
-            if (CloseIfActive(cosmeticsHubScreen)) return;
+            if (CloseIfActive(cosmeticsHatsScreen)) return;
+            if (CloseIfActive(cosmeticsTrailsScreen)) return;
+            if (CloseIfActive(cosmeticsChooserScreen)) return;
             if (CloseIfActive(legalScreen)) return;
             if (CloseIfActive(settingsPanel)) return;
             if (CloseIfActive(shopController)) return;

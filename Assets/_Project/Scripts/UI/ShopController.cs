@@ -9,10 +9,12 @@ namespace FarmFuryArcade.UI
     /// (ShopBanner.png) and a single row of 4 icons: Cash (Shop.png, opens
     /// <see cref="CoinPurchaseScreen"/> for the actual coin packs), Worlds (WorldMaze.png, opens
     /// the World Purchase screen), Ads (Ads.png, a direct Remove Ads purchase — no sub-screen), and
-    /// Cosmetics (Cosmetics_Icon.png, opens the unified Cosmetics purchase screen — all 11 hat/trail
-    /// items on one screen, see Phase5ProjectBuilder.BuildCosmeticsHubScreen). Discards the old
-    /// layout entirely (the 4 coin-pack icons + a big Cosmetics banner button used to live directly
-    /// on this screen — they're now one tap further in, behind the Cash/Cosmetics icons).
+    /// Cosmetics (Cosmetics_Icon.png, opens CosmeticsChooserScreen — a small chooser distinguishing
+    /// Hats and Caps from Trails, each opening its own dedicated purchase page; see
+    /// Phase5ProjectBuilder.BuildCosmeticsChooserScreen). Discards the old layout entirely (the 4
+    /// coin-pack icons + a big Cosmetics banner button used to live directly on this screen —
+    /// they're now one tap further in, behind the Cash/Cosmetics icons; the Cosmetics icon
+    /// itself used to open one flat 11-item screen directly, replaced 2026-09-12 by this chooser).</summary>
     ///
     /// Reached from <see cref="MenuHubScreen"/>'s "Shop" sign, and directly from wherever else
     /// already held a ShopController reference (e.g. Level Select's own Shop icon) — same
@@ -37,7 +39,7 @@ namespace FarmFuryArcade.UI
         [SerializeField] private CosmeticPurchaseScreen worldPurchaseScreen;
 
         [SerializeField] private Button cosmeticsButton;
-        [SerializeField] private CosmeticPurchaseScreen cosmeticsHubScreen;
+        [SerializeField] private CosmeticsChooserScreen cosmeticsChooserScreen;
 
         [SerializeField] private Button removeAdsButton;
         [SerializeField] private Image removeAdsButtonIcon;
@@ -60,9 +62,9 @@ namespace FarmFuryArcade.UI
             {
                 worldsButton.onClick.AddListener(() => worldPurchaseScreen.Show());
             }
-            if (cosmeticsButton != null && cosmeticsHubScreen != null)
+            if (cosmeticsButton != null && cosmeticsChooserScreen != null)
             {
-                cosmeticsButton.onClick.AddListener(() => cosmeticsHubScreen.Show());
+                cosmeticsButton.onClick.AddListener(() => cosmeticsChooserScreen.Show());
             }
             if (removeAdsButton != null)
             {

@@ -10,6 +10,23 @@ namespace FarmFuryArcade.Data
         public CharacterType character;
         public Vector2 hatOffset;
         public float hatScale;
+
+        [Tooltip("Optional. When true, hatOffsetSide/hatScaleSide below are used instead of the " +
+                 "fields above whenever this character is facing Left or Right — see " +
+                 "CosmeticData.hasSideOffset's own doc comment for why (a single fixed offset " +
+                 "reads as the hat \"lagging behind\"/floating disconnected from the head on a " +
+                 "character whose side-facing walk pose puts the head somewhere very different " +
+                 "than its Front pose, e.g. a horse's head dropping and swinging forward mid-" +
+                 "gallop). Leave false to use the front fields above for every direction, same as " +
+                 "before this field existed.")]
+        public bool hasSideOffset;
+
+        [Tooltip("Authored as though the character is always facing LEFT — " +
+                 "CharacterCosmeticRenderer negates the X component automatically when the " +
+                 "character is actually facing Right, mirroring the same way hatFrames/flipX " +
+                 "already do for the base sprite.")]
+        public Vector2 hatOffsetSide;
+        public float hatScaleSide;
     }
 
     /// <summary>
@@ -84,6 +101,21 @@ namespace FarmFuryArcade.Data
                  "generated as a big standalone prop (not pre-scaled to a character's head) will " +
                  "usually need this well below 1.")]
         public float hatScale = 1f;
+
+        [Tooltip("Hat only, optional. Same purpose as CharacterHatOverride.hasSideOffset (see its " +
+                 "own doc comment) but for a per-character dedicated hat asset (Baseball Cap/" +
+                 "Cowboy Hat) that doesn't go through characterHatOverrides at all — this asset " +
+                 "already belongs to exactly one character, so there's nothing to key by. When " +
+                 "true, hatOffsetSide/hatScaleSide below replace hatOffset/hatScale above whenever " +
+                 "this character is facing Left or Right. Leave false (the default) for a hat whose " +
+                 "single fixed offset already looks right in every direction.")]
+        public bool hasSideOffset;
+
+        [Tooltip("Authored as though the character is always facing LEFT — CharacterCosmeticRenderer " +
+                 "negates the X component automatically for Right, same mirroring convention " +
+                 "CharacterHatOverride.hatOffsetSide uses.")]
+        public Vector2 hatOffsetSide;
+        public float hatScaleSide;
 
         [Tooltip("Hat only. Optional per-character overrides of hatOffset/hatScale above, for a " +
                  "universal hat (e.g. Sombrero) shared by one CosmeticData asset across " +

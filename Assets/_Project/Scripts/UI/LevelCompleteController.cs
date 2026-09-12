@@ -155,13 +155,31 @@ namespace FarmFuryArcade.UI
 
         /// <summary>Targets the level right after the one just completed — the one whose unlock
         /// this celebration is actually about, per UnlockProgression's "predecessor needs 1+ star"
-        /// chain.</summary>
+        /// chain.
+        ///
+        /// Real bug found and fixed (2026-09-12): a Daily Challenge completion always fell through
+        /// to this same "jump into the next sequential level's world" logic — but a Daily Challenge
+        /// level is picked from whichever unlocked world DailyChallengeManager.GetTodayLevelIndex()
+        /// happened to land on (see its own doc comment), not a step in that world's own normal
+        /// progression, so "levelNumber + 1" has no real relationship to what the player was just
+        /// doing. In practice this most often opened Corn Field's tile grid (world 0 is always
+        /// unlocked, so the daily pick — and thus levelNumber+1 — landed there disproportionately
+        /// often), reported as "concluding the daily challenge goes directly into Cornfield." Fixed
+        /// by checking DailyChallengeManager.IsPlayingDailyChallenge first: a daily-challenge
+        /// completion now just shows Level Select with no pending target queued, landing on World
+        /// Select the same way Level Failed's Home button already does — the only sensible "back"
+        /// destination when the level just played isn't part of any single world's own sequence.</summary>
         private void Play()
         {
-            int nextLevelIndex = GameManager.Instance.CurrentLevel != null
-                ? GameManager.Instance.CurrentLevel.levelNumber + 1
-                : 0;
-            levelSelectController.OpenLevelSelectForLevel(nextLevelIndex);
+            bool wasDailyChallenge = DailyChallengeManager.Instance != null &&
+                DailyChallengeManager.Instance.IsPlayingDailyChallenge;
+            if (!wasDailyChallenge)
+            {
+                int nextLevelIndex = GameManager.Instance.CurrentLevel != null
+                    ? GameManager.Instance.CurrentLevel.levelNumber + 1
+                    : 0;
+                levelSelectController.OpenLevelSelectForLevel(nextLevelIndex);
+            }
             SceneTransitionManager.Instance.ShowOnly(levelSelectScreen);
         }
 

@@ -1039,10 +1039,26 @@ as the sole on-screen cue for a triggered combo.
 
 Its root GameObject stays active for the app's whole lifetime — same "always-active, alpha-driven
 visibility" convention `SceneTransitionManager`'s own `FadeOverlay` uses — rather than being
-`SetActive(false)`'d like every other overlay, since starting inactive would mean its `OnEnable`
-event subscription to `ComboSystem.OnComboTriggered` never fires at all. Skips the celebration
-entirely (rather than showing a random/wrong banner) if no matching banner art is wired for the
-combo that fired.
+`SetActive(false)`'d like every other overlay, since starting inactive would mean its subscription
+to `ComboSystem.OnComboTriggered` never happens at all. Skips the celebration entirely (rather than
+showing a random/wrong banner) if no matching banner art is wired for the combo that fired.
+
+**Real bug found and fixed (2026-09-12): the subscription itself was wired in `OnEnable`, and
+silently never took effect on a real playtest** ("combos aren't firing" — the report the 2026-09-11
+diagnostic-logging pass above was added to chase, without success via static review alone).
+`ComboHypeScreen` lives under `Canvas`, which precedes `GameManagers` in the scene hierarchy —
+Unity does **not** guarantee "every object's `Awake` before any object's `OnEnable`" across
+independent root GameObjects; it interleaves `Awake`+`OnEnable` per object in roughly hierarchy
+order, so this screen's `OnEnable` could run before `ComboSystem.Awake()` ever assigns
+`ComboSystem.Instance`. `OnEnable`'s own `if (ComboSystem.Instance != null)` guard then silently
+skipped the subscription forever — `ComboSystem`'s own detection/buff logic was firing correctly
+the whole time (a buffed Percy roll genuinely went 9 tiles), but with no listener attached, no
+banner/SFX ever played, reading to the player as "the combo did not kick in." Fixed by moving the
+subscription into `Start()` instead — the one lifecycle method Unity guarantees runs only after
+every object's `Awake()` in the scene has already completed, so `ComboSystem.Instance` is
+guaranteed non-null there regardless of hierarchy order. The 2026-09-11 diagnostic `Debug.Log`
+calls in `ComboSystem.RegisterCharacterSwap`/`CheckPairCombos` were removed now that the real cause
+is confirmed and fixed.
 
 **Reworked again 2026-09-11 (per direct feedback) from the full-screen "page" described above into
 a lightweight in-gameplay callout** — the root GameObject has NO background Image at all now (not
@@ -1731,6 +1747,74 @@ other hat (the other 6 baseball caps, both universal hats) keeps `mirrorLeftHatF
 (the field's default, so nothing wired before this change needed touching) and renders exactly as
 before.
 
+### Cosmetics chooser splits Hats & Caps from Trails (2026-09-12, `Scripts/UI/CosmeticsChooserScreen.cs`)
+
+The flat `CosmeticsHubScreen` above (point 2 in the "Cosmetics Store UI" list) reached the end of
+its runway once it hit 11 items across 2 stacked rows — real Kling art (`Hats&Caps.png`/
+`Trails.png`, both 619x246, same hanging wood-sign template) landed for a small chooser step
+instead, matching a new mockup: Shop's Cosmetics icon now opens `CosmeticsChooserScreen` first —
+the two banners stacked in a column, middle-aligned, same size, nicely spaced with a fixed gap
+(`CosmeticsBannerGap`, 30) so they can never overlap regardless of screen aspect — rather than
+jumping straight to a flat item grid. Tapping a banner opens that category's own dedicated page
+(`CosmeticsHatsScreen`/`CosmeticsTrailsScreen`, both a plain `CosmeticPurchaseScreen` instance, same
+generic component the old flat screen used) **without hiding the chooser** — same "layers on top,
+never hidden" convention `ChooseCharacterScreen` uses over Pause — so the destination page's own
+generic close button (a plain `SetActive(false)`) reveals the chooser again automatically, and the
+chooser's own close button reveals the Shop hub underneath it in turn.
+
+Both destination pages show the *same* banner (`Hats&Caps.png`/`Trails.png` respectively) at the
+exact same size/position the chooser used for it (`CosmeticsBannerWidth`/`Height`/`TopOffset`,
+shared constants) — the banner a player tapped keeps reading as "this is where I am" on the page it
+opens, per direct instruction ("same banner for all new pages"). Height is derived from the art's
+own real 619x246 aspect ratio rather than guessed, so neither banner is stretched.
+
+**Re-tuned twice more the same day, both per direct screenshot feedback:**
+1. **Header position/size** — originally matched `MenuHubScreen`'s own stacked-sign convention
+   (width 550, top offset -320, i.e. well below the screen's top edge). A screenshot showed this
+   read as noticeably lower/smaller than every OTHER screen's own header, which all sit close to the
+   top via `CreateHeaderSign`'s `StandardHeaderSignOffset.y` (-55). `CosmeticsBannerTopOffset`
+   switched to that exact same -55 for genuine top-middle consistency, and `CosmeticsBannerWidth`
+   enlarged 550 -> 700 (~+27%) so the banners read bigger on screen.
+2. **Item icon size/spacing** — originally a bespoke 170x230 box on a `HorizontalLayoutGroup`
+   (`itemSpacing` 40). A follow-up screenshot asked for the icons to match `BuildCoinPurchaseScreen`'s
+   own coin-pack icon size exactly, spaced evenly with no overlap. Turned out every price-baked
+   cosmetic item sprite (all 11 — 5 hats, 6 trails) is the exact same 500x669 source resolution the
+   coin plaques use, so `CosmeticsItemHeight`/`CosmeticsItemWidth` just reuse the coin screen's own
+   height formula (`StandardIconButtonSize * 1.5 * 1.4` = 336 tall) and aspect (500/669) for a
+   pixel-identical on-screen size on both families. `BuildItemRow` itself was switched from a
+   `HorizontalLayoutGroup` to a `GridLayoutGroup` (same mechanism `BuildCoinPurchaseScreen`'s own
+   `CoinRow` already used) — a grid computes every cell's position purely from cellSize/spacing/
+   constraintCount, so items can never visually overlap or drift uneven regardless of item count,
+   unlike the old approach which depended on each child's sizeDelta being set correctly beforehand.
+   Per-page spacing differs on purpose (Hats 77, matching the coin screen's own row spacing exactly
+   since 5 items fit comfortably at that gap; Trails 50, tighter since 6 items at coin-icon size
+   would otherwise leave only ~14px margin per side at 77) — both pages are internally "even, no
+   overlap," they just don't need to share one spacing value across a different item count.
+
+Each page's single item row is centred below its header with a verified (not eyeballed) gap on
+both sides: `BuildItemRow`'s `centerY` (-60 for both pages) leaves a 79-unit gap below the header's
+own bottom edge and a 62-unit clearance above the bottom-right close button's own top edge, computed
+directly from `CosmeticsBannerTopOffset`/`Height` and `CreateRoundBackButton`'s fixed geometry —
+same middle-aligned single-row layout the old flat screen's own two rows used, just one category
+per page now instead of both stacked together, and now at the coin-icon size described above.
+
+`ShopController.cosmeticsChooserScreen` (renamed from `cosmeticsHubScreen`, retyped
+`CosmeticsChooserScreen`) is the only thing that changed on the Shop hub itself — the icon, its
+position, and its `Cosmetics_Icon.png` art are all unchanged. `AndroidBackButtonHandler` gained
+`cosmeticsHatsScreen`/`cosmeticsTrailsScreen` alongside the renamed `cosmeticsChooserScreen`,
+checked in that innermost-first order so back correctly closes whichever of the three is actually
+open. `LockerScreen`'s own dormant `purchaseScreen` reference (the "You may like" banner's target,
+itself removed 2026-09-11 — see "In-maze Locker" below) now points at the Hats page specifically,
+an arbitrary pick since nothing calls it today.
+
+The `CosmeticsHubScreen` GameObject name was kept for the chooser (now hosting
+`CosmeticsChooserScreen` instead of `CosmeticPurchaseScreen`) for the same scene-path-stability
+reason `StoreComingSoonOverlay` kept its own name through an earlier content swap — any tooling that
+looks it up by that name still finds it. `BuildCosmeticsHubScreen` itself is gone, replaced by
+`BuildCosmeticsChooserScreen`/`BuildCosmeticsHatsScreen`/`BuildCosmeticsTrailsScreen` plus a shared
+`WireCosmeticPurchaseScreen` helper (the `CosmeticPurchaseScreen` component setup both new pages
+need, factored out once there were two call sites instead of one).
+
 ### Hat/trail expansion — full directional art, Cowboy Hat goes per-character, 2 new universal hats, level-cycling Sombrero, 2 new trails (2026-09-11)
 
 A single large art drop turned into several structural changes at once, all in
@@ -1828,6 +1912,62 @@ a hat clipping the top of this preview's frame is real evidence of oversizing re
 character (camera-zoom-independent), but a hat that merely looks "a little large" in this preview
 may read fine at actual gameplay zoom — a final live Play/build check is still worth doing once a
 hat looks right here.
+
+**Real, previously-undiscovered bug found and fixed (2026-09-12): every per-character Sombrero
+override had NEVER actually applied at runtime.** `CosmeticWiringBuilder.UniversalHats` (the
+Sombrero/Chef Hat/Crown array) is declared BEFORE `SombreroCharacterOverrides`/
+`ChefHatCharacterOverrides` in the source file, but its own Sombrero entry passes
+`SombreroCharacterOverrides` as a constructor argument — C# initializes `static readonly` fields in
+the textual order they're declared in the class, so at the moment `UniversalHats`' initializer ran,
+`SombreroCharacterOverrides` had not been assigned yet and was still its default value (`null` for
+a reference type). Verified directly against a standalone repro (a class with the same forward-
+reference shape between two static array fields prints the *earlier* field's default, not the
+later field's actual value). This means `CosmeticData_sombrero_hat.characterHatOverrides` has been
+`null` every single time `Wire Cosmetic Art (Universal Hats)` ran — every character, including
+Percy/Woolly/Bessie/Cluck, always rendered the Sombrero at the plain shared default regardless of
+whatever per-character override value the source code actually specified. This is the real
+explanation for the repeated "still too low" reports on specific characters even after several
+rounds of "fixing" that character's own override entry documented above and in the Sombrero
+section's own offset-history comment: editing an override did nothing, and every apparent
+improvement actually came from raising the *shared* default, which was the only value ever reaching
+the renderer. **Fixed by moving `SombreroCharacterOverrides` and `ChefHatCharacterOverrides` to be
+declared BEFORE `UniversalHats`** — a pure reordering, no data model change — so `UniversalHats` now
+reads them fully initialized. Re-run `Wire Cosmetic Art (Universal Hats)` (and `Render Cosmetic
+Preview Sheet` to verify) any time this is suspicious again — a future forward-reference between two
+static fields in the same class is the general shape of bug to check for, regardless of which two
+fields are involved.
+
+**Hat position/scale is now re-resolved every frame from the character's CURRENT facing, not once
+at spawn — this is the fix for hats reading as "lagging behind"/floating disconnected from the head
+while a character moves.** `CosmeticData` (and `CharacterHatOverride`, for universal hats) gained
+`hasSideOffset`/`hatOffsetSide`/`hatScaleSide` — an optional Left/Right-specific offset+scale, always
+authored as though the character is facing Left (`CharacterCosmeticRenderer.LateUpdate` negates the
+X component for Right, same mirroring convention `mirrorLeftHatForRight` already uses). Previously,
+`Refresh()` resolved and applied `hatOffset`/`hatScale` exactly ONCE, using whatever direction the
+character happened to be facing at spawn/swap time, and never touched the hat's `localPosition`/
+`localScale` again — so a hat tuned to look right in the Front pose stayed frozen there even as the
+character turned and walked. This was invisible for most (character, hat) pairs, whose Left/Right
+walk art doesn't move the head far from its Front position, but the 2026-09-12 Cosmetic Preview
+Renderer render showed it badly for **Horace** (his galloping Left/Right pose drops and swings his
+head forward far more dramatically than any other character — confirmed across every one of his 5
+hat types, not specific to one hat) and **Woolly's Cowboy Hat** (her walk pose lowers her head enough
+that the hat visibly floated above/behind it). Fixed two ways together: (1) `LateUpdate` now
+resolves offset/scale every frame instead of `Refresh` resolving it once; (2) `hasSideOffset` was
+added for the confirmed-broken combinations — Horace's Sombrero (new `CharacterHatOverride` entry),
+Cowboy Hat, and Baseball Cap entries, and Woolly's Cowboy Hat entry. `CosmeticPreviewRenderer` mirrors
+the exact same resolution (Front vs. Left/Right, X-mirrored for Right) so the preview tool now shows
+precisely what gameplay will.
+
+**Two more real, confirmed-oversized/mispositioned fixes from the same 2026-09-12 render, unrelated
+to the pose-lag issue above** (plain scale/offset corrections, no architecture change needed):
+Bessie's Baseball Cap (was scale 0.58/offset 0.55 — rendered as a full helmet covering her whole
+head/horns/ears; corrected to scale 0.32/offset 0.46), Bessie's Sombrero override (was offset
+0.60/scale 0.36 — sat low enough to cover her eyes/ears/whole face; raised to offset 0.88, scale
+0.30 — the first time this override will actually render at all, per the field-ordering bug above),
+and Gerald's Baseball Cap (was scale 0.70/offset 0.40 — overshot the OTHER way from its own prior
+"too tiny" fix, now covering his whole short neck/head; corrected to scale 0.55/offset 0.50) plus a
+brand new Gerald-only Chef Hat override (his small head/short neck left a visible gap under the
+previously-shared-default hat that every other character didn't have).
 
 ### In-maze Locker (2026-09-09, `Scripts/UI/LockerScreen.cs`)
 
@@ -3073,6 +3213,23 @@ tell a challenge run apart from an ordinary playthrough of the same level. `Char
 certain characters allowed" is still checked after the fact
 (`ComboSystem.DistinctCharactersUsedCount <= 1`), not enforced by blocking the swap UI during play;
 a stricter version would need `CharacterManager.CanSwapTo` to know about the active challenge.
+
+**Real bug found and fixed (2026-09-12): finishing a Daily Challenge landed the player in Corn
+Field's tile grid (or occasionally another world's), not back at World Select.**
+`LevelCompleteController.Play()` always computed `nextLevelIndex = CurrentLevel.levelNumber + 1`
+and called `LevelSelectController.OpenLevelSelectForLevel(nextLevelIndex)` — correct for a normal
+level completion (jump straight to the newly-unlocked level's world, see that method's own doc
+comment), but a Daily Challenge level is picked from whichever unlocked world
+`DailyChallengeManager.GetTodayLevelIndex()` happened to land on that day, not a step in that
+world's own sequence — so "levelNumber + 1" had no real relationship to the challenge just played.
+In practice this landed on Corn Field disproportionately often (world 0 is always unlocked, so the
+daily pick gravitates there for players with less progress), reported as "concluding the daily
+challenge goes directly into Cornfield." Fixed by checking
+`DailyChallengeManager.IsPlayingDailyChallenge` first: a daily-challenge completion now skips the
+`OpenLevelSelectForLevel` call entirely and just shows Level Select with no pending target queued,
+landing on World Select — the only sensible "back" destination when the level just played isn't
+part of any single world's own sequence, same as every other non-progression entry point already
+does.
 
 **Leaderboards are local-only** (`LeaderboardManager`, per spec — "cloud sync in Phase 6"),
 reading/writing through `SaveManager`'s per-level best score/time (`GetLevelBestScore`/

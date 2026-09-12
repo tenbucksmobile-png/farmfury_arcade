@@ -144,7 +144,12 @@ namespace FarmFuryArcade.EditorTools
                         string label = $"{hatLabel}/{poseLabel}";
                         if (hat != null && hat.hatFrames != null && hat.hatFrames.Length > frameIndex && hat.hatFrames[frameIndex] != null)
                         {
-                            (Vector2 offset, float scale) = ResolveHatOffsetAndScale(hat, character);
+                            bool isSidePose = poseLabel == "Left" || poseLabel == "Right";
+                            (Vector2 offset, float scale) = ResolveHatOffsetAndScale(hat, character, isSidePose);
+                            if (isSidePose && poseLabel == "Right")
+                            {
+                                offset.x = -offset.x;
+                            }
                             hatGO.transform.localPosition = offset;
                             hatGO.transform.localScale = Vector3.one * scale;
                             hatRenderer.sprite = hat.hatFrames[frameIndex];
@@ -213,8 +218,11 @@ namespace FarmFuryArcade.EditorTools
 
         /// <summary>Exact same lookup CharacterCosmeticRenderer.ResolveHatOffsetAndScale uses at
         /// runtime — kept as a separate copy here (this is an Editor-only assembly, that method is
-        /// private on a MonoBehaviour in the runtime assembly) rather than reflecting into it.</summary>
-        private static (Vector2 offset, float scale) ResolveHatOffsetAndScale(CosmeticData hat, CharacterType character)
+        /// private on a MonoBehaviour in the runtime assembly) rather than reflecting into it.
+        /// <paramref name="isSide"/> mirrors that method's own parameter — X-mirroring for the Right
+        /// pose is done by the caller, since hatOffsetSide is always authored as though facing
+        /// Left.</summary>
+        private static (Vector2 offset, float scale) ResolveHatOffsetAndScale(CosmeticData hat, CharacterType character, bool isSide)
         {
             if (hat.characterHatOverrides != null)
             {
@@ -222,9 +230,17 @@ namespace FarmFuryArcade.EditorTools
                 {
                     if (overrideEntry.character == character)
                     {
+                        if (isSide && overrideEntry.hasSideOffset)
+                        {
+                            return (overrideEntry.hatOffsetSide, overrideEntry.hatScaleSide);
+                        }
                         return (overrideEntry.hatOffset, overrideEntry.hatScale);
                     }
                 }
+            }
+            if (isSide && hat.hasSideOffset)
+            {
+                return (hat.hatOffsetSide, hat.hatScaleSide);
             }
             return (hat.hatOffset, hat.hatScale);
         }

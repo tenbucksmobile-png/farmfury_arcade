@@ -9,13 +9,16 @@ using FarmFuryArcade.Data;
 namespace FarmFuryArcade.UI
 {
     /// <summary>
-    /// Generic cosmetic-style purchase surface. As of the 2026-08-30 mockup, one instance
-    /// (Phase5ProjectBuilder.BuildCosmeticsHubScreen) hosts all 11 hat/trail items at once, each
-    /// item's own plaque art baking in both its icon AND its $1.99 price — no separate breadcrumb
-    /// icon or shared price plaque needed (the earlier 2026-08-20 design split Hats/Trails across
-    /// two screens, each with a shared $3.99 price sign; both are gone now). The same component
-    /// also backs the World Purchase screen (Phase5ProjectBuilder.BuildWorldPurchaseScreen, 3 items
-    /// at $3.99 each with its own real price plaque, since that art wasn't baked with a price).
+    /// Generic cosmetic-style purchase surface. As of the 2026-09-12 mockup, one instance backs
+    /// the Hats & Caps page (Phase5ProjectBuilder.BuildCosmeticsHatsScreen, 5 items) and another
+    /// backs the Trails page (BuildCosmeticsTrailsScreen, 6 items) — reached via
+    /// CosmeticsChooserScreen's own two banners, replacing an earlier single flat screen that hosted
+    /// all 11 items at once. Each item's own plaque art bakes in both its icon AND its $1.99 price —
+    /// no separate breadcrumb icon or shared price plaque needed (an even earlier 2026-08-20 design
+    /// split Hats/Trails the same way, but with a shared $3.99 price sign; that art is gone now).
+    /// The same component also backs the World Purchase screen (Phase5ProjectBuilder.
+    /// BuildWorldPurchaseScreen, 3 items at $3.99 each with its own real price plaque, since that
+    /// art wasn't baked with a price).
     ///
     /// Every item is a real-money IAP purchase via IAPManager — tapping an item purchases it
     /// directly (no separate confirm step), same "tap to buy" convention the old coin-priced

@@ -85,25 +85,33 @@ namespace FarmFuryArcade.EditorTools
             var storeComingSoon = BuildShopOverlay(canvas.transform);
             var coinPurchase = BuildCoinPurchaseScreen(canvas.transform);
             var menuHub = BuildMenuHubScreen(canvas.transform);
-            // Cosmetics (2026-08-30 mockup) — one flat screen with all 11 hat/trail items directly
-            // tappable, each item's own art baking in its price ($1.99 each) — no more Hat/Trail
-            // sub-screens or a shared breadcrumb/price-plaque row. See its own doc comment.
-            var cosmeticsHub = BuildCosmeticsHubScreen(canvas.transform);
-            // In-maze cosmetics "Locker" (2026-09-09) — reached from Gameplay HUD's own Locker
-            // button, not through Shop/MenuHub at all. Reuses cosmeticsHub's own CosmeticPurchaseScreen
-            // component for a not-owned tile's "buy it" tap, so it must be built after cosmeticsHub
-            // exists. See BuildLockerScreen's own doc comment.
-            var lockerScreen = BuildLockerScreen(canvas.transform, cosmeticsHub.GetComponent<CosmeticPurchaseScreen>());
-            // World Purchase — a whole new 25-level world ($3.99), not a cosmetic, so it's a
+            // Cosmetics (2026-09-12) - a small chooser (Hats & Caps / Trails banners stacked)
+            // opened from the Shop hub's Cosmetics icon, each banner opening its own dedicated
+            // purchase page - see BuildCosmeticsChooserScreen's own doc comment for why this
+            // replaced the earlier single flat 11-item screen.
+            var cosmeticsChooser = BuildCosmeticsChooserScreen(canvas.transform);
+            var cosmeticsHats = BuildCosmeticsHatsScreen(canvas.transform);
+            var cosmeticsTrails = BuildCosmeticsTrailsScreen(canvas.transform);
+            SetRefs(cosmeticsChooser.GetComponent<CosmeticsChooserScreen>(),
+                ("hatsScreen", cosmeticsHats.GetComponent<CosmeticPurchaseScreen>()),
+                ("trailsScreen", cosmeticsTrails.GetComponent<CosmeticPurchaseScreen>()));
+            // In-maze cosmetics "Locker" (2026-09-09) - reached from Gameplay HUD's own Locker
+            // button, not through Shop/MenuHub at all. Its own dormant "You may like" purchaseScreen
+            // reference (currently unused - see LockerScreen's own doc comment) points at the Hats
+            // page, an arbitrary pick since nothing calls it today; wired here directly since it must
+            // be built after at least one cosmetics purchase page exists. See BuildLockerScreen's own
+            // doc comment.
+            var lockerScreen = BuildLockerScreen(canvas.transform, cosmeticsHats.GetComponent<CosmeticPurchaseScreen>());
+            // World Purchase - a whole new 25-level world ($3.99), not a cosmetic, so it's a
             // sibling to Cosmetics on the Shop screen rather than living under the Cosmetics screen.
             // Built to a real design mockup (WorldPurchaseBackground.png, a single baked composite
-            // — background, logo, 3 shields, price plaque all one image) rather than assembled
-            // from primitives — see BuildWorldPurchaseScreen's own doc comment.
+            // - background, logo, 3 shields, price plaque all one image) rather than assembled
+            // from primitives - see BuildWorldPurchaseScreen's own doc comment.
             var worldPurchase = BuildWorldPurchaseScreen(canvas.transform);
             SetRefs(storeComingSoon.GetComponent<ShopController>(),
                 ("coinPurchaseScreen", coinPurchase.GetComponent<CoinPurchaseScreen>()),
                 ("worldPurchaseScreen", worldPurchase.GetComponent<CosmeticPurchaseScreen>()),
-                ("cosmeticsHubScreen", cosmeticsHub.GetComponent<CosmeticPurchaseScreen>()));
+                ("cosmeticsChooserScreen", cosmeticsChooser.GetComponent<CosmeticsChooserScreen>()));
             SetRefs(menuHub.GetComponent<MenuHubScreen>(),
                 ("settingsScreen", settings.GetComponent<SettingsPanel>()),
                 ("shopScreen", storeComingSoon.GetComponent<ShopController>()));
@@ -115,26 +123,40 @@ namespace FarmFuryArcade.EditorTools
             var chooseCharacter = BuildChooseCharacterScreen(canvas.transform, characterSelectCardPrefab);
 
             var levelTilePrefab = BuildLevelTilePrefab();
-            BuildWorldDividerPrefab(); // kept but unlinked — see that method's own doc comment
+            BuildWorldDividerPrefab(); // kept but unlinked - see that method's own doc comment
             var worldShieldPrefab = BuildWorldShieldPrefab();
             var levelSelect = BuildLevelSelect(canvas.transform, levelTilePrefab, worldShieldPrefab);
 
             WireCrossReferences(mainMenu, gameplay, pause, settings,
                 levelComplete, unlockScreen, levelFailed, roster, leaderboards, chooseCharacter, levelSelect, storeComingSoon, characterStory, worldPurchase, legal, menuHub);
-            // LockerScreen isn't built until after cosmeticsHub (see its own build call above,
-            // which happens after gameplay is built) — wired here directly rather than threading a
+            // LockerScreen isn't built until after cosmeticsHats (see its own build call above,
+            // which happens after gameplay is built) - wired here directly rather than threading a
             // 17th parameter through WireCrossReferences for one extra reference.
             SetRefs(gameplay.GetComponent<GameplayHUD>(), ("lockerScreen", lockerScreen.GetComponent<LockerScreen>()));
 
-            // Audit finding C3.2 — one centralized Android back-button handler, wired against
+            // Audit finding C3.2 - one centralized Android back-button handler, wired against
             // every screen it can close, in the same pass every other cross-reference already
             // resolves here.
+            // Real bug found and fixed (2026-09-12): this used to be a bare AddComponent with no
+            // dedup guard, unlike every Phase*Test harness (which already look up an existing
+            // instance via Resources.FindObjectsOfTypeAll before adding one) — every re-run of
+            // BuildAll silently added ANOTHER AndroidBackButtonHandler to GameManagers on top of
+            // whatever was already there. Found 48 live duplicate instances in the saved scene, each
+            // independently polling Escape every frame and racing to close/resume the same screens.
+            // Now destroys any existing instances first (their old field wiring is stale anyway once
+            // this method re-wires a fresh one below) before adding exactly one.
+            foreach (var existingBackButtonHandler in managersGO.GetComponents<AndroidBackButtonHandler>())
+            {
+                Object.DestroyImmediate(existingBackButtonHandler);
+            }
             var backButtonHandler = managersGO.AddComponent<AndroidBackButtonHandler>();
             SetRefs(backButtonHandler,
                 ("parentalGate", parentalGate.GetComponent<ParentalGateController>()),
                 ("worldPurchaseScreen", worldPurchase.GetComponent<CosmeticPurchaseScreen>()),
                 ("coinPurchaseScreen", coinPurchase.GetComponent<CoinPurchaseScreen>()),
-                ("cosmeticsHubScreen", cosmeticsHub.GetComponent<CosmeticPurchaseScreen>()),
+                ("cosmeticsHatsScreen", cosmeticsHats.GetComponent<CosmeticPurchaseScreen>()),
+                ("cosmeticsTrailsScreen", cosmeticsTrails.GetComponent<CosmeticPurchaseScreen>()),
+                ("cosmeticsChooserScreen", cosmeticsChooser.GetComponent<CosmeticsChooserScreen>()),
                 ("legalScreen", legal.GetComponent<LegalScreen>()),
                 ("settingsPanel", settings.GetComponent<SettingsPanel>()),
                 ("shopController", storeComingSoon.GetComponent<ShopController>()),
@@ -170,7 +192,9 @@ namespace FarmFuryArcade.EditorTools
             storeComingSoon.SetActive(false);
             coinPurchase.SetActive(false);
             menuHub.SetActive(false);
-            cosmeticsHub.SetActive(false);
+            cosmeticsChooser.SetActive(false);
+            cosmeticsHats.SetActive(false);
+            cosmeticsTrails.SetActive(false);
             lockerScreen.SetActive(false);
             worldPurchase.SetActive(false);
             chooseCharacter.gameObject.SetActive(false);
@@ -2259,7 +2283,9 @@ namespace FarmFuryArcade.EditorTools
         /// <summary>Shop hub (2026-08-27 redesign) — ShopBanner.png "Shop" sign and a single row of
         /// 4 icons: Cash (Shop.png, opens CoinPurchaseScreen), Worlds (WorldMaze.png, opens the
         /// World Purchase screen), Ads (Ads.png, a direct Remove Ads purchase), and Cosmetics
-        /// (Cosmetics_Icon.png, opens CosmeticsHubScreen). Discards the old layout entirely — the 4
+        /// (Cosmetics_Icon.png, opens CosmeticsChooserScreen — the "CosmeticsHubScreen" GameObject,
+        /// see that method's own doc comment for why the name stuck around). Discards the old layout
+        /// entirely — the 4
         /// coin-pack icons and the big standalone Cosmetics banner button that used to live
         /// directly on this screen moved one tap further in (see BuildCoinPurchaseScreen and
         /// ShopController's own doc comment). Root/overlay name kept as "StoreComingSoonOverlay"
@@ -2309,7 +2335,7 @@ namespace FarmFuryArcade.EditorTools
             shopSO.FindProperty("removeAdsButton").objectReferenceValue = removeAdsButton;
             shopSO.FindProperty("removeAdsButtonIcon").objectReferenceValue = removeAdsButton.GetComponent<Image>();
             shopSO.FindProperty("cosmeticsButton").objectReferenceValue = cosmeticsButton;
-            // coinPurchaseScreen/worldPurchaseScreen/cosmeticsHubScreen are wired later in BuildAll,
+            // coinPurchaseScreen/worldPurchaseScreen/cosmeticsChooserScreen are wired later in BuildAll,
             // once those screens actually exist (cross-screen reference, same deferred-wiring
             // pattern WireCrossReferences uses for every other screen-to-screen link).
             shopSO.ApplyModifiedPropertiesWithoutUndo();
@@ -2525,78 +2551,129 @@ namespace FarmFuryArcade.EditorTools
             return root;
         }
 
-        /// <summary>Cosmetics purchase screen (2026-08-30 mockup) — replaces the old 2-tap flow
-        /// (CosmeticsHubScreen's Hat/Trail icons opening separate HatPurchaseScreen/
-        /// TrailPurchaseScreen screens, each with a breadcrumb icon + a single shared "$3.99" price
-        /// plaque) with one flat screen showing all 7 items at once. Each item's own art
-        /// (baseball_price.png/cowboy_price.png/sombrero_price.png/CornHusk_price.png/
-        /// EmberTrail_price.png/RainbowRibbon_price.png/SparkleDust_Price.png) already bakes in its
-        /// icon AND price ($1.99 apiece, per the new art — was $3.99 under the old shared-plaque
-        /// design), so no breadcrumb or separate price sign is needed at all. Background is the
-        /// standard dimmed Landing_Opacity.png poster — same convention (and same file) every other
-        /// screen in this family (Shop/Settings/Cosmetics/World Purchase) uses; an earlier pass used
-        /// the bright, undimmed landing.png instead, which read inconsistent with the rest of the
-        /// suite and was corrected per feedback.
+        /// <summary>Shared "same banner for all new pages" sizing (2026-09-12) — Hats&Caps.png and
+        /// Trails.png are both 619x246 (aspect ~2.516), sized/positioned identically wherever either
+        /// appears (the chooser's two stacked buttons, and each destination page's own plain header)
+        /// so the banner a player tapped keeps reading as "this is where I am" on the page it opens.
+        /// Height is derived from the art's own real aspect ratio rather than guessed, so neither
+        /// banner is stretched.
         ///
-        /// Header uses a smaller/lower-offset custom size (420x230 at y=-95) rather than the shared
-        /// CreateHeaderSign standard (550x310 at y=-55) — the standard size's rope-corner art was
-        /// found poking above the device's safe-area guide on a screenshot review, something the
-        /// other screens using CreateHeaderSign hadn't hit (their content below sits lower). Every
-        /// row position below is computed top-down from this header's own real bottom edge (445-230
-        /// = 215) with a verified gap, not eyeballed.
-        ///
-        /// GameObject name kept as "CosmeticsHubScreen" for scene-path stability even though the
-        /// old 2-icon navigation script (CosmeticsHubScreen.cs) is gone — this now carries a
-        /// CosmeticPurchaseScreen component directly, same generic component the old Hat/Trail
-        /// sub-screens used, just with all 7 items on one screen instead of split across two.</summary>
-        private static GameObject BuildCosmeticsHubScreen(Transform canvasTransform)
+        /// Re-tuned 2026-09-12 per direct screenshot feedback: the top offset originally matched
+        /// MenuHubScreen's own stacked-sign convention (-320, i.e. well below the screen's top edge)
+        /// — a screenshot showed this read as noticeably lower/smaller than every OTHER screen's own
+        /// header, which all sit close to the top via CreateHeaderSign's StandardHeaderSignOffset.y
+        /// (-55). Switched to that exact same offset for true top-middle consistency, and width
+        /// enlarged 550 -> 700 (~+27%) so the banners read bigger on screen, per the same feedback.
+        /// BuildCosmeticsHatsScreen/BuildCosmeticsTrailsScreen's own item-row Y was shifted up by the
+        /// same ~206 the header's own bottom edge moved up by, to keep the same relative gap below it
+        /// rather than opening a big dead zone where the header used to sit.</summary>
+        private const float CosmeticsBannerWidth = 700f;
+        private const float CosmeticsBannerAspect = 619f / 246f;
+        private const float CosmeticsBannerHeight = CosmeticsBannerWidth / CosmeticsBannerAspect;
+        private const float CosmeticsBannerGap = 30f;
+        // Matches CreateHeaderSign's own StandardHeaderSignOffset.y exactly (-55) — not a
+        // coincidence, this is the literal "top-middle alignment, same as every other header" fix.
+        private const float CosmeticsBannerTopOffset = -55f;
+
+        /// <summary>Item icon sizing (2026-09-12) — matches BuildCoinPurchaseScreen's own coin-pack
+        /// icons exactly (StandardIconButtonSize * 1.5 * 1.4 = 336 tall), per direct feedback that
+        /// the cosmetics items should read the same size as the coin icons. Not a coincidence that
+        /// this also matches: every price-baked cosmetic item sprite (sombrero_price.png,
+        /// baseball_price.png, ChefHat_price.png, all 6 trail price plaques, Crown_price.png) is the
+        /// exact same 500x669 source resolution the coin plaques (100/500/5000/15000.png) use, so
+        /// reusing the identical height+aspect math produces an identical on-screen size with zero
+        /// distortion on either family.</summary>
+        private const float CosmeticsItemHeight = StandardIconButtonSize * 1.5f * 1.4f;
+        private const float CosmeticsItemAspect = 500f / 669f;
+        private const float CosmeticsItemWidth = CosmeticsItemHeight * CosmeticsItemAspect;
+
+        /// <summary>Cosmetics chooser (2026-09-12) — Shop hub's Cosmetics icon opens this small
+        /// chooser first now, matching a new mockup: the two banners stacked in a column (Hats & Caps
+        /// above Trails), nicely spaced with a fixed gap so they can never overlap regardless of
+        /// screen aspect, middle-aligned, both the same size. Tapping a banner does NOT close this
+        /// screen — it stays active underneath the Hats/Trails page it opens (same "layers on top,
+        /// never hidden" convention ChooseCharacterScreen uses over Pause), so that destination
+        /// page's own generic close button (a plain SetActive(false)) reveals this chooser again
+        /// automatically. Replaces the old single flat CosmeticsHubScreen (all 11 items on one
+        /// screen) — see BuildCosmeticsHatsScreen/BuildCosmeticsTrailsScreen for the two destination
+        /// pages this now opens. GameObject name kept as "CosmeticsHubScreen" for scene-path
+        /// stability even though its content changed completely (same convention this screen's own
+        /// history already established across two earlier redesigns).</summary>
+        private static GameObject BuildCosmeticsChooserScreen(Transform canvasTransform)
         {
             var root = CreatePanel("CosmeticsHubScreen", canvasTransform, Color.black);
             ApplyDimmedLandingBackground(root);
 
-            var headerGO = new GameObject("TitleImage", typeof(RectTransform), typeof(Image));
-            headerGO.transform.SetParent(root.transform, false);
-            var headerImage = headerGO.GetComponent<Image>();
-            headerImage.sprite = LoadUiSprite("Cosmetics.png");
-            headerImage.preserveAspect = true;
-            AnchorTopCenter((RectTransform)headerGO.transform, new Vector2(420f, 230f), new Vector2(0f, -95f));
+            var hatsButton = CreateIconButton("HatsBannerButton", root.transform, LoadCosmeticsSprite("Hats&Caps.png"), CosmeticsBannerWidth);
+            AnchorTopCenter((RectTransform)hatsButton.transform, new Vector2(CosmeticsBannerWidth, CosmeticsBannerHeight), new Vector2(0f, CosmeticsBannerTopOffset));
 
-            const float itemWidth = 170f;
-            const float itemHeight = 230f;
-            const float itemSpacing = 40f;
+            var trailsButton = CreateIconButton("TrailsBannerButton", root.transform, LoadCosmeticsSprite("Trails.png"), CosmeticsBannerWidth);
+            AnchorTopCenter((RectTransform)trailsButton.transform, new Vector2(CosmeticsBannerWidth, CosmeticsBannerHeight), new Vector2(0f, CosmeticsBannerTopOffset - CosmeticsBannerHeight - CosmeticsBannerGap));
+
+            var closeButton = CreateRoundBackButton(root.transform, bottomRight: true);
+            closeButton.GetComponent<Image>().sprite = LoadUiSprite("Btn_back.png");
+
+            var chooser = root.AddComponent<CosmeticsChooserScreen>();
+            SetRefs(chooser,
+                ("hatsButton", hatsButton),
+                ("trailsButton", trailsButton),
+                ("closeButton", closeButton));
+            // hatsScreen/trailsScreen are wired later in BuildAll once those screens actually exist.
+
+            return root;
+        }
+
+        /// <summary>Plain (non-interactive) header banner shared by both cosmetics destination pages
+        /// — same size/position CosmeticsChooserScreen's own buttons use, so the page a player lands
+        /// on shows the identical banner they just tapped.</summary>
+        private static void CreateCosmeticsPageHeaderBanner(Transform parent, Sprite sprite)
+        {
+            var headerGO = new GameObject("TitleImage", typeof(RectTransform), typeof(Image));
+            headerGO.transform.SetParent(parent, false);
+            var headerImage = headerGO.GetComponent<Image>();
+            headerImage.sprite = sprite;
+            headerImage.preserveAspect = true;
+            AnchorTopCenter((RectTransform)headerGO.transform, new Vector2(CosmeticsBannerWidth, CosmeticsBannerHeight), new Vector2(0f, CosmeticsBannerTopOffset));
+        }
+
+        /// <summary>Hats & Caps purchase page (2026-09-12) — split out of the old flat
+        /// CosmeticsHubScreen; reached via CosmeticsChooserScreen's "Hats & Caps" banner. The 5 hat
+        /// items sit in one middle-aligned row below the header, evenly spaced via a GridLayoutGroup
+        /// (see BuildItemRow), sized to match BuildCoinPurchaseScreen's own coin icons exactly (see
+        /// CosmeticsItemWidth/Height's own doc comment) — only the page layout changed, not the
+        /// items or their art.</summary>
+        private static GameObject BuildCosmeticsHatsScreen(Transform canvasTransform)
+        {
+            var root = CreatePanel("CosmeticsHatsScreen", canvasTransform, Color.black);
+            ApplyDimmedLandingBackground(root);
+            CreateCosmeticsPageHeaderBanner(root.transform, LoadCosmeticsSprite("Hats&Caps.png"));
+
+            const float itemWidth = CosmeticsItemWidth;
+            const float itemHeight = CosmeticsItemHeight;
+            // Matches BuildCoinPurchaseScreen's own coinRowSpacing exactly - 5 items at this size
+            // and spacing total 1563.5, comfortably inside the 1920-wide reference canvas.
+            const float itemSpacing = 77f;
 
             var hatItems = new (string productId, Sprite sprite)[]
             {
                 (IAPManager.HatSombreroProductId, LoadCosmeticsSprite("sombrero_price.png")),
                 (IAPManager.HatBaseballCapProductId, LoadCosmeticsSprite("baseball_price.png")),
                 (IAPManager.HatCowboyHatProductId, LoadCosmeticsSprite("cowboy_price.png")),
-                // Chef Hat / Crown (2026-09-11) — 4th/5th hats, brings this row to parity with the 4
-                // trails below. ChefHat_price.png sits under Sprites/Cosmetics/ like every other
-                // price-baked hat icon here (LoadCosmeticsSprite); Crown_price.png was instead
-                // dropped under Sprites/UI/, so it needs LoadUiSprite specifically — same $1.99
-                // price-baked-into-the-art convention as the rest of this row either way.
+                // Chef Hat / Crown (2026-09-11) - 4th/5th hats. ChefHat_price.png sits under
+                // Sprites/Cosmetics/ like every other price-baked hat icon here (LoadCosmeticsSprite);
+                // Crown_price.png was instead dropped under Sprites/UI/, so it needs LoadUiSprite
+                // specifically - same $1.99 price-baked-into-the-art convention as the rest either way.
                 (IAPManager.HatChefHatProductId, LoadCosmeticsSprite("ChefHat_price.png")),
                 (IAPManager.HatCrownProductId, LoadUiSprite("Crown_price.png")),
             };
-            var trailItems = new (string productId, Sprite sprite)[]
-            {
-                (IAPManager.TrailRainbowRibbonProductId, LoadCosmeticsSprite("RainbowRibbon_price.png")),
-                (IAPManager.TrailSparkleDustProductId, LoadCosmeticsSprite("SparkleDust_Price.png")),
-                (IAPManager.TrailCornHuskProductId, LoadCosmeticsSprite("CornHusk_price.png")),
-                (IAPManager.TrailEmberProductId, LoadCosmeticsSprite("EmberTrail_price.png")),
-                // Confetti / Bubbles (2026-09-11) — 5th/6th trails, both price plaques sit under
-                // Sprites/Cosmetics/ like every other price-baked trail icon here.
-                (IAPManager.TrailConfettiProductId, LoadCosmeticsSprite("Confetti_price.png")),
-                (IAPManager.TrailBubblesProductId, LoadCosmeticsSprite("Bubble_price.png")),
-            };
 
-            // Row Y positions computed top-down from the header's own real bottom edge (215): hat
-            // row centred at y=20 (top edge 135, a 45px gap under the header would need... actually
-            // a clean 80px gap), trail row centred at y=-250 (top edge -135, a 40px gap under the
-            // hat row's own bottom edge -95; bottom edge -365, a 175px margin above the screen's own
-            // bottom edge at -540) — all a verified clearance, not eyeballed.
-            var hatRow = BuildItemRow("HatRow", root.transform, hatItems, itemWidth, itemHeight, itemSpacing, 20f);
-            var trailRow = BuildItemRow("TrailRow", root.transform, trailItems, itemWidth, itemHeight, itemSpacing, -250f);
+            // Middle-aligned single row, centred below the header's own bottom edge with a real
+            // measured gap (2026-09-12, corrected again per direct feedback the padding read as too
+            // tight): header bottom edge sits at centre-frame y=207 (540 - (55+CosmeticsBannerHeight));
+            // this row's own top edge at centerY=-60 lands at -60+188=128, a 79-unit gap below it -
+            // and its bottom edge (-60-188=-248) still clears the close button's own top edge (-310)
+            // by 62 units. Both verified, not eyeballed.
+            var hatRow = BuildItemRow("HatRow", root.transform, hatItems, itemWidth, itemHeight, itemSpacing, -60f);
 
             var closeButton = CreateRoundBackButton(root.transform, bottomRight: true);
             closeButton.GetComponent<Image>().sprite = LoadUiSprite("Btn_back.png");
@@ -2604,55 +2681,116 @@ namespace FarmFuryArcade.EditorTools
             var statusText = CreateText("StatusText", root.transform, string.Empty, 24f, TextAlignmentOptions.Center, 40f);
             AnchorBottomCenter((RectTransform)statusText.transform, new Vector2(860f, 40f), new Vector2(0f, 20f));
 
-            var allItems = hatRow.Concat(trailRow).ToArray();
-            var screen = root.AddComponent<CosmeticPurchaseScreen>();
-            var so = new SerializedObject(screen);
-            var arrayProp = so.FindProperty("itemButtons");
-            arrayProp.arraySize = allItems.Length;
-            for (int i = 0; i < allItems.Length; i++)
-            {
-                var element = arrayProp.GetArrayElementAtIndex(i);
-                element.FindPropertyRelative("productId").stringValue = allItems[i].id;
-                element.FindPropertyRelative("button").objectReferenceValue = allItems[i].button;
-            }
-            so.FindProperty("statusText").objectReferenceValue = statusText;
-            so.FindProperty("closeButton").objectReferenceValue = closeButton;
-            // Green "owned" checkmark ribbon, overlaid top-left on each item button once purchased
-            // — see CosmeticPurchaseScreen's own doc comment on ownedBadgeSprite/RefreshOwnedBadges.
-            // EquippedBadge_Icon.png already existed on disk (leftover from the old
-            // CosmeticCardController design, which used it for the same "already owned/equipped"
-            // purpose) — reused as-is rather than asking for a duplicate asset.
-            so.FindProperty("ownedBadgeSprite").objectReferenceValue = LoadCosmeticsSprite("EquippedBadge_Icon.png");
-            so.ApplyModifiedPropertiesWithoutUndo();
+            WireCosmeticPurchaseScreen(root, hatRow, closeButton, statusText);
 
             return root;
         }
+
+        /// <summary>Trails purchase page (2026-09-12) — same shape as BuildCosmeticsHatsScreen, split
+        /// out of the old flat CosmeticsHubScreen; reached via CosmeticsChooserScreen's "Trails"
+        /// banner. The 6 trail items sit in one middle-aligned row below the header, same item size
+        /// the old flat screen used.</summary>
+        private static GameObject BuildCosmeticsTrailsScreen(Transform canvasTransform)
+        {
+            var root = CreatePanel("CosmeticsTrailsScreen", canvasTransform, Color.black);
+            ApplyDimmedLandingBackground(root);
+            CreateCosmeticsPageHeaderBanner(root.transform, LoadCosmeticsSprite("Trails.png"));
+
+            const float itemWidth = CosmeticsItemWidth;
+            const float itemHeight = CosmeticsItemHeight;
+            // Tighter than Hats' own 77 (6 items vs 5 at this same icon size) - 6 * itemWidth + 5 *
+            // 50 totals ~1756.6, leaving a comfortable ~80px margin each side of the 1920-wide
+            // reference canvas instead of the ~14px 77 spacing would leave at this item count.
+            const float itemSpacing = 50f;
+
+            var trailItems = new (string productId, Sprite sprite)[]
+            {
+                (IAPManager.TrailRainbowRibbonProductId, LoadCosmeticsSprite("RainbowRibbon_price.png")),
+                (IAPManager.TrailSparkleDustProductId, LoadCosmeticsSprite("SparkleDust_Price.png")),
+                (IAPManager.TrailCornHuskProductId, LoadCosmeticsSprite("CornHusk_price.png")),
+                (IAPManager.TrailEmberProductId, LoadCosmeticsSprite("EmberTrail_price.png")),
+                // Confetti / Bubbles (2026-09-11) - 5th/6th trails, both price plaques sit under
+                // Sprites/Cosmetics/ like every other price-baked trail icon here.
+                (IAPManager.TrailConfettiProductId, LoadCosmeticsSprite("Confetti_price.png")),
+                (IAPManager.TrailBubblesProductId, LoadCosmeticsSprite("Bubble_price.png")),
+            };
+
+            // Same vertical position as HatRow above, same reasoning (only the spacing differs,
+            // since this row has one more item at the same icon size).
+            var trailRow = BuildItemRow("TrailRow", root.transform, trailItems, itemWidth, itemHeight, itemSpacing, -60f);
+
+            var closeButton = CreateRoundBackButton(root.transform, bottomRight: true);
+            closeButton.GetComponent<Image>().sprite = LoadUiSprite("Btn_back.png");
+
+            var statusText = CreateText("StatusText", root.transform, string.Empty, 24f, TextAlignmentOptions.Center, 40f);
+            AnchorBottomCenter((RectTransform)statusText.transform, new Vector2(860f, 40f), new Vector2(0f, 20f));
+
+            WireCosmeticPurchaseScreen(root, trailRow, closeButton, statusText);
+
+            return root;
+        }
+
+        /// <summary>Shared CosmeticPurchaseScreen component setup, factored out of the old
+        /// BuildCosmeticsHubScreen once its single 11-item screen split into two dedicated pages, so
+        /// neither page duplicates this wiring.</summary>
+        private static void WireCosmeticPurchaseScreen(GameObject root, (string id, Button button)[] items, Button closeButton, TextMeshProUGUI statusText)
+        {
+            var screen = root.AddComponent<CosmeticPurchaseScreen>();
+            var so = new SerializedObject(screen);
+            var arrayProp = so.FindProperty("itemButtons");
+            arrayProp.arraySize = items.Length;
+            for (int i = 0; i < items.Length; i++)
+            {
+                var element = arrayProp.GetArrayElementAtIndex(i);
+                element.FindPropertyRelative("productId").stringValue = items[i].id;
+                element.FindPropertyRelative("button").objectReferenceValue = items[i].button;
+            }
+            so.FindProperty("statusText").objectReferenceValue = statusText;
+            so.FindProperty("closeButton").objectReferenceValue = closeButton;
+            // Green "owned" checkmark ribbon, overlaid top-left on each item button once purchased -
+            // see CosmeticPurchaseScreen's own doc comment on ownedBadgeSprite/RefreshOwnedBadges.
+            // EquippedBadge_Icon.png already existed on disk (leftover from the old
+            // CosmeticCardController design, which used it for the same "already owned/equipped"
+            // purpose) - reused as-is rather than asking for a duplicate asset.
+            so.FindProperty("ownedBadgeSprite").objectReferenceValue = LoadCosmeticsSprite("EquippedBadge_Icon.png");
+            so.ApplyModifiedPropertiesWithoutUndo();
+        }
+
 
         /// <summary>Lays out one horizontal row of already-priced item plaques (icon + baked-in
         /// price, no separate label needed) centred at the given Y, returning each item's product
         /// id paired with its Button for the caller to feed into CosmeticPurchaseScreen's
         /// itemButtons array.</summary>
+        /// <summary>Switched from a HorizontalLayoutGroup to a GridLayoutGroup (2026-09-12) — same
+        /// mechanism BuildCoinPurchaseScreen's own CoinRow already uses — per direct feedback to
+        /// "space evenly, no overlap." A GridLayoutGroup computes every cell's position purely from
+        /// cellSize/spacing/constraintCount, so items can never visually overlap or drift uneven
+        /// regardless of item count, unlike the old HorizontalLayoutGroup approach which relied on
+        /// each child's own sizeDelta being set correctly beforehand.</summary>
         private static (string id, Button button)[] BuildItemRow(string name, Transform parent,
             (string productId, Sprite sprite)[] items, float itemWidth, float itemHeight, float spacing, float centerY)
         {
-            var row = CreateHorizontalGroup(name, parent, spacing);
-            var rowRect = (RectTransform)row.transform;
+            var rowGO = new GameObject(name, typeof(RectTransform), typeof(GridLayoutGroup));
+            rowGO.transform.SetParent(parent, false);
+            var rowRect = (RectTransform)rowGO.transform;
             rowRect.anchorMin = rowRect.anchorMax = new Vector2(0.5f, 0.5f);
             rowRect.pivot = new Vector2(0.5f, 0.5f);
-            rowRect.sizeDelta = new Vector2(items.Length * itemWidth + (items.Length - 1) * spacing + 40f, itemHeight + 20f);
+            rowRect.sizeDelta = new Vector2(items.Length * itemWidth + (items.Length - 1) * spacing + 40f, itemHeight + 40f);
             rowRect.anchoredPosition = new Vector2(0f, centerY);
-            row.GetComponent<LayoutElement>().preferredHeight = itemHeight;
-            var hlg = row.GetComponent<HorizontalLayoutGroup>();
-            hlg.childControlWidth = false;
-            hlg.childForceExpandWidth = false;
-            hlg.childControlHeight = false;
-            hlg.childForceExpandHeight = false;
-            hlg.childAlignment = TextAnchor.MiddleCenter;
+            var grid = rowGO.GetComponent<GridLayoutGroup>();
+            grid.cellSize = new Vector2(itemWidth, itemHeight);
+            grid.spacing = new Vector2(spacing, 0f);
+            grid.childAlignment = TextAnchor.MiddleCenter;
+            grid.constraint = GridLayoutGroup.Constraint.FixedColumnCount;
+            grid.constraintCount = items.Length;
 
             var buttons = new (string id, Button button)[items.Length];
             for (int i = 0; i < items.Length; i++)
             {
-                var button = CreateItemButton($"{name}Item{i}", row.transform, items[i].sprite, itemWidth, itemHeight);
+                var button = CreateItemButton($"{name}Item{i}", rowGO.transform, items[i].sprite, itemWidth, itemHeight);
+                // CreateItemButton sets sizeDelta explicitly, but the GridLayoutGroup re-applies its
+                // own cellSize on the next layout pass regardless — same belt-and-suspenders
+                // convention BuildCoinPurchaseScreen's own CoinRow uses.
                 buttons[i] = (items[i].productId, button);
             }
             return buttons;
