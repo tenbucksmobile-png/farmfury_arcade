@@ -428,6 +428,10 @@ namespace FarmFuryArcade.Core
         {
             CurrentState = GameState.LevelSelect;
             Time.timeScale = 1f;
+            // Stops a still-running power-pellet countdown from later yanking the music back to a
+            // world track behind the player's back on Level Select/Main Menu — see
+            // PowerPelletManager.StopAndReset's own doc comment for the full bug writeup.
+            PowerPelletManager.Instance?.StopAndReset();
             // Landing/menu track resumes instead of cutting to silence — matches EndLevel's own
             // fix below (see its comment) so leaving gameplay by any path always leaves music
             // playing, never stopped outright.
@@ -438,6 +442,10 @@ namespace FarmFuryArcade.Core
         {
             float elapsed = Time.time - _levelStartTime;
             CurrentState = success ? GameState.LevelComplete : GameState.LevelFailed;
+            // Same fix as QuitToLevelSelect above — a level can end (complete or failed) while a
+            // power pellet is still active, and this stops its countdown from firing a delayed
+            // ResumeBackgroundMusic() call after the player has already left gameplay.
+            PowerPelletManager.Instance?.StopAndReset();
             // Reverts to the landing/menu track rather than stopping music outright — per
             // feedback that Main Menu's music should "play all the way through," only ever
             // swapped out (never silenced) while a level is actually running.
@@ -454,7 +462,11 @@ namespace FarmFuryArcade.Core
 
                 SaveManager.Instance.AddCoins(LastLevelResult.coinsEarned);
                 SaveManager.Instance.SetLevelStars(levelNumber, LastLevelResult.stars);
-                SaveManager.Instance.SetLevelBestScore(levelNumber, LastLevelResult.totalScore);
+                // 3-arg overload also records which character earned this if it's a new best —
+                // powers the per-world Leaderboard's "BestFarmFury" stat (see SaveManager.
+                // SetLevelBestScore's own doc comment).
+                CharacterType scoringCharacter = CharacterManager.Instance != null ? CharacterManager.Instance.ActiveCharacter : CharacterType.Cluck;
+                SaveManager.Instance.SetLevelBestScore(levelNumber, LastLevelResult.totalScore, scoringCharacter);
                 SaveManager.Instance.SetLevelBestTime(levelNumber, elapsed);
                 SaveManager.Instance.SetHighestLevelReached(levelNumber);
                 SaveManager.Instance.SaveProgress();

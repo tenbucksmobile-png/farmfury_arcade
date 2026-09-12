@@ -18,6 +18,7 @@ GameObject:
   - component: {fileID: 2338700763755574551}
   - component: {fileID: 1045446139183188524}
   - component: {fileID: 3118490145604724884}
+  - component: {fileID: 4256663642701074346}
   m_Layer: 0
   m_Name: Cluck
   m_TagString: Untagged
@@ -243,6 +244,18 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::FarmFuryArcade.Abilities.EggDropAbility
   totalCooldown: 10
   eggPrefab: {fileID: 2812154423310372149, guid: 08a462d497966fe4a85dc333b199d924, type: 3}
+--- !u!114 &4256663642701074346
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1173313226314908352}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f0fc97e9f5dd5c14d9d68c79b7c2b805, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::FarmFuryArcade.Gameplay.CharacterCosmeticRenderer
 --- !u!213 &-5521256016689603859
 Sprite:
   serializedVersion: 2

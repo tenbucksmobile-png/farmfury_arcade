@@ -1,82 +1,104 @@
-using TMPro;
 using UnityEngine;
 using UnityEngine.UI;
 using FarmFuryArcade.Core;
+using FarmFuryArcade.Utilities;
 
 namespace FarmFuryArcade.UI
 {
-    /// <summary>Leaderboards screen — per direct feedback (2026-09-09), stripped down to just the
-    /// header (Leaderboard.png) and a single stat-icon banner (HighScore.png) with no text anywhere
-    /// on the screen at all, not even the numeric value. Combo.png was removed 2026-09-10 (this
-    /// page is being built out with more real content) and HighScore.png now sits directly above a
-    /// real Btn_plaque.png + number showing LeaderboardManager.GetTotalLifetimeScore() — the first
-    /// of this screen's stats to get an actual on-screen value again. The other underlying stats
-    /// (GetTotalCombosTriggered/GetHighestLevelReached/GetCharactersMasteredCount) are still live
-    /// and queryable on LeaderboardManager if a future pass wants to add more entries below this
-    /// one the same way.
+    /// <summary>Leaderboards world-select page (2026-09-12 redesign) — replaces the old flat
+    /// "HighScore + a single plaque number" screen with a scattered collage of all 7 world banners
+    /// over the FarmFury backdrop (fixed, randomized-once layout baked at Editor-build time — see
+    /// Phase5ProjectBuilder.BuildLeaderboards' own doc comment for the placement algorithm), each
+    /// tinted per its live unlock state every time this screen opens. Tapping an unlocked world opens
+    /// WorldLeaderboardDetailScreen as an overlay on top (same "layers on top, never hidden"
+    /// convention ChooseCharacterScreen uses over Pause); tapping a locked, non-purchase-gated world
+    /// shows a brief hint via LockedHintPanel; tapping a locked, purchase-gated world (the 3
+    /// Monetisation worlds) opens the World Purchase screen directly.
     ///
     /// Back button (2026-09-09): this screen is only ever reached via SettingsPanel's own
     /// Leaderboards icon (SettingsPanel.leaderboardsButton), which — since LeaderboardsScreen is a
     /// real SceneTransitionManager screenRoot, not an overlay — has to swap the active screenRoot
-    /// away to get here, closing Settings (and whatever opened Settings) in the process. Back used
-    /// to just call ShowOnly(mainMenuScreen), which left the player on a bare landing page with
-    /// Settings closed rather than actually returning them to "the Settings page" as it reads to
-    /// the player. Fixed by restoring the mainMenu screenRoot AND reopening Settings on top of it,
-    /// same "screenRoot swap plus overlay reopen" shape SettingsPanel's own leaderboardsButton
-    /// handler uses in the other direction.
-    ///
-    /// Real bug found and fixed (2026-09-11): reopening Settings here used to call
-    /// settingsPanel.Show() with no opener argument — Settings is only ever reached from Main Menu
-    /// via MenuHubScreen ("SETTINGS" sign), so Settings' own back button expects to reveal that hub
-    /// underneath it, not Main Menu directly. Passing no opener left Settings' _opener null, so a
-    /// player who opened Leaderboards, came back here, then tapped Settings' own back button landed
-    /// straight on Main Menu instead of the settings/shop hub they actually came from — reported as
-    /// "settings back button navigates to the landing page, should go back to the settings/shop
-    /// hub." Fixed by reopening MenuHubScreen first and passing IT as Settings' opener, same as
-    /// MainMenuController's own settingsButton does. Both hide calls also moved into ShowOnly's
-    /// beforeSwap callback (not run eagerly beforehand) so nothing flashes visible mid-fade, same
-    /// fix SettingsPanel.leaderboardsButton needed for the reverse direction.</summary>
+    /// away to get here, closing Settings (and whatever opened Settings) in the process. Fixed by
+    /// restoring the mainMenu screenRoot AND reopening Settings (via MenuHubScreen, its own real
+    /// opener) on top of it on the way back — see HandleBack.</summary>
     public class LeaderboardsScreen : MonoBehaviour
     {
+        private static readonly Color LockedWorldTint = new Color(0.65f, 0.65f, 0.65f, 1f);
+
         [SerializeField] private Button backButton;
         [SerializeField] private GameObject mainMenuScreen;
         [SerializeField] private MenuHubScreen menuHubScreen;
         [SerializeField] private SettingsPanel settingsPanel;
-        [SerializeField] private TextMeshProUGUI scoreText;
 
-        // The plaque behind scoreText is built at a compact default width (light padding around a
-        // few digits) — a real lifetime score can run well past that, so it's widened here to the
-        // text's own real measured width, same GetPreferredValues technique
-        // CoinPurchaseScreen.ResizeRestoreButtonToFitLabel uses for its own plaque.
-        [SerializeField] private RectTransform scorePlaqueRect;
-        [SerializeField] private float scorePlaqueMinWidth = 260f;
-        private const float ScorePlaqueHorizontalPadding = 72f; // matches scoreText's own 36px-per-side inset
+        [Tooltip("Index-aligned with UnlockProgression's own world numbering (0=Corn Field .. " +
+                 "6=Harvest Moon) — see Phase5ProjectBuilder.BuildLeaderboards for the fixed " +
+                 "scattered placement each of these was built at.")]
+        [SerializeField] private Button[] worldButtons;
+
+        [SerializeField] private LockedHintPanel lockedHintPanel;
+        [SerializeField] private WorldLeaderboardDetailScreen detailScreen;
+        [SerializeField] private CosmeticPurchaseScreen worldPurchaseScreen;
 
         private void Awake()
         {
             backButton.onClick.AddListener(HandleBack);
+            if (worldButtons != null)
+            {
+                for (int i = 0; i < worldButtons.Length; i++)
+                {
+                    int world = i; // capture
+                    if (worldButtons[i] != null)
+                    {
+                        worldButtons[i].onClick.AddListener(() => HandleWorldTapped(world));
+                    }
+                }
+            }
         }
 
         private void OnEnable()
         {
-            RefreshScoreText();
+            RefreshWorldTints();
         }
 
-        private void RefreshScoreText()
+        /// <summary>Re-checked every time this screen opens, not just once — a world's unlock state
+        /// can change mid-session (finishing the previous world's gate level, or a purchase), and
+        /// the player might return here without the app restarting.</summary>
+        private void RefreshWorldTints()
         {
-            if (scoreText == null)
+            if (worldButtons == null)
             {
                 return;
             }
-            int score = LeaderboardManager.Instance != null ? LeaderboardManager.Instance.GetTotalLifetimeScore() : 0;
-            scoreText.text = score.ToString("N0");
-
-            if (scorePlaqueRect != null)
+            for (int world = 0; world < worldButtons.Length; world++)
             {
-                float labelWidth = scoreText.GetPreferredValues(scoreText.text, 0f, 0f).x;
-                float desiredWidth = Mathf.Max(scorePlaqueMinWidth, labelWidth + ScorePlaqueHorizontalPadding);
-                scorePlaqueRect.sizeDelta = new Vector2(desiredWidth, scorePlaqueRect.sizeDelta.y);
+                if (worldButtons[world] == null)
+                {
+                    continue;
+                }
+                bool unlocked = UnlockProgression.IsWorldUnlocked(world);
+                var image = worldButtons[world].GetComponent<Image>();
+                if (image != null)
+                {
+                    image.color = unlocked ? Color.white : LockedWorldTint;
+                }
             }
+        }
+
+        private void HandleWorldTapped(int world)
+        {
+            if (UnlockProgression.IsWorldUnlocked(world))
+            {
+                detailScreen?.Show(world);
+                return;
+            }
+
+            if (UnlockProgression.IsPurchaseGatedWorld(world))
+            {
+                worldPurchaseScreen?.Show();
+                return;
+            }
+
+            lockedHintPanel?.Show(UnlockProgression.GetUnlockHint(world * UnlockProgression.LevelsPerWorld));
         }
 
         private void HandleBack()

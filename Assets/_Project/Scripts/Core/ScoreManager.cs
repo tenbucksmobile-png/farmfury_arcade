@@ -18,11 +18,23 @@ namespace FarmFuryArcade.Core
         public int CropPoints { get; private set; }
         public int RobotPoints { get; private set; }
 
+        /// <summary>Loaded here, not Awake — Start is the one lifecycle method Unity guarantees
+        /// runs only after every object's Awake has already completed, so SaveManager.Instance is
+        /// guaranteed assigned by now regardless of which GameManagers child happens to Awake first
+        /// (same class of ordering fix as ComboHypeScreen's own OnEnable->Start move; see its doc
+        /// comment). Without this, TotalLifetimeScore always started at 0 every session — see
+        /// SaveManager.GetTotalLifetimeScore's own doc comment for the full bug writeup.</summary>
+        private void Start()
+        {
+            TotalLifetimeScore = SaveManager.Instance != null ? SaveManager.Instance.GetTotalLifetimeScore() : 0;
+        }
+
         public void AddPoints(int amount)
         {
             int applied = amount * ComboMultiplier;
             CurrentMazeScore += applied;
             TotalLifetimeScore += applied;
+            SaveManager.Instance?.SetTotalLifetimeScore(TotalLifetimeScore);
             OnScoreChanged?.Invoke(CurrentMazeScore);
         }
 

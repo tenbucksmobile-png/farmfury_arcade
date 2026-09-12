@@ -544,6 +544,11 @@ namespace FarmFuryArcade.Enemies
             CurrentState = RobotState.Defeated;
             CurrentDirection = Direction.None;
             ChaseScoreManager.Instance?.OnRobotDefeated();
+            // Single funnel for both kill paths (RegisterHit's power-pellet chain-kill and every
+            // ForceDefeat ability-triggered instant-kill), so this fires exactly once per robot
+            // defeated regardless of which route got it here — see AudioManager.PlayRobotDamageSfx's
+            // own doc comment for why this is distinct from PlayEatRobotMusic/each ability's cast SFX.
+            AudioManager.Instance?.PlayRobotDamageSfx();
             StartCoroutine(DefeatedThenDisappear());
         }
 

@@ -285,6 +285,7 @@ namespace FarmFuryArcade.EditorTools
         private const string PowerReadySfx = "Assets/_Project/Audio/SFX/PowerReady.mp3";
         private const string RarePelletPickupSfx = "Assets/_Project/Audio/SFX/RarePellet_pickup.mp3";
         private const string RobotSpawnSfx = "Assets/_Project/Audio/SFX/RobotSpawn.mp3";
+        private const string RobotDamageSfx = "Assets/_Project/Audio/SFX/Robot_damage.mp3";
         // On-disk filenames match exactly, including "Clucky_abiltiy.mp3"'s own typo (not
         // "ability") — AssetDatabase.LoadAssetAtPath is case/spelling-sensitive regardless of OS
         // filesystem, same gotcha this project has hit before for sprite filenames.
@@ -2187,6 +2188,7 @@ namespace FarmFuryArcade.EditorTools
             var powerReady = AssetDatabase.LoadAssetAtPath<AudioClip>(PowerReadySfx);
             var rarePelletPickup = AssetDatabase.LoadAssetAtPath<AudioClip>(RarePelletPickupSfx);
             var robotSpawn = AssetDatabase.LoadAssetAtPath<AudioClip>(RobotSpawnSfx);
+            var robotDamage = AssetDatabase.LoadAssetAtPath<AudioClip>(RobotDamageSfx);
             var combo = AssetDatabase.LoadAssetAtPath<AudioClip>(ComboSfx);
             var groundSlam = AssetDatabase.LoadAssetAtPath<AudioClip>(GroundSlamSfx);
             var duckyTeleport = AssetDatabase.LoadAssetAtPath<AudioClip>(DuckyTeleportSfx);
@@ -2223,6 +2225,7 @@ namespace FarmFuryArcade.EditorTools
             if (powerReady != null) so.FindProperty("powerReadyClip").objectReferenceValue = powerReady;
             if (rarePelletPickup != null) so.FindProperty("rarePelletPickupClip").objectReferenceValue = rarePelletPickup;
             if (robotSpawn != null) so.FindProperty("robotRespawnClip").objectReferenceValue = robotSpawn;
+            if (robotDamage != null) so.FindProperty("robotDamageClip").objectReferenceValue = robotDamage;
             if (combo != null) so.FindProperty("comboSfxClip").objectReferenceValue = combo;
             if (groundSlam != null) so.FindProperty("groundSlamClip").objectReferenceValue = groundSlam;
             if (duckyTeleport != null) so.FindProperty("duckyTeleportClip").objectReferenceValue = duckyTeleport;

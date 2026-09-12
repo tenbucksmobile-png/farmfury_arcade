@@ -16,7 +16,9 @@ namespace FarmFuryArcade.Core
         private const string CharacterUnlockedKeyPrefix = "FFA_CharacterUnlocked_";
         private const string WorldUnlockSeenKeyPrefix = "FFA_WorldUnlockSeen_";
         private const string LevelBestScoreKeyPrefix = "FFA_LevelBestScore_";
+        private const string LevelBestScoreCharacterKeyPrefix = "FFA_LevelBestScoreCharacter_";
         private const string LevelBestTimeKeyPrefix = "FFA_LevelBestTime_";
+        private const string TotalLifetimeScoreKey = "FFA_TotalLifetimeScore";
         private const string MusicOnKey = "FFA_MusicOn";
         private const string SfxOnKey = "FFA_SfxOn";
         private const string MusicVolumeKey = "FFA_MusicVolume";
@@ -302,10 +304,55 @@ namespace FarmFuryArcade.Core
 
         public void SetLevelBestScore(int levelIndex, int score)
         {
+            // No character supplied — used only by LeaderboardManager.RecordLevelResult, which
+            // always runs right after GameManager.EndLevel's own direct SetLevelBestScore(score,
+            // character) call already recorded any new best, so by the time this runs the score is
+            // no longer > GetLevelBestScore and this is a safe no-op. See the 3-arg overload's own
+            // doc comment.
+            SetLevelBestScore(levelIndex, score, GetLevelBestScoreCharacter(levelIndex));
+        }
+
+        /// <summary>Added 2026-09-12 for the per-world Leaderboard's "BestFarmFury" stat — which
+        /// character actually earned a level's best score wasn't recorded anywhere before this, so
+        /// there was no way to show "here's who set your Vegetable Patch high score" without
+        /// guessing. Only overwrites (score AND character together) when score is a genuine new
+        /// best, same guard the plain 2-arg overload already had.</summary>
+        public void SetLevelBestScore(int levelIndex, int score, CharacterType character)
+        {
             if (score > GetLevelBestScore(levelIndex))
             {
                 PlayerPrefs.SetInt(LevelBestScoreKeyPrefix + levelIndex, score);
+                PlayerPrefs.SetInt(LevelBestScoreCharacterKeyPrefix + levelIndex, (int)character);
             }
+        }
+
+        /// <summary>Defaults to Cluck for a level with no recorded best score yet (never actually
+        /// shown in that state — callers only display this alongside a real best score).</summary>
+        public CharacterType GetLevelBestScoreCharacter(int levelIndex)
+        {
+            return (CharacterType)PlayerPrefs.GetInt(LevelBestScoreCharacterKeyPrefix + levelIndex, (int)CharacterType.Cluck);
+        }
+
+        /// <summary>Real bug found and fixed (2026-09-12): Leaderboards' "Total Lifetime Score"
+        /// stat (LeaderboardManager.GetTotalLifetimeScore -> ScoreManager.TotalLifetimeScore) was
+        /// never persisted anywhere — ScoreManager.TotalLifetimeScore is a plain in-memory
+        /// auto-property incremented every AddPoints call, with no PlayerPrefs write and no load-on-
+        /// startup, so it reset to 0 every time the app restarted. Reported as "high score is not
+        /// accumulating - it doesn't seem to be wired to the game." ScoreManager now loads this value
+        /// once in Start() (after every Awake has run, so SaveManager.Instance is guaranteed non-null
+        /// by then) and re-persists it here on every AddPoints call — PlayerPrefs.SetInt alone is
+        /// cheap (no forced disk flush, unlike PlayerPrefs.Save()), so writing on every point gained
+        /// is not a performance concern, and it means the total survives even a run abandoned via
+        /// Pause > Quit (which never calls GameManager.EndLevel at all) rather than only a level
+        /// completed or failed through the normal flow.</summary>
+        public int GetTotalLifetimeScore()
+        {
+            return PlayerPrefs.GetInt(TotalLifetimeScoreKey, 0);
+        }
+
+        public void SetTotalLifetimeScore(int score)
+        {
+            PlayerPrefs.SetInt(TotalLifetimeScoreKey, score);
         }
 
         /// <summary>0 means "no time recorded yet" — always check GetLevelBestTime(i) <= 0 before
@@ -569,6 +616,7 @@ namespace FarmFuryArcade.Core
             PlayerPrefs.DeleteKey(AdsRemovedKey);
             PlayerPrefs.DeleteKey(AdsRemovedKey + "_chk");
             PlayerPrefs.DeleteKey(TotalCombosTriggeredKey);
+            PlayerPrefs.DeleteKey(TotalLifetimeScoreKey);
             PlayerPrefs.DeleteKey(DailyChallengeCompletedDateKey);
 
             foreach (CharacterType type in System.Enum.GetValues(typeof(CharacterType)))
@@ -605,6 +653,7 @@ namespace FarmFuryArcade.Core
             {
                 PlayerPrefs.DeleteKey(LevelStarsKeyPrefix + i);
                 PlayerPrefs.DeleteKey(LevelBestScoreKeyPrefix + i);
+                PlayerPrefs.DeleteKey(LevelBestScoreCharacterKeyPrefix + i);
                 PlayerPrefs.DeleteKey(LevelBestTimeKeyPrefix + i);
             }
 

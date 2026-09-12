@@ -548,6 +548,22 @@ duration short well before it should have expired.
 `ChaseScoreManager` (Core) tracks `ChainCount` across one power activation (200/400/800/1600,
 +5000 for all 4) and resets when `PowerPelletManager`'s countdown ends.
 
+**Real bug found and fixed (2026-09-12): the power-pellet countdown could keep running after the
+player had already left the maze, later yanking the music back to a world track mid-menu-browsing.**
+`PowerPelletManager` is a persistent singleton on `GameManagers`, entirely untouched by scene/
+content teardown — so if a level ended (complete, failed) or the player hit Pause > Quit while a
+power pellet was still active, `CountDown()` kept ticking down in the background using real
+`Time.deltaTime` even though `GameManager.EndLevel`/`QuitToLevelSelect` had already switched back to
+the "Theme" landing track via `PlayLandingMusic()`. Once the stale countdown finally reached zero —
+up to 17s later for a Rainbow-tier pellet — its own tail-end `ResumeBackgroundMusic()` call swapped
+the music back to whichever world track was last playing, with no level actually running. Reported
+as "it plays theme when outside then all of a sudden will begin the world level music." Fixed with
+`PowerPelletManager.StopAndReset()` (stops the coroutine and clears `IsPowerActive`/`TimeRemaining`,
+deliberately without touching audio or firing `OnPowerStateChanged` itself — every robot that cared
+is about to be destroyed by the next level load anyway, and the caller already owns the correct
+music transition for this moment), called from both `GameManager.EndLevel` and `QuitToLevelSelect`
+immediately on leaving a maze, so the countdown can never outlive the run that started it.
+
 ### Characters & Abilities (`Scripts/Gameplay/CharacterBase`, `Scripts/Core/CharacterManager`, `Scripts/Abilities`)
 
 **`CharacterManager`** owns every character GameObject. Only one exists at a time — swapping
@@ -3239,6 +3255,24 @@ count" since the GDD text available to this phase doesn't define "mastered" any 
 `LeaderboardManager` itself is unchanged by the two passes below — only `LeaderboardsScreen`'s own
 display of these numbers changed.
 
+**Real bug found and fixed (2026-09-12): Total Lifetime Score never actually persisted anywhere.**
+`LeaderboardManager.GetTotalLifetimeScore()` reads `ScoreManager.Instance.TotalLifetimeScore`, which
+was a plain in-memory `{ get; private set; }` auto-property incremented every `AddPoints` call —
+never written to `PlayerPrefs`, never loaded back on startup. It genuinely accumulated correctly
+*within* one continuous app session (every maze played that session added to it), but reset to 0
+the instant the app was closed and reopened, reading as "high score is not accumulating - it
+doesn't seem to be wired to the game." Fixed with `SaveManager.GetTotalLifetimeScore()`/
+`SetTotalLifetimeScore` (plain `PlayerPrefs.GetInt`/`SetInt`, same convention as `GetLevelBestScore`
+— no checksum protection needed, this is a leaderboard/pride stat, not economy). `ScoreManager` now
+loads the persisted value once in `Start()` (not `Awake` — `Start` is the one lifecycle method
+Unity guarantees runs only after every object's `Awake` has completed, so `SaveManager.Instance` is
+guaranteed non-null regardless of which `GameManagers` child happens to `Awake` first, same class of
+ordering fix `ComboHypeScreen`'s own `OnEnable`→`Start` move used) and re-persists it on every
+`AddPoints` call — `PlayerPrefs.SetInt` alone is cheap (no forced disk flush, unlike
+`PlayerPrefs.Save()`), so writing on every point gained is not a performance concern, and it means
+the total survives even a run abandoned via Pause > Quit, which never calls `GameManager.EndLevel`
+at all. `SaveManager.ResetAllProgressKeys` (the "Reset Progress" debug tool) now clears this key too.
+
 **Leaderboards screen stripped to icon-only, no text at all (2026-09-09)** — per direct feedback
 ("remove all other text except the artwork we introduced"). Real `HighScore.png`/`Combo.png`
 word-art (which had replaced the "Total Lifetime Score:"/"Total Combos Triggered:" text prefixes
@@ -3260,6 +3294,92 @@ reopen" shape `SettingsPanel.leaderboardsButton`'s own handler uses in the other
 via a new `settingsPanel` field, set in `WireCrossReferences`. (Legal's own close button needed no
 equivalent fix — it's an overlay shown ON TOP of Settings, which stays active underneath the whole
 time Legal is open, so a plain `SetActive(false)` already reveals Settings correctly.)
+
+### Leaderboards rebuilt into a per-world collage (2026-09-12, `Scripts/UI/LeaderboardsScreen.cs`, `Scripts/UI/WorldLeaderboardDetailScreen.cs`)
+
+The icon-only, single-lifetime-score screen above was a placeholder from the start (its own doc
+comment already said "the underlying stats are still fully live... if a future pass wants numbers
+back"). Real per-world art landed for a full redesign: `LeaderboardsScreen` is now a **world-select
+collage** — all 7 world banners (`Cornfield.png`/`VegetablePatch.png`/`Orchard.png`/
+`Wheatfiled.png` [on-disk typo, missing an 'l']/`FrozenGarden.png`/`GoldenSunset.png`/
+`HarvestMoon.png`, index-aligned with `UnlockProgression`'s own world numbering) scattered over the
+dimmed FarmFury backdrop under the existing `Leaderboard.png` header, no grid/rows at all — per
+direct instruction ("keep it randomised, no layout format... ensure not overlaying"). Positions are
+generated by `Phase5ProjectBuilder.BuildLeaderboards` via rejection-sampling (retry on any AABB
+overlap against an already-placed banner, with a padding buffer) seeded with a **fixed** seed
+(`20260912`), so re-running Build All always reproduces the exact same collage rather than
+reshuffling on every rebuild — decided over reshuffling on every open, for a predictable layout the
+player can learn.
+
+**Enlarged 190 → 260 (banner height) with the placement zone widened to nearly the full screen,
+same day, per direct screenshot feedback** — the first pass read as tiny banners clustered in a
+narrow central band with large unused margins top/left/right/bottom. The bottom-right close
+button's own fixed footprint is now pre-registered as an obstacle in the same rejection-sampling
+pass (before any banner is placed), so the wider zone still can't place a banner on top of it.
+
+Each banner is a real `Button`, always tappable regardless of lock state — `LeaderboardsScreen`
+re-tints every button live in `OnEnable` (`RefreshWorldTints`, same `LockedWorldTint` grey Level
+Select's own carousel uses) since a world's unlock state can change mid-session. Tapping an
+**unlocked** world opens `WorldLeaderboardDetailScreen`; tapping a **locked, star-gated** world
+shows a brief hint via the existing `LockedHintPanel` (reusing `UnlockProgression.GetUnlockHint`);
+tapping a **locked, purchase-gated** world (the 3 Monetisation worlds) opens the World Purchase
+screen directly — no hint needed there, since the action is immediately available.
+
+**`WorldLeaderboardDetailScreen`** is one generic, reusable component (`Show(int world)`
+repopulates it live) built as a **child of `LeaderboardsScreen`'s own root**, not a separate
+Canvas-level screen — its `Show()`'s `SetAsLastSibling()` draws it above the collage with no
+cross-screen sibling-order coordination needed, and its own close button (a plain
+`SetActive(false)`) reveals the collage again automatically, same "layers on top, never hidden"
+convention `ChooseCharacterScreen` uses over Pause. Shows, per direct instruction:
+- **Header** — that world's own banner (same sprite the collage used for it, so the banner a player
+  tapped keeps reading as "this is where I am").
+- **"BestFarmFury"** (`Best.png` label + the winning character's own `{Character}ThumbsUp.png`
+  portrait beside it) — whichever character earned the single **highest individual level score**
+  within that world (independent of the summed total below; bragging rights go to whoever set the
+  one standout run, not whoever ground the most total levels). This needed a genuinely new piece of
+  save data — nothing previously recorded *which character* earned a given level's best score, only
+  the number. `SaveManager.SetLevelBestScore` gained a 3-arg overload (`..., CharacterType
+  character`) that also records this alongside the score, called from `GameManager.EndLevel` with
+  `CharacterManager.Instance.ActiveCharacter`; `GetLevelBestScoreCharacter(levelIndex)` reads it
+  back. The old 2-arg overload (still used by `LeaderboardManager.RecordLevelResult`, which runs
+  right after the 3-arg call already recorded any new best) is a safe no-op by the time it runs,
+  since the score is no longer a new best at that point.
+- **HighScore** — the **summed** total of every level's best score within the world (per direct
+  instruction: "as a total sum," not a single level's peak) — `LeaderboardManager.
+  GetWorldTotalScore(world)`.
+- **FastestTime** — the fastest recorded time among the world's completed levels —
+  `GetWorldFastestTime(world)` (0 = no level in this world completed yet).
+- **1★/2★/3★ counts** — how many levels in this world currently sit at exactly that star rating (a
+  snapshot of "where the player's at," not a cumulative total) — `GetWorldStarCounts(world)`, shown
+  next to a small row of real `ScoreStar.png` icons (1/2/3 of them) rather than a text label, per
+  the mockup's own real star-icon rows.
+
+All of this reads directly from `SaveManager`/`ScoreManager`'s existing persisted state every time
+`Show()` runs — no separate save/refresh step, since the underlying data already updates the
+instant it changes during real gameplay (`GameManager.EndLevel`'s existing `SetLevelStars`/
+`SetLevelBestScore`/`SetLevelBestTime` calls). `LeaderboardManager` gained the 4 new per-world
+rollup methods above, all deriving their level range from `world * UnlockProgression.LevelsPerWorld`
+the same way `UnlockProgression` itself does, so they can never drift out of sync with it.
+
+**Real bug found and fixed (2026-09-12, same day): the 5 stat rows below BestFarmFury rendered in
+reverse order and overlapped it, instead of stacking cleanly downward.** Reported via a direct
+screenshot ("your spacing is completely out to the mock") showing HighScore/FastestTime text and
+the star-icon rows all crammed into the upper-left, overlapping BestFarmFury. Root cause: each
+row's Y offset was computed as `rowStartY + rowSpacing * i` — since `AnchorTopLeft`'s Y offset
+convention is negative-going-DOWN and `rowStartY` was already a large negative number, ADDING an
+increasing positive amount per row made each successive row LESS negative, i.e. move further UP
+the screen, exactly backwards from the intended top-to-bottom order (BestFarmFury → HighScore →
+FastestTime → 1★ → 2★ → 3★). Fixed by deriving each row's top from the row above it —
+`bestRowTop`/`bestRowHeight` constants for the BestFarmFury row, then `row0Top..row4Top` each
+computed as `previousTop - rowHeight - rowGap` — so rows are guaranteed to stack strictly downward
+with a fixed visible gap between them regardless of how any of these constants get retuned later,
+rather than relying on a hand-picked spacing constant applied in the wrong direction.
+
+**Known gap, not yet closed:** `SaveManager.ResetAllProgressKeys`'s per-level sweep loop
+(`MaxLevelsForReset` = 100) predates the 3 purchase-gated worlds (levels 100-174) — a pre-existing
+limitation, not something this pass introduced, but worth knowing the new
+`LevelBestScoreCharacterKeyPrefix` key (added alongside it) inherits the same gap: "Reset Progress"
+won't clear per-level data for Frostbite Garden/Golden Sunset/Harvest Moon.
 
 **`AudioManager`** now has real clips wired (see "Art status") — `PlayMusic`
 crossfades between two looping `AudioSource`s, `PlaySFX` round-robins a pooled array via
@@ -4449,6 +4569,7 @@ happened rather than which clip field to reach into):
 | `PowerReady.mp3` | `PlayPowerReadySfx` | `AbilityBase.UpdateCooldown`, the single frame a character's ability cooldown reaches exactly 0 (not power-pellet activation — that's a separate, unrelated event; see `PlayEatRobotMusic` below) |
 | `RarePellet_pickup.mp3` | `PlayRarePelletPickupSfx` | `CropCollector`, only when `pellet.pelletType != PowerPelletType.Sunflower` — same "rare tier" gate `PelletCollectBurst` uses. Fires *before* `PowerPelletManager.ActivatePower` (which crossfades music to `EatRobot.mp3`), so the pickup cue is heard first rather than being stepped on by the music swap |
 | `RobotSpawn.mp3` | `PlayRobotRespawnSfx` | `RobotSpawner.SpawnRobot` — every robot spawn, including level-start ones. Used to fire only from a defeated robot's mid-level walk back to the factory (`RobotBase.ArriveAtFactory`); that flow was removed (defeated robots now disappear permanently for the rest of the maze — see the Robot AI state-machine note above), so this was repointed to the only spawn event left, or it would have become dead code with no call site at all |
+| `Robot_damage.mp3` | `PlayRobotDamageSfx` | `RobotBase.TransitionToDefeated`, added 2026-09-12 — the single funnel both kill paths (`RegisterHit`'s power-pellet chain-kill and every `ForceDefeat` ability-triggered instant-kill: Percy's roll, Bessie's slam, Billy's charge, Horace's kick, Gerald's puff, Cluck's egg, `KnockBack`'s landing) already share, so it fires exactly once per robot actually defeated regardless of route. Distinct from `PlayEatRobotMusic` (a music-track swap for the whole vulnerable window) and from each ability's own cast SFX (which fires on activation whether or not it actually connects) — there was previously no sound at all for the moment a robot is defeated |
 | `Combo.mp3` | `PlayComboSfx` | `ComboHypeScreen`, once when its callout appears — on a real `ComboSystem.OnComboTriggered` mid-gameplay, not at level start (see "Ad mediation" section above for the level-start gate this used to share, which it's no longer part of) |
 | `Bessie-ability.mp3` | `PlayGroundSlamSfx` | `GroundSlamAbility.Execute()`, the instant Ground Slam casts |
 | `DuckyTeleport.mp3` | `PlayDuckyTeleportSfx` | `SkipShotAbility.Execute()`, only on a successful teleport (not the no-op case with no adjacent unused water tile pair) |

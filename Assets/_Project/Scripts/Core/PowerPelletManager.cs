@@ -34,6 +34,32 @@ namespace FarmFuryArcade.Core
             WasActivatedThisMaze = false;
         }
 
+        /// <summary>Real bug found and fixed (2026-09-12): leaving a maze mid-power-pellet-effect
+        /// (level complete, level failed, or a deliberate Pause > Quit) never stopped this
+        /// countdown — PowerPelletManager is a persistent singleton on GameManagers, untouched by
+        /// scene/content teardown, so CountDown() kept ticking down in the background using real
+        /// Time.deltaTime even after the player had already left gameplay and Theme had started
+        /// playing again (GameManager.EndLevel/QuitToLevelSelect both call PlayLandingMusic
+        /// immediately). Once the stale countdown reached zero — up to 17s later for a Rainbow-tier
+        /// pellet — its own tail-end ResumeBackgroundMusic() call yanked the music back to whichever
+        /// world track was last playing, mid-menu-browsing, with no level actually running. Reported
+        /// as "plays theme when outside then all of a sudden will begin the world level music."
+        /// GameManager.EndLevel/QuitToLevelSelect now call this immediately on leaving a maze, so the
+        /// countdown can never outlive the run that started it. Deliberately does NOT fire
+        /// OnPowerStateChanged or touch audio itself — every robot that cared is about to be
+        /// destroyed by the next level load anyway, and the caller already owns the correct music
+        /// transition (PlayLandingMusic) for this moment.</summary>
+        public void StopAndReset()
+        {
+            if (_countdownRoutine != null)
+            {
+                StopCoroutine(_countdownRoutine);
+                _countdownRoutine = null;
+            }
+            IsPowerActive = false;
+            TimeRemaining = 0f;
+        }
+
         /// <summary>Eating a pellet while the power state is already active only ever EXTENDS the
         /// countdown (Mathf.Max against whatever's left), never shortens it. Previously this
         /// unconditionally overwrote TimeRemaining with the new pellet's own duration — harmless

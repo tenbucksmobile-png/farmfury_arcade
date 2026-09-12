@@ -78,6 +78,7 @@ namespace FarmFuryArcade.Core
         [SerializeField] private AudioClip powerReadyClip;
         [SerializeField] private AudioClip rarePelletPickupClip;
         [SerializeField] private AudioClip robotRespawnClip;
+        [SerializeField] private AudioClip robotDamageClip;
         [SerializeField] private AudioClip comboSfxClip;
         [SerializeField] private AudioClip groundSlamClip;
         [SerializeField] private AudioClip duckyTeleportClip;
@@ -194,6 +195,14 @@ namespace FarmFuryArcade.Core
         public void PlayPowerReadySfx() => PlaySFX(powerReadyClip);
         public void PlayRarePelletPickupSfx() => PlaySFX(rarePelletPickupClip);
         public void PlayRobotRespawnSfx() => PlaySFX(robotRespawnClip);
+        /// <summary>Fires the instant a robot is actually defeated — both the normal power-pellet
+        /// chain-kill path (RobotBase.RegisterHit, health reaching 0) and every ability-triggered
+        /// instant-kill path (RobotBase.ForceDefeat — Percy's roll, Bessie's slam, Billy's charge,
+        /// Horace's kick, Gerald's puff, Cluck's egg, KnockBack's landing). Distinct from
+        /// PlayEatRobotMusic (a music-track swap for the whole vulnerable window, not a per-kill
+        /// SFX) and from each ability's own cast SFX (PlayGroundSlamSfx etc., which fires on
+        /// activation regardless of whether it actually connects with a robot).</summary>
+        public void PlayRobotDamageSfx() => PlaySFX(robotDamageClip);
         /// <summary>Fires once when ComboHypeScreen's full-screen pre-gameplay banner appears —
         /// see that class's own doc comment. Deliberately not muted by the interstitial-ad
         /// AudioListener.pause block in GameManager.LoadLevel, since it runs before that gate.</summary>

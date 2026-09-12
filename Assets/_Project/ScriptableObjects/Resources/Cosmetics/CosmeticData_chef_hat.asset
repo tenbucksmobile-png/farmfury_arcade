@@ -31,7 +31,16 @@ MonoBehaviour:
   mirrorLeftHatForRight: 0
   hatOffset: {x: 0, y: 0.55}
   hatScale: 0.55
-  characterHatOverrides: []
+  hasSideOffset: 0
+  hatOffsetSide: {x: 0, y: 0}
+  hatScaleSide: 0
+  characterHatOverrides:
+  - character: 6
+    hatOffset: {x: 0, y: 0.72}
+    hatScale: 0.42
+    hasSideOffset: 0
+    hatOffsetSide: {x: 0, y: 0}
+    hatScaleSide: 0
   hatVariantSprites: []
   skinFrames: []
   trailEffectPrefab: {fileID: 0}
