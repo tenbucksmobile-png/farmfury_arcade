@@ -140,6 +140,200 @@ namespace FarmFuryArcade.EditorTools
             Debug.Log($"[SceneCleanupBuilder] Fixed totalCropsRequired on {fixedCount} of {guids.Length} LevelData assets.");
         }
 
+        /// <summary>Real bug found and fixed (2026-09-13), confirmed by directly comparing raw
+        /// grid data rather than assuming it matched the free worlds' convention: the 3 purchased
+        /// worlds' (FrostbiteGarden/GoldenSunset/HarvestMoon) level generator has two defects the
+        /// original 100 free-world levels either never had or already had fixed —
+        ///
+        /// 1. Crops only ever landed on odd-indexed "room" cells — every corridor cell (and every
+        ///    even-indexed cell within a room row) was left as plain bare floor (tile id 0) with no
+        ///    crop at all, rather than every other world's convention of a crop on essentially every
+        ///    walkable non-wall cell. Compare Orchard's corridor row "121212131211" (wall/crop
+        ///    alternating, zero bare-floor gaps) against FrostbiteGarden's "101010101011" (wall/bare
+        ///    -floor alternating, zero crops) — this is what produced the "pellets are literally only
+        ///    every second tile" report, once the wall/floor art contrast made it possible to
+        ///    actually see the pattern clearly.
+        /// 2. Column x=10 is a wall in every single row, immediately beside the real border wall at
+        ///    x=11 — a permanent 2-tile-thick wall down the whole right edge. This is the exact same
+        ///    "x=10 dead-margin column" bug already found and fixed once for the original 100
+        ///    free-world levels (see BuildLevelData01's own doc comment on that fix) — it was simply
+        ///    never applied to these 75 levels, generated in a separate, later pass.
+        ///
+        /// Fixes both directly on the already-baked LevelData assets (same "mutate in place, don't
+        /// touch robotSpawns/art via a full Phase2 rebuild" convention FixLevelCropCounts above
+        /// uses) rather than editing the Rows source and re-running BuildAll, which would wipe
+        /// every level's robotSpawns back to empty. Order matters: double walls are opened up
+        /// FIRST, so the newly-created floor cells also get filled with crops in the second pass,
+        /// not left as fresh bare-floor gaps.
+        ///
+        /// Wall-opening is conservative by construction, not just by re-verification: only a cell
+        /// strictly inside the border ring (never x/y at the maze's own edge) is ever a flip
+        /// candidate, and a candidate is only committed if flipping it to floor does not create a
+        /// new 2x2-all-walkable block anywhere it touches — the same "no open-2x2 block" invariant
+        /// every level in this game is verified against. Opening a wall can only ever ADD
+        /// reachability (a full connectivity re-check is therefore unnecessary — nothing existing
+        /// floor-connected before this can become unreachable by turning an adjacent wall into
+        /// floor too). Any block that has no safe candidate is left alone and logged, the same
+        /// "leave it, don't risk corrupting a maze" precedent BuildLevelData01's own doc comment
+        /// sets (its own one unresolved case, LevelData_07).</summary>
+        [MenuItem("Farm Fury Arcade/Debug/Fix Purchased World Levels (Crop Density + Double Walls)")]
+        public static void FixPurchasedWorldLevels()
+        {
+            const int tileWall = 1;
+            const int tileGround = 0;
+            const int tileCropKernel = 2;
+            const int tileCropVegetable = 3;
+            const int tilePowerPellet = 4;
+
+            var targetWorlds = new[] { MazeType.FrostbiteGarden, MazeType.GoldenSunset, MazeType.HarvestMoon };
+            string[] guids = AssetDatabase.FindAssets("t:LevelData", new[] { "Assets/_Project/ScriptableObjects" });
+
+            int levelsTouched = 0;
+            int totalWallsOpened = 0;
+            int totalCropsAdded = 0;
+            int unresolvedBlocks = 0;
+
+            foreach (string guid in guids)
+            {
+                string path = AssetDatabase.GUIDToAssetPath(guid);
+                var level = AssetDatabase.LoadAssetAtPath<LevelData>(path);
+                if (level == null || System.Array.IndexOf(targetWorlds, level.mazeType) < 0)
+                {
+                    continue;
+                }
+
+                var grid = level.MazeLayout;
+                int width = level.mazeWidth;
+                int height = level.mazeHeight;
+                bool changed = false;
+                int wallsOpenedThisLevel = 0;
+
+                bool IsWall(int x, int y) => x >= 0 && x < width && y >= 0 && y < height && grid[x, y] == tileWall;
+                bool IsWalkable(int x, int y) => x >= 0 && x < width && y >= 0 && y < height && grid[x, y] != tileWall;
+                bool CreatesOpenBlockIfFloor(int cx, int cy)
+                {
+                    // Checks every 2x2 window touching (cx,cy) as if it were already floor.
+                    for (int ox = -1; ox <= 0; ox++)
+                    {
+                        for (int oy = -1; oy <= 0; oy++)
+                        {
+                            int bx = cx + ox, by = cy + oy;
+                            bool a = (bx == cx && by == cy) || IsWalkable(bx, by);
+                            bool b = (bx + 1 == cx && by == cy) || IsWalkable(bx + 1, by);
+                            bool c = (bx == cx && by + 1 == cy) || IsWalkable(bx, by + 1);
+                            bool d = (bx + 1 == cx && by + 1 == cy) || IsWalkable(bx + 1, by + 1);
+                            if (a && b && c && d)
+                            {
+                                return true;
+                            }
+                        }
+                    }
+                    return false;
+                }
+
+                // Step 1: open every 2x2 all-wall block by flipping exactly one cell. Bounds go up
+                // to width-2/height-2 (not width-3/height-3) so a block whose far edge touches the
+                // border column/row is still DETECTED — e.g. columns x=10 and x=11 (the border) —
+                // even though the border cell itself is still never a flip candidate (see the
+                // onBorder check on each candidate below). A tighter bound here would silently miss
+                // exactly the "double wall right against the border" pattern this method exists to
+                // fix (real bug found this way: the original version of this loop used width-3 and
+                // never examined any block touching the border column at all).
+                for (int x = 1; x <= width - 2; x++)
+                {
+                    for (int y = 1; y <= height - 2; y++)
+                    {
+                        if (!(IsWall(x, y) && IsWall(x + 1, y) && IsWall(x, y + 1) && IsWall(x + 1, y + 1)))
+                        {
+                            continue;
+                        }
+
+                        // Candidate order: prefer x+1 (the "extra margin" column in every one of
+                        // these levels' known bug) before x, before the row below either.
+                        (int cx, int cy)[] candidates =
+                        {
+                            (x + 1, y), (x, y), (x + 1, y + 1), (x, y + 1),
+                        };
+
+                        bool resolved = false;
+                        foreach (var (cx, cy) in candidates)
+                        {
+                            bool onBorder = cx <= 0 || cx >= width - 1 || cy <= 0 || cy >= height - 1;
+                            if (onBorder || CreatesOpenBlockIfFloor(cx, cy))
+                            {
+                                continue;
+                            }
+                            grid[cx, cy] = tileGround;
+                            changed = true;
+                            wallsOpenedThisLevel++;
+                            resolved = true;
+                            break;
+                        }
+
+                        if (!resolved)
+                        {
+                            unresolvedBlocks++;
+                            Debug.LogWarning($"[SceneCleanupBuilder] {level.name}: could not safely open 2x2 wall block at ({x},{y}) — left as-is.");
+                        }
+                    }
+                }
+
+                // Step 2: fill every remaining bare-floor cell with a crop, alternating kernel/
+                // vegetable for a roughly-even split (matches every other world's density).
+                int cropsAddedThisLevel = 0;
+                bool nextIsKernel = true;
+                for (int x = 0; x < width; x++)
+                {
+                    for (int y = 0; y < height; y++)
+                    {
+                        if (grid[x, y] != tileGround)
+                        {
+                            continue;
+                        }
+                        grid[x, y] = nextIsKernel ? tileCropKernel : tileCropVegetable;
+                        nextIsKernel = !nextIsKernel;
+                        changed = true;
+                        cropsAddedThisLevel++;
+                    }
+                }
+
+                if (!changed)
+                {
+                    continue;
+                }
+
+                level.SetMazeLayout(grid);
+
+                int kernels = 0, vegetables = 0, pellets = 0;
+                var finalGrid = level.MazeLayout;
+                for (int x = 0; x < width; x++)
+                {
+                    for (int y = 0; y < height; y++)
+                    {
+                        switch (finalGrid[x, y])
+                        {
+                            case tileCropKernel: kernels++; break;
+                            case tileCropVegetable: vegetables++; break;
+                            case tilePowerPellet: pellets++; break;
+                        }
+                    }
+                }
+                level.totalCropsRequired = kernels + vegetables + Mathf.Min(pellets, 1);
+
+                EditorUtility.SetDirty(level);
+                levelsTouched++;
+                totalWallsOpened += wallsOpenedThisLevel;
+                totalCropsAdded += cropsAddedThisLevel;
+                Debug.Log($"[SceneCleanupBuilder] {level.name}: opened {wallsOpenedThisLevel} double-wall cell(s), " +
+                          $"added {cropsAddedThisLevel} crop(s), totalCropsRequired now {level.totalCropsRequired}.");
+            }
+
+            AssetDatabase.SaveAssets();
+            Debug.Log($"[SceneCleanupBuilder] Done — touched {levelsTouched} levels across FrostbiteGarden/GoldenSunset/HarvestMoon, " +
+                      $"opened {totalWallsOpened} double-wall cells total, added {totalCropsAdded} crops total, " +
+                      $"{unresolvedBlocks} block(s) left unresolved (logged above if any).");
+        }
+
         /// <summary>Phase1Test/Phase2Test/Phase3Test/Phase4Test each draw an always-on OnGUI debug
         /// overlay (manual test buttons) in the top-left/top area of the screen — independent of
         /// their runOnStart flag, since OnGUI doesn't check it. Every PhaseNProjectBuilder leaves
@@ -278,6 +472,36 @@ namespace FarmFuryArcade.EditorTools
             SaveManager.ResetAllProgressKeys();
             Debug.Log("[SceneCleanupBuilder] Cleared all level/world/character-unlock progress. " +
                       "Press Play — only Cluck and Bessie will be unlocked, and Level Select will start at Level 1.");
+        }
+
+        /// <summary>Grants 5000 test coins (SaveManager.DebugAddCoinsForTesting) — enough to trigger
+        /// the "Use Coins?" popup on any of the 11 cosmetics (all currently priced at 2500) without
+        /// grinding levels or touching real IAP at all. Safe in both Edit mode (writes straight to
+        /// the checksum-protected PlayerPrefs value, applied the next time Play mode loads) and
+        /// Play mode (adds to the live balance immediately, so the HUD's coin display updates
+        /// on the spot). Re-run any time more test coins are needed — it always adds, never
+        /// resets, so running it repeatedly just stacks up.</summary>
+        [MenuItem("Farm Fury Arcade/Debug/Add 5000 Test Coins")]
+        public static void AddTestCoins()
+        {
+            SaveManager.DebugAddCoinsForTesting(5000);
+            Debug.Log("[SceneCleanupBuilder] Added 5000 test coins. If already in Play mode, the " +
+                      "balance updates immediately; otherwise it takes effect next time Play starts.");
+        }
+
+        /// <summary>Marks all 3 purchase-gated worlds (FrostbiteGarden/GoldenSunset/HarvestMoon) as
+        /// owned via SaveManager.DebugSetWorldPurchasedForTesting, bypassing IAPManager/the App
+        /// Store entirely — lets their 75 levels be played/verified without a real purchase. Safe in
+        /// both Edit mode (takes effect next time Play starts) and Play mode (Level Select reflects
+        /// it the next time that screen opens/refreshes, since IsWorldUnlocked reads this live).</summary>
+        [MenuItem("Farm Fury Arcade/Debug/Unlock All Purchased Worlds (Testing)")]
+        public static void UnlockAllPurchasedWorldsForTesting()
+        {
+            SaveManager.DebugSetWorldPurchasedForTesting(MazeType.FrostbiteGarden);
+            SaveManager.DebugSetWorldPurchasedForTesting(MazeType.GoldenSunset);
+            SaveManager.DebugSetWorldPurchasedForTesting(MazeType.HarvestMoon);
+            Debug.Log("[SceneCleanupBuilder] Marked FrostbiteGarden/GoldenSunset/HarvestMoon as " +
+                      "purchased. Open Level Select (or re-enter it) to see all 3 worlds unlocked.");
         }
 
         /// <summary>Baseball caps are being pulled from active testing for now (re-test later once

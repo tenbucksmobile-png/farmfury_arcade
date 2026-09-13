@@ -154,6 +154,21 @@ namespace FarmFuryArcade.UI
 
             int world = _pendingWorldToOpen.Value;
             _pendingWorldToOpen = null;
+
+            // Real bug fix (2026-09-13): finishing the last free-world level (e.g. Wheatfield's
+            // gate level) queues the next world here — which can be a purchase-gated, unowned one
+            // (e.g. FrostbiteGarden). Unlike OnCarouselCenterTapped's own badge-tap path, this
+            // pending-target consumption used to call SelectWorld unconditionally, walking the
+            // player straight into that world's tile grid with every level correctly locked but no
+            // explanation why. Same check OnCarouselCenterTapped already uses, applied here too, so
+            // both entry points to "reveal a world" agree: an unpurchased purchase-gated world
+            // opens the purchase screen instead of a grid the player hasn't earned.
+            if (UnlockProgression.IsPurchaseGatedWorld(world) && !UnlockProgression.IsWorldUnlocked(world))
+            {
+                worldPurchaseScreen?.Show();
+                return;
+            }
+
             int localIndex = _shownWorlds.IndexOf(world);
             if (localIndex >= 0 && localIndex < _shieldObjects.Count)
             {

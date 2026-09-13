@@ -2755,7 +2755,101 @@ namespace FarmFuryArcade.EditorTools
             // CosmeticCardController design, which used it for the same "already owned/equipped"
             // purpose) - reused as-is rather than asking for a duplicate asset.
             so.FindProperty("ownedBadgeSprite").objectReferenceValue = LoadCosmeticsSprite("EquippedBadge_Icon.png");
+            // "Use Coins?" confirmation popup (2026-09-13) — only meaningful here (Hats/Trails),
+            // never on World Purchase (see IAPManager.CosmeticCoinCosts' own doc comment for why
+            // worlds stay real-money-only); CosmeticPurchaseScreen.HandleItemTapped only ever shows
+            // it for a product IAPManager.TryGetCoinCost recognizes, so wiring it here unconditionally
+            // is harmless for World Purchase's own instance too.
+            so.FindProperty("useCoinsPrompt").objectReferenceValue = BuildUseCoinsPrompt(root.transform);
+            so.FindProperty("purchaseCompleteBanner").objectReferenceValue = BuildPurchaseCompleteBanner(root.transform);
             so.ApplyModifiedPropertiesWithoutUndo();
+        }
+
+        /// <summary>"Purchase Complete!" banner (2026-09-13) — real commissioned art
+        /// (PurchaseComplete.png) shown briefly on a successful purchase (real-money or coins),
+        /// replacing the old plain statusText message for that one case specifically — see
+        /// CosmeticPurchaseScreen.ShowPurchaseCompleteBanner for the show/hold/fade timing. Built
+        /// as a CanvasGroup so that component can fade it by alpha alone; raycasts are switched off
+        /// so this purely decorative overlay can never block a tap on the item grid or close button
+        /// underneath it while it's showing. Reused by both the Hats/Trails screens (via this
+        /// shared helper) and World Purchase's own separate wiring block below, since both back
+        /// onto the same CosmeticPurchaseScreen component and the same success message.</summary>
+        private static CanvasGroup BuildPurchaseCompleteBanner(Transform screenRoot)
+        {
+            var sprite = LoadUiSprite("PurchaseComplete.png");
+            float aspect = sprite != null ? sprite.rect.width / sprite.rect.height : 440f / 231f;
+            const float width = 560f;
+            float height = width / aspect;
+
+            var go = new GameObject("PurchaseCompleteBanner", typeof(RectTransform), typeof(Image), typeof(CanvasGroup));
+            go.transform.SetParent(screenRoot, false);
+            var rect = (RectTransform)go.transform;
+            rect.anchorMin = rect.anchorMax = new Vector2(0.5f, 0.5f);
+            rect.sizeDelta = new Vector2(width, height);
+            rect.anchoredPosition = Vector2.zero;
+            var image = go.GetComponent<Image>();
+            image.sprite = sprite;
+            image.preserveAspect = true;
+
+            var group = go.GetComponent<CanvasGroup>();
+            group.alpha = 0f;
+            group.interactable = false;
+            group.blocksRaycasts = false;
+            go.SetActive(false);
+
+            return group;
+        }
+
+        /// <summary>"Use Coins?" confirmation modal (2026-09-13) — real commissioned art
+        /// (UseCoins.png, a wood-sign banner with a character + coin icon baked in; a fixed
+        /// "x 2500" is baked into the art too, matching every current cosmetic's uniform coin
+        /// price) with Yes.png/No.png answer buttons underneath, reusing the exact same art the
+        /// Revive prompt already uses for its own Yes/No pair. Built as a child of the purchase
+        /// screen's own root so UseCoinsPromptController.Show()'s SetAsLastSibling() draws it above
+        /// that screen's item grid with no cross-screen sibling-order coordination needed — same
+        /// "layers on top, never hidden" convention ChooseCharacterScreen uses over Pause. Sized and
+        /// positioned as a first-pass estimate (no visual Editor access this session) — expect to
+        /// nudge once actually seen in Play mode.</summary>
+        private static UseCoinsPromptController BuildUseCoinsPrompt(Transform screenRoot)
+        {
+            var root = CreatePanel("UseCoinsPromptOverlay", screenRoot, new Color(0f, 0f, 0f, 0.6f));
+            root.SetActive(false);
+
+            var signSprite = LoadUiSprite("UseCoins.png");
+            float signAspect = signSprite != null ? signSprite.rect.width / signSprite.rect.height : 538f / 219f;
+            const float signWidth = 700f;
+            float signHeight = signWidth / signAspect;
+
+            var signGO = new GameObject("Sign", typeof(RectTransform), typeof(Image));
+            signGO.transform.SetParent(root.transform, false);
+            var signRect = (RectTransform)signGO.transform;
+            signRect.anchorMin = signRect.anchorMax = new Vector2(0.5f, 0.5f);
+            signRect.sizeDelta = new Vector2(signWidth, signHeight);
+            signRect.anchoredPosition = new Vector2(0f, 80f);
+            var signImage = signGO.GetComponent<Image>();
+            signImage.sprite = signSprite;
+            signImage.preserveAspect = true;
+
+            const float buttonWidth = 220f;
+            const float buttonGap = 40f;
+            float buttonHeight = buttonWidth / (512f / 214f); // Yes.png/No.png's own real aspect
+            float buttonCenterY = signRect.anchoredPosition.y - signHeight * 0.5f - 30f - buttonHeight * 0.5f;
+
+            var yesButton = CreateIconButton("YesButton", root.transform, LoadUiSprite("Yes.png"), buttonWidth);
+            var yesRect = (RectTransform)yesButton.transform;
+            yesRect.anchorMin = yesRect.anchorMax = new Vector2(0.5f, 0.5f);
+            yesRect.sizeDelta = new Vector2(buttonWidth, buttonHeight);
+            yesRect.anchoredPosition = new Vector2(-(buttonWidth + buttonGap) * 0.5f, buttonCenterY);
+
+            var noButton = CreateIconButton("NoButton", root.transform, LoadUiSprite("No.png"), buttonWidth);
+            var noRect = (RectTransform)noButton.transform;
+            noRect.anchorMin = noRect.anchorMax = new Vector2(0.5f, 0.5f);
+            noRect.sizeDelta = new Vector2(buttonWidth, buttonHeight);
+            noRect.anchoredPosition = new Vector2((buttonWidth + buttonGap) * 0.5f, buttonCenterY);
+
+            var controller = root.AddComponent<UseCoinsPromptController>();
+            SetRefs(controller, ("yesButton", yesButton), ("noButton", noButton));
+            return controller;
         }
 
 
@@ -3044,6 +3138,7 @@ namespace FarmFuryArcade.EditorTools
             // CosmeticCardController design, which used it for the same "already owned/equipped"
             // purpose) — reused as-is rather than asking for a duplicate asset.
             so.FindProperty("ownedBadgeSprite").objectReferenceValue = LoadCosmeticsSprite("EquippedBadge_Icon.png");
+            so.FindProperty("purchaseCompleteBanner").objectReferenceValue = BuildPurchaseCompleteBanner(root.transform);
             so.ApplyModifiedPropertiesWithoutUndo();
 
             return root;
@@ -3488,14 +3583,18 @@ namespace FarmFuryArcade.EditorTools
             "DuckyThumbsUp.png", "HoraceThumbsUp.png", "GeraldThumbsUp.png", "BillyThumbsUp.png",
         };
 
-        /// <summary>Leaderboards world-select collage (2026-09-12 redesign) - replaces the old flat
-        /// "HighScore + a single plaque number" screen with all 7 world banners scattered over the
-        /// dimmed FarmFury backdrop, per a new mockup. Positions are randomized ONCE with a fixed
-        /// seed (rejection-sampling: retry on any AABB overlap against an already-placed banner,
-        /// with a padding buffer) rather than reshuffled on every open - re-running Build All always
-        /// reproduces the exact same collage. Locked-state tinting happens live at runtime instead
-        /// (LeaderboardsScreen.RefreshWorldTints), since a world's unlock state can change mid-
-        /// session. See BuildWorldLeaderboardDetailScreen for the page a tapped unlocked world
+        /// <summary>Leaderboards world-select collage (2026-09-12 redesign, re-laid-out 2026-09-13
+        /// after a random-scatter approach produced overlapping banners on a real screenshot) -
+        /// all 7 world banners spread over the dimmed FarmFury backdrop, per a new mockup. Positions
+        /// are now a deterministic 4-then-3 grid (4 columns in the top row, 3 in the bottom row,
+        /// each banner fit to its own cell preserving its real aspect ratio) rather than randomized
+        /// rejection-sampling - a grid makes "no overlap" a structural guarantee instead of
+        /// something that can silently fail and fall through to an overlap-blind fallback (which is
+        /// exactly what produced the earlier broken layout: several banners had ballooned past what
+        /// the random placer could fit, so most attempts failed and it fell back to a grid that
+        /// never accounted for the oversized boxes). Locked-state tinting happens live at runtime
+        /// instead (LeaderboardsScreen.RefreshWorldTints), since a world's unlock state can change
+        /// mid-session. See BuildWorldLeaderboardDetailScreen for the page a tapped unlocked world
         /// opens.</summary>
         private static GameObject BuildLeaderboards(Transform canvasTransform)
         {
@@ -3510,72 +3609,59 @@ namespace FarmFuryArcade.EditorTools
                 worldBannerSprites[i] = LoadUiSprite(WorldBannerFiles[i]);
             }
 
-            // Enlarged 190 -> 260 (2026-09-12, per direct screenshot feedback the collage read as
-            // tiny and clustered in a narrow band) and the safe zone widened to use nearly the
-            // whole screen instead of a small central strip - "fills the screen nicely," per that
-            // same feedback. The bottom-right close button's own footprint is pre-registered as an
-            // obstacle below so the wider zone can't place a banner on top of it.
-            const float bannerTargetHeight = 260f;
+            // Safe zone (centre-anchored coordinates: 0,0 is screen centre here, since each banner
+            // below is anchored at (0.5,0.5) - unlike AnchorTopLeft's screen-corner convention used
+            // elsewhere on this same screen's detail page). Kept clear of the header above
+            // (safeTop) and the bottom-right close button below (safeBottom, plus row 1's own
+            // reduced right edge - see closeButtonLeftEdge below).
             const float safeLeft = -900f, safeRight = 900f;
-            const float safeTop = 170f, safeBottom = -480f;
-            const float overlapPadding = 24f;
-            var rng = new System.Random(20260912);
-            var placedRects = new List<Rect>();
-            var worldButtons = new Button[WorldBannerFiles.Length];
+            const float safeTop = 140f, safeBottom = -480f;
+            const float cellPadding = 24f; // shrinks each banner's box within its own cell, guaranteeing a visible gap to its neighbours
 
             // CreateRoundBackButton(bottomRight: true)'s own fixed geometry (160x160, offset
-            // (-150,70) from the bottom-right corner) - registered up front, before any banner is
-            // placed, so the wider safe zone below still can't overlap it.
-            const float closeButtonSize = 160f;
-            const float closeButtonRight = 960f - 150f;
-            const float closeButtonTop = -540f + 70f + closeButtonSize;
-            placedRects.Add(new Rect(closeButtonRight - closeButtonSize - overlapPadding, closeButtonTop - closeButtonSize - overlapPadding,
-                closeButtonSize + overlapPadding * 2f, closeButtonSize + overlapPadding * 2f));
+            // (-150,70) from the bottom-right corner, in a 1920-wide/1080-tall reference canvas
+            // centred at 0,0 -> right edge at 960, bottom edge at -540) - row 1 (which shares its Y
+            // range with the close button) stops short of it on the right.
+            const float closeButtonLeftEdge = 960f - 150f - 160f - cellPadding; // 626
+
+            var worldButtons = new Button[WorldBannerFiles.Length];
+
+            // Row 0: 4 columns spanning the full safe width. Row 1: 3 columns spanning safeLeft to
+            // closeButtonLeftEdge only, so it can never reach under the close button regardless of
+            // aspect ratio.
+            float row0CellWidth = (safeRight - safeLeft) / 4f;
+            float row1Right = closeButtonLeftEdge;
+            float row1CellWidth = (row1Right - safeLeft) / 3f;
+            float rowHeight = (safeTop - safeBottom) / 2f;
+            float row0CenterY = safeTop - rowHeight * 0.5f;
+            float row1CenterY = safeTop - rowHeight * 1.5f;
 
             for (int world = 0; world < WorldBannerFiles.Length; world++)
             {
                 var sprite = worldBannerSprites[world];
                 float aspect = sprite != null ? sprite.rect.width / sprite.rect.height : 2f;
-                float height = bannerTargetHeight;
-                float width = height * aspect;
 
-                Vector2 topLeft = Vector2.zero;
-                bool placed = false;
-                for (int attempt = 0; attempt < 500 && !placed; attempt++)
-                {
-                    float x = Mathf.Lerp(safeLeft, safeRight - width, (float)rng.NextDouble());
-                    float y = Mathf.Lerp(safeBottom + height, safeTop, (float)rng.NextDouble());
-                    var candidate = new Rect(x - overlapPadding, y - height - overlapPadding,
-                        width + overlapPadding * 2f, height + overlapPadding * 2f);
-                    bool overlaps = false;
-                    foreach (var existing in placedRects)
-                    {
-                        if (candidate.Overlaps(existing))
-                        {
-                            overlaps = true;
-                            break;
-                        }
-                    }
-                    if (!overlaps)
-                    {
-                        topLeft = new Vector2(x, y);
-                        placedRects.Add(candidate);
-                        placed = true;
-                    }
-                }
-                if (!placed)
-                {
-                    // Extremely unlikely given the safe-zone size vs. 7 banners at this size, but
-                    // falls back to a deterministic grid slot rather than leaving one unplaced.
-                    topLeft = new Vector2(safeLeft + (world % 4) * 450f, safeTop - (world / 4) * 290f);
-                }
+                bool isRow0 = world < 4;
+                int column = isRow0 ? world : world - 4;
+                float cellWidth = isRow0 ? row0CellWidth : row1CellWidth;
+                float cellLeft = safeLeft + column * cellWidth;
+                float centerX = cellLeft + cellWidth * 0.5f;
+                float centerY = isRow0 ? row0CenterY : row1CenterY;
+
+                // Fit the banner's own real aspect ratio inside its cell (minus padding) without
+                // ever exceeding either dimension - whichever axis is the tighter constraint wins,
+                // same "fit inside the box, preserve aspect" rule Image.preserveAspect itself uses.
+                float maxWidth = cellWidth - cellPadding * 2f;
+                float maxHeight = rowHeight - cellPadding * 2f;
+                float height = Mathf.Min(maxHeight, maxWidth / aspect);
+                float width = height * aspect;
 
                 var button = CreateIconButton($"WorldBanner{world}", root.transform, sprite, width);
                 var rect = (RectTransform)button.transform;
                 rect.anchorMin = rect.anchorMax = new Vector2(0.5f, 0.5f);
-                rect.pivot = new Vector2(0f, 1f); // top-left pivot matches the topLeft placement math above
+                rect.pivot = new Vector2(0.5f, 0.5f);
                 rect.sizeDelta = new Vector2(width, height);
-                rect.anchoredPosition = topLeft;
+                rect.anchoredPosition = new Vector2(centerX, centerY);
                 worldButtons[world] = button;
             }
 
@@ -3614,59 +3700,76 @@ namespace FarmFuryArcade.EditorTools
             ApplyDimmedLandingBackground(root);
             root.SetActive(false);
 
-            var headerGO = new GameObject("HeaderImage", typeof(RectTransform), typeof(Image));
-            headerGO.transform.SetParent(root.transform, false);
-            var headerImage = headerGO.GetComponent<Image>();
-            headerImage.preserveAspect = true;
-            AnchorTopCenter((RectTransform)headerGO.transform, new Vector2(320f, 320f), new Vector2(0f, -30f));
+            // 2026-09-13: header resized to match the main Leaderboards page's own header
+            // (CreateHeaderSign / StandardHeaderSignSize+Offset, 550x310 at (0,-55)) instead of a
+            // bespoke 320x320 box — the small box rendered the per-world banner's own lettering
+            // tiny and left it visibly overlapping the dimmed backdrop's baked-in "ARCADE" text
+            // behind it (per direct screenshot feedback). The standard header size is large/opaque
+            // enough to cover that same area the way every other screen's header already does.
+            var headerImage = CreateHeaderSign(root.transform, null);
 
-            // BestFarmFury - label on the left, the winning character's own ThumbsUp portrait
-            // directly to its right, both in one row near the top of the left column.
-            //
-            // Real bug found and fixed (2026-09-12, per direct screenshot feedback: "your spacing
-            // is completely out to the mock"). Every row below used to be positioned via
-            // `rowStartY + rowSpacing * i` - since rowStartY was already negative (AnchorTopLeft's
-            // convention: more negative = further DOWN the screen) and this ADDED an increasingly
-            // large positive amount per row, each successive row moved further UP the screen
-            // instead of further down, stacking all 6 rows into a single ~400-unit band and
-            // rendering them in reverse order (stars at the top, HighScore/FastestTime below them,
-            // overlapping BestFarmFury). Fixed by subtracting instead, and by deriving every row's
-            // Y position from the previous element's own real bottom edge (not a flat guessed
-            // constant), so spacing is verified rather than eyeballed.
-            const float bestRowTop = -380f;
-            const float bestRowHeight = 130f;
+            // Whole stat block is centred as one unit (per direct feedback: "must be middle
+            // aligned"), not pinned to the left screen edge — every row shares the same left
+            // starting X (blockLeftX), computed from the widest row's own width so labels/plaques
+            // stay column-aligned with each other while the block as a whole sits centred.
+            // Row/gap sizes were also tightened (bestRowHeight 130->100, rowHeight 80->64, rowGap
+            // 30->16) for a denser, less padded feel, per the same feedback.
+            const float bestRowHeight = 100f;
+            const float rowHeight = 64f;
+            const float rowGap = 16f;
+            const float labelWidth = 280f;
+            const float plaqueWidth = 220f;
+            const float innerGap = 40f;
+            const float statRowWidth = labelWidth + innerGap + plaqueWidth; // 540
+            const float bestRowWidth = 320f + innerGap + bestRowHeight; // label + gap + char portrait
+            float blockWidth = Mathf.Max(statRowWidth, bestRowWidth);
+            // 2026-09-13 real bug fix, verified against the actual code (not guessed): AnchorTopLeft
+            // anchors at the screen's TOP-LEFT CORNER (anchorMin/Max=(0,1)), so its offset.x is
+            // measured from the screen's own left edge (0..CanvasReferenceWidth in this 1920-wide
+            // reference canvas), never from centre — a negative offset.x (the previous
+            // "-blockWidth*0.5f") pushed the whole block off the left edge of the screen entirely,
+            // which is exactly the hard-clipped-at-the-left-edge bug seen in a direct screenshot.
+            // Centering under AnchorTopLeft's own coordinate space requires
+            // (CanvasReferenceWidth - blockWidth) / 2, not a bare negative half-width.
+            const float canvasReferenceWidth = 1920f;
+            float blockLeftX = (canvasReferenceWidth - blockWidth) * 0.5f;
+
+            // Header bottom edge (StandardHeaderSignOffset.y - StandardHeaderSignSize.y = -55-310 =
+            // -365) plus a tightened gap to the first row, replacing the old fixed -380 guess that
+            // assumed the old smaller header box.
+            const float headerToBlockGap = 20f;
+            float bestRowTop = (StandardHeaderSignOffset.y - StandardHeaderSignSize.y) - headerToBlockGap;
 
             var bestLabelGO = new GameObject("BestFarmFuryLabel", typeof(RectTransform), typeof(Image));
             bestLabelGO.transform.SetParent(root.transform, false);
             var bestLabelImage = bestLabelGO.GetComponent<Image>();
             bestLabelImage.sprite = LoadUiSprite("Best.png");
             bestLabelImage.preserveAspect = true;
-            AnchorTopLeft((RectTransform)bestLabelGO.transform, new Vector2(320f, 60f), new Vector2(110f, bestRowTop));
+            AnchorTopLeft((RectTransform)bestLabelGO.transform, new Vector2(320f, 60f), new Vector2(blockLeftX, bestRowTop));
 
             var bestCharGO = new GameObject("BestCharacterImage", typeof(RectTransform), typeof(Image));
             bestCharGO.transform.SetParent(root.transform, false);
             var bestCharImage = bestCharGO.GetComponent<Image>();
             bestCharImage.preserveAspect = true;
-            AnchorTopLeft((RectTransform)bestCharGO.transform, new Vector2(bestRowHeight, bestRowHeight), new Vector2(470f, bestRowTop + 10f));
+            AnchorTopLeft((RectTransform)bestCharGO.transform, new Vector2(bestRowHeight, bestRowHeight),
+                new Vector2(blockLeftX + 320f + innerGap, bestRowTop + 10f));
 
             // 5 stacked stat rows below BestFarmFury - HighScore/FastestTime each with a text
             // label, the 3 star rows with a small row of star icons instead of text (matching the
             // mockup's own real star-icon rows rather than a "1 Star"/"2 Stars" text label). Each
             // row's top is the previous row's bottom edge minus a fixed gap, so rows can never
             // overlap regardless of how many of these constants get tuned later.
-            const float rowGap = 30f;
-            const float rowHeight = 80f;
             float row0Top = bestRowTop - bestRowHeight - rowGap;
             float row1Top = row0Top - rowHeight - rowGap;
             float row2Top = row1Top - rowHeight - rowGap;
             float row3Top = row2Top - rowHeight - rowGap;
             float row4Top = row3Top - rowHeight - rowGap;
 
-            var highScoreText = BuildLeaderboardStatRow(root.transform, LoadUiSprite("HighScore.png"), row0Top);
-            var fastestTimeText = BuildLeaderboardStatRow(root.transform, LoadUiSprite("FastestTime.png"), row1Top);
-            var oneStarText = BuildLeaderboardStarRow(root.transform, 1, row2Top);
-            var twoStarText = BuildLeaderboardStarRow(root.transform, 2, row3Top);
-            var threeStarText = BuildLeaderboardStarRow(root.transform, 3, row4Top);
+            var highScoreText = BuildLeaderboardStatRow(root.transform, LoadUiSprite("HighScore.png"), blockLeftX, row0Top);
+            var fastestTimeText = BuildLeaderboardStatRow(root.transform, LoadUiSprite("FastestTime.png"), blockLeftX, row1Top);
+            var oneStarText = BuildLeaderboardStarRow(root.transform, 1, blockLeftX, row2Top);
+            var twoStarText = BuildLeaderboardStarRow(root.transform, 2, blockLeftX, row3Top);
+            var threeStarText = BuildLeaderboardStarRow(root.transform, 3, blockLeftX, row4Top);
 
             var closeButton = CreateRoundBackButton(root.transform, bottomRight: true);
             closeButton.GetComponent<Image>().sprite = LoadUiSprite("Btn_back.png");
@@ -3700,13 +3803,15 @@ namespace FarmFuryArcade.EditorTools
             return detail;
         }
 
-        /// <summary>One label-icon + value-plaque row, left-anchored, for WorldLeaderboardDetailScreen.
+        /// <summary>One label-icon + value-plaque row for WorldLeaderboardDetailScreen, left edge at
+        /// leftX (the caller centres the whole stat block by passing the same leftX to every row).
         /// Returns the plaque's TextMeshProUGUI so the caller can wire it into the component.</summary>
-        private static TextMeshProUGUI BuildLeaderboardStatRow(Transform parent, Sprite labelSprite, float topOffsetY)
+        private static TextMeshProUGUI BuildLeaderboardStatRow(Transform parent, Sprite labelSprite, float leftX, float topOffsetY)
         {
-            const float rowHeight = 80f;
+            const float rowHeight = 64f;
             const float labelWidth = 280f;
             const float plaqueWidth = 220f;
+            const float innerGap = 40f;
             var plaqueBorder = new Vector4(90f, 70f, 90f, 70f);
 
             var labelGO = new GameObject("StatLabel", typeof(RectTransform), typeof(Image));
@@ -3714,21 +3819,22 @@ namespace FarmFuryArcade.EditorTools
             var labelImage = labelGO.GetComponent<Image>();
             labelImage.sprite = labelSprite;
             labelImage.preserveAspect = true;
-            AnchorTopLeft((RectTransform)labelGO.transform, new Vector2(labelWidth, rowHeight), new Vector2(110f, topOffsetY));
+            AnchorTopLeft((RectTransform)labelGO.transform, new Vector2(labelWidth, rowHeight), new Vector2(leftX, topOffsetY));
 
-            return BuildLeaderboardPlaque(parent, 110f + labelWidth + 40f, topOffsetY, plaqueWidth, rowHeight, plaqueBorder);
+            return BuildLeaderboardPlaque(parent, leftX + labelWidth + innerGap, topOffsetY, plaqueWidth, rowHeight, plaqueBorder);
         }
 
         /// <summary>Same row shape as BuildLeaderboardStatRow, but the "label" is N small star
         /// icons in a row instead of a word-art banner - matches the mockup's own real star-icon
         /// rows for the 1/2/3-star-count stats.</summary>
-        private static TextMeshProUGUI BuildLeaderboardStarRow(Transform parent, int starCount, float topOffsetY)
+        private static TextMeshProUGUI BuildLeaderboardStarRow(Transform parent, int starCount, float leftX, float topOffsetY)
         {
-            const float rowHeight = 80f;
-            const float starSize = 56f;
+            const float rowHeight = 64f;
+            const float starSize = 48f;
             const float starSpacing = 8f;
             const float labelWidth = 280f;
             const float plaqueWidth = 220f;
+            const float innerGap = 40f;
             var plaqueBorder = new Vector4(90f, 70f, 90f, 70f);
 
             var starSprite = LoadUiSprite("ScoreStar.png");
@@ -3740,10 +3846,10 @@ namespace FarmFuryArcade.EditorTools
                 starImage.sprite = starSprite;
                 starImage.preserveAspect = true;
                 AnchorTopLeft((RectTransform)starGO.transform, new Vector2(starSize, starSize),
-                    new Vector2(110f + i * (starSize + starSpacing), topOffsetY - (rowHeight - starSize) * 0.5f));
+                    new Vector2(leftX + i * (starSize + starSpacing), topOffsetY - (rowHeight - starSize) * 0.5f));
             }
 
-            return BuildLeaderboardPlaque(parent, 110f + labelWidth + 40f, topOffsetY, plaqueWidth, rowHeight, plaqueBorder);
+            return BuildLeaderboardPlaque(parent, leftX + labelWidth + innerGap, topOffsetY, plaqueWidth, rowHeight, plaqueBorder);
         }
 
         /// <summary>Shared Btn_plaque.png + centred TextMeshProUGUI value, same Sliced+border

@@ -96,6 +96,39 @@ namespace FarmFuryArcade.Core
             TrailConfettiProductId, TrailBubblesProductId,
         };
 
+        /// <summary>Coin-purchase price list (2026-09-13) for the 11 cosmetics — deliberately does
+        /// NOT include RemoveAds, the 4 coin packs themselves, or the 3 World Purchase products.
+        /// Worlds stay real-money-only (new content, the highest-value SKU — not worth the
+        /// cannibalization risk); cosmetics are the safer thing to expose to a coin economy.
+        ///
+        /// 2500 coins was picked, not guessed, against the actual coin-pack economics: the best
+        /// per-coin rate any pack offers is the 15000-coin pack at $19.99 (~$0.00133/coin). At that
+        /// rate 2500 coins is worth ~$3.33 — MORE than this $1.99 IAP price — so a player buying
+        /// coins purely to afford a cosmetic always pays more than just buying it directly; there is
+        /// no arbitrage. Coins earned for free through gameplay (10 + stars*5 per level) still reach
+        /// this over time, so it's a real (if slow) free path, not a shortcut for a whale to skip
+        /// paying — buying every cosmetic this way needs ~27,500 coins (~2x the biggest pack, worth
+        /// more than buying all 11 directly at $1.99 each).</summary>
+        private static readonly Dictionary<string, int> CosmeticCoinCosts = new Dictionary<string, int>
+        {
+            { HatBaseballCapProductId, 2500 },
+            { HatCowboyHatProductId, 2500 },
+            { HatSombreroProductId, 2500 },
+            { HatChefHatProductId, 2500 },
+            { HatCrownProductId, 2500 },
+            { TrailCornHuskProductId, 2500 },
+            { TrailEmberProductId, 2500 },
+            { TrailSparkleDustProductId, 2500 },
+            { TrailRainbowRibbonProductId, 2500 },
+            { TrailConfettiProductId, 2500 },
+            { TrailBubblesProductId, 2500 },
+        };
+
+        /// <summary>Static price data, not instance state — CosmeticPurchaseScreen can check whether
+        /// a product has a coin-purchase alternative (and its cost) with no live IAPManager.Instance
+        /// required, same reasoning FallbackPrices exists for real-money prices.</summary>
+        public static bool TryGetCoinCost(string productId, out int coinCost) => CosmeticCoinCosts.TryGetValue(productId, out coinCost);
+
 
         /// <summary>Fallback price strings shown before the store connection resolves real
         /// localized prices (or if it never does, e.g. no store configured yet during
@@ -327,7 +360,36 @@ namespace FarmFuryArcade.Core
                     SaveManager.Instance.SaveProgress();
                 }
             }
-            else if (productId == HatBaseballCapProductId)
+            else if (productId == WorldFrostbiteGardenProductId)
+            {
+                GrantWorldPurchase(MazeType.FrostbiteGarden);
+            }
+            else if (productId == WorldGoldenSunsetProductId)
+            {
+                GrantWorldPurchase(MazeType.GoldenSunset);
+            }
+            else if (productId == WorldHarvestMoonProductId)
+            {
+                GrantWorldPurchase(MazeType.HarvestMoon);
+            }
+            else if (!GrantCosmeticEffect(productId))
+            {
+                Debug.LogWarning($"[IAPManager] Unrecognized product id in pending order: {productId}");
+            }
+
+            _storeController.ConfirmPurchase(order);
+            OnPurchaseSucceeded?.Invoke(productId);
+        }
+
+        /// <summary>The hat/trail grant branches shared between a real-money purchase
+        /// (HandlePurchasePendingInner above) and a coin purchase (PurchaseProductWithCoins below) —
+        /// extracted so both paths grant identically instead of duplicating the switch. Returns
+        /// false for a productId this doesn't recognize (RemoveAds/coin packs/worlds are handled by
+        /// their own callers, not this method, and are never coin-purchasable — see
+        /// CosmeticCoinCosts' own doc comment).</summary>
+        private bool GrantCosmeticEffect(string productId)
+        {
+            if (productId == HatBaseballCapProductId)
             {
                 GrantBaseballCapSet();
             }
@@ -351,25 +413,42 @@ namespace FarmFuryArcade.Core
             {
                 GrantAndEquipTrail(productId);
             }
-            else if (productId == WorldFrostbiteGardenProductId)
-            {
-                GrantWorldPurchase(MazeType.FrostbiteGarden);
-            }
-            else if (productId == WorldGoldenSunsetProductId)
-            {
-                GrantWorldPurchase(MazeType.GoldenSunset);
-            }
-            else if (productId == WorldHarvestMoonProductId)
-            {
-                GrantWorldPurchase(MazeType.HarvestMoon);
-            }
             else
             {
-                Debug.LogWarning($"[IAPManager] Unrecognized product id in pending order: {productId}");
+                return false;
+            }
+            return true;
+        }
+
+        /// <summary>Coin-purchase alternative to PurchaseProduct — only for the cosmetics listed in
+        /// CosmeticCoinCosts (never RemoveAds/coin packs/worlds). Spends coins up front via
+        /// SaveManager.SpendCoins (which already refuses an unaffordable spend) and only grants the
+        /// cosmetic if that succeeds, so a failed/insufficient-balance attempt can never charge
+        /// without delivering. Fires the same OnPurchaseSucceeded event a real IAP purchase does, so
+        /// CosmeticPurchaseScreen's existing owned-badge refresh needs no separate code path for
+        /// this.</summary>
+        public bool PurchaseProductWithCoins(string productId)
+        {
+            if (!TryGetCoinCost(productId, out int cost))
+            {
+                return false;
+            }
+            if (SaveManager.Instance == null || !SaveManager.Instance.SpendCoins(cost))
+            {
+                return false;
             }
 
-            _storeController.ConfirmPurchase(order);
+            if (!GrantCosmeticEffect(productId))
+            {
+                // Shouldn't happen — CosmeticCoinCosts only ever lists real cosmetic product ids —
+                // but refund rather than silently eat the player's coins for nothing.
+                SaveManager.Instance.AddCoins(cost);
+                return false;
+            }
+
+            SaveManager.Instance.SaveProgress();
             OnPurchaseSucceeded?.Invoke(productId);
+            return true;
         }
 
         /// <summary>Baseball Cap is bought once as a whole style, not per character — grants

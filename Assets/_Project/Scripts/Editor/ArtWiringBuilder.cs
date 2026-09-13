@@ -8,6 +8,7 @@ using FarmFuryArcade.Abilities;
 using FarmFuryArcade.Core;
 using FarmFuryArcade.Data;
 using FarmFuryArcade.Enemies;
+using FarmFuryArcade.Gameplay;
 using FarmFuryArcade.UI;
 using FarmFuryArcade.Utilities;
 
@@ -415,9 +416,13 @@ namespace FarmFuryArcade.EditorTools
 
         // ---- World Purchase: FrostbiteGarden (5th world, $3.99 IAP — see IAPManager.
         // WorldFrostbiteGardenProductId / UnlockProgression.IsPurchaseGatedWorld) --------------------
-        // Note the "ForstbiteGarden" (missing 'r') spelling on the wall-tile file only — the
-        // Backdrop/Floortile files for the same drop are spelled "FrostbiteGarden" correctly.
-        private const string FrostbiteGardenWallTile = "Assets/_Project/Sprites/Cosmetics/CosmeticType_MazeTheme/ForstbiteGarden_Walltile.png";
+        // 2026-09-13: wall/floor art swapped and the wall-tile's old "ForstbiteGarden" (missing 'r')
+        // typo'd filename retired — direct screenshot feedback found wall and floor read as
+        // visually identical (both were dense vegetable-bed art with little contrast). The old
+        // floor art (carrot/cabbage/tomato bed, busy/dense) is now the WALL tile — reads as
+        // "blocked" — and a new plain dirt-path-with-snow-blobs tile (generated to brief: "no
+        // vegetation, snowfall blobs") is now the FLOOR tile, reading as clearly walkable.
+        private const string FrostbiteGardenWallTile = "Assets/_Project/Sprites/Cosmetics/CosmeticType_MazeTheme/FrostbiteGarden_Walltile.png";
         private const string FrostbiteGardenFloorTile = "Assets/_Project/Sprites/Cosmetics/CosmeticType_MazeTheme/FrostbiteGarden_Floortile.png";
         private const string FrostbiteGardenBackdropSprite = "Assets/_Project/Sprites/Cosmetics/CosmeticType_MazeTheme/FrostbiteGarden_Backdrop.png";
         private const string WallFrostbiteGardenPrefabPath = BlockPrefabFolder + "/Wall_FrostbiteGarden.prefab";
@@ -432,13 +437,24 @@ namespace FarmFuryArcade.EditorTools
         private const string WarpTunnelFrostbiteGardenPrefabPath = BlockPrefabFolder + "/WarpTunnel_FrostbiteGarden.prefab";
 
         private const string GoldenSunsetWallTile = "Assets/_Project/Sprites/Cosmetics/CosmeticType_MazeTheme/GoldenSunset_Walltile.png";
-        private const string GoldenSunsetFloorTile = "Assets/_Project/Sprites/Cosmetics/CosmeticType_MazeTheme/GoldenSunset_Floortile.png";
+        // 2026-09-13: replaced with a new, differently-named file (no underscore before
+        // "FloorTile", unlike the old GoldenSunset_Floortile.png) — new art dropped in for a
+        // clearer wall/floor contrast, same pass FrostbiteGarden's own floor art went through.
+        private const string GoldenSunsetFloorTile = "Assets/_Project/Sprites/Cosmetics/CosmeticType_MazeTheme/GoldenSunsetFloorTile.png";
         private const string GoldenSunsetBackdropSprite = "Assets/_Project/Sprites/Cosmetics/CosmeticType_MazeTheme/GoldenSunset_backdrop.png";
         private const string WallGoldenSunsetPrefabPath = BlockPrefabFolder + "/Wall_GoldenSunset.prefab";
         private const string GroundGoldenSunsetPrefabPath = BlockPrefabFolder + "/Ground_GoldenSunset.prefab";
         private const string GoldenSunsetWarpTile = "Assets/_Project/Sprites/Cosmetics/CosmeticType_MazeTheme/GS_WarpTile.png";
         private const string GoldenSunsetPellet = "Assets/_Project/Sprites/Cosmetics/CosmeticType_MazeTheme/GS_PowerPellet.png";
         private const string WarpTunnelGoldenSunsetPrefabPath = BlockPrefabFolder + "/WarpTunnel_GoldenSunset.prefab";
+        // 2026-09-13: dedicated regular-crop art for GoldenSunset (per direct instruction) — same
+        // "one shared sprite across both the kernel and vegetable roles" convention the free Wheat
+        // world already uses for MiniLoaf.png, since only one new sprite was supplied here too.
+        // Does NOT touch GoldenSunsetPellet above — that's the separate power/rare pellet, already
+        // has its own dedicated art, and wasn't flagged as needing a change.
+        private const string GoldenSunsetCropSprite = "Assets/_Project/Sprites/Environment/WheatKernel.png";
+        private const string CropKernelGoldenSunsetPrefabPath = BlockPrefabFolder + "/Crop_Kernel_GoldenSunset.prefab";
+        private const string CropVegetableGoldenSunsetPrefabPath = BlockPrefabFolder + "/Crop_Vegetable_GoldenSunset.prefab";
 
         private const string HarvestMoonWallTile = "Assets/_Project/Sprites/Cosmetics/CosmeticType_MazeTheme/HarvestMoon_Walltile.png";
         private const string HarvestMoonFloorTile = "Assets/_Project/Sprites/Cosmetics/CosmeticType_MazeTheme/HarvestMoon_Floortile.png";
@@ -554,7 +570,7 @@ namespace FarmFuryArcade.EditorTools
             OrchardWallTile, OrchardFloorTileSprite, OrchardBackgroundSprite, OrchardWarpTile, WheatWarpTile, RedApplePellet, CherryBonus,
             WheatWallTile, WheatFloorTileSprite, MiniLoafPellet, RareGrainSackBonus,
             FrostbiteGardenWallTile, FrostbiteGardenFloorTile, FrostbiteGardenBackdropSprite, FrostbiteGardenWarpTile, FrostbiteGardenPellet,
-            GoldenSunsetWallTile, GoldenSunsetFloorTile, GoldenSunsetBackdropSprite, GoldenSunsetWarpTile, GoldenSunsetPellet,
+            GoldenSunsetWallTile, GoldenSunsetFloorTile, GoldenSunsetBackdropSprite, GoldenSunsetWarpTile, GoldenSunsetPellet, GoldenSunsetCropSprite,
             HarvestMoonWallTile, HarvestMoonFloorTile, HarvestMoonBackdropSprite, HarvestMoonWarpTile, HarvestMoonPellet,
             FrozenGardenShield, GoldenSunsetShield, HarvestMoonShield,
             SelectLevelText, CornFieldText, VegetablePatchText, OrchardText, WheatfieldText, SettingsSignText,
@@ -1266,15 +1282,13 @@ namespace FarmFuryArcade.EditorTools
         /// <summary>World Purchase's FrostbiteGarden — real dedicated wall/ground/backdrop art
         /// (dropped in under Sprites/Cosmetics/CosmeticType_MazeTheme/, originally authored for a
         /// maze-reskin cosmetic idea that was tried and dropped in favor of this whole-new-world
-        /// purchase instead — see CosmeticsHubScreen's doc comment), but NO dedicated crop/
-        /// vegetable/pellet/warp-tunnel/bonus-pickup art yet. Per an explicit decision to pilot this
-        /// one world before authoring more art, those slots deliberately reuse CornField's own
-        /// prefabs by direct reference (same placeholder-until-dedicated-art convention every other
-        /// "not built yet" gap in this project uses) rather than left null — a null cropKernelPrefab/
-        /// cropVegetablePrefab would throw when RenderMaze tries to Instantiate it. Swap these to
-        /// FrostbiteGarden's own dedicated prefabs (built the same way Orchard/Wheat's
-        /// Crop_Kernel_Orchard etc. were) once that art exists — this method's shape won't need to
-        /// change, just which prefab each field points at.
+        /// purchase instead — see CosmeticsHubScreen's doc comment). No dedicated crop/vegetable
+        /// art of its own exists (or is needed) — per direct instruction (2026-09-13), its kernel/
+        /// vegetable crops reuse VegPatch's own carrot/cabbage prefabs directly (the same
+        /// carrot.png/cabbage.png this project already uses elsewhere, matching the exact reference
+        /// art requested), rather than CornField's corn kernel/cob art it fell back to before —
+        /// carrot/cabbage reads much more at home in a snowy vegetable garden than corn does. No
+        /// bonus-pickup art either, same placeholder-until-authored gap CornField/VegPatch share.
         ///
         /// Wall_FrostbiteGarden/Ground_FrostbiteGarden prefabs themselves are built as placeholder-
         /// colored prefabs in Phase2ProjectBuilder.BuildAll (same two-phase "build placeholder, then
@@ -1294,7 +1308,10 @@ namespace FarmFuryArcade.EditorTools
                 return;
             }
 
-            var cornField = tileMapRenderer.GetOrAddArtSet(MazeType.CornField);
+            // VegPatch's own Crop_Kernel_VegPatch/Crop_Vegetable_VegPatch prefabs already use
+            // carrot.png/cabbage.png respectively — reused by direct reference below rather than
+            // building FrostbiteGarden its own duplicate prefabs pointed at the same two sprites.
+            var vegPatch = tileMapRenderer.GetOrAddArtSet(MazeType.VegPatch);
 
             var frostbiteGarden = tileMapRenderer.GetOrAddArtSet(MazeType.FrostbiteGarden);
             frostbiteGarden.wallPrefab = AssetDatabase.LoadAssetAtPath<GameObject>(WallFrostbiteGardenPrefabPath);
@@ -1308,10 +1325,11 @@ namespace FarmFuryArcade.EditorTools
             // when set (see TileMapRenderer's pellet-tier docs) — set to the same dedicated sprite
             // so FrostbiteGarden's one pellet always shows its own art regardless of rolled tier.
             frostbiteGarden.rarePelletSprite = frostbiteGardenPellet;
-            // Still reused from CornField (placeholder until FrostbiteGarden gets its own dedicated
-            // crop/vegetable art — see this method's own doc comment):
-            frostbiteGarden.cropKernelPrefab = cornField.cropKernelPrefab;
-            frostbiteGarden.cropVegetablePrefab = cornField.cropVegetablePrefab;
+            // 2026-09-13: switched from CornField's corn kernel/cob reuse to VegPatch's carrot/
+            // cabbage reuse — per direct instruction, and carrot/cabbage simply reads more at home
+            // in a snowy vegetable garden than corn does.
+            frostbiteGarden.cropKernelPrefab = vegPatch.cropKernelPrefab;
+            frostbiteGarden.cropVegetablePrefab = vegPatch.cropVegetablePrefab;
 
             EditorUtility.SetDirty(tileMapRenderer);
             EditorSceneManager.SaveScene(EditorSceneManager.GetActiveScene());
@@ -1334,8 +1352,6 @@ namespace FarmFuryArcade.EditorTools
                 return;
             }
 
-            var cornField = tileMapRenderer.GetOrAddArtSet(MazeType.CornField);
-
             var goldenSunset = tileMapRenderer.GetOrAddArtSet(MazeType.GoldenSunset);
             goldenSunset.wallPrefab = AssetDatabase.LoadAssetAtPath<GameObject>(WallGoldenSunsetPrefabPath);
             goldenSunset.groundPrefab = AssetDatabase.LoadAssetAtPath<GameObject>(GroundGoldenSunsetPrefabPath);
@@ -1345,10 +1361,16 @@ namespace FarmFuryArcade.EditorTools
             var goldenSunsetPellet = Load(GoldenSunsetPellet);
             goldenSunset.pelletSprite = goldenSunsetPellet;
             goldenSunset.rarePelletSprite = goldenSunsetPellet;
-            // Still reused from CornField (placeholder until GoldenSunset gets its own dedicated
-            // crop/vegetable art):
-            goldenSunset.cropKernelPrefab = cornField.cropKernelPrefab;
-            goldenSunset.cropVegetablePrefab = cornField.cropVegetablePrefab;
+            // 2026-09-13: switched from CornField's corn kernel/cob reuse to a dedicated
+            // WheatKernel.png sprite (per direct instruction) — one shared sprite across both the
+            // kernel and vegetable roles, same convention the free Wheat world's own MiniLoaf.png
+            // already uses, since only one new crop sprite was supplied. Scale 0.7 matches Wheat's
+            // own crop prefab scale for the same single-shared-sprite-across-roles reason.
+            var goldenSunsetCropSprite = Load(GoldenSunsetCropSprite);
+            goldenSunset.cropKernelPrefab = GetOrCreateCropPrefab(
+                CropKernelGoldenSunsetPrefabPath, "Crop_Kernel_GoldenSunset", CropType.Corn, 10, goldenSunsetCropSprite, 0.7f);
+            goldenSunset.cropVegetablePrefab = GetOrCreateCropPrefab(
+                CropVegetableGoldenSunsetPrefabPath, "Crop_Vegetable_GoldenSunset", CropType.Vegetable, 50, goldenSunsetCropSprite, 0.7f);
 
             EditorUtility.SetDirty(tileMapRenderer);
             EditorSceneManager.SaveScene(EditorSceneManager.GetActiveScene());
@@ -1544,6 +1566,36 @@ namespace FarmFuryArcade.EditorTools
             }
             PrefabUtility.SaveAsPrefabAsset(contents, prefabPath);
             PrefabUtility.UnloadPrefabContents(contents);
+        }
+
+        /// <summary>Creates a dedicated per-world crop pickup prefab the first time this runs
+        /// (same CircleCollider2D/CropPickup shape Phase2ProjectBuilder.BuildCropPrefab already
+        /// uses for every other world's crop prefabs — kept self-contained here rather than adding
+        /// a call to that method, since running any part of Phase2ProjectBuilder.BuildAll again
+        /// would wipe every already-baked LevelData asset's robotSpawns back to empty), or just
+        /// updates the existing prefab's sprite via SetPrefabSprite on every later re-run — same
+        /// idempotent "safe to re-run" convention this whole file follows.</summary>
+        private static GameObject GetOrCreateCropPrefab(string path, string name, CropType cropType, int points, Sprite sprite, float scale)
+        {
+            if (File.Exists(path))
+            {
+                SetPrefabSprite(path, sprite);
+                return AssetDatabase.LoadAssetAtPath<GameObject>(path);
+            }
+
+            var go = new GameObject(name);
+            var sr = go.AddComponent<SpriteRenderer>();
+            sr.sprite = sprite;
+            go.transform.localScale = Vector3.one * scale * TileMapRenderer.CellSize;
+            var col = go.AddComponent<CircleCollider2D>();
+            col.isTrigger = true;
+            col.radius = 0.5f;
+            var pickup = go.AddComponent<CropPickup>();
+            pickup.cropType = cropType;
+            pickup.points = points;
+            var prefab = PrefabUtility.SaveAsPrefabAsset(go, path);
+            Object.DestroyImmediate(go);
+            return prefab;
         }
 
         private static void WireBackgrounds()
@@ -2360,6 +2412,12 @@ namespace FarmFuryArcade.EditorTools
         /// <summary>Sets the Unity Player Settings app icon (shown on iOS/Android home screens and
         /// in the Standalone build's .exe) directly from the uploaded 1024x1024 icon — this is a
         /// project-settings change, not a scene/prefab one, so it isn't gated behind ConfigureSpriteImporters.</summary>
+        /// <summary>Standalone entry point that only touches the app icon (Player Settings), not
+        /// the full WireAll pass — lets a batch-mode invocation re-apply a re-exported icon without
+        /// also re-running every scene/prefab wiring step in WireAll.</summary>
+        [MenuItem("Farm Fury Arcade/Wire App Icon Only")]
+        public static void WireAppIconOnly() => WireAppIcon();
+
         private static void WireAppIcon()
         {
             if (!File.Exists(AppIconImage))

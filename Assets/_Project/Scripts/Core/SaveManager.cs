@@ -241,6 +241,26 @@ namespace FarmFuryArcade.Core
             PlayerPrefs.Save();
         }
 
+        /// <summary>Testing-only helper (2026-09-13) so the coin-purchase flow — the "Use Coins?"
+        /// popup on CosmeticPurchaseScreen — can be tested without grinding ~150 levels for coins
+        /// or going anywhere near real IAP. Works whether called in Play mode (a live Instance
+        /// exists — routes through the normal AddCoins so the in-memory balance and UI update
+        /// immediately) or from an Edit-mode Editor tool with no Instance yet (writes the
+        /// checksum-protected PlayerPrefs value directly, the same way DebugForceEquipForTesting
+        /// writes cosmetic ownership — takes effect the next time Play mode loads and reads it).</summary>
+        public static void DebugAddCoinsForTesting(int amount)
+        {
+            if (Instance != null)
+            {
+                Instance.AddCoins(amount);
+                return;
+            }
+
+            int current = GetProtectedInt(CoinBalanceKey, 0);
+            SetProtectedInt(CoinBalanceKey, current + amount);
+            PlayerPrefs.Save();
+        }
+
         public int GetLevelStars(int levelIndex)
         {
             return PlayerPrefs.GetInt(LevelStarsKeyPrefix + levelIndex, 0);
@@ -535,6 +555,22 @@ namespace FarmFuryArcade.Core
 
         public void SetWorldPurchased(MazeType world)
         {
+            SetProtectedBool(WorldPurchasedKeyPrefix + world, true);
+            PlayerPrefs.Save();
+        }
+
+        /// <summary>Testing-only helper (2026-09-13), same Edit-mode/Play-mode-safe shape as
+        /// DebugAddCoinsForTesting — marks a purchase-gated world as owned directly, bypassing
+        /// IAPManager/the App Store entirely, so the 3 purchased worlds' levels can be played and
+        /// verified without a real purchase.</summary>
+        public static void DebugSetWorldPurchasedForTesting(MazeType world)
+        {
+            if (Instance != null)
+            {
+                Instance.SetWorldPurchased(world);
+                return;
+            }
+
             SetProtectedBool(WorldPurchasedKeyPrefix + world, true);
             PlayerPrefs.Save();
         }

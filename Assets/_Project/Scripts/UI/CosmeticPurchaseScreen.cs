@@ -1,4 +1,5 @@
 using System;
+using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
@@ -48,7 +49,44 @@ namespace FarmFuryArcade.UI
         /// one component covers every screen that reuses it (Cosmetics hub, World Purchase) with no
         /// per-call-site duplication.</summary>
         [SerializeField] private Sprite ownedBadgeSprite;
-        private readonly List<(string productId, Image badge)> _badges = new List<(string, Image)>();
+
+        private struct ItemState
+        {
+            public string productId;
+            public Button button;
+            public Image icon;
+            public Image badge;
+        }
+
+        private readonly List<ItemState> _itemStates = new List<ItemState>();
+
+        /// <summary>Dims an already-owned item's own icon so it visually matches its
+        /// non-interactable state (the green ownedBadgeSprite checkmark alone wasn't a strong
+        /// enough "don't bother tapping this" cue — see HandleItemTapped's own real-bug-fix doc
+        /// comment for the tap-side half of this).</summary>
+        private static readonly Color OwnedIconTint = new Color(0.55f, 0.55f, 0.55f, 1f);
+
+        /// <summary>"Purchase Complete!" banner (2026-09-13) — real commissioned art
+        /// (PurchaseComplete.png) replacing the old plain "Purchase complete!" statusText message
+        /// for a successful purchase (real-money or coins) specifically. statusText itself is
+        /// unchanged and still used for every other message (Processing/Not enough coins/Purchase
+        /// failed) — only the success case moved to this banner, per direct instruction. Shown at
+        /// full opacity, held for PurchaseCompleteHoldSeconds, then fades out over
+        /// PurchaseCompleteFadeSeconds — both real-time (WaitForSecondsRealtime/
+        /// Time.unscaledDeltaTime) so it behaves the same whether or not gameplay happens to be
+        /// paused/frozen elsewhere.</summary>
+        [SerializeField] private CanvasGroup purchaseCompleteBanner;
+        private const float PurchaseCompleteHoldSeconds = 4f;
+        private const float PurchaseCompleteFadeSeconds = 0.5f;
+        private Coroutine _purchaseCompleteRoutine;
+
+        /// <summary>"Use Coins?" confirmation modal (2026-09-13) — only for products
+        /// IAPManager.TryGetCoinCost recognizes (the 11 cosmetics; World Purchase's 3 products
+        /// deliberately have no coin-purchase alternative, so tapping one always goes straight to
+        /// the real-money flow below — see IAPManager.CosmeticCoinCosts' own doc comment for why).
+        /// Null-safe: a screen this hasn't been wired onto (shouldn't happen, but defensively) just
+        /// always falls through to the real-money flow.</summary>
+        [SerializeField] private UseCoinsPromptController useCoinsPrompt;
 
         /// <summary>Items shown on this screen with no real IAP product behind them yet (e.g. a
         /// purchasable world whose 25 levels haven't been built/verified out yet) — tapping shows
@@ -97,8 +135,14 @@ namespace FarmFuryArcade.UI
                     continue;
                 }
                 string productId = entry.productId;
-                entry.button.onClick.AddListener(() => HandlePurchaseTapped(productId));
-                _badges.Add((productId, BuildOwnedBadge(entry.button.transform)));
+                entry.button.onClick.AddListener(() => HandleItemTapped(productId));
+                _itemStates.Add(new ItemState
+                {
+                    productId = productId,
+                    button = entry.button,
+                    icon = entry.button.GetComponent<Image>(),
+                    badge = BuildOwnedBadge(entry.button.transform),
+                });
             }
         }
 
@@ -141,6 +185,16 @@ namespace FarmFuryArcade.UI
                 statusText.text = string.Empty;
             }
 
+            // Reset any in-progress banner from a previous visit — OnDisable already stops the
+            // coroutine automatically (Unity behaviour), but the banner's own GameObject/alpha
+            // could otherwise be left visible if the screen was closed mid-fade.
+            _purchaseCompleteRoutine = null;
+            if (purchaseCompleteBanner != null)
+            {
+                purchaseCompleteBanner.alpha = 0f;
+                purchaseCompleteBanner.gameObject.SetActive(false);
+            }
+
             RefreshOwnedBadges();
         }
 
@@ -158,13 +212,29 @@ namespace FarmFuryArcade.UI
                 return;
             }
 
-            foreach (var (productId, badge) in _badges)
+            foreach (var state in _itemStates)
             {
-                if (badge == null)
+                bool owned = IsProductOwned(state.productId);
+                if (state.badge != null)
                 {
-                    continue;
+                    state.badge.gameObject.SetActive(owned);
                 }
-                badge.gameObject.SetActive(IsProductOwned(productId));
+                // Real bug fix (2026-09-13): the button used to stay fully interactable/tappable
+                // after the item was already owned — the green badge was the only visual cue, and
+                // tapping it still ran the full purchase flow (coin popup or straight to real-money
+                // IAP), which for a NonConsumable is a harmless store-side no-op, but for the coin
+                // path would happily re-charge coins for something already owned. Disabling the
+                // button blocks both paths at the single shared tap entry point (HandleItemTapped
+                // never even runs once the Button itself refuses the tap), and the icon is dimmed
+                // to visually match that disabled state, not just rely on the badge alone.
+                if (state.button != null)
+                {
+                    state.button.interactable = !owned;
+                }
+                if (state.icon != null)
+                {
+                    state.icon.color = owned ? OwnedIconTint : Color.white;
+                }
             }
         }
 
@@ -224,10 +294,45 @@ namespace FarmFuryArcade.UI
             gameObject.SetActive(true);
         }
 
+        /// <summary>Single entry point for every item tap (2026-09-13 "Use Coins?" redesign,
+        /// replacing the earlier always-visible corner coin badge). Only if the item has a coin
+        /// price AND the player can actually afford it does this branch into the confirmation
+        /// popup — an unaffordable or coin-less item goes straight to the normal real-money flow,
+        /// same "never show a dead-end control" rule this project uses throughout (e.g.
+        /// RevivePromptController disables Revive rather than letting the tap fail after the
+        /// fact) — here that means never offering a choice the player can't actually take.</summary>
+        private void HandleItemTapped(string productId)
+        {
+            // Defense in depth alongside RefreshOwnedBadges' own button.interactable=false — an
+            // owned item should never be able to re-enter either purchase path, regardless of how
+            // the tap reached here.
+            if (IsProductOwned(productId))
+            {
+                return;
+            }
+
+            bool canAffordCoins = IAPManager.TryGetCoinCost(productId, out int coinCost) &&
+                SaveManager.Instance != null && SaveManager.Instance.CoinBalance >= coinCost;
+
+            if (canAffordCoins && useCoinsPrompt != null)
+            {
+                useCoinsPrompt.Show(
+                    onYes: () => BeginCoinPurchase(productId),
+                    onNo: () => HandlePurchaseTapped(productId));
+            }
+            else
+            {
+                HandlePurchaseTapped(productId);
+            }
+        }
+
         /// <summary>Audit findings F3.5/F4.4: this screen backs Hat/Trail purchase AND World
         /// Purchase (Phase5ProjectBuilder.BuildWorldPurchaseScreen reuses this same component), so
         /// gating it here closes the gap for all three at once. See ParentalGateController's own
-        /// doc comment.</summary>
+        /// doc comment. Coins spends (BeginCoinPurchase below) deliberately do NOT go through this
+        /// gate — same convention Revive/Skip-Cooldown's own coin spends already use elsewhere in
+        /// this project (the gate exists specifically for real-money surfaces), and here the "Use
+        /// Coins?" popup's own explicit Yes tap already serves as the confirmation step.</summary>
         private void HandlePurchaseTapped(string productId)
         {
             if (IAPManager.Instance == null)
@@ -258,12 +363,34 @@ namespace FarmFuryArcade.UI
             IAPManager.Instance.PurchaseProduct(productId);
         }
 
+        /// <summary>Coin-purchase path — reached only from the "Use Coins?" popup's own Yes button
+        /// (HandleItemTapped only offers that popup when the balance is already confirmed
+        /// sufficient), so no separate affordability check is needed here. PurchaseProductWithCoins
+        /// still refuses an unaffordable spend defensively (e.g. the balance changed elsewhere
+        /// between the tap and this call), so a failure just means "insufficient coins," never a
+        /// lost purchase.</summary>
+        private void BeginCoinPurchase(string productId)
+        {
+            if (IAPManager.Instance == null)
+            {
+                return;
+            }
+
+            bool success = IAPManager.Instance.PurchaseProductWithCoins(productId);
+            if (success)
+            {
+                ShowPurchaseCompleteBanner();
+                RefreshOwnedBadges();
+            }
+            else if (statusText != null)
+            {
+                statusText.text = "Not enough coins.";
+            }
+        }
+
         private void HandlePurchaseSucceeded(string productId)
         {
-            if (statusText != null)
-            {
-                statusText.text = "Purchase complete!";
-            }
+            ShowPurchaseCompleteBanner();
             RefreshOwnedBadges();
         }
 
@@ -273,6 +400,39 @@ namespace FarmFuryArcade.UI
             {
                 statusText.text = "Purchase failed.";
             }
+        }
+
+        private void ShowPurchaseCompleteBanner()
+        {
+            if (purchaseCompleteBanner == null)
+            {
+                return;
+            }
+            if (_purchaseCompleteRoutine != null)
+            {
+                StopCoroutine(_purchaseCompleteRoutine);
+            }
+            _purchaseCompleteRoutine = StartCoroutine(PurchaseCompleteRoutine());
+        }
+
+        private IEnumerator PurchaseCompleteRoutine()
+        {
+            purchaseCompleteBanner.gameObject.SetActive(true);
+            purchaseCompleteBanner.alpha = 1f;
+
+            yield return new WaitForSecondsRealtime(PurchaseCompleteHoldSeconds);
+
+            float elapsed = 0f;
+            while (elapsed < PurchaseCompleteFadeSeconds)
+            {
+                elapsed += Time.unscaledDeltaTime;
+                purchaseCompleteBanner.alpha = 1f - Mathf.Clamp01(elapsed / PurchaseCompleteFadeSeconds);
+                yield return null;
+            }
+
+            purchaseCompleteBanner.alpha = 0f;
+            purchaseCompleteBanner.gameObject.SetActive(false);
+            _purchaseCompleteRoutine = null;
         }
     }
 }

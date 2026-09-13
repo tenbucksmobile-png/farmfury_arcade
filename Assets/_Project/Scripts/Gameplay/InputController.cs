@@ -166,7 +166,7 @@ namespace FarmFuryArcade.Gameplay
                 // must not also be reinterpreted as a swipe — without this, dragging a thumb
                 // across the D-pad could raise both the button's own direction AND a conflicting
                 // swipe-derived direction from the same gesture.
-                _pointerDownOverUI = EventSystem.current != null && EventSystem.current.IsPointerOverGameObject();
+                _pointerDownOverUI = IsPointerOverUI();
             }
             else if (pointer.press.wasReleasedThisFrame && _isPressed)
             {
@@ -184,6 +184,29 @@ namespace FarmFuryArcade.Gameplay
                     SetSwipeDirection(DirectionUtils.FromSwipeVector(delta));
                 }
             }
+        }
+
+        /// <summary>EventSystem.IsPointerOverGameObject()'s parameterless overload always checks
+        /// pointer id -1 — Unity's convention for the mouse specifically. On a real touchscreen a
+        /// touch has its own distinct id (never -1), so calling it with no argument would silently
+        /// report false even when a touch genuinely started on a UI control (the D-pad, Pause,
+        /// etc.), letting a swipe fire from a gesture that should have been UI-only. Works fine in
+        /// Editor testing with a mouse (mouse really is id -1) but would misbehave identically on a
+        /// real device — resolve the real touch id when a touch is the active press instead.</summary>
+        private static bool IsPointerOverUI()
+        {
+            if (EventSystem.current == null)
+            {
+                return false;
+            }
+
+            if (Touchscreen.current != null && Touchscreen.current.primaryTouch.press.isPressed)
+            {
+                int touchId = Touchscreen.current.primaryTouch.touchId.ReadValue();
+                return EventSystem.current.IsPointerOverGameObject(touchId);
+            }
+
+            return EventSystem.current.IsPointerOverGameObject();
         }
     }
 }

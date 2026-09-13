@@ -297,6 +297,19 @@ by any of this — `AbilityBase` subscribes directly to `OnAbilityActivateInput`
 `CharacterManager` guarantees only one character GameObject (and so only one subscriber) exists at
 a time, destroying the old one before creating the new one on every swap.
 
+**Real bug found and fixed (2026-09-13): a touch that started on a UI control (the D-pad, Pause,
+etc.) could still register as a swipe on real touch devices, even though `InputController.
+HandlePointerSwipe` already guards against exactly this.** The guard used
+`EventSystem.current.IsPointerOverGameObject()` with no argument — that overload only checks
+pointer id **-1**, Unity's convention for the mouse specifically. A real touchscreen touch has its
+own distinct id (never -1), so the check silently returned `false` for every real touch regardless
+of whether it was actually over a UI element, letting a swipe fire from a gesture that should have
+been UI-only. This worked fine in Editor testing with a mouse (mouse really is id -1) but would
+misbehave identically on a real device. Fixed with `InputController.IsPointerOverUI()`: if
+`Touchscreen.current.primaryTouch.press.isPressed`, resolves the real touch id
+(`Touchscreen.current.primaryTouch.touchId.ReadValue()`) and calls the id-aware overload; otherwise
+falls back to the parameterless (mouse) check.
+
 **Kinematic Rigidbody2D gotcha:** Cluck's `Rigidbody2D` is Kinematic (so `GridMovement` can drive
 it via `transform.position`) with **`useFullKinematicContacts = true`** set explicitly. Without
 this, Unity's 2D physics does not fire trigger callbacks between a Kinematic body and a plain
@@ -1763,6 +1776,65 @@ other hat (the other 6 baseball caps, both universal hats) keeps `mirrorLeftHatF
 (the field's default, so nothing wired before this change needed touching) and renders exactly as
 before.
 
+### Coin-purchase alternative for cosmetics + "Use Coins?" popup (2026-09-13, `Scripts/Core/IAPManager.cs`, `Scripts/UI/CosmeticPurchaseScreen.cs`, `Scripts/UI/UseCoinsPromptController.cs`)
+
+Coins earned in-game (or bought via the 4 coin packs) previously had nowhere to spend beyond
+Revive (5 coins) and Skip Cooldown (3 coins) — every cosmetic was real-money-IAP-only. Added a
+coin-purchase alternative for the 11 hats/trails specifically; **World Purchase stays real-money
+only, deliberately** — worlds are real new content and the highest-value SKU, not worth the
+cannibalization risk.
+
+**Pricing, not guessed:** `IAPManager.CosmeticCoinCosts` prices every cosmetic at **2500 coins**,
+checked against the actual coin-pack economics — the best per-coin rate any pack offers is the
+15000-coin pack at $19.99 (~$0.00133/coin), and 2500 coins at that rate is worth ~$3.33, more than
+the $1.99 direct price. A player buying coins purely to afford a cosmetic always pays more than
+buying it directly, so there's no arbitrage; a free-to-play grinder can still reach it over time
+(10 + stars×5 coins per level).
+
+**`IAPManager.PurchaseProductWithCoins(productId)`** spends via the existing checksum-protected
+`SaveManager.SpendCoins` and only grants (through a `GrantCosmeticEffect` method shared with the
+real-money `HandlePurchasePendingInner` path, so both grant identically) if the spend succeeds —
+refunds if the grant somehow fails rather than eating coins for nothing.
+
+**Flow reworked twice the same day, ending on a real-artwork confirmation popup, per direct
+mockup.** The first version put a small coin-cost badge in the corner of each item's own icon (a
+second, separate tap target) — reworked almost immediately into a single-tap flow with a
+confirmation popup instead, once real art landed for it (`UseCoins.png` — a wood-sign "UseCoins
+x2500" banner with `Yes.png`/`No.png` answer buttons, the same Yes/No art the Revive prompt already
+uses). **`CosmeticPurchaseScreen.HandleItemTapped`** is now the single entry point for every item
+tap: if the item has a coin price **and** the player can actually afford it,
+`UseCoinsPromptController.Show(onYes, onNo)` shows the confirmation popup — **Yes** spends coins
+directly (`BeginCoinPurchase`, no parental gate — coins spends don't go through it, matching
+Revive/Skip-Cooldown's own precedent that the gate is for real-money surfaces specifically), **No**
+falls through to the normal real-money flow (parental gate → `IAPManager.PurchaseProduct`). If the
+item has no coin price at all, or the balance is insufficient, the popup is skipped entirely and it
+goes straight to the real-money flow — never offering a choice the player can't actually take.
+
+**Real bug found and fixed the same day: an already-owned item could still fire either purchase
+path.** `HandleItemTapped` had no ownership check at all — the green `ownedBadgeSprite` checkmark
+was purely decorative, and tapping an owned item still ran the full flow (harmless store-side
+no-op for a real-money `NonConsumable`, but would happily re-charge coins for something already
+owned via the coin path). Fixed two ways: `RefreshOwnedBadges` now also sets
+`button.interactable = false` once owned (blocking the tap at the UI level) and dims the item's own
+icon to grey (`CosmeticPurchaseScreen.OwnedIconTint`) to visually match the disabled state, not
+just rely on the badge; `HandleItemTapped` also has a defense-in-depth ownership check at its own
+top, so neither purchase path can fire regardless of how the tap reached it. `_badges` (a plain
+`(productId, Image)` list) was replaced with a richer `_itemStates` list (`productId`, `button`,
+`icon`, `badge`) so this one refresh pass can update all three per-item visuals together.
+
+**"Purchase Complete!" banner** — `PurchaseComplete.png` (real commissioned word-art, found already
+sitting unused in `Sprites/UI/`) replaced the old plain `statusText` "Purchase complete!" message
+for a successful purchase (real-money or coins) specifically; every other message (Processing/Not
+enough coins/Purchase failed) still uses `statusText` unchanged. Built as a `CanvasGroup`
+(`Phase5ProjectBuilder.BuildPurchaseCompleteBanner`, shared by the Hats/Trails screens and World
+Purchase) so `CosmeticPurchaseScreen.ShowPurchaseCompleteBanner`/`PurchaseCompleteRoutine` can fade
+it by alpha alone: shows at full opacity, holds 4 seconds, fades out over 0.5s, all on real
+(`WaitForSecondsRealtime`/`Time.unscaledDeltaTime`) time so it behaves the same regardless of
+pause state elsewhere. Raycasts are off on the banner (`blocksRaycasts = false`) so it can never
+block a tap on the item grid or close button underneath it while showing. `OnEnable` resets/hides
+it defensively in case the screen was closed mid-fade on a previous visit (`OnDisable` already
+stops the coroutine automatically, but the GameObject/alpha could otherwise be left visible).
+
 ### Cosmetics chooser splits Hats & Caps from Trails (2026-09-12, `Scripts/UI/CosmeticsChooserScreen.cs`)
 
 The flat `CosmeticsHubScreen` above (point 2 in the "Cosmetics Store UI" list) reached the end of
@@ -2141,9 +2213,11 @@ used), set `backdropSprite`, and — since none of the 3 has its own dedicated c
 bonus-pickup art yet — reuse CornField's own crop prefabs for those roles by direct reference
 (`tileMapRenderer.GetOrAddArtSet(MazeType.CornField)`, read once, assigned onto the new world's
 `MazeArtSet`). Swap in dedicated art for those roles later; the wiring method's shape won't need to
-change, just which prefab/sprite each field points at. Note: `ForstbiteGarden_Walltile.png`
-(missing an 'r') is a real on-disk typo — the Backdrop/Floortile files for the same world are
-spelled `FrostbiteGarden_*` correctly.
+change, just which prefab/sprite each field points at. **The `ForstbiteGarden_Walltile.png`
+(missing an 'r') typo this bullet used to describe is fixed** — see the wall/floor contrast rework
+below; the file was renamed to `FrostbiteGarden_Walltile.png` (matching the Backdrop/Floortile
+files, always spelled correctly) as part of that pass, and `ArtWiringBuilder.
+FrostbiteGardenWallTile` was updated to match.
 
 **Warp-tunnel and power-pellet art landed 2026-08-28** (`FG_/GS_/HM_WarpTile.png` and
 `FG_/GS_/HM_PowerPellet.png`, same `CosmeticType_MazeTheme` folder) — no longer reused from
@@ -2165,6 +2239,67 @@ the shipped shield art reads "FROZEN GARDEN", not "Frostbite Garden" — interna
 a bigger, save-data-relevant change for a cosmetic-only mismatch), so only the player-facing badge
 label differs from the code name. Grep for both if searching by name.
 
+**Wall/floor art re-worked for contrast, and a backdrop stretch bug fixed (2026-09-13), for
+FrostbiteGarden and GoldenSunset (HarvestMoon not yet checked/fixed as of this writing).** A
+playtest of the purchased worlds found wall and floor tiles visually indistinguishable — both were
+dense, similarly-composed art (a full vegetable bed for FrostbiteGarden's wall AND floor; a busy
+wheat-fence scene for GoldenSunset), making the maze read as an undifferentiated mass and the
+scattered crops look "random." Fixed by swapping which art plays which role instead of authoring
+from scratch: FrostbiteGarden's OLD floor art (a carrot/cabbage/tomato bed, genuinely dense) became
+the new WALL tile; a newly-generated plain dirt-path-with-snow-blobs tile (Kling-prompted to spec:
+"dirt floor with no vegetable vegetation, snowfall blobs") became the new FLOOR tile.
+GoldenSunset got the equivalent treatment with its own new art (`GoldenSunsetFloorTile.png` — note
+the filename dropped the underscore before "FloorTile" that `GoldenSunset_Floortile.png` used,
+`ArtWiringBuilder.GoldenSunsetFloorTile` was updated to match). Separately, both worlds' backdrops
+were still capped at the stale `maxTextureSize: 2048` from first import despite being genuine
+2720x1536 art (the same "art replaced with higher-res content, importer cap never updated" bug
+class already documented for Orchard's backdrop under "Art status" below) — re-running
+`ArtWiringBuilder.WireAll` re-applied its existing auto-raise-the-cap logic and fixed all 3
+purchased worlds' backdrops at once (the fix isn't scoped to whichever world triggered noticing it).
+
+**Crop art switched from CornField's reuse to something more thematically fitting, per direct
+instruction (2026-09-13).** FrostbiteGarden's kernel/vegetable roles now reuse **VegPatch's own**
+`Crop_Kernel_VegPatch`/`Crop_Vegetable_VegPatch` prefabs directly (carrot.png/cabbage.png — a
+snowy vegetable garden reads more at home with carrots/cabbage than CornField's corn kernel/cob).
+GoldenSunset got dedicated new prefabs instead (`Crop_Kernel_GoldenSunset`/
+`Crop_Vegetable_GoldenSunset`, built by a new `ArtWiringBuilder.GetOrCreateCropPrefab` helper —
+self-contained rather than routing through `Phase2ProjectBuilder.BuildCropPrefab`, since running
+any part of `Phase2ProjectBuilder.BuildAll` again would wipe every already-baked `LevelData`
+asset's `robotSpawns` back to empty), both pointing at a single new `WheatKernel.png` sprite — same
+"one shared sprite across both roles" convention the free Wheat world's own `MiniLoaf.png` already
+uses, since only one new crop sprite was supplied for GoldenSunset. Neither world's dedicated
+power/rare pellet art (`FG_/GS_PowerPellet.png`) was touched — only the regular crop roles changed.
+
+**Two real, confirmed generation-time bugs found and fixed across all 75 purchased-world levels
+(2026-09-13) — NOT a rendering issue, and NOT "by design" despite an earlier assumption in this
+same investigation that it matched the free worlds' convention (it didn't; verified by directly
+diffing the raw grid data, not assumed).** Compare Orchard's own corridor row
+(`121212131211` — walls and crops alternating, zero bare-floor gaps) against FrostbiteGarden's
+corresponding row before this fix (`101010101011` — walls and bare floor alternating, zero crops):
+1. **Crops only ever landed on odd-indexed "room" cells** — every corridor cell, and every
+   even-indexed cell within a room row, was left as plain bare floor (tile id 0) with no crop at
+   all. This is what produced the "pellets are literally only every second tile" report, once the
+   wall/floor art fix above made the underlying pattern actually visible.
+2. **Column x=10 was a wall in every single row**, immediately beside the real border wall at
+   x=11 — a permanent 2-tile-thick wall down the whole right edge, the exact same "x=10 dead-margin
+   column" bug already found and fixed once for the original 100 free-world levels (see
+   `BuildLevelData01`'s own doc comment on that fix under "Development status" below) — it was
+   simply never applied to these 75 levels, generated in a separate, later pass.
+
+Fixed by a new `SceneCleanupBuilder.FixPurchasedWorldLevels()` (`Farm Fury Arcade > Debug > Fix
+Purchased World Levels (Crop Density + Double Walls)`), mutating the already-baked `LevelData`
+assets directly rather than editing the Rows source and re-running `BuildAll` (which would wipe
+`robotSpawns`) — same "mutate in place" convention `FixLevelCropCounts` already uses. Order
+matters: double walls are opened first (each flip re-verified to never create a NEW 2x2-all-open
+block, the same invariant every maze in this game is built to satisfy — opening a wall can only
+ever ADD reachability, so no connectivity re-check is needed), then every remaining bare-floor cell
+is filled with an alternating kernel/vegetable crop, then `totalCropsRequired` is recomputed.
+Verified directly against the resulting data (not just trusted): `LevelData_101`'s corridor rows
+now read `121212131311`/`131313121211` (matching Orchard's density exactly) and column x=10 now
+reads `1,3,1,2,1,3,1,2,1` down its height (no longer a permanent wall column). Scoped only to
+FrostbiteGarden/GoldenSunset/HarvestMoon — the 4 free worlds' data was directly compared and
+confirmed already correct.
+
 **Entry points — one purchase screen, several doors in:** Shop's own map-icon entry point was
 removed (2026-08-25 review, see "Screens & scene flow" below); the World Purchase screen (the
 `CosmeticPurchaseScreen` instance built by `Phase5ProjectBuilder.BuildWorldPurchaseScreen`) is now
@@ -2175,6 +2310,18 @@ shield directly in Level Select's carousel (`LevelSelectController` keeps a purc
 `Button.interactable = true` even while locked — unlike a star-locked free-world badge, which stays
 genuinely inert — and routes the tap to `worldPurchaseScreen.Show()` instead of revealing a tile
 grid the player hasn't earned).
+
+**Real bug found and fixed (2026-09-13): finishing a free world's last level and tapping Play on
+Level Complete could still walk the player into a purchase-gated world's locked tile grid, instead
+of the purchase screen.** There are two separate paths that reveal a world's tile grid, and they
+didn't agree on purchase-gating: a direct badge tap (`OnCarouselCenterTapped`) already checked
+`UnlockProgression.IsPurchaseGatedWorld` and routed to `worldPurchaseScreen.Show()` when
+unpurchased, but `LevelSelectController.OpenLevelSelect()`'s pending-target consumption (queued by
+`OpenLevelSelectForLevel`, which `LevelCompleteController`'s Play button calls unconditionally)
+called `SelectWorld` directly with no such check — so finishing Wheatfield's last level and tapping
+Play walked straight into FrostbiteGarden's tile grid with every level correctly locked but no
+explanation why. Fixed by adding the identical check to `OpenLevelSelect`'s pending-consumption
+branch, so both entry points to "reveal a world" now agree.
 
 **World Purchase screen's own visual history is worth knowing if debugging it.** First built
 around a single supplied design-mockup image, stretched full-screen as the whole background with 3
@@ -3375,6 +3522,29 @@ computed as `previousTop - rowHeight - rowGap` — so rows are guaranteed to sta
 with a fixed visible gap between them regardless of how any of these constants get retuned later,
 rather than relying on a hand-picked spacing constant applied in the wrong direction.
 
+**World-select collage re-laid-out from random scatter to a deterministic grid (2026-09-13),
+after the random rejection-sampling approach produced visibly overlapping banners on a real
+screenshot.** Root cause: an earlier same-day pass had sized each banner by measuring its actual
+non-transparent pixel content (to match sizes across banners with differing amounts of transparent
+padding), which occasionally produced an oversized box the random placer couldn't find room for —
+it then silently fell back to a fixed grid that never accounted for box size at all, causing the
+overlap. `BuildLeaderboards` now places all 7 banners in a deterministic 4-then-3 grid (4 columns
+top row, 3 columns bottom row, each banner fit to its own cell preserving its real aspect ratio) —
+overlap is now structurally impossible rather than statistically unlikely. The bottom row's right
+edge is deliberately capped short of the close button's own footprint regardless of aspect ratio.
+The pixel-content-based sizing heuristic was removed entirely (unverifiable without a live Editor
+in this session, and the actual cause of the regression) — every banner is now sized purely from
+its own canvas aspect ratio at a shared per-row cell size.
+
+**`WorldLeaderboardDetailScreen`'s stat block was rendering hard off-screen to the left (2026-09-13)
+— a real, verified bug, not a guess.** `AnchorTopLeft` anchors to the screen's literal top-left
+corner (`anchorMin/Max=(0,1)`), so its `offset.x` is measured from the screen's own left edge
+(0..1920 in this 1920-wide reference canvas), never from centre — the centring code used
+`-blockWidth * 0.5f` (a negative offset), which pushed the whole block off the left edge entirely.
+Confirmed directly in the saved scene's serialized `m_AnchoredPosition` before and after the fix.
+Corrected to `(1920 - blockWidth) / 2` — verified in the scene: block left edge lands at x=690,
+centred exactly under the header (which centres at x=960 via `AnchorTopCenter`).
+
 **Known gap, not yet closed:** `SaveManager.ResetAllProgressKeys`'s per-level sweep loop
 (`MaxLevelsForReset` = 100) predates the 3 purchase-gated worlds (levels 100-174) — a pre-existing
 limitation, not something this pass introduced, but worth knowing the new
@@ -4252,6 +4422,17 @@ values from the GDD's color palette where one exists (e.g. walls = Wall Brown `#
   Swapped 2026-08-30 from the original `AppIcon.png` (a plain Cluck/"ARCADE" square) to
   `FFArcade_Icon.png` (Cluck + Bessie, full "FARM FURY ARCADE" wordmark) — both square, both
   already the right shape for an app icon; `AppIcon.png` is left on disk, unreferenced.
+  **`FFArcade_Icon.png` re-exported at proper resolution (2026-09-13)** — was still 500x500 despite
+  the App Store requiring a flat 1024x1024 icon with no alpha channel; a new 1024x1024 `AppIcon.png`
+  was dropped in (with an alpha channel, which Apple also rejects — sampling confirmed no baked-in
+  rounded corners, just a stray non-255 alpha across most pixels, so flattening was a safe no-visible
+  -change operation) and copied into `FFArcade_Icon.png` — the actual file `ArtWiringBuilder.
+  WireAppIcon` wires into Player Settings — at the same 1024x1024/no-alpha spec, keeping the
+  existing code path untouched. `ArtWiringBuilder.WireAppIconOnly()` (`Farm Fury Arcade > Wire App
+  Icon Only`) is a narrow entry point added the same day so re-applying just the icon never needs
+  the full `WireAll`/`BuildAll` pass. Android's own icon pipeline (a 512x512 Play Store listing icon
+  + 432x432 adaptive-icon layers, `PlayerSettings.SetIconsForTargetGroup(BuildTargetGroup.Android,
+  ...)`) is a separate, still-unbuilt gap — `WireAppIcon` only ever touched Standalone/`Unknown`.
 - **Shop icon** — `Shop.png`, historically a Main Menu button (as this bullet originally described)
   — relocated several times since; as of the 2026-08-27 navigation reorg it's the "Cash" icon on
   the Shop hub (`ShopController`, reached via `MenuHubScreen`), baked directly at construction time
