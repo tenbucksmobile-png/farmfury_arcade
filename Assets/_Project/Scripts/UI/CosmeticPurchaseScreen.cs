@@ -63,8 +63,10 @@ namespace FarmFuryArcade.UI
         /// <summary>Dims an already-owned item's own icon so it visually matches its
         /// non-interactable state (the green ownedBadgeSprite checkmark alone wasn't a strong
         /// enough "don't bother tapping this" cue — see HandleItemTapped's own real-bug-fix doc
-        /// comment for the tap-side half of this).</summary>
-        private static readonly Color OwnedIconTint = new Color(0.55f, 0.55f, 0.55f, 1f);
+        /// comment for the tap-side half of this). A 50% ALPHA fade (not a grey multiply tint —
+        /// the original 0.55 grey read as too heavily faded to still recognize the art underneath,
+        /// per direct feedback) keeps the actual artwork visible while still reading as disabled.</summary>
+        private static readonly Color OwnedIconTint = new Color(1f, 1f, 1f, 0.5f);
 
         /// <summary>"Purchase Complete!" banner (2026-09-13) — real commissioned art
         /// (PurchaseComplete.png) replacing the old plain "Purchase complete!" statusText message

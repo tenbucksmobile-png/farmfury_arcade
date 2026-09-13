@@ -501,6 +501,25 @@ namespace FarmFuryArcade.Core
             SetProtectedBool(CosmeticOwnedKeyPrefix + cosmeticId, true);
         }
 
+        /// <summary>Testing-only helper (2026-09-13) — the inverse of SetCosmeticOwned, which this
+        /// project otherwise deliberately has no way to do (a cosmetic is never un-owned once
+        /// purchased for real, per that method's own doc comment). Deletes both the protected value
+        /// and its companion checksum key directly (same pair `ResetAllProgressKeys` already
+        /// deletes for other protected values), rather than writing a "false" through
+        /// SetProtectedBool, so a later IsCosmeticOwned check reads the same as "never purchased"
+        /// rather than "explicitly denied." Static/Edit-mode-safe like DebugForceEquipForTesting, so
+        /// a debug menu item can re-lock cosmetics for testing the purchase flow again without
+        /// needing Play mode first.</summary>
+        public static void DebugRevokeCosmeticForTesting(string cosmeticId)
+        {
+            if (string.IsNullOrEmpty(cosmeticId))
+            {
+                return;
+            }
+            PlayerPrefs.DeleteKey(CosmeticOwnedKeyPrefix + cosmeticId);
+            PlayerPrefs.DeleteKey(CosmeticOwnedKeyPrefix + cosmeticId + "_chk");
+        }
+
         /// <summary>Spends coins and grants ownership in one call — mirrors SpendCoins' bool-return
         /// affordability check so ShopController can show/disable a purchase button the same way
         /// the revive/skip-cooldown coin spends already do. Returns false (no-op) if the cosmetic

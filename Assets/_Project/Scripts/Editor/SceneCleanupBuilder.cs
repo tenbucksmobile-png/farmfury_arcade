@@ -578,6 +578,51 @@ namespace FarmFuryArcade.EditorTools
                       "everything is tappable to equip and test.");
         }
 
+        /// <summary>Inverse of UnlockAllCosmeticsForTesting above — revokes ownership of every one
+        /// of the same 25 cosmetic assets (via the new SaveManager.DebugRevokeCosmeticForTesting)
+        /// and clears every equip slot they might occupy, so the Shop/Cosmetics/Locker screens all
+        /// read as freshly un-owned again — exactly the state needed to re-test the "Use Coins?"/
+        /// real-money purchase flow from scratch without a full Reset All Progress (which would
+        /// also wipe level/world/character-unlock progress this doesn't need to touch). Safe to
+        /// re-run; revoking an already-unowned item is a no-op.</summary>
+        [MenuItem("Farm Fury Arcade/Debug/Lock All Cosmetics (Testing)")]
+        public static void LockAllCosmeticsForTesting()
+        {
+            int revokedCount = 0;
+
+            foreach (CharacterType character in System.Enum.GetValues(typeof(CharacterType)))
+            {
+                SaveManager.DebugRevokeCosmeticForTesting($"baseball_cap_{character}".ToLowerInvariant());
+                SaveManager.DebugRevokeCosmeticForTesting($"cowboy_hat_{character}".ToLowerInvariant());
+                PlayerPrefs.DeleteKey("FFA_EquippedHat_" + character);
+                revokedCount += 2;
+            }
+
+            string[] universalHats = { IAPManager.SombreroCosmeticId, IAPManager.ChefHatCosmeticId, IAPManager.CrownCosmeticId };
+            foreach (string cosmeticId in universalHats)
+            {
+                SaveManager.DebugRevokeCosmeticForTesting(cosmeticId);
+                revokedCount++;
+            }
+
+            string[] trails =
+            {
+                IAPManager.TrailCornHuskProductId, IAPManager.TrailEmberProductId,
+                IAPManager.TrailSparkleDustProductId, IAPManager.TrailRainbowRibbonProductId,
+                IAPManager.TrailConfettiProductId, IAPManager.TrailBubblesProductId,
+            };
+            foreach (string cosmeticId in trails)
+            {
+                SaveManager.DebugRevokeCosmeticForTesting(cosmeticId);
+                revokedCount++;
+            }
+            PlayerPrefs.DeleteKey("FFA_EquippedTrail_global");
+
+            Debug.Log($"[SceneCleanupBuilder] Revoked ownership of all {revokedCount} cosmetic assets " +
+                      "and cleared every equip slot — Shop/Cosmetics/Locker all read as un-owned again. " +
+                      "Press Play and tap any item to test the purchase flow (coins or real money) from scratch.");
+        }
+
         /// <summary>Force-equips one Trail cosmetic for testing, bypassing IAPManager.PurchaseProduct
         /// (no real store connection exists in the Editor — see CLAUDE.md's IAP plumbing notes).
         /// Trail is character-agnostic/global (CharacterType passed is irrelevant, kept only because
