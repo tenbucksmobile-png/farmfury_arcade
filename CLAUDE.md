@@ -5064,6 +5064,18 @@ archive+export pipeline, never whatever a custom post-build script actually did.
 dashboard's pass/fail status alone to confirm a TestFlight upload worked — always check either the
 build log's own content (the script's `echo` output, or its absence) or TestFlight directly.**
 
+**Milestone (2026-09-13): a real build reached TestFlight for the first time**, after fixing the
+Post-Build Script dashboard config and the `TARGET_NAME` script bug above, then answering the
+Export Compliance question in App Store Connect ("None of the algorithms mentioned above" — this
+app implements no encryption of its own beyond the OS's standard HTTPS, so it's exempt). This is
+the literal Phase 1/Stage 3 gate mentioned earlier in this section — the F5.2 IAP sandbox test pass
+and the F2.1 Instruments/performance pass from the iOS Submission Audit are both unblocked from
+here. Remaining known loose ends, none blocking: confirm the build's tester assignment (Internal
+Testing group) so it's actually installable, not just "Ready to Test"; delete the local plaintext
+`.p8`/`.p12`-password files per the cleanup note above now that the pipeline is confirmed working
+end to end; Android's own Cloud Build/Play Console setup remains untouched — this whole build
+pipeline is iOS-only so far.
+
 ## iOS build toolchain — known Xcode 26 gotcha (2026-08-29, researched — did not manifest on the first real archive, see the successful-build note above)
 
 This environment has no Mac/Xcode, so nothing in this section was verified against this project's
