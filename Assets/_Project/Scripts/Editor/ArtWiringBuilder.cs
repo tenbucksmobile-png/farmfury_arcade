@@ -271,15 +271,20 @@ namespace FarmFuryArcade.EditorTools
         private const string SettingsSignText = "Assets/_Project/Sprites/UI/SettingsSign.png";
         private const string LevelTilePrefabPath = UIPrefabFolder + "/LevelTile.prefab";
         private const string WorldDividerPrefabPath = UIPrefabFolder + "/WorldDivider.prefab";
-        // Per-world gameplay music (2026-08-28 drop) — one track per free world, wired into
-        // AudioManager.worldMusicClips by MazeType. CornField.mp3 doubles as the fallback track
-        // (AudioManager.backgroundMusicClip) for the 3 purchased worlds, which have no dedicated
-        // music yet — same "reuse CornField as a placeholder" convention this project already uses
-        // for their still-missing crop/vegetable art.
+        // Per-world gameplay music (2026-08-28 drop for the 4 free worlds, 2026-09-13 for the 3
+        // purchased worlds) — one track per world, wired into AudioManager.worldMusicClips by
+        // MazeType. CornField.mp3 still doubles as AudioManager.backgroundMusicClip, the generic
+        // fallback used only if a MazeType has no worldMusicClips entry at all (shouldn't happen
+        // now that all 7 worlds have one, but kept as a safety net rather than removed).
         private const string CornFieldMusicClip = "Assets/_Project/Audio/Music/CornField.mp3";
         private const string VegPatchMusicClip = "Assets/_Project/Audio/Music/VegetablePatch.mp3";
         private const string OrchardMusicClip = "Assets/_Project/Audio/Music/Orchard.mp3";
         private const string WheatMusicClip = "Assets/_Project/Audio/Music/Wheatfield.mp3";
+        // 2026-09-13: dedicated tracks dropped for the 3 purchased worlds, closing the
+        // "reuse CornField as a placeholder" gap the comment above describes.
+        private const string FrostbiteGardenMusicClip = "Assets/_Project/Audio/Music/FrozenGarden.mp3";
+        private const string GoldenSunsetMusicClip = "Assets/_Project/Audio/Music/GoldenSunset.mp3";
+        private const string HarvestMoonMusicClip = "Assets/_Project/Audio/Music/HarvestMoon.mp3";
         private const string AnimalDeathSfx = "Assets/_Project/Audio/SFX/Animal_death.mp3";
         private const string CornPickupSfx = "Assets/_Project/Audio/SFX/CornPickup.mp3";
         private const string CoinPickupSfx = "Assets/_Project/Audio/SFX/CoinPickup.mp3";
@@ -2234,6 +2239,9 @@ namespace FarmFuryArcade.EditorTools
             var vegPatchMusic = AssetDatabase.LoadAssetAtPath<AudioClip>(VegPatchMusicClip);
             var orchardMusic = AssetDatabase.LoadAssetAtPath<AudioClip>(OrchardMusicClip);
             var wheatMusic = AssetDatabase.LoadAssetAtPath<AudioClip>(WheatMusicClip);
+            var frostbiteGardenMusic = AssetDatabase.LoadAssetAtPath<AudioClip>(FrostbiteGardenMusicClip);
+            var goldenSunsetMusic = AssetDatabase.LoadAssetAtPath<AudioClip>(GoldenSunsetMusicClip);
+            var harvestMoonMusic = AssetDatabase.LoadAssetAtPath<AudioClip>(HarvestMoonMusicClip);
             var animalDeath = AssetDatabase.LoadAssetAtPath<AudioClip>(AnimalDeathSfx);
             var cornPickup = AssetDatabase.LoadAssetAtPath<AudioClip>(CornPickupSfx);
             var coinPickup = AssetDatabase.LoadAssetAtPath<AudioClip>(CoinPickupSfx);
@@ -2295,6 +2303,9 @@ namespace FarmFuryArcade.EditorTools
                 (MazeType.VegPatch, vegPatchMusic),
                 (MazeType.Orchard, orchardMusic),
                 (MazeType.Wheat, wheatMusic),
+                (MazeType.FrostbiteGarden, frostbiteGardenMusic),
+                (MazeType.GoldenSunset, goldenSunsetMusic),
+                (MazeType.HarvestMoon, harvestMoonMusic),
             };
             var worldMusicProp = so.FindProperty("worldMusicClips");
             worldMusicProp.arraySize = worldEntries.Length;

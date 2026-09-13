@@ -4671,16 +4671,19 @@ fill exactly one maze grid cell (1 world unit), matching `PlaceholderSprite`'s 1
 convention that every prefab's existing `localScale` (e.g. crop 0.35, pellet 0.7) was already
 tuned around, so no prefab scale values needed to change when real art went in.
 
-**Audio — per-world gameplay music (2026-08-28), replacing an earlier single flat track.**
-`AudioManager.worldMusicClips` is now a `MazeType → AudioClip` array (`Audio/Music/CornField.mp3`/
-`VegetablePatch.mp3`/`Orchard.mp3`/`Wheatfield.mp3`, wired by `ArtWiringBuilder.WireAudio`).
-`GameManager.LoadLevel` calls the new `AudioManager.PlayWorldMusic(level.mazeType)` once a level
-actually begins, which looks up that world's track and crossfades to it — replacing the old flat
-`ResumeBackgroundMusic()` call there. The 3 purchased worlds (FrostbiteGarden/GoldenSunset/
-HarvestMoon) have no dedicated track yet, so a `MazeType` with no `worldMusicClips` entry falls
-back to `AudioManager.backgroundMusicClip` (wired to `CornField.mp3`) — same "reuse CornField as a
-placeholder" convention this project already uses for those worlds' still-missing crop/vegetable
-art (see "World Purchase" below).
+**Audio — per-world gameplay music (2026-08-28 for the 4 free worlds, 2026-09-13 for the 3
+purchased worlds), replacing an earlier single flat track.** `AudioManager.worldMusicClips` is a
+`MazeType → AudioClip` array (`Audio/Music/CornField.mp3`/`VegetablePatch.mp3`/`Orchard.mp3`/
+`Wheatfield.mp3`/`FrozenGarden.mp3`/`GoldenSunset.mp3`/`HarvestMoon.mp3`, wired by
+`ArtWiringBuilder.WireAudio`) — all 7 worlds now have their own dedicated track.
+`GameManager.LoadLevel` calls `AudioManager.PlayWorldMusic(level.mazeType)` once a level actually
+begins, which looks up that world's track and crossfades to it — replacing the old flat
+`ResumeBackgroundMusic()` call there. `AudioManager.backgroundMusicClip` (still wired to
+`CornField.mp3`) is now only a generic fallback for a `MazeType` with no `worldMusicClips` entry at
+all — shouldn't happen with all 7 covered, kept as a safety net rather than removed. The 3
+purchased worlds previously fell back to this (reusing CornField's own track as a placeholder,
+same convention their crop/vegetable art used before getting dedicated art too — see "World
+Purchase" below) until their own tracks landed.
 
 **"Theme"** (`Audio/Music/Theme.mp3`, wired onto `AudioManager.landingMusicClip`) is the Main
 Menu/Level Select track — starts on `MainMenuController.OnEnable`'s `PlayLandingMusic()` and keeps
