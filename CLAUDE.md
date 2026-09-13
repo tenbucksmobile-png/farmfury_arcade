@@ -5055,6 +5055,15 @@ Both fixes are in as of this writing; the next triggered build is expected to ac
 error message points at the likely cause (most commonly the Export Compliance question in App
 Store Connect still being unanswered for this app).
 
+**Important operational gotcha, confirmed directly from the failed-upload build's own log: Unity
+Cloud Build does NOT surface a post-build script's own failure as a build failure.** The
+`TARGET_NAME` bug above made the script hit a real `exit 1` (via `set -e`) on its very first real
+line — yet the dashboard still logged `postbuildsteps finished successfully` and the overall build
+as `[success] Finished: SUCCESS`. The green "success" status only reflects the Unity/Xcode
+archive+export pipeline, never whatever a custom post-build script actually did. **Never trust the
+dashboard's pass/fail status alone to confirm a TestFlight upload worked — always check either the
+build log's own content (the script's `echo` output, or its absence) or TestFlight directly.**
+
 ## iOS build toolchain — known Xcode 26 gotcha (2026-08-29, researched — did not manifest on the first real archive, see the successful-build note above)
 
 This environment has no Mac/Xcode, so nothing in this section was verified against this project's
