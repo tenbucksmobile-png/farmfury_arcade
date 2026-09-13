@@ -34,9 +34,30 @@ namespace FarmFuryArcade.Enemies
         /// <summary>How many of this robot's most-recently-occupied cells RobotAI.GetNextDirection
         /// discourages re-entering — see that method's doc comment for why (breaks short
         /// greedy-heuristic loops between two similarly-distant intersections, distinct from the
-        /// existing no-U-turn rule). Short enough that a robot happily re-enters ground it left a
-        /// few turns ago rather than ever getting hard-blocked in a small pocket.</summary>
-        private const int RecentCellHistory = 6;
+        /// existing no-U-turn rule).
+        ///
+        /// Widened from 6 to 16 (2026-09-13, real bug found by reasoning through the maze generator
+        /// rather than guessing): this game's mazes are only 12x9, and the generator deliberately
+        /// adds 5-8 extra loop edges on top of its spanning tree — genuine cycles a robot can
+        /// legitimately walk all the way around. At a memory window of 6, a robot could fully
+        /// traverse a loop longer than 6 cells (easy on even a single row of a 12-wide maze) and
+        /// arrive back at the same junction with its own earlier path no longer counted as
+        /// "recent," re-committing to the same equally-good choice and circling indefinitely — this
+        /// is what read as "gets caught in a loop, remaining in one row." 16 covers a
+        /// single-row-scale loop comfortably while staying well under this maze's ~100-cell total,
+        /// so it doesn't meaningfully constrain normal long-distance pathing.</summary>
+        private const int RecentCellHistory = 16;
+
+        /// <summary>Real cycle-detection, not just a wider memory window — even a 16-cell window
+        /// only reduces the CHANCE of looping, it doesn't guarantee escaping one (a big enough loop,
+        /// or an unlucky tie sequence, could still repeat). If a robot arrives at a cell it already
+        /// has in its own recent history this many times, that's direct proof it's retracing ground
+        /// rather than making progress — StuckRevisitThreshold gates a one-shot forced random
+        /// escape (PickRandomEscapeDirection, bypassing BFS-optimal targeting entirely for that one
+        /// decision) which structurally cannot repeat the same deterministic pattern, guaranteeing
+        /// the cycle actually breaks rather than just becoming less likely.</summary>
+        private const int StuckRevisitThreshold = 2;
+        private int _stuckRevisitCount;
 
         [SerializeField] protected RobotData robotData;
 
@@ -152,6 +173,7 @@ namespace FarmFuryArcade.Enemies
             IsKnockedBack = false;
             _recentCells.Clear();
             _lastRecentCell = null;
+            _stuckRevisitCount = 0;
             _initialized = true;
         }
 
@@ -176,6 +198,7 @@ namespace FarmFuryArcade.Enemies
             IsKnockedBack = false;
             _recentCells.Clear();
             _lastRecentCell = null;
+            _stuckRevisitCount = 0;
 
             var sr = GetComponent<SpriteRenderer>();
             if (sr != null)
@@ -412,7 +435,14 @@ namespace FarmFuryArcade.Enemies
             // runs once per real cell arrival, but also once per loop iteration while CurrentDirection
             // stays None — see the doc comment above) — _lastRecentCell tracks the most recently
             // pushed cell directly, since Queue<T> only exposes Peek() on its FRONT (oldest) element.
-            if (_lastRecentCell != cell)
+            bool isNewArrival = _lastRecentCell != cell;
+            // Checked BEFORE enqueueing, and only on a genuine new arrival — otherwise a robot
+            // merely stationary on the same cell across several stationary re-checks would always
+            // find itself "in" its own history (it enqueued itself on the first check) and falsely
+            // read as stuck.
+            bool isRevisit = isNewArrival && _recentCells.Contains(cell);
+
+            if (isNewArrival)
             {
                 _recentCells.Enqueue(cell);
                 _lastRecentCell = cell;
@@ -420,9 +450,21 @@ namespace FarmFuryArcade.Enemies
                 {
                     _recentCells.Dequeue();
                 }
+
+                // Genuine forward progress onto ground not in recent memory resets the counter;
+                // a revisit increments it. A stationary re-check (isNewArrival false) touches
+                // neither, so it can't reset progress made just before it nor fake one out.
+                _stuckRevisitCount = isRevisit ? _stuckRevisitCount + 1 : 0;
             }
 
-            Direction desired = ComputeDesiredDirection(cell);
+            Direction desired = _stuckRevisitCount >= StuckRevisitThreshold
+                ? PickRandomEscapeDirection(cell)
+                : ComputeDesiredDirection(cell);
+            if (_stuckRevisitCount >= StuckRevisitThreshold)
+            {
+                _stuckRevisitCount = 0;
+            }
+
             if (desired != Direction.None && IsWalkableForThisRobot(cell + DirectionUtils.ToVector(desired)))
             {
                 CurrentDirection = desired;
@@ -433,6 +475,50 @@ namespace FarmFuryArcade.Enemies
             }
             return false;
         }
+
+        /// <summary>One-shot forced escape once EvaluateArrivalAndDirection's own cycle detection
+        /// fires — picks uniformly among every currently-valid (non-reverse-unless-dead-end)
+        /// direction, deliberately ignoring BFS-optimal targeting for this single decision. Bypassing
+        /// the deterministic distance-based choice is the point: a robot stuck retracing its own
+        /// steps got there BECAUSE the deterministic algorithm kept recommitting to the same
+        /// "optimal" choice around a loop (see RecentCellHistory's own doc comment for the maze-
+        /// loop-edge topology that causes this) — reusing that same logic here would just repeat the
+        /// cycle instead of breaking it.
+        ///
+        /// Built from this robot's own IsWalkableForThisRobot (virtual) rather than calling
+        /// RobotAI.GetValidDirections directly — that helper is hardwired to the maze's raw
+        /// IsWalkable and would ignore DroneRobot's own wall-phasing override during exactly this
+        /// one decision, the only real behavioural gap that would have introduced.</summary>
+        private Direction PickRandomEscapeDirection(Vector2Int cell)
+        {
+            Direction reverse = DirectionUtils.Opposite(CurrentDirection);
+            _escapeCandidatesScratch.Clear();
+            foreach (var dir in AllEscapeDirections)
+            {
+                if (CurrentDirection != Direction.None && dir == reverse)
+                {
+                    continue;
+                }
+                if (IsWalkableForThisRobot(cell + DirectionUtils.ToVector(dir)))
+                {
+                    _escapeCandidatesScratch.Add(dir);
+                }
+            }
+            if (_escapeCandidatesScratch.Count == 0 && CurrentDirection != Direction.None
+                && IsWalkableForThisRobot(cell + DirectionUtils.ToVector(reverse)))
+            {
+                _escapeCandidatesScratch.Add(reverse);
+            }
+            return _escapeCandidatesScratch.Count == 0
+                ? Direction.None
+                : _escapeCandidatesScratch[Random.Range(0, _escapeCandidatesScratch.Count)];
+        }
+
+        private static readonly Direction[] AllEscapeDirections =
+        {
+            Direction.Up, Direction.Down, Direction.Left, Direction.Right
+        };
+        private readonly List<Direction> _escapeCandidatesScratch = new List<Direction>(4);
 
         protected virtual Direction ComputeDesiredDirection(Vector2Int cell)
         {

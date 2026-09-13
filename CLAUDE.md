@@ -521,6 +521,39 @@ reentrant with each other). No further lead without a specific repro (which leve
 fully freeze vs. just oscillate) — don't re-run the same maze/BFS-correctness checks again without
 new information; start from a screen recording or exact level number instead.
 
+**Reported a third time (2026-09-13) — this time a real, previously-unaddressed gap was found by
+reasoning through the maze generator's own topology rather than re-running the same checks.** The
+2026-08-29 audit above ruled out open-2x2 floor blocks (still true — the 75 purchased-world levels
+touched the same day by the crop-density/double-wall fix were also checked and are clean) and
+confirmed the BFS/anti-loop logic itself was unregressed. What neither pass checked: this
+generator deliberately adds 5-8 extra loop edges on top of its spanning tree for every world — real
+cycles a robot can legitimately walk all the way around — and `RobotBase.RecentCellHistory` (the
+anti-loop tie-break memory `GetNextDirection` consults) was only **6** cells. On a 12x9 maze, a
+loop around even a single row can easily exceed 6 cells, letting a robot fully circle it, have its
+own earlier path age out of that short memory, and re-commit to the same "equally good" choice at
+the same junction — indefinitely. This is a real, structural gap distinct from every prior fix here
+(those fixed *which* direction a robot commits to; this is about *how long* it remembers where it's
+already been).
+
+Fixed two ways in `RobotBase.cs`: `RecentCellHistory` widened 6 → 16 (covers a single-row-scale
+loop comfortably while staying well under this maze's ~100-cell total, so long-distance pathing is
+unaffected), and genuine cycle detection added on top of just a wider window — `EvaluateArrivalAndDirection`
+now tracks `_stuckRevisitCount`, incrementing whenever a robot arrives at a cell already present in
+its own recent history (only on a genuine new arrival, not a stationary re-check, so being
+momentarily blocked doesn't falsely count as a revisit) and resetting on any genuinely new cell.
+Once that count reaches `StuckRevisitThreshold` (2), `PickRandomEscapeDirection` is called instead
+of the normal `ComputeDesiredDirection` for exactly one decision — a uniformly random pick among
+whatever's currently valid (still wall-respecting, still no-reverse-unless-dead-end), deliberately
+bypassing BFS-optimal targeting for that one step. This is a hard guarantee, not just a lower
+probability: a robot stuck retracing its own steps got there BECAUSE the deterministic algorithm
+kept recommitting to the same "optimal" choice, so reusing that same logic to try to escape would
+just repeat the cycle — a genuinely random override is what actually breaks it. Built from each
+robot's own `IsWalkableForThisRobot` (virtual) rather than calling `RobotAI.GetValidDirections`
+directly, so `DroneRobot`'s wall-phasing ability still applies correctly even during a forced
+escape (that helper is hardwired to the maze's raw `IsWalkable`, which would have silently ignored
+Drone's own override for exactly this one decision — the one real behavioural gap a naive reuse
+would have introduced).
+
 **Fleeing (Vulnerable state):** `RobotBase.GetFleeTarget` used to project a target 10 tiles away
 from the player in the opposite direction — a straight-line point that could land outside the maze
 entirely and fed the same straight-line bias `GetNextDirection` had, so a fleeing robot could get
