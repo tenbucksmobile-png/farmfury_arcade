@@ -5018,10 +5018,46 @@ Once a build lands in TestFlight, the F5.2 IAP sandbox test pass and the F2.1 In
 performance pass from the iOS Submission Audit both become possible for the first time — this is
 still the literal Phase 1/Stage 3 gate, just executed without local hardware.
 
-## iOS build toolchain — known Xcode 26 gotcha (2026-08-29, researched, not yet hit in practice)
+**First real build actually triggered and archived successfully (2026-09-13)** — the Xcode
+archive/IPA export/signing pipeline works end to end on the very first attempt (`Archive Succeeded`,
+a real signed 423MB IPA, `fastlane.tools finished successfully`). This supersedes the "no archive
+has ever been produced" framing in the section below — the Xcode 26 linker bug never manifested
+(either already avoided by `IOSPostProcessBuild.cs`'s proactive `-ld64` removal, or this Xcode
+version on Unity's build agent doesn't hit it at all).
 
-No archive has ever been produced for this project (iOS Submission Audit finding F1.3) and this
-environment has no Mac/Xcode, so nothing in this section has been verified against this project's
+**Two real, confirmed bugs found getting the actual TestFlight upload working, neither of which
+was the two "likely first-run failure points" predicted above (env var / Export Compliance) — both
+were configuration/script issues instead:**
+
+1. **The Post-Build Script path field in the build target's config was `None`** — despite this
+   file already existing in the repo and being referenced throughout this doc, it had never
+   actually been wired into the Build Automation config UI itself. Symptom: the script produced
+   zero output in the build log at all (not even its own opening `echo` banner), and the whole
+   "postbuildsteps" phase completed in under a second — a dead giveaway it was never invoked,
+   since a real `openssl` decrypt + a network upload of a 400MB+ file to Apple takes much longer
+   than that. Fixed by setting the field to `Assets/CloudBuildScripts/post-build.bash` (Environment
+   Variables were already correctly set, confirmed separately).
+2. **`post-build.bash` itself referenced a `$TARGET_NAME` environment variable that Unity Cloud
+   Build never actually sets** — once the script WAS being invoked (after fixing #1), `set -u`
+   killed it on the very first real line (`ipa_path="$WORKSPACE/.build/last/$TARGET_NAME/build.ipa"`)
+   with `TARGET_NAME: unbound variable`, before it ever reached the IPA-existence check. Confirmed
+   directly from the build log's own invocation line, which shows Unity actually passes the
+   fully-resolved build export directory as this script's **2nd positional argument**:
+   `post-build.bash "<temp-dir>" "<workspace>/.build/last/farmfury-arcade-ios" ios`. Fixed by using
+   `"${2:-}"` directly for `ipa_path` instead of trying to reconstruct the same path from a
+   variable that was never real — with an explicit error (including the actual args received) if
+   Unity's own argument convention ever changes again. `$WORKSPACE` itself IS a real, correctly-set
+   variable (confirmed — the error was specifically about `TARGET_NAME`, not `WORKSPACE`), so
+   `encrypted_key_path`'s use of it was left unchanged.
+
+Both fixes are in as of this writing; the next triggered build is expected to actually reach the
+`xcrun altool --upload-app` call for the first time. If that call itself fails, the script's own
+error message points at the likely cause (most commonly the Export Compliance question in App
+Store Connect still being unanswered for this app).
+
+## iOS build toolchain — known Xcode 26 gotcha (2026-08-29, researched — did not manifest on the first real archive, see the successful-build note above)
+
+This environment has no Mac/Xcode, so nothing in this section was verified against this project's
 own build — it's flagged here so whoever does the first real archive attempt (the literal gate to
 every downstream phase per that audit) doesn't lose an afternoon to a documented, already-solved
 issue. **Confirm current status against Unity's own 6000.5.x release notes before the build

@@ -40,12 +40,27 @@
 #      git update-index --chmod=+x Assets/CloudBuildScripts/post-build.bash
 #
 # ---- What this script actually does at build time ----
+#
+# Real bug found and fixed (2026-09-13): this originally referenced a $TARGET_NAME environment
+# variable that Unity Cloud Build never actually sets, causing `set -u` to kill the script on its
+# very first real line — before it even reached the IPA-existence check, so no output beyond the
+# opening banner ever appeared in the build log. Unity instead passes the build's own fully-
+# resolved output directory as this script's 2nd positional argument (confirmed directly from a
+# real build log's own invocation line: `post-build.bash "<temp-dir>" "<workspace>/.build/last/
+# farmfury-arcade-ios" ios`) — use that directly instead of trying to reconstruct the path from a
+# variable that was never real.
 
 set -euo pipefail
 
 echo "=== Farm Fury Arcade: post-build TestFlight upload ==="
 
-ipa_path="$WORKSPACE/.build/last/$TARGET_NAME/build.ipa"
+export_path="${2:-}"
+if [ -z "$export_path" ]; then
+  echo "ERROR: expected the build export directory as this script's 2nd argument — Unity's own post-build script argument convention may have changed since this was written. Args received: \$1='${1:-}' \$2='${2:-}' \$3='${3:-}'"
+  exit 1
+fi
+
+ipa_path="$export_path/build.ipa"
 encrypted_key_path="$WORKSPACE/Assets/CloudBuildScripts/authkey.p8.enc"
 decrypted_key_path=~/private_keys/AuthKey_"$API_KEY_ID".p8
 
