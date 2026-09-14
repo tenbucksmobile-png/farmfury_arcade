@@ -39,9 +39,25 @@ namespace FarmFuryArcade.EditorTools
     /// required-reason API this app's own code actually uses (UserDefaults, reason CA92.1) with
     /// NSPrivacyTracking/NSPrivacyCollectedDataTypes left empty (no first-party tracking or data
     /// collection) — review against whatever the ad/IAP SDKs' own bundled manifests declare before
-    /// public submission, not just before the first internal TestFlight build.</summary>
+    /// public submission, not just before the first internal TestFlight build.
+    ///
+    /// Also injects GADApplicationIdentifier into Info.plist (2026-09-14) — closes the crash-on-
+    /// launch found in the first real TestFlight install. Google Mobile Ads (bundled here as
+    /// LevelPlay's AdMob mediation adapter, see Assets/LevelPlay/Editor/ISAdMobAdapterDependencies.xml)
+    /// verifies this key exists at process start via GADApplicationVerifyPublisherInitializedCorrectly
+    /// and throws an uncaught NSException if it's missing — the crash log's own backtrace names that
+    /// exact method, on the main thread, before the app ever reaches Unity's own code. This key is
+    /// Google's AdMob "App ID" (from apps.admob.com > Apps > this app > App settings), a different
+    /// value from the LevelPlay app key/ad unit IDs already stored on the AdManager component in the
+    /// scene — Unity's iOS export has no built-in field for it, so nothing was ever writing it into
+    /// Info.plist until now.</summary>
     public static class IOSPostProcessBuild
     {
+        /// <summary>AdMob App ID for iOS, from apps.admob.com > Apps > FarmFury Arcade (iOS) >
+        /// App settings > App ID. Update here (not per-build) if the AdMob app is ever
+        /// recreated/relinked to a different bundle ID.</summary>
+        private const string AdMobAppId = "ca-app-pub-1264425755955045~9222731930";
+
         [PostProcessBuild(1)]
         public static void OnPostProcessBuild(BuildTarget buildTarget, string pathToBuiltProject)
         {
@@ -62,6 +78,23 @@ namespace FarmFuryArcade.EditorTools
             AddPrivacyManifest(project, mainTargetGuid, pathToBuiltProject);
 
             File.WriteAllText(projectPath, project.WriteToString());
+
+            AddGADApplicationIdentifier(pathToBuiltProject);
+        }
+
+        private static void AddGADApplicationIdentifier(string pathToBuiltProject)
+        {
+            string plistPath = Path.Combine(pathToBuiltProject, "Info.plist");
+            var plist = new PlistDocument();
+            plist.ReadFromFile(plistPath);
+
+            plist.root.SetString("GADApplicationIdentifier", AdMobAppId);
+
+            plist.WriteToFile(plistPath);
+            Debug.Log("[IOSPostProcessBuild] Set GADApplicationIdentifier in Info.plist to " +
+                      AdMobAppId + " (fixes the GADApplicationVerifyPublisherInitializedCorrectly " +
+                      "crash-on-launch — Google Mobile Ads throws an uncaught exception at process " +
+                      "start if this key is missing).");
         }
 
         private static void RemoveLd64Flag(PBXProject project, string targetGuid, string targetLabel)
