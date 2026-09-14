@@ -1090,7 +1090,11 @@ namespace FarmFuryArcade.EditorTools
             // were tuned pre-SafeArea double-inset it, still crowding the ability/swap icons in
             // over the maze even after the first -100 pass.
             const float clusterInsetX = -60f;
-            const float clusterInsetY = 50f;
+            // Dropped slightly (50 -> 25, 2026-09-14 third iPhone 11 screenshot: "drop slightly
+            // downward") — lowers the whole right-side stack (WatchAd -> ability icon -> Swap
+            // Character -> Locker all key off this one value via abilityBottomY below) by the same
+            // amount together.
+            const float clusterInsetY = 25f;
 
             // Ability icon enlarged (120 -> 150 -> 210) and shifted further left (its own inset, not
             // Pause's) per direct feedback — it's the on-screen ability button (see below) and the
@@ -1127,6 +1131,18 @@ namespace FarmFuryArcade.EditorTools
             // stacking offsets below are computed from each button's own real height rather than
             // assuming every entry in the stack is the same size.
             const float clusterIconSize = 180f;
+
+            // Real bug found the same session (third device screenshot): "re-align the icons
+            // underneath each other" — Swap Character/Locker still used abilityInsetX directly for
+            // their own right edge, which right-edge-aligns them with the (wider) ability icon
+            // rather than CENTRE-aligning them. Since AnchorBottomRight's offset is a box's own
+            // right edge, two boxes of different widths sharing that same offset have different
+            // centres — the narrower clusterIconSize boxes' centres sat
+            // (abilityButtonSize-clusterIconSize)/2 = 20 units to the right of the ability icon's
+            // centre, reading as visibly "off" underneath it. clusterIconInsetX shifts Swap
+            // Character/Locker left by exactly that half-difference so all three share one true
+            // vertical centreline regardless of either size being retuned again later.
+            const float clusterIconInsetX = abilityInsetX - (abilityButtonSize - clusterIconSize) / 2f;
 
             const float skipButtonSize = 64f;
 
@@ -1211,7 +1227,7 @@ namespace FarmFuryArcade.EditorTools
             var swapCharacterButton = CreateIconButton("SwapCharacterButton", safeArea.transform,
                 LoadUiSprite("SwapCharacterIcon.png"), clusterIconSize);
             AnchorBottomRight((RectTransform)swapCharacterButton.transform, new Vector2(clusterIconSize, clusterIconSize),
-                new Vector2(abilityInsetX, swapBottomY));
+                new Vector2(clusterIconInsetX, swapBottomY));
 
             // Locker button (2026-09-09) — sits directly above Swap Character, same size/spacing,
             // opens LockerScreen (see its own doc comment). Originally reused Cosmetics_Icon.png
@@ -1224,7 +1240,7 @@ namespace FarmFuryArcade.EditorTools
             var lockerButton = CreateIconButton("LockerButton", safeArea.transform,
                 LoadUiSprite("Locker.png"), clusterIconSize);
             AnchorBottomRight((RectTransform)lockerButton.transform, new Vector2(clusterIconSize, clusterIconSize),
-                new Vector2(abilityInsetX, lockerBottomY));
+                new Vector2(clusterIconInsetX, lockerBottomY));
 
             // Note: the coin-cost skip-cooldown button used to live here as its own "-3" button
             // beside the icon — replaced 2026-08-28 by the coin badge overlaid directly on the
@@ -1296,16 +1312,25 @@ namespace FarmFuryArcade.EditorTools
             // correction ("bring the buttons closer, almost touching"), spacing dropped to 100
             // (well below buttonSize=160) so the boxes genuinely overlap (overlap = buttonSize -
             // spacing = 60, both axes at once for a diagonal pair) and the visible art reads as
-            // close/almost touching. Insets kept at the same inner (screen-edge-facing) clearance
-            // the very first 98/82 configuration had (insetX-spacing=45, insetY-spacing=70, both
-            // still unchanged: insetX=145, insetY=170). Still a first-pass value, not visually
-            // confirmed on-device in this session (no Editor/device access here) — nudge
-            // dpadSpacing/dpadInsetX/dpadInsetY further if this over- or under-shoots on iPhone 11,
-            // and watch for maze-tile overlap (see the shrink history above this comment replaced).
-            const float dpadButtonSize = 160f;
-            const float dpadSpacing = 100f;
-            const float dpadInsetX = 145f;
-            const float dpadInsetY = 170f;
+            // close/almost touching.
+            //
+            // Fourth pass (2026-09-14, third device screenshot): that 100 overlapped MORE than
+            // wanted ("space out slightly so the edges touch," i.e. back off toward a true touch,
+            // not a deep overlap) — spacing raised 100->120 (overlap now 20, a light touch rather
+            // than a 60-unit overlap). Separately, the diamond was still sitting on top of the maze
+            // itself ("move the whole Dpad to the left so it is off the maze") — dpadInsetX pulled
+            // in hard, 145->70, and per direct instruction that crossing the yellow safe-area guide
+            // slightly is acceptable on mobile, dpadButtonSize was also shrunk a bit (160->140) to
+            // help it clear the board without needing an even more extreme inset. dpadInsetY kept at
+            // the same relative clearance from dpadSpacing established by the very first 98/82 pass
+            // (insetY-spacing=70): 120+70=190. Still first-pass values, not visually confirmed
+            // on-device this session — nudge dpadInsetX further left (or dpadButtonSize down again)
+            // if the diamond still touches the board; nudge dpadSpacing if the touch reads as too
+            // light or too heavy an overlap.
+            const float dpadButtonSize = 140f;
+            const float dpadSpacing = 120f;
+            const float dpadInsetX = 70f;
+            const float dpadInsetY = 190f;
             Vector2 dpadCenter = new Vector2(dpadInsetX, dpadInsetY);
 
             var upButton = CreateButton("DPadUpButton", safeArea.transform, string.Empty, Color.clear, out _);

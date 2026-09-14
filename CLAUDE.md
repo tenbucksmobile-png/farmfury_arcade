@@ -4572,6 +4572,35 @@ values from the GDD's color palette where one exists (e.g. walls = Wall Brown `#
     on-device this session (no Editor/device access when made) — nudge further if either still
     over- or under-shoots on iPhone 11.
 
+  - **Fourth pass, from a third device screenshot** ("almost there; i think space out slightly so
+    the edges touch; move the whole Dpad to the left so it is off the maze; it may be worth making
+    it slightly smaller, if it is slightly over the yellow border i think we would be fine on the
+    mobile; on the other side re-align the icons underneath each other and drop slightly
+    downward"). Three more corrections, all from the same screenshot:
+    1. **D-pad overlapped MORE than wanted** at `dpadSpacing`=100 — raised to 120 (overlap now 20,
+       a light touch rather than the earlier 60-unit overlap).
+    2. **The diamond was still sitting on top of the maze** — `dpadInsetX` pulled in hard, 145→70,
+       moving the whole D-pad toward the screen's left edge and off the board. Per direct
+       instruction that crossing the yellow safe-area guide slightly is acceptable on mobile,
+       `dpadButtonSize` was also shrunk a bit (160→140) to help it clear the board without an even
+       more extreme inset. `dpadInsetY` kept at the same relative clearance from `dpadSpacing`
+       established by the very first 98/82 pass (`insetY-spacing=70`): 120+70=190.
+    3. **Swap Character/Locker still weren't centred under the ability icon** — a real bug: both
+       reused `abilityInsetX` directly for their own right edge, which right-edge-aligns them with
+       the wider ability icon rather than centre-aligning them (`AnchorBottomRight`'s offset is a
+       box's own right edge, so two differently-sized boxes sharing one offset have different
+       centres — the narrower `clusterIconSize` boxes sat `(abilityButtonSize-clusterIconSize)/2` =
+       20 units right of the ability icon's own centre). Fixed with a dedicated
+       `clusterIconInsetX = abilityInsetX - (abilityButtonSize-clusterIconSize)/2`, so all three
+       genuinely share one vertical centreline regardless of either size changing again later.
+       Separately, `clusterInsetY` (the whole right-side stack's shared vertical baseline — WatchAd
+       → ability icon → Swap Character → Locker all key off it via `abilityBottomY`) dropped 50→25
+       per "drop slightly downward," moving the whole stack down together in one place.
+
+    All still first-pass values, not visually confirmed on-device this session — nudge
+    `dpadInsetX` further left (or `dpadButtonSize` down again) if the diamond still touches the
+    board, and `dpadSpacing` if the touch reads as too light or too heavy an overlap.
+
     **Real bug found the same session, in `DirectionalPadController.cs` — distinct from the
     keyboard-sync bug above (that one made the D-pad never move the character at all; this is the
     opposite, a direction getting stuck ON).** Reported live: Percy kept moving right with nothing
