@@ -117,6 +117,27 @@ namespace FarmFuryArcade.EditorTools
             SetRefs(menuHub.GetComponent<MenuHubScreen>(),
                 ("settingsScreen", settings.GetComponent<SettingsPanel>()),
                 ("shopScreen", storeComingSoon.GetComponent<ShopController>()));
+
+            // Home button (2026-09-14, Btn_home.png) — placed next to the round back button on
+            // every Settings/Shop-family overlay, since some of these (e.g. Shop -> Cosmetics ->
+            // Hats) take several nested taps from Main Menu and required tapping Back the same
+            // number of times to return — this is a direct one-tap shortcut instead. See
+            // GoHomeButton's own doc comment for why the same fixed overlay list is safe to reuse
+            // on every instance.
+            var homeOverlaysToClose = new[]
+            {
+                menuHub, settings, legal, storeComingSoon, coinPurchase,
+                cosmeticsChooser, cosmeticsHats, cosmeticsTrails, worldPurchase, pause
+            };
+            AddHomeButtonNextToBack(menuHub, mainMenu, homeOverlaysToClose);
+            AddHomeButtonNextToBack(settings, mainMenu, homeOverlaysToClose);
+            AddHomeButtonNextToBack(legal, mainMenu, homeOverlaysToClose);
+            AddHomeButtonNextToBack(storeComingSoon, mainMenu, homeOverlaysToClose);
+            AddHomeButtonNextToBack(coinPurchase, mainMenu, homeOverlaysToClose);
+            AddHomeButtonNextToBack(cosmeticsChooser, mainMenu, homeOverlaysToClose);
+            AddHomeButtonNextToBack(cosmeticsHats, mainMenu, homeOverlaysToClose);
+            AddHomeButtonNextToBack(cosmeticsTrails, mainMenu, homeOverlaysToClose);
+            AddHomeButtonNextToBack(worldPurchase, mainMenu, homeOverlaysToClose);
             var (levelComplete, unlockScreen) = BuildLevelComplete(canvas.transform);
             var levelFailed = BuildLevelFailed(canvas.transform);
             var roster = BuildCharacterRoster(canvas.transform, rosterCardPrefab);
@@ -1583,6 +1604,46 @@ namespace FarmFuryArcade.EditorTools
                 AnchorBottomLeft((RectTransform)backButton.transform, new Vector2(160f, 160f), new Vector2(110f, 70f));
             }
             return backButton;
+        }
+
+        /// <summary>Adds a Home button (Btn_home.png) immediately to the LEFT of the screen's own
+        /// round back button (found by its fixed "BackButton" name — see CreateRoundBackButton),
+        /// same size, same row, with a fixed gap so the two can never overlap. Looks the back button
+        /// up on the screen itself rather than taking it as a parameter, since every call site here
+        /// already discarded its own CreateRoundBackButton return value once wired to closeButton.
+        /// No-ops (with a warning) if the screen has no BackButton child — every call site here is
+        /// known to have one, this guards against a future call site that doesn't.</summary>
+        private static void AddHomeButtonNextToBack(GameObject screen, GameObject mainMenuScreen, GameObject[] overlaysToClose)
+        {
+            var backTransform = screen.transform.Find("BackButton");
+            if (backTransform == null)
+            {
+                Debug.LogWarning($"[Phase5ProjectBuilder] {screen.name} has no BackButton to place a Home button next to — skipping.");
+                return;
+            }
+            var backRect = (RectTransform)backTransform;
+
+            const float homeSize = 160f;
+            const float gap = 20f;
+            float homeOffsetX = backRect.anchoredPosition.x - backRect.sizeDelta.x - gap;
+            float homeOffsetY = backRect.anchoredPosition.y;
+
+            var homeButton = CreateButton("HomeButton", screen.transform, string.Empty, new Color(0.6f, 0.4f, 0.15f), 28f, homeSize, out _);
+            Object.DestroyImmediate(homeButton.transform.Find("HomeButton_Label").gameObject);
+            homeButton.GetComponent<Image>().sprite = LoadUiSprite("Btn_home.png");
+            AnchorBottomRight((RectTransform)homeButton.transform, new Vector2(homeSize, homeSize), new Vector2(homeOffsetX, homeOffsetY));
+
+            var goHome = homeButton.gameObject.AddComponent<GoHomeButton>();
+            var goHomeSO = new SerializedObject(goHome);
+            goHomeSO.FindProperty("button").objectReferenceValue = homeButton;
+            goHomeSO.FindProperty("mainMenuScreen").objectReferenceValue = mainMenuScreen;
+            var overlaysProp = goHomeSO.FindProperty("overlaysToClose");
+            overlaysProp.arraySize = overlaysToClose.Length;
+            for (int i = 0; i < overlaysToClose.Length; i++)
+            {
+                overlaysProp.GetArrayElementAtIndex(i).objectReferenceValue = overlaysToClose[i];
+            }
+            goHomeSO.ApplyModifiedPropertiesWithoutUndo();
         }
 
         private static void AnchorBottomCenter(RectTransform rt, Vector2 size, Vector2 offset)
