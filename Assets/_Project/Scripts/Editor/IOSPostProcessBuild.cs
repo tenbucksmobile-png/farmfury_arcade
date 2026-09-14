@@ -90,11 +90,20 @@ namespace FarmFuryArcade.EditorTools
 
             plist.root.SetString("GADApplicationIdentifier", AdMobAppId);
 
+            // This app uses no encryption beyond the OS's standard HTTPS, so it's exempt from
+            // Apple's Export Compliance requirement — Export Compliance was already answered
+            // manually for the first build ("None of the algorithms mentioned above"), but that
+            // answer doesn't carry forward automatically to future builds without this key. Set
+            // it so every future build skips the "Missing Compliance" hold in App Store Connect
+            // instead of needing the same manual answer re-entered every time.
+            plist.root.SetBoolean("ITSAppUsesNonExemptEncryption", false);
+
             plist.WriteToFile(plistPath);
             Debug.Log("[IOSPostProcessBuild] Set GADApplicationIdentifier in Info.plist to " +
                       AdMobAppId + " (fixes the GADApplicationVerifyPublisherInitializedCorrectly " +
                       "crash-on-launch — Google Mobile Ads throws an uncaught exception at process " +
-                      "start if this key is missing).");
+                      "start if this key is missing). Also set ITSAppUsesNonExemptEncryption=false " +
+                      "to skip the per-build Export Compliance prompt in App Store Connect.");
         }
 
         private static void RemoveLd64Flag(PBXProject project, string targetGuid, string targetLabel)
