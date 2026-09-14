@@ -3844,14 +3844,20 @@ namespace FarmFuryArcade.EditorTools
         /// never drift out of sync with the row-height those helpers actually build each row at —
         /// a mismatch there would silently reintroduce overlap. Enlarged from bestRowHeight 100/
         /// rowHeight 64/rowGap 16/labelWidth 280/plaqueWidth 220/innerGap 40/starSize 48/
-        /// valueFontSize 36, per direct feedback the line items read too small.</summary>
+        /// valueFontSize 36, per direct feedback the line items read too small.
+        ///
+        /// Re-tuned again 2026-09-14 (second pass, per a direct screenshot showing the first pass's
+        /// results): rowGap 20->8 (padding between rows was still too loose) and starSize 56->70
+        /// (stars read too small next to the now-larger plaques). bestRowHeight/rowHeight/labelWidth/
+        /// plaqueWidth/innerGap/valueFontSize are unchanged from the first enlarge pass — this round
+        /// was about spacing/stars, not the rows' own footprint.</summary>
         private const float WorldDetailBestRowHeight = 120f;
         private const float WorldDetailRowHeight = 78f;
-        private const float WorldDetailRowGap = 20f;
+        private const float WorldDetailRowGap = 8f;
         private const float WorldDetailLabelWidth = 320f;
         private const float WorldDetailPlaqueWidth = 260f;
         private const float WorldDetailInnerGap = 46f;
-        private const float WorldDetailStarSize = 56f;
+        private const float WorldDetailStarSize = 70f;
         private const float WorldDetailValueFontSize = 42f;
 
         /// <summary>Per-world Leaderboard detail page - built as a child of LeaderboardsScreen's own
@@ -3865,25 +3871,22 @@ namespace FarmFuryArcade.EditorTools
             ApplyDimmedLandingBackground(root);
             root.SetActive(false);
 
-            // Header moved to LEFT alignment (2026-09-14, per direct feedback) — was centred via
-            // CreateHeaderSign's own AnchorTopCenter; the world-name banner now sits at the screen's
-            // left edge instead, inset by the same 100px every other left-aligned top element
-            // (LogoImage etc.) uses to stay clear of the yellow safe-area guide. Same size
-            // (StandardHeaderSignSize) and vertical position (StandardHeaderSignOffset.y) as before
-            // — only the horizontal anchor/offset changed, so the stat block's own vertical math
-            // below (which only depends on the header's height, not its X position) needed no
-            // changes for this part.
+            // Header shrunk to HALF StandardHeaderSignSize (2026-09-14, per direct screenshot
+            // feedback it was rendering far too large, badly overlapping the "FARM FURY" wordmark
+            // baked into the dimmed backdrop behind it) — this screen now uses its own smaller local
+            // size instead of the shared StandardHeaderSignSize constant (which stays untouched for
+            // every other screen that still wants the full-size header). Kept at the same left
+            // inset (100px, same convention every other left-aligned top element uses) and the same
+            // top offset Y, so it still reads as "the same corner, just smaller."
             const float headerLeftInset = 100f;
+            Vector2 headerSize = StandardHeaderSignSize * 0.5f;
             var headerImage = CreateHeaderSign(root.transform, null);
-            AnchorTopLeft((RectTransform)headerImage.transform, StandardHeaderSignSize,
+            AnchorTopLeft((RectTransform)headerImage.transform, headerSize,
                 new Vector2(headerLeftInset, StandardHeaderSignOffset.y));
 
             // Line items enlarged (2026-09-14, per direct feedback the whole block read too small)
             // — see WorldDetailRowHeight etc.'s own doc comment for the exact before/after values
-            // and why they're shared class-level constants rather than duplicated locally. The
-            // whole block stays middle-aligned (per the earlier "must be middle aligned" feedback,
-            // unchanged) — the header moving to the left is deliberately independent of the block's
-            // own centred position, matching the requested mockup.
+            // and why they're shared class-level constants rather than duplicated locally.
             const float bestRowHeight = WorldDetailBestRowHeight;
             const float rowHeight = WorldDetailRowHeight;
             const float rowGap = WorldDetailRowGap;
@@ -3893,29 +3896,39 @@ namespace FarmFuryArcade.EditorTools
             const float statRowWidth = labelWidth + innerGap + plaqueWidth;
             const float bestRowWidth = 320f + innerGap + bestRowHeight; // label + gap + char portrait
             float blockWidth = Mathf.Max(statRowWidth, bestRowWidth);
-            // 2026-09-13 real bug fix, verified against the actual code (not guessed): AnchorTopLeft
-            // anchors at the screen's TOP-LEFT CORNER (anchorMin/Max=(0,1)), so its offset.x is
-            // measured from the screen's own left edge (0..CanvasReferenceWidth in this 1920-wide
-            // reference canvas), never from centre — a negative offset.x (the previous
-            // "-blockWidth*0.5f") pushed the whole block off the left edge of the screen entirely,
-            // which is exactly the hard-clipped-at-the-left-edge bug seen in a direct screenshot.
-            // Centering under AnchorTopLeft's own coordinate space requires
-            // (CanvasReferenceWidth - blockWidth) / 2, not a bare negative half-width.
-            const float canvasReferenceWidth = 1920f;
-            float blockLeftX = (canvasReferenceWidth - blockWidth) * 0.5f;
 
-            // Header bottom edge (StandardHeaderSignOffset.y - StandardHeaderSignSize.y = -55-310 =
-            // -365) plus a tightened gap to the first row, replacing the old fixed -380 guess that
-            // assumed the old smaller header box.
-            const float headerToBlockGap = 20f;
-            float bestRowTop = (StandardHeaderSignOffset.y - StandardHeaderSignSize.y) - headerToBlockGap;
+            // Block shifted from centred to the open space on the right (2026-09-14, per direct
+            // feedback) — the shrunk header now occupies only the top-left corner, leaving the
+            // right two-thirds of the screen clear, so the stat block moved there instead of sitting
+            // centred (which used to put it directly under/overlapping the header's own old,
+            // much-larger footprint). blockRightMargin keeps its right edge a safe distance inside
+            // the screen's own right border (same ~10% margin convention other inset elements use);
+            // the close button (bottom-right, D=850-1010) is a separate, non-issue here regardless
+            // of this margin since the block's own vertical extent stops well above it (see
+            // bestRowTop below — the block now ends around D=630, a comfortable gap above D=850).
+            const float canvasReferenceWidth = 1920f;
+            const float blockRightMargin = 200f;
+            float blockLeftX = canvasReferenceWidth - blockRightMargin - blockWidth;
+
+            // Moved much closer to the top (2026-09-14, per direct feedback) — now that the header
+            // is small and the block sits in a different horizontal region entirely (no horizontal
+            // overlap possible, see blockLeftX above), there's no reason to anchor the block's own
+            // top edge below the header's bottom edge any more; it starts near the screen's own top
+            // margin instead, independent of the header's position/size.
+            const float bestRowTop = -80f;
 
             var bestLabelGO = new GameObject("BestFarmFuryLabel", typeof(RectTransform), typeof(Image));
             bestLabelGO.transform.SetParent(root.transform, false);
             var bestLabelImage = bestLabelGO.GetComponent<Image>();
             bestLabelImage.sprite = LoadUiSprite("Best.png");
             bestLabelImage.preserveAspect = true;
-            AnchorTopLeft((RectTransform)bestLabelGO.transform, new Vector2(320f, 60f), new Vector2(blockLeftX, bestRowTop));
+            // Real bug fix (2026-09-14): this box used a hardcoded 60 height while
+            // BuildLeaderboardStatRow's HighScore/FastestTime labels use the shared rowHeight (78) —
+            // the mismatch was reported directly as "BestFarmFury renders smaller than the other
+            // two." Using rowHeight here instead guarantees all three word-art labels share the
+            // exact same box height (and therefore, since all three source images use a similar
+            // banner aspect ratio, render at the same visual size).
+            AnchorTopLeft((RectTransform)bestLabelGO.transform, new Vector2(labelWidth, rowHeight), new Vector2(blockLeftX, bestRowTop));
 
             var bestCharGO = new GameObject("BestCharacterImage", typeof(RectTransform), typeof(Image));
             bestCharGO.transform.SetParent(root.transform, false);
