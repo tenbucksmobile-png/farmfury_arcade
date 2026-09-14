@@ -800,10 +800,8 @@ namespace FarmFuryArcade.EditorTools
 
             var lockedHintPanel = BuildLockedHintPanel(root.transform);
 
-            // "Visit Our Store" merch promo (2026-09-08) — bottom-left, world-select state only
-            // (see LevelSelectController.ShowWorldSelect/RevealWorld). Built after the back button
-            // (bottom-right) so the two corner elements never fight over sibling draw/raycast order.
-            var merchBanner = BuildMerchBanner(root.transform);
+            // "Visit Our Store" merch promo moved to MenuHubScreen (2026-09-14, per direct feedback)
+            // — see BuildMenuHubScreen. No longer built here at all.
 
             var controller = root.AddComponent<LevelSelectController>();
             SetRefs(controller,
@@ -821,8 +819,7 @@ namespace FarmFuryArcade.EditorTools
                 ("backButtonImage", backButton.GetComponent<Image>()),
                 ("titleImage", titleImage),
                 ("titleWorldSelectSprite", LoadUiSprite("WorldUnlocked.png")),
-                ("titleTileGridSprite", LoadUiSprite("SelectLevelSign.png")),
-                ("merchBanner", merchBanner));
+                ("titleTileGridSprite", LoadUiSprite("SelectLevelSign.png")));
 
             return root;
         }
@@ -903,39 +900,6 @@ namespace FarmFuryArcade.EditorTools
             so.ApplyModifiedPropertiesWithoutUndo();
 
             return root;
-        }
-
-        /// <summary>"Visit Our Store" promotional link-out to the FarmFury franchise's real-goods
-        /// merchandise store on www.farmfury.games (2026-09-08) — deliberately NOT an IAP product,
-        /// no checkout happens in this app at all; see MerchBannerController's own doc comment.
-        /// Moved onto Level Select's world-select state (bottom-left, see BuildLevelSelect) after a
-        /// gameplay screenshot showed it awkwardly overlapping Main Menu's landing art. Sized to sit
-        /// neatly inside the yellow safe-area guide, same 110/70 corner inset every other bottom-
-        /// corner element on this screen family uses (CreateRoundBackButton's bottomLeft branch,
-        /// etc.) — shrunk from the original Main-Menu-era 260-tall version, which was sized for open
-        /// space in the middle of a screen, not a corner. Sized to MerchBanner.png's real 666x392
-        /// aspect (preserveAspect, explicit sizeDelta, same "box aspect must match the art"
-        /// convention this project uses everywhere) rather than forced into CreateIconButton's
-        /// square box, since this art is a wide banner, not an icon.</summary>
-        private static GameObject BuildMerchBanner(Transform screenRoot)
-        {
-            var button = CreateButton("MerchBanner", screenRoot, string.Empty, Color.white, 20f, 180f, out _);
-            Object.DestroyImmediate(button.transform.Find("MerchBanner_Label").gameObject);
-            var image = button.GetComponent<Image>();
-            image.sprite = LoadUiSprite("MerchBanner.png");
-            image.preserveAspect = true;
-
-            const float bannerHeight = 180f;
-            const float bannerAspect = 666f / 392f;
-            var rect = (RectTransform)button.transform;
-            AnchorBottomLeft(rect, new Vector2(bannerHeight * bannerAspect, bannerHeight), new Vector2(110f, 70f));
-
-            var merchController = button.gameObject.AddComponent<MerchBannerController>();
-            var mbSo = new SerializedObject(merchController);
-            mbSo.FindProperty("merchButton").objectReferenceValue = button;
-            mbSo.ApplyModifiedPropertiesWithoutUndo();
-
-            return button.gameObject;
         }
 
         // ---- Title screen -----------------------------------------------------------------------
@@ -2615,27 +2579,45 @@ namespace FarmFuryArcade.EditorTools
         }
 
         /// <summary>Main Menu's Settings button hub (2026-08-27, background dimmed 2026-08-27
-        /// follow-up per a device screenshot review) — dimmed Landing_Opacity.png background,
-        /// same convention every other overlay in this family (Settings/Shop/Cosmetics hub/Hat-
-        /// Trail purchase/Leaderboards) already uses, not the full-brightness treatment this
-        /// screen originally shipped with — and two stacked wood-sign buttons reusing the exact
-        /// sign art each destination screen already shows as its own header: SettingsSign.png
-        /// ("SETTINGS") and ShopBanner.png ("Shop"). Gives Shop a discoverable entry point from
-        /// Main Menu it didn't have before (it was previously only reachable via Level Select's
-        /// own Shop icon).</summary>
+        /// follow-up per a device screenshot review) — dimmed Landing_Opacity.png background, and
+        /// three stacked wood-sign buttons: SettingsSign.png ("SETTINGS"), ShopBanner.png ("Shop"),
+        /// and — moved here from Level Select's world-select state (2026-09-14, per direct
+        /// feedback) — MerchBanner.png ("Visit Our Store"), directly under Shop. Gives Shop (and now
+        /// the merch link-out) a discoverable entry point from Main Menu.
+        ///
+        /// All three signs share the exact same box size (signWidth x signHeight) per direct
+        /// feedback ("make the banners all the same size") — MerchBanner.png's own real aspect
+        /// (666x392, ~1.7:1) is close enough to SettingsSign/ShopBanner's own ~2.4:1 box that
+        /// `preserveAspect` fits all three without visible squashing; this replaces the merch
+        /// banner's previous bespoke aspect-matched sizing (Assets/_Project/Sprites/UI/
+        /// MerchBanner.png at its own 666x392 aspect) with the shared uniform box every other sign
+        /// here already uses.
+        ///
+        /// Stack shifted up and re-spaced (2026-09-14) to fit a third sign without running into the
+        /// close button (bottom-right, its own top edge sits at D=1080-70-160=850) — topOffset -320
+        /// (the original 2-sign starting point) would have pushed the 3rd sign's bottom edge to
+        /// D=320+3*230+2*30=1070, well past D=850. -180 keeps the whole 3-sign stack's bottom edge
+        /// at D=180+690+60=930... still tight, so signHeight was also trimmed 230->190 alongside the
+        /// shift, landing the stack's bottom edge at D=180+570+60=810, a real 40px clearance above
+        /// the close button.</summary>
         private static GameObject BuildMenuHubScreen(Transform canvasTransform)
         {
             var root = CreatePanel("MenuHubScreen", canvasTransform, Color.black);
             ApplyDimmedLandingBackground(root);
 
             const float signWidth = 550f;
-            const float signHeight = 230f;
+            const float signHeight = 190f;
             const float signGap = 30f;
+            const float topOffset = -180f;
+
             var settingsButton = CreateIconButton("SettingsSignButton", root.transform, LoadUiSprite("SettingsSign.png"), signWidth);
-            AnchorTopCenter((RectTransform)settingsButton.transform, new Vector2(signWidth, signHeight), new Vector2(0f, -320f));
+            AnchorTopCenter((RectTransform)settingsButton.transform, new Vector2(signWidth, signHeight), new Vector2(0f, topOffset));
 
             var shopButton = CreateIconButton("ShopSignButton", root.transform, LoadUiSprite("ShopBanner.png"), signWidth);
-            AnchorTopCenter((RectTransform)shopButton.transform, new Vector2(signWidth, signHeight), new Vector2(0f, -320f - signHeight - signGap));
+            AnchorTopCenter((RectTransform)shopButton.transform, new Vector2(signWidth, signHeight), new Vector2(0f, topOffset - (signHeight + signGap)));
+
+            var merchButton = CreateIconButton("MerchBannerButton", root.transform, LoadUiSprite("MerchBanner.png"), signWidth);
+            AnchorTopCenter((RectTransform)merchButton.transform, new Vector2(signWidth, signHeight), new Vector2(0f, topOffset - (signHeight + signGap) * 2f));
 
             var closeButton = CreateRoundBackButton(root.transform, bottomRight: true);
             closeButton.GetComponent<Image>().sprite = LoadUiSprite("Btn_back.png");
@@ -2647,6 +2629,11 @@ namespace FarmFuryArcade.EditorTools
                 ("closeButton", closeButton));
             // settingsScreen/shopScreen are wired later in BuildAll's WireCrossReferences, once
             // those screens actually exist.
+
+            var merchController = merchButton.gameObject.AddComponent<MerchBannerController>();
+            var mbSo = new SerializedObject(merchController);
+            mbSo.FindProperty("merchButton").objectReferenceValue = merchButton;
+            mbSo.ApplyModifiedPropertiesWithoutUndo();
 
             return root;
         }
@@ -3848,13 +3835,19 @@ namespace FarmFuryArcade.EditorTools
         ///
         /// Re-tuned again 2026-09-14 (second pass, per a direct screenshot showing the first pass's
         /// results): rowGap 20->8 (padding between rows was still too loose) and starSize 56->70
-        /// (stars read too small next to the now-larger plaques). bestRowHeight/rowHeight/labelWidth/
+        /// (stars read too small next to the now-larger plaques). bestRowHeight/rowHeight/
         /// plaqueWidth/innerGap/valueFontSize are unchanged from the first enlarge pass — this round
-        /// was about spacing/stars, not the rows' own footprint.</summary>
+        /// was about spacing/stars, not the rows' own footprint.
+        ///
+        /// Third pass (2026-09-14): labelWidth 320->380 — no longer the width each label image is
+        /// forced into (see BuildLeaderboardStatRow/BestFarmFury label's own doc comments for the
+        /// real "renders shorter than rowHeight" bug that fix addresses), now purely the fixed
+        /// column-alignment offset the value plaques sit at. 380 comfortably clears FastestTime.png's
+        /// own natural width at rowHeight (~354, the widest of the two stat-row labels).</summary>
         private const float WorldDetailBestRowHeight = 120f;
         private const float WorldDetailRowHeight = 78f;
         private const float WorldDetailRowGap = 8f;
-        private const float WorldDetailLabelWidth = 320f;
+        private const float WorldDetailLabelWidth = 380f;
         private const float WorldDetailPlaqueWidth = 260f;
         private const float WorldDetailInnerGap = 46f;
         private const float WorldDetailStarSize = 70f;
@@ -3875,10 +3868,15 @@ namespace FarmFuryArcade.EditorTools
             // feedback it was rendering far too large, badly overlapping the "FARM FURY" wordmark
             // baked into the dimmed backdrop behind it) — this screen now uses its own smaller local
             // size instead of the shared StandardHeaderSignSize constant (which stays untouched for
-            // every other screen that still wants the full-size header). Kept at the same left
-            // inset (100px, same convention every other left-aligned top element uses) and the same
-            // top offset Y, so it still reads as "the same corner, just smaller."
-            const float headerLeftInset = 100f;
+            // every other screen that still wants the full-size header).
+            //
+            // Left inset widened 100->280 (2026-09-14, second pass, per direct feedback it was still
+            // spilling past the yellow safe-area guide on the left, with plenty of room to spare) —
+            // this screen's own art apparently needs a deeper inset than the 100px convention other
+            // left-aligned elements (LogoImage etc.) use, likely because the world banner PNGs
+            // themselves have less internal transparent margin around their own baked lettering than
+            // those other elements' art does.
+            const float headerLeftInset = 280f;
             Vector2 headerSize = StandardHeaderSignSize * 0.5f;
             var headerImage = CreateHeaderSign(root.transform, null);
             AnchorTopLeft((RectTransform)headerImage.transform, headerSize,
@@ -3893,8 +3891,15 @@ namespace FarmFuryArcade.EditorTools
             const float labelWidth = WorldDetailLabelWidth;
             const float plaqueWidth = WorldDetailPlaqueWidth;
             const float innerGap = WorldDetailInnerGap;
+
+            // Loaded early (rather than at its own construction site further down) so its real
+            // natural width — see the "renders shorter than rowHeight" bug fix on this label's own
+            // construction below — feeds directly into blockWidth here instead of a stale guess.
+            var bestSprite = LoadUiSprite("Best.png");
+            float bestLabelNaturalWidth = rowHeight * (bestSprite.rect.width / bestSprite.rect.height);
+
             const float statRowWidth = labelWidth + innerGap + plaqueWidth;
-            const float bestRowWidth = 320f + innerGap + bestRowHeight; // label + gap + char portrait
+            float bestRowWidth = bestLabelNaturalWidth + innerGap + bestRowHeight; // label + gap + char portrait
             float blockWidth = Mathf.Max(statRowWidth, bestRowWidth);
 
             // Block shifted from centred to the open space on the right (2026-09-14, per direct
@@ -3902,40 +3907,54 @@ namespace FarmFuryArcade.EditorTools
             // right two-thirds of the screen clear, so the stat block moved there instead of sitting
             // centred (which used to put it directly under/overlapping the header's own old,
             // much-larger footprint). blockRightMargin keeps its right edge a safe distance inside
-            // the screen's own right border (same ~10% margin convention other inset elements use);
-            // the close button (bottom-right, D=850-1010) is a separate, non-issue here regardless
-            // of this margin since the block's own vertical extent stops well above it (see
-            // bestRowTop below — the block now ends around D=630, a comfortable gap above D=850).
+            // the screen's own right border; the close button (bottom-right, D=850-1010) is a
+            // separate, non-issue here regardless of this margin since the block's own vertical
+            // extent stops well above it (see bestRowTop below).
+            //
+            // Nudged left again 2026-09-14 (second pass, per direct feedback) — 200 read as too far
+            // right, leaving a wide dead gap between the header (now also shifted right, see
+            // headerLeftInset above) and this block; 400 closes that gap while the two still don't
+            // horizontally overlap (header's own right edge sits at 280+headerSize.x, comfortably
+            // short of blockLeftX at this margin).
             const float canvasReferenceWidth = 1920f;
-            const float blockRightMargin = 200f;
+            const float blockRightMargin = 400f;
             float blockLeftX = canvasReferenceWidth - blockRightMargin - blockWidth;
 
-            // Moved much closer to the top (2026-09-14, per direct feedback) — now that the header
-            // is small and the block sits in a different horizontal region entirely (no horizontal
-            // overlap possible, see blockLeftX above), there's no reason to anchor the block's own
-            // top edge below the header's bottom edge any more; it starts near the screen's own top
-            // margin instead, independent of the header's position/size.
-            const float bestRowTop = -80f;
+            // Moved down and slightly left (2026-09-14, second pass, per direct feedback) — closes
+            // the gap between the header (now shifted further right too, see headerLeftInset above)
+            // and this block. -80 (first pass, hugging the very top) read as too large a vertical gap
+            // from the header; -180 sits roughly level with the header's own lower half instead.
+            const float bestRowTop = -180f;
 
             var bestLabelGO = new GameObject("BestFarmFuryLabel", typeof(RectTransform), typeof(Image));
             bestLabelGO.transform.SetParent(root.transform, false);
             var bestLabelImage = bestLabelGO.GetComponent<Image>();
-            bestLabelImage.sprite = LoadUiSprite("Best.png");
+            bestLabelImage.sprite = bestSprite;
             bestLabelImage.preserveAspect = true;
-            // Real bug fix (2026-09-14): this box used a hardcoded 60 height while
-            // BuildLeaderboardStatRow's HighScore/FastestTime labels use the shared rowHeight (78) —
-            // the mismatch was reported directly as "BestFarmFury renders smaller than the other
-            // two." Using rowHeight here instead guarantees all three word-art labels share the
-            // exact same box height (and therefore, since all three source images use a similar
-            // banner aspect ratio, render at the same visual size).
-            AnchorTopLeft((RectTransform)bestLabelGO.transform, new Vector2(labelWidth, rowHeight), new Vector2(blockLeftX, bestRowTop));
+            // Real bug fix, round 2 (2026-09-14): matching the BOX HEIGHT to rowHeight (the first
+            // fix) wasn't actually sufficient — Best.png's own image aspect (measured directly:
+            // 491x83, ~5.92:1) is far wider/flatter than HighScore.png (583x148, ~3.94:1) or
+            // FastestTime.png (313x69, ~4.54:1), all three already tightly cropped to their content
+            // (~98.6% fill, no padding difference to blame). Forcing Best.png into the SAME fixed
+            // WIDTH as the other labels made `preserveAspect` pick width as the binding constraint
+            // for its much-wider aspect, shrinking its rendered height well short of the intended
+            // rowHeight, which is exactly the "still renders smaller" gap reported after the first
+            // fix. Sizing the box to Best.png's own real aspect AT a fixed height (rowHeight)
+            // instead — letting width come out wherever that aspect implies, rather than the
+            // reverse (computed once, above, alongside blockWidth) — guarantees it renders at
+            // EXACTLY the same height as the other two labels, with no letterboxing either way.
+            AnchorTopLeft((RectTransform)bestLabelGO.transform, new Vector2(bestLabelNaturalWidth, rowHeight), new Vector2(blockLeftX, bestRowTop));
 
             var bestCharGO = new GameObject("BestCharacterImage", typeof(RectTransform), typeof(Image));
             bestCharGO.transform.SetParent(root.transform, false);
             var bestCharImage = bestCharGO.GetComponent<Image>();
             bestCharImage.preserveAspect = true;
+            // Positioned relative to the label's own real (now larger) rendered width, not a fixed
+            // 320 — Best.png's natural width at rowHeight(78) is ~462px (78 * 5.916), wider than the
+            // old fixed 320, so keeping that fixed offset would have made the portrait overlap the
+            // label's own now-correctly-sized art.
             AnchorTopLeft((RectTransform)bestCharGO.transform, new Vector2(bestRowHeight, bestRowHeight),
-                new Vector2(blockLeftX + 320f + innerGap, bestRowTop + 10f));
+                new Vector2(blockLeftX + bestLabelNaturalWidth + innerGap, bestRowTop + 10f));
 
             // 5 stacked stat rows below BestFarmFury - HighScore/FastestTime each with a text
             // label, the 3 star rows with a small row of star icons instead of text (matching the
@@ -4002,7 +4021,17 @@ namespace FarmFuryArcade.EditorTools
             var labelImage = labelGO.GetComponent<Image>();
             labelImage.sprite = labelSprite;
             labelImage.preserveAspect = true;
-            AnchorTopLeft((RectTransform)labelGO.transform, new Vector2(labelWidth, rowHeight), new Vector2(leftX, topOffsetY));
+            // Real bug fix, round 2 (2026-09-14, same root cause as BestFarmFury's own fix — see
+            // that call site's doc comment): HighScore.png (583x148, ~3.94:1) and FastestTime.png
+            // (313x69, ~4.54:1) have different aspect ratios from each other too, so forcing both
+            // into the same fixed labelWidth (320) meant `preserveAspect` picked width as the
+            // binding constraint for whichever one is wider-than-the-box, rendering it shorter than
+            // rowHeight. Sized to each label's own real aspect AT rowHeight instead — labelWidth is
+            // now only used below, as the fixed zone width the plaque is offset by (380, wide enough
+            // to clear FastestTime's own natural width of ~354 at rowHeight — the widest of the two
+            // — with margin), not the width forced onto either label image.
+            float naturalWidth = rowHeight * (labelSprite.rect.width / labelSprite.rect.height);
+            AnchorTopLeft((RectTransform)labelGO.transform, new Vector2(naturalWidth, rowHeight), new Vector2(leftX, topOffsetY));
 
             return BuildLeaderboardPlaque(parent, leftX + labelWidth + innerGap, topOffsetY, plaqueWidth, rowHeight, plaqueBorder);
         }
