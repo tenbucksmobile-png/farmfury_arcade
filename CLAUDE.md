@@ -1180,6 +1180,25 @@ split exists yet for ad unit IDs — `AdManager.enableTestSuite` (LevelPlay's in
 `SetMetaData("is_test_suite", "enable")`) is a single Inspector bool toggled by hand, not swapped
 automatically per build type; must be turned off before cutting a real release build.
 
+**Reported 2026-09-14 (iPhone 11 TestFlight playtest): no ad — rewarded, interstitial, or banner —
+ever actually displayed.** `AdManager.cs` itself was reviewed and found clean (init sequence,
+child-directed metadata, exponential backoff, timeout fallbacks all correctly wired). The likely
+real cause, not yet verified against the live dashboard: `Game.unity`'s `AdManager` component has
+`androidRewardedAdUnitId: Rewarded_Android` / `iosRewardedAdUnitId: Rewarded_iOS` /
+`androidInterstitialAdUnitId: Interstitial_Android` / `iosInterstitialAdUnitId: Interstitial_iOS` /
+`androidBannerAdUnitId: Banner_Android` / `iosBannerAdUnitId: Banner_iOS` — real LevelPlay-issued
+Ad Unit IDs are normally opaque alphanumeric strings, not human-readable labels like these. Banner
+was already documented above as a known placeholder; Rewarded/Interstitial are named in exactly the
+same suspicious style despite this section's own "fully configured" claim two paragraphs up, which
+was never re-verified against the actual dashboard. App keys (`androidAppKey: 800356804`,
+`iosAppKey: 800356807`) look like genuine numeric LevelPlay App Keys by contrast. Also relevant:
+`enableTestSuite` is `true` in the scene, but compiles to a hardcoded `false` outside the Editor or
+a Development Build (see `AdManager.EnableTestSuite`) — a normal TestFlight archive is neither, so
+the device was relying entirely on real ad fill from whatever those 6 IDs actually resolve to, with
+no test-ad fallback. **Before assuming a code fix is needed here, confirm each of the 6 IDs against
+the LevelPlay/ironSource dashboard directly** — if any are wrong/placeholder, the fix is re-wiring
+real values via `SceneCleanupBuilder.WireAdManagerConfig`, not an `AdManager.cs` change.
+
 **"Continue after death"** — `RevivePromptController` gained a third button (`watchAdButton`,
 between Revive and Decline) alongside the existing 5-coin-revive/decline pair, hidden entirely
 unless `AdManager.IsRewardedAdReady` (same never-show-a-dead-button rule the coin-affordability
@@ -1900,6 +1919,23 @@ pause state elsewhere. Raycasts are off on the banner (`blocksRaycasts = false`)
 block a tap on the item grid or close button underneath it while showing. `OnEnable` resets/hides
 it defensively in case the screen was closed mid-fade on a previous visit (`OnDisable` already
 stops the coroutine automatically, but the GameObject/alpha could otherwise be left visible).
+
+**Real bug found and fixed (2026-09-14, iPhone 11 playtest): a purchase could confirm silently with
+no "Purchase Complete!" banner and no owned-badge update — reported as "the purchase goes through,
+but didn't finalise, then went through the process again."** `IAPManager.OnPurchaseSucceeded` used
+to be subscribed only in `OnEnable`/unsubscribed in `OnDisable` — but a real native purchase (the
+App Store/Play payment sheet) can take genuinely real time to confirm, and if the player closed
+this screen before `HandlePurchasePendingInner` actually fired the event, nobody was listening. The
+purchase itself still granted correctly in the background (`IAPManager` isn't screen-scoped), but
+the confirmation was lost from the UI's perspective entirely — reasonably read as "didn't
+finalise," prompting a retry that hit the exact same gap. Fixed by subscribing once in `Awake()`
+instead (this component is only ever `SetActive`-toggled, never destroyed, so this lasts the app's
+whole lifetime — no `OnEnable`/`OnDisable` churn to miss events during) and unsubscribing in
+`OnDestroy` instead of `OnDisable`. A confirmation arriving while the screen is inactive can't
+`StartCoroutine` its banner on a disabled GameObject, so `HandlePurchaseSucceeded` now defers it via
+`_pendingPurchaseCompleteBanner`, shown the next time `OnEnable` runs instead of being silently
+dropped; `RefreshOwnedBadges`/`statusText` writes need no such deferral since plain field/property
+assignment works fine on an inactive object.
 
 ### Cosmetics chooser splits Hats & Caps from Trails (2026-09-12, `Scripts/UI/CosmeticsChooserScreen.cs`)
 
@@ -4486,6 +4522,41 @@ values from the GDD's color palette where one exists (e.g. walls = Wall Brown `#
     (~+11%) — kept well clear of the earlier 110/100 configuration this section's own shrink was
     reacting to. See `DirectionalPadController`'s own real bug fix above (the keyboard-sync issue)
     if a future "D-pad doesn't work" report turns out not to be a sizing/overlap problem at all.
+  - **Enlarged again 2026-09-14, second pass, from a real iPhone 11 playtest (see
+    `project_testing_device`/`dpad_keyboard_sync_bug` memories)** — the 98/82 configuration above
+    still read as too small on the real device. `dpadButtonSize`/`dpadSpacing` both jumped straight
+    to `StandardIconButtonSize` (160, matching Pause/Main Menu Play&Settings/every icon-button
+    family in this project) per direct instruction ("resize to the same size as the buttons on
+    pause, landing page etc"), with spacing set equal to size so the diamond's 4 arms now have
+    genuine daylight between them (corner-to-corner distance `spacing*sqrt(2)`=226 > `buttonSize`
+    =160) instead of the small deliberate overlap every earlier pass kept. Insets grown to preserve
+    the same inner (screen-edge-facing) clearance the 98/82 pair had. This roughly doubles the
+    diamond's outer, maze-facing reach (`upButtonTopEdge` 332→550) — a first-pass value reasoned
+    from the ratios above only, not visually confirmed on-device this session (no Editor/device
+    access when made); nudge `dpadInsetX`/`dpadInsetY` inward or `dpadSpacing` down if this now
+    clips playable maze tiles. **Pause moved to its own dedicated gap above Up** (`pauseAboveDpadGap`
+    = 110, replacing the shared `clusterSpacing` = 30 it used before) per direct feedback ("I
+    accidentally kept hitting it when wanting to hit the up direction") — Pause still automatically
+    matches the D-pad's new size since it's sized off `dpadButtonSize` directly. **The ability icon
+    was separately enlarged too** (`abilityButtonSize` 180→220, in the right-side cluster below) per
+    the same playtest ("enlarge it without encroaching on surrounding areas") — safe with respect to
+    the earlier 210→180 shrink's own reasoning (that was about right-edge crowding; this button's
+    `AnchorBottomRight` pivot means growing it only extends further up/left from its fixed corner,
+    never further right toward the safe-area edge) — Swap Character/Locker above it share
+    `abilityButtonSize` and grew with it automatically.
+
+    **Real bug found the same session, in `DirectionalPadController.cs` — distinct from the
+    keyboard-sync bug above (that one made the D-pad never move the character at all; this is the
+    opposite, a direction getting stuck ON).** Reported live: Percy kept moving right with nothing
+    touching the screen, resolved only once a swipe overrode `CurrentHeldDirection` directly
+    (`SetSwipeDirection` bypasses `HeldStack` entirely). Root cause is almost certainly a missed
+    `PointerUp`/`PointerExit` callback for a specific touch — a known intermittent gotcha on real
+    iOS devices (a fast lift, or an OS-level gesture briefly stealing/cancelling the touch, can mean
+    uGUI's `EventSystem` never delivers the matching release event). Fixed with a per-frame
+    watchdog (`DirectionalPadController.Update`, tracking its own `_heldDirections`): if the pad
+    still believes a direction is held but no pointer (mouse or any touch) is actually pressed
+    anywhere on screen, it force-releases it — a safety net on top of the event-based release, not
+    a replacement for it.
   - **Choose Character** — found and fixed the actual bug behind a large yellow block covering the
     active/centred card: `ActiveHighlight` was a *child* of the same GameObject holding the card's
     own `Image` — in uGUI a child always renders in front of its own parent's Image regardless of

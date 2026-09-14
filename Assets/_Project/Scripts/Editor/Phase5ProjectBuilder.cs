@@ -1104,7 +1104,18 @@ namespace FarmFuryArcade.EditorTools
             // inward from clusterInsetX) per feedback ("slightly reduce the size... and shift
             // slightly right, keep inside the yellow border") — a device screenshot showed both
             // icons crowding right up against the yellow safe-area guide.
-            const float abilityButtonSize = 180f;
+            //
+            // Enlarged again (2026-09-14, direct iPhone 11 feedback: "enlarge it without encroaching
+            // on surrounding areas") — 180 -> 220, back above the earlier 210 this was shrunk from.
+            // Safe with respect to the right-edge crowding the 210->180 shrink above was reacting
+            // to: this button is AnchorBottomRight-pivoted, so its fixed corner is
+            // (abilityInsetX, abilityBottomY) regardless of size — growing the box only extends it
+            // further UP and LEFT from that corner, never further right toward the safe-area edge.
+            // Swap Character/Locker above it share this same abilityButtonSize and grow with it, so
+            // the whole stack stays visually consistent; not visually confirmed on-device this
+            // session — nudge back down if it now crowds the top of the stack against the HUD
+            // elements above it (coin balance/timer).
+            const float abilityButtonSize = 220f;
             const float abilityShiftLeft = 10f;
             const float abilityInsetX = clusterInsetX - abilityShiftLeft;
 
@@ -1256,22 +1267,27 @@ namespace FarmFuryArcade.EditorTools
             // Shifted slightly further left (150 -> 115) per feedback ("shift the direction buttons
             // slightly left, include the Btn_pause") — Pause needs no separate change, its own
             // position is computed off the D-pad's Up button below and follows automatically.
-            // Enlarged slightly (2026-09-14, per direct feedback the buttons should better match a
-            // thumb and have a bit more breathing room between them) — buttonSize 90->98, spacing
-            // 70->82 (spacing grew more than buttonSize specifically to shrink the corner overlap
-            // between adjacent arms, e.g. Up/Left, from 20 units down to 16 rather than just
-            // preserving it; still not a full gap, kept deliberately modest given the maze-overlap
-            // history below). Insets grew by the exact same +12 as spacing so the INNER corner
-            // clearance (nearest the physical screen edge — e.g. Left's own left edge, insetX -
-            // spacing) is completely unchanged from before; only the OUTER, maze-facing reach grows
-            // (upButtonTopEdge = insetY + spacing + buttonSize goes 300 -> 332, +11%). Kept well
-            // clear of the earlier buttonSize=110/spacing=100 (reach 210) configuration that was
-            // shrunk down specifically after complaints it clipped the maze on some device aspects —
-            // this only claws back roughly a third of that prior reduction, not all of it.
-            const float dpadButtonSize = 98f;
-            const float dpadSpacing = 82f;
-            const float dpadInsetX = 127f;
-            const float dpadInsetY = 152f;
+            // Enlarged again (2026-09-14, per direct iPhone 11 playtest feedback — see
+            // project_testing_device memory) from 98/82 to match StandardIconButtonSize (160), the
+            // same size as Pause/Main Menu Play&Settings/every icon button family — "resize to the
+            // same size as the buttons on pause, landing page etc, space out accordingly (there is
+            // space)". spacing raised to a full buttonSize (160, was 82, a sub-buttonSize
+            // overlapping value) so the 4 arms now have genuine daylight between them (corner-to-
+            // corner distance spacing*sqrt(2)=226 > buttonSize=160, i.e. no overlap at all — the old
+            // 98/82 pair deliberately overlapped by 16 units at each corner) rather than just
+            // "less overlap." Insets grown to preserve the same inner (screen-edge-facing) clearance
+            // the 98/82 configuration had (insetX-spacing=45, insetY-spacing=70, both unchanged).
+            // This is a first-pass value only reasoned from the ratios above, not visually confirmed
+            // on-device in this session (no Editor/device access here) — the outer, maze-facing
+            // reach grows substantially (upButtonTopEdge = insetY+spacing+buttonSize goes 332->550),
+            // which the earlier 90->98 pass explicitly stayed clear of for maze-overlap reasons;
+            // nudge dpadInsetX/dpadInsetY inward (or dpadSpacing down slightly) if this now clips
+            // playable maze tiles on iPhone 11 — see the maze-overlap history in the comment this
+            // replaced for why that lever was pulled in the first place.
+            const float dpadButtonSize = 160f;
+            const float dpadSpacing = 160f;
+            const float dpadInsetX = 205f;
+            const float dpadInsetY = 230f;
             Vector2 dpadCenter = new Vector2(dpadInsetX, dpadInsetY);
 
             var upButton = CreateButton("DPadUpButton", safeArea.transform, string.Empty, Color.clear, out _);
@@ -1321,10 +1337,19 @@ namespace FarmFuryArcade.EditorTools
             // Sized to match the D-pad's own buttons (dpadButtonSize) rather than clusterButtonSize
             // — per feedback, Pause should read as the same size as Up/Down/Left/Right now that it
             // sits directly above them, not its old larger ability-cluster size.
+            //
+            // Gap above Up widened from the shared clusterSpacing (30) to its own dedicated
+            // pauseAboveDpadGap (2026-09-14, direct iPhone 11 feedback: "lift the pause button
+            // higher above the Dpad, because I accidentally kept hitting it when wanting to hit the
+            // up direction") — clusterSpacing itself is untouched since it still governs unrelated
+            // gaps elsewhere in this corner/the ability cluster. Only Pause's own vertical offset
+            // needed to change; upButtonCenterX/upButtonTopEdge and Pause's size (dpadButtonSize)
+            // already follow the D-pad's own enlargement above automatically.
+            const float pauseAboveDpadGap = 110f;
             var pauseButton = CreateButton("PauseButton", safeArea.transform, string.Empty, new Color(0.35f, 0.35f, 0.38f), 28f, dpadButtonSize, out _);
             Object.DestroyImmediate(pauseButton.transform.Find("PauseButton_Label").gameObject);
             AnchorBottomLeft((RectTransform)pauseButton.transform, new Vector2(dpadButtonSize, dpadButtonSize),
-                new Vector2(upButtonCenterX - dpadButtonSize / 2f, upButtonTopEdge + clusterSpacing));
+                new Vector2(upButtonCenterX - dpadButtonSize / 2f, upButtonTopEdge + pauseAboveDpadGap));
 
             // Monetisation: "revive for 5 coins?" overlay, shown by GameplayHUD in response to
             // GameManager.OnReviveOffered (the 4th death this maze). Dim backdrop + a hanging-sign

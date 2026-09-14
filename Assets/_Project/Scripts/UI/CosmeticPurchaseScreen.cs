@@ -101,8 +101,35 @@ namespace FarmFuryArcade.UI
         [SerializeField] private TextMeshProUGUI statusText;
         [SerializeField] private Button closeButton;
 
+        /// <summary>Real bug found 2026-09-14 (device playtest): "purchase goes through, but didn't
+        /// finalise... the purchase complete didn't appear." Root cause — IAPManager.
+        /// OnPurchaseSucceeded used to be subscribed only in OnEnable/unsubscribed in OnDisable, but
+        /// a real native purchase (the App Store/Play payment sheet) can take genuinely real time to
+        /// confirm; if the player closed this screen (or it got hidden by something else) before
+        /// HandlePurchasePendingInner actually fired the event, nobody was listening and the
+        /// confirmation — and the "Purchase Complete!" banner — was lost entirely, even though
+        /// IAPManager itself still correctly granted the purchase in the background. The player,
+        /// seeing no feedback, reasonably retried, which is why it read as "went through the process
+        /// again."
+        ///
+        /// Fixed by subscribing once in Awake (this component is only ever SetActive-toggled, never
+        /// destroyed, so this lasts the app's whole lifetime — no OnEnable/OnDisable churn to miss
+        /// events during) instead of OnEnable/OnDisable. A purchase confirming while this screen is
+        /// inactive can't play its coroutine-driven banner on a disabled GameObject, so
+        /// HandlePurchaseSucceeded now defers it via _pendingPurchaseCompleteBanner, shown the next
+        /// time OnEnable runs instead of being silently dropped. RefreshOwnedBadges/statusText
+        /// updates need no such deferral — plain field/property writes work fine on an inactive
+        /// object and were already being reflected correctly on next open regardless.</summary>
+        private bool _pendingPurchaseCompleteBanner;
+
         private void Awake()
         {
+            if (IAPManager.Instance != null)
+            {
+                IAPManager.Instance.OnPurchaseSucceeded += HandlePurchaseSucceeded;
+                IAPManager.Instance.OnPurchaseFailed += HandlePurchaseFailed;
+            }
+
             if (closeButton != null)
             {
                 closeButton.onClick.AddListener(() => gameObject.SetActive(false));
@@ -177,12 +204,6 @@ namespace FarmFuryArcade.UI
 
         private void OnEnable()
         {
-            if (IAPManager.Instance != null)
-            {
-                IAPManager.Instance.OnPurchaseSucceeded += HandlePurchaseSucceeded;
-                IAPManager.Instance.OnPurchaseFailed += HandlePurchaseFailed;
-            }
-
             if (statusText != null)
             {
                 statusText.text = string.Empty;
@@ -199,6 +220,15 @@ namespace FarmFuryArcade.UI
             }
 
             RefreshOwnedBadges();
+
+            // A purchase may have confirmed while this screen was closed (see
+            // _pendingPurchaseCompleteBanner's own doc comment) — show it now instead of it having
+            // been lost.
+            if (_pendingPurchaseCompleteBanner)
+            {
+                _pendingPurchaseCompleteBanner = false;
+                ShowPurchaseCompleteBanner();
+            }
         }
 
         /// <summary>Re-checked every time this screen opens (OnEnable) and right after a purchase
@@ -290,12 +320,16 @@ namespace FarmFuryArcade.UI
 
         private void OnDisable()
         {
+            OnClosed?.Invoke();
+        }
+
+        private void OnDestroy()
+        {
             if (IAPManager.Instance != null)
             {
                 IAPManager.Instance.OnPurchaseSucceeded -= HandlePurchaseSucceeded;
                 IAPManager.Instance.OnPurchaseFailed -= HandlePurchaseFailed;
             }
-            OnClosed?.Invoke();
         }
 
         public void Show()
@@ -400,8 +434,22 @@ namespace FarmFuryArcade.UI
 
         private void HandlePurchaseSucceeded(string productId)
         {
-            ShowPurchaseCompleteBanner();
+            // RefreshOwnedBadges is plain field/property assignment — safe to run even while this
+            // screen is inactive, and means ownership is always reflected correctly the next time
+            // it's opened regardless of the banner timing below.
             RefreshOwnedBadges();
+
+            if (gameObject.activeInHierarchy)
+            {
+                ShowPurchaseCompleteBanner();
+            }
+            else
+            {
+                // Can't StartCoroutine on an inactive GameObject — defer the banner to the next
+                // OnEnable instead of losing the confirmation entirely. See
+                // _pendingPurchaseCompleteBanner's own doc comment.
+                _pendingPurchaseCompleteBanner = true;
+            }
         }
 
         private void HandlePurchaseFailed(string productId, string reason)
