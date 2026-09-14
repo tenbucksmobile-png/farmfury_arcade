@@ -93,6 +93,18 @@ namespace FarmFuryArcade.UI
         [SerializeField] private Button closeButton;
         [SerializeField] private CosmeticPurchaseScreen purchaseScreen;
 
+        /// <summary>Shown instead of an empty tile grid when the player owns nothing yet (2026-09-14)
+        /// — two banners (Hats&Caps.png / Trails.png, same art CosmeticsChooserScreen uses) side by
+        /// side, tapping either opens that category's real purchase screen directly. Distinct from
+        /// the dormant "You may like" suggestionRoot above — that's a single-item upsell nudge shown
+        /// alongside owned tiles; this is the whole-screen empty state shown only when there are no
+        /// owned tiles to browse at all.</summary>
+        [SerializeField] private GameObject emptyStateRoot;
+        [SerializeField] private Button emptyStateHatsButton;
+        [SerializeField] private Button emptyStateTrailsButton;
+        [SerializeField] private CosmeticPurchaseScreen hatsPurchaseScreen;
+        [SerializeField] private CosmeticPurchaseScreen trailsPurchaseScreen;
+
         /// <summary>Real wood-frame-with-parchment art (PurchaseCardFrame.png, 500x500, square) —
         /// replaces the earlier flat PlaceholderSprite border+background composition. Every tile
         /// built here is already owned (see the class doc comment), so this always renders at full
@@ -130,6 +142,27 @@ namespace FarmFuryArcade.UI
             if (suggestionButton != null)
             {
                 suggestionButton.onClick.AddListener(OpenPurchaseScreen);
+            }
+            if (emptyStateHatsButton != null)
+            {
+                emptyStateHatsButton.onClick.AddListener(() => hatsPurchaseScreen?.Show());
+            }
+            if (emptyStateTrailsButton != null)
+            {
+                emptyStateTrailsButton.onClick.AddListener(() => trailsPurchaseScreen?.Show());
+            }
+
+            // Refresh the instant either purchase screen closes, so a purchase made from the
+            // empty-state banners (or the equally-reachable Hats/Trails pages themselves) replaces
+            // the empty state with the new tile immediately on return — never leaves the "buy me"
+            // banners showing for an item the player just bought.
+            if (hatsPurchaseScreen != null)
+            {
+                hatsPurchaseScreen.OnClosed += Refresh;
+            }
+            if (trailsPurchaseScreen != null)
+            {
+                trailsPurchaseScreen.OnClosed += Refresh;
             }
         }
 
@@ -187,6 +220,11 @@ namespace FarmFuryArcade.UI
                 {
                     _notOwnedScratch.Add(entry);
                 }
+            }
+
+            if (emptyStateRoot != null)
+            {
+                emptyStateRoot.SetActive(_tiles.Count == 0);
             }
 
             RefreshSuggestion();

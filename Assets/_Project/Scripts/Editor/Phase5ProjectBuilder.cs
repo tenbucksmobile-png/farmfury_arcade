@@ -101,7 +101,9 @@ namespace FarmFuryArcade.EditorTools
             // page, an arbitrary pick since nothing calls it today; wired here directly since it must
             // be built after at least one cosmetics purchase page exists. See BuildLockerScreen's own
             // doc comment.
-            var lockerScreen = BuildLockerScreen(canvas.transform, cosmeticsHats.GetComponent<CosmeticPurchaseScreen>());
+            var lockerScreen = BuildLockerScreen(canvas.transform,
+                cosmeticsHats.GetComponent<CosmeticPurchaseScreen>(),
+                cosmeticsTrails.GetComponent<CosmeticPurchaseScreen>());
             // World Purchase - a whole new 25-level world ($3.99), not a cosmetic, so it's a
             // sibling to Cosmetics on the Shop screen rather than living under the Cosmetics screen.
             // Built to a real design mockup (WorldPurchaseBackground.png, a single baked composite
@@ -1266,10 +1268,22 @@ namespace FarmFuryArcade.EditorTools
             // Shifted slightly further left (150 -> 115) per feedback ("shift the direction buttons
             // slightly left, include the Btn_pause") — Pause needs no separate change, its own
             // position is computed off the D-pad's Up button below and follows automatically.
-            const float dpadButtonSize = 90f;
-            const float dpadSpacing = 70f;
-            const float dpadInsetX = 115f;
-            const float dpadInsetY = 140f;
+            // Enlarged slightly (2026-09-14, per direct feedback the buttons should better match a
+            // thumb and have a bit more breathing room between them) — buttonSize 90->98, spacing
+            // 70->82 (spacing grew more than buttonSize specifically to shrink the corner overlap
+            // between adjacent arms, e.g. Up/Left, from 20 units down to 16 rather than just
+            // preserving it; still not a full gap, kept deliberately modest given the maze-overlap
+            // history below). Insets grew by the exact same +12 as spacing so the INNER corner
+            // clearance (nearest the physical screen edge — e.g. Left's own left edge, insetX -
+            // spacing) is completely unchanged from before; only the OUTER, maze-facing reach grows
+            // (upButtonTopEdge = insetY + spacing + buttonSize goes 300 -> 332, +11%). Kept well
+            // clear of the earlier buttonSize=110/spacing=100 (reach 210) configuration that was
+            // shrunk down specifically after complaints it clipped the maze on some device aspects —
+            // this only claws back roughly a third of that prior reduction, not all of it.
+            const float dpadButtonSize = 98f;
+            const float dpadSpacing = 82f;
+            const float dpadInsetX = 127f;
+            const float dpadInsetY = 152f;
             Vector2 dpadCenter = new Vector2(dpadInsetX, dpadInsetY);
 
             var upButton = CreateButton("DPadUpButton", safeArea.transform, string.Empty, Color.clear, out _);
@@ -2945,7 +2959,19 @@ namespace FarmFuryArcade.EditorTools
         /// (see its own removal note below) comes back. LockerScreen only ever builds a tile for an
         /// item the player actually OWNS — an unowned cosmetic gets no tile here at all right now
         /// (the suggestion banner that used to mention it elsewhere is temporarily removed).</summary>
-        private static GameObject BuildLockerScreen(Transform canvasTransform, CosmeticPurchaseScreen purchaseScreen)
+        /// <summary>Empty-state row size/position for BuildLockerScreen (2026-09-14) — two of the
+        /// same Hats&Caps.png/Trails.png banners CosmeticsChooserScreen uses (619x246, aspect from
+        /// CosmeticsBannerAspect), side by side instead of stacked, since this screen has less
+        /// vertical room to spare than a dedicated chooser page. Sized to comfortably fit within the
+        /// tile-scroll region's own 1200-wide band (500*2 + 40 gap = 1040, well clear of the edges)
+        /// and vertically centred on that same region (D=385..830, midpoint ~607) so it visually
+        /// replaces the empty tile grid rather than sitting in a different part of the screen.</summary>
+        private const float LockerEmptyStateBannerWidth = 500f;
+        private const float LockerEmptyStateBannerHeight = LockerEmptyStateBannerWidth / CosmeticsBannerAspect;
+        private const float LockerEmptyStateGap = 40f;
+        private const float LockerEmptyStateRegionCenterD = 607f;
+
+        private static GameObject BuildLockerScreen(Transform canvasTransform, CosmeticPurchaseScreen hatsScreen, CosmeticPurchaseScreen trailsScreen)
         {
             var root = CreatePanel("LockerScreen", canvasTransform, Color.black);
             root.GetComponent<Image>().sprite = LoadUiSprite("Bg_LevelSelect.png");
@@ -3040,6 +3066,29 @@ namespace FarmFuryArcade.EditorTools
             tileScrollRect.movementType = ScrollRect.MovementType.Clamped;
             tileScrollRect.scrollSensitivity = 20f;
 
+            // Empty state (2026-09-14) — shown instead of the (visually-empty) tile grid when the
+            // player owns nothing yet. Two banners side by side, centred on the same region the
+            // tile grid occupies, each opening its own real purchase page directly.
+            var emptyStateRoot = new GameObject("EmptyState", typeof(RectTransform));
+            emptyStateRoot.transform.SetParent(root.transform, false);
+            StretchFull((RectTransform)emptyStateRoot.transform);
+
+            const float halfGap = LockerEmptyStateGap / 2f;
+            const float halfWidth = LockerEmptyStateBannerWidth / 2f;
+            float rowTopOffset = -(LockerEmptyStateRegionCenterD - LockerEmptyStateBannerHeight / 2f);
+
+            var emptyHatsButton = CreateIconButton("EmptyStateHatsButton", emptyStateRoot.transform,
+                LoadCosmeticsSprite("Hats&Caps.png"), LockerEmptyStateBannerWidth);
+            AnchorTopCenter((RectTransform)emptyHatsButton.transform,
+                new Vector2(LockerEmptyStateBannerWidth, LockerEmptyStateBannerHeight),
+                new Vector2(-(halfWidth + halfGap), rowTopOffset));
+
+            var emptyTrailsButton = CreateIconButton("EmptyStateTrailsButton", emptyStateRoot.transform,
+                LoadCosmeticsSprite("Trails.png"), LockerEmptyStateBannerWidth);
+            AnchorTopCenter((RectTransform)emptyTrailsButton.transform,
+                new Vector2(LockerEmptyStateBannerWidth, LockerEmptyStateBannerHeight),
+                new Vector2(halfWidth + halfGap, rowTopOffset));
+
             var closeButton = CreateRoundBackButton(root.transform, bottomRight: true);
             closeButton.GetComponent<Image>().sprite = LoadUiSprite("Btn_back.png");
 
@@ -3049,12 +3098,17 @@ namespace FarmFuryArcade.EditorTools
             SetRefs(locker,
                 ("tileContainer", tileContainerGO.transform),
                 ("closeButton", closeButton),
-                ("purchaseScreen", purchaseScreen),
+                ("purchaseScreen", hatsScreen),
                 // Real wood-frame/parchment tile art (2026-09-09), replacing the flat placeholder
                 // border+background — see LockerScreen's own doc comment on tileFrameSprite/
                 // TileContentInset for the pixel-measured interior this content is inset to match.
                 ("tileFrameSprite", LoadCosmeticsSprite("PurchaseCardFrame.png")),
-                ("equippedBadgeSprite", LoadCosmeticsSprite("EquippedBadge_Icon.png")));
+                ("equippedBadgeSprite", LoadCosmeticsSprite("EquippedBadge_Icon.png")),
+                ("emptyStateRoot", emptyStateRoot),
+                ("emptyStateHatsButton", emptyHatsButton),
+                ("emptyStateTrailsButton", emptyTrailsButton),
+                ("hatsPurchaseScreen", hatsScreen),
+                ("trailsPurchaseScreen", trailsScreen));
 
             return root;
         }
@@ -3638,6 +3692,16 @@ namespace FarmFuryArcade.EditorTools
             const float safeTop = 140f, safeBottom = -480f;
             const float cellPadding = 24f; // shrinks each banner's box within its own cell, guaranteeing a visible gap to its neighbours
 
+            // Banners read as slightly oversized within their cells (2026-09-14 feedback) — shrunk
+            // uniformly by this factor AFTER the existing fit-to-cell computation below, not by
+            // changing the cell/safe-zone math itself. Since the pre-scale fit already guarantees
+            // each banner stays within its own non-overlapping cell inside the safe zone, scaling it
+            // down further can only ever shrink it further inside that already-safe area — it cannot
+            // introduce a new overlap or push anything outside the safe zone. The extra room this
+            // opens up within each cell is the "re-spacing" — banners now sit with visible breathing
+            // room around them instead of nearly filling their cell.
+            const float worldBannerScale = 0.85f;
+
             // CreateRoundBackButton(bottomRight: true)'s own fixed geometry (160x160, offset
             // (-150,70) from the bottom-right corner, in a 1920-wide/1080-tall reference canvas
             // centred at 0,0 -> right edge at 960, bottom edge at -540) - row 1 (which shares its Y
@@ -3673,7 +3737,7 @@ namespace FarmFuryArcade.EditorTools
                 // same "fit inside the box, preserve aspect" rule Image.preserveAspect itself uses.
                 float maxWidth = cellWidth - cellPadding * 2f;
                 float maxHeight = rowHeight - cellPadding * 2f;
-                float height = Mathf.Min(maxHeight, maxWidth / aspect);
+                float height = Mathf.Min(maxHeight, maxWidth / aspect) * worldBannerScale;
                 float width = height * aspect;
 
                 var button = CreateIconButton($"WorldBanner{world}", root.transform, sprite, width);

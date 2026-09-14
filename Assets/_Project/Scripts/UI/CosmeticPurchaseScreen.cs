@@ -281,6 +281,12 @@ namespace FarmFuryArcade.UI
             }
         }
 
+        /// <summary>Fires whenever this screen is deactivated, for any reason (its own close
+        /// button, or a parent overlay hiding it) — lets a caller that opened this screen on top of
+        /// itself (e.g. LockerScreen's empty-state banners) refresh its own state once the player
+        /// returns, in case a purchase happened while this was open.</summary>
+        public event System.Action OnClosed;
+
         private void OnDisable()
         {
             if (IAPManager.Instance != null)
@@ -288,6 +294,7 @@ namespace FarmFuryArcade.UI
                 IAPManager.Instance.OnPurchaseSucceeded -= HandlePurchaseSucceeded;
                 IAPManager.Instance.OnPurchaseFailed -= HandlePurchaseFailed;
             }
+            OnClosed?.Invoke();
         }
 
         public void Show()
