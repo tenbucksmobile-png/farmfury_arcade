@@ -119,15 +119,34 @@ namespace FarmFuryArcade.Gameplay
             SyncKey(kb.rightArrowKey.isPressed || kb.dKey.isPressed, Direction.Right);
         }
 
+        /// <summary>Which directions the KEYBOARD specifically currently considers held — tracked
+        /// separately from HeldStack (the shared, multi-source stack every input source pushes
+        /// into). Real bug found and fixed 2026-09-14: SyncKey used to check "is dir anywhere in
+        /// HeldStack" to decide whether to release it, with no idea WHO put it there — so the very
+        /// next Update() after the on-screen D-pad pressed a direction, this method saw that
+        /// direction sitting in HeldStack, saw the corresponding physical key wasn't pressed, and
+        /// immediately called ReleaseDirection on it — wiping out the D-pad's own press one frame
+        /// later, every single time, regardless of whether a finger was still holding the button.
+        /// This is why the D-pad's own PointerDown/PointerUp logic (confirmed correct via direct
+        /// runtime log tracing) never actually moved the character: keyboard sync was releasing the
+        /// direction almost as fast as the D-pad could set it. Swipe was unaffected since it bypasses
+        /// HeldStack entirely (SetSwipeDirection sets CurrentHeldDirection directly), which is why it
+        /// was reported as "the only way to move." Tracking keyboard's own held set here means this
+        /// method only ever releases a direction it itself pressed, never one another source (the
+        /// D-pad) is currently holding.</summary>
+        private static readonly HashSet<Direction> KeyboardHeld = new HashSet<Direction>();
+
         private static void SyncKey(bool isPressed, Direction dir)
         {
-            bool inStack = HeldStack.Contains(dir);
-            if (isPressed && !inStack)
+            bool wasKeyboardHeld = KeyboardHeld.Contains(dir);
+            if (isPressed && !wasKeyboardHeld)
             {
+                KeyboardHeld.Add(dir);
                 PressDirection(dir);
             }
-            else if (!isPressed && inStack)
+            else if (!isPressed && wasKeyboardHeld)
             {
+                KeyboardHeld.Remove(dir);
                 ReleaseDirection(dir);
             }
         }
