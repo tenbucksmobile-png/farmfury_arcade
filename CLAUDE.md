@@ -5024,6 +5024,17 @@ once one exists for testing and skip the manifest change entirely if it already 
 
 ## Unity Cloud Build — iOS, no local Mac required
 
+⚠️ **MANDATORY before triggering ANY iOS Cloud Build: bump `buildNumber.iPhone` in
+`ProjectSettings/ProjectSettings.asset` by at least 1 first, and commit that change.** Apple's
+`CFBundleVersion` check rejects a re-upload of any build number already used for this app —
+**including a number from a build whose upload previously failed** (the failed attempt still
+"claims" that number). This has now cost two wasted Cloud Build runs (2026-09-13 and 2026-09-14)
+where the archive/export/script all succeeded but the final `xcrun altool` upload was rejected
+solely because the build number was stale — do not repeat this. Whenever the user says they're
+about to rebuild/retrigger a Cloud Build (or asks you to review a just-finished build log), bump
+this number as the FIRST action, before doing anything else — do not wait to be asked specifically
+to bump it, and do not just recommend bumping it after reading a failed log.
+
 Set up 2026-08-28/29 so a real device archive/TestFlight build doesn't require owning a Mac (the
 user has an active Apple Developer Program membership but no Mac). Fully configured as of
 2026-08-29 — a "FarmFury Arcade iOS" build target exists in the dashboard and is ready to trigger;
