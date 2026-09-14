@@ -124,12 +124,15 @@ namespace FarmFuryArcade.EditorTools
             // number of times to return — this is a direct one-tap shortcut instead. See
             // GoHomeButton's own doc comment for why the same fixed overlay list is safe to reuse
             // on every instance.
+            //
+            // MenuHubScreen deliberately does NOT get one (removed 2026-09-14, per direct feedback)
+            // — it's only ever opened directly from Main Menu, so its own Back button already goes
+            // straight to Main Menu in one tap; a Home button there would just duplicate Back.
             var homeOverlaysToClose = new[]
             {
                 menuHub, settings, legal, storeComingSoon, coinPurchase,
                 cosmeticsChooser, cosmeticsHats, cosmeticsTrails, worldPurchase, pause
             };
-            AddHomeButtonNextToBack(menuHub, mainMenu, homeOverlaysToClose);
             AddHomeButtonNextToBack(settings, mainMenu, homeOverlaysToClose);
             AddHomeButtonNextToBack(legal, mainMenu, homeOverlaysToClose);
             AddHomeButtonNextToBack(storeComingSoon, mainMenu, homeOverlaysToClose);
@@ -3834,6 +3837,23 @@ namespace FarmFuryArcade.EditorTools
             return root;
         }
 
+        /// <summary>Shared row sizing for WorldLeaderboardDetailScreen (2026-09-14 enlarge pass) —
+        /// declared once here rather than duplicated as local consts inside
+        /// BuildLeaderboardStatRow/BuildLeaderboardStarRow/BuildLeaderboardPlaque, specifically so
+        /// the row-height used for vertical spacing math in BuildWorldLeaderboardDetailScreen can
+        /// never drift out of sync with the row-height those helpers actually build each row at —
+        /// a mismatch there would silently reintroduce overlap. Enlarged from bestRowHeight 100/
+        /// rowHeight 64/rowGap 16/labelWidth 280/plaqueWidth 220/innerGap 40/starSize 48/
+        /// valueFontSize 36, per direct feedback the line items read too small.</summary>
+        private const float WorldDetailBestRowHeight = 120f;
+        private const float WorldDetailRowHeight = 78f;
+        private const float WorldDetailRowGap = 20f;
+        private const float WorldDetailLabelWidth = 320f;
+        private const float WorldDetailPlaqueWidth = 260f;
+        private const float WorldDetailInnerGap = 46f;
+        private const float WorldDetailStarSize = 56f;
+        private const float WorldDetailValueFontSize = 42f;
+
         /// <summary>Per-world Leaderboard detail page - built as a child of LeaderboardsScreen's own
         /// root (not a separate Canvas-level screen) so its Show()'s SetAsLastSibling() draws it
         /// above the world-select collage without needing any cross-screen sibling-order
@@ -3845,27 +3865,32 @@ namespace FarmFuryArcade.EditorTools
             ApplyDimmedLandingBackground(root);
             root.SetActive(false);
 
-            // 2026-09-13: header resized to match the main Leaderboards page's own header
-            // (CreateHeaderSign / StandardHeaderSignSize+Offset, 550x310 at (0,-55)) instead of a
-            // bespoke 320x320 box — the small box rendered the per-world banner's own lettering
-            // tiny and left it visibly overlapping the dimmed backdrop's baked-in "ARCADE" text
-            // behind it (per direct screenshot feedback). The standard header size is large/opaque
-            // enough to cover that same area the way every other screen's header already does.
+            // Header moved to LEFT alignment (2026-09-14, per direct feedback) — was centred via
+            // CreateHeaderSign's own AnchorTopCenter; the world-name banner now sits at the screen's
+            // left edge instead, inset by the same 100px every other left-aligned top element
+            // (LogoImage etc.) uses to stay clear of the yellow safe-area guide. Same size
+            // (StandardHeaderSignSize) and vertical position (StandardHeaderSignOffset.y) as before
+            // — only the horizontal anchor/offset changed, so the stat block's own vertical math
+            // below (which only depends on the header's height, not its X position) needed no
+            // changes for this part.
+            const float headerLeftInset = 100f;
             var headerImage = CreateHeaderSign(root.transform, null);
+            AnchorTopLeft((RectTransform)headerImage.transform, StandardHeaderSignSize,
+                new Vector2(headerLeftInset, StandardHeaderSignOffset.y));
 
-            // Whole stat block is centred as one unit (per direct feedback: "must be middle
-            // aligned"), not pinned to the left screen edge — every row shares the same left
-            // starting X (blockLeftX), computed from the widest row's own width so labels/plaques
-            // stay column-aligned with each other while the block as a whole sits centred.
-            // Row/gap sizes were also tightened (bestRowHeight 130->100, rowHeight 80->64, rowGap
-            // 30->16) for a denser, less padded feel, per the same feedback.
-            const float bestRowHeight = 100f;
-            const float rowHeight = 64f;
-            const float rowGap = 16f;
-            const float labelWidth = 280f;
-            const float plaqueWidth = 220f;
-            const float innerGap = 40f;
-            const float statRowWidth = labelWidth + innerGap + plaqueWidth; // 540
+            // Line items enlarged (2026-09-14, per direct feedback the whole block read too small)
+            // — see WorldDetailRowHeight etc.'s own doc comment for the exact before/after values
+            // and why they're shared class-level constants rather than duplicated locally. The
+            // whole block stays middle-aligned (per the earlier "must be middle aligned" feedback,
+            // unchanged) — the header moving to the left is deliberately independent of the block's
+            // own centred position, matching the requested mockup.
+            const float bestRowHeight = WorldDetailBestRowHeight;
+            const float rowHeight = WorldDetailRowHeight;
+            const float rowGap = WorldDetailRowGap;
+            const float labelWidth = WorldDetailLabelWidth;
+            const float plaqueWidth = WorldDetailPlaqueWidth;
+            const float innerGap = WorldDetailInnerGap;
+            const float statRowWidth = labelWidth + innerGap + plaqueWidth;
             const float bestRowWidth = 320f + innerGap + bestRowHeight; // label + gap + char portrait
             float blockWidth = Mathf.Max(statRowWidth, bestRowWidth);
             // 2026-09-13 real bug fix, verified against the actual code (not guessed): AnchorTopLeft
@@ -3953,10 +3978,10 @@ namespace FarmFuryArcade.EditorTools
         /// Returns the plaque's TextMeshProUGUI so the caller can wire it into the component.</summary>
         private static TextMeshProUGUI BuildLeaderboardStatRow(Transform parent, Sprite labelSprite, float leftX, float topOffsetY)
         {
-            const float rowHeight = 64f;
-            const float labelWidth = 280f;
-            const float plaqueWidth = 220f;
-            const float innerGap = 40f;
+            const float rowHeight = WorldDetailRowHeight;
+            const float labelWidth = WorldDetailLabelWidth;
+            const float plaqueWidth = WorldDetailPlaqueWidth;
+            const float innerGap = WorldDetailInnerGap;
             var plaqueBorder = new Vector4(90f, 70f, 90f, 70f);
 
             var labelGO = new GameObject("StatLabel", typeof(RectTransform), typeof(Image));
@@ -3974,12 +3999,12 @@ namespace FarmFuryArcade.EditorTools
         /// rows for the 1/2/3-star-count stats.</summary>
         private static TextMeshProUGUI BuildLeaderboardStarRow(Transform parent, int starCount, float leftX, float topOffsetY)
         {
-            const float rowHeight = 64f;
-            const float starSize = 48f;
+            const float rowHeight = WorldDetailRowHeight;
+            const float starSize = WorldDetailStarSize;
             const float starSpacing = 8f;
-            const float labelWidth = 280f;
-            const float plaqueWidth = 220f;
-            const float innerGap = 40f;
+            const float labelWidth = WorldDetailLabelWidth;
+            const float plaqueWidth = WorldDetailPlaqueWidth;
+            const float innerGap = WorldDetailInnerGap;
             var plaqueBorder = new Vector4(90f, 70f, 90f, 70f);
 
             var starSprite = LoadUiSprite("ScoreStar.png");
@@ -4010,7 +4035,7 @@ namespace FarmFuryArcade.EditorTools
             plaqueImage.sprite = LoadUiSprite("Btn_plaque.png", border);
             plaqueImage.type = Image.Type.Sliced;
 
-            var text = CreateText("Value", plaqueGO.transform, "0", 36f, TextAlignmentOptions.Center,
+            var text = CreateText("Value", plaqueGO.transform, "0", WorldDetailValueFontSize, TextAlignmentOptions.Center,
                 height, new Color(0.97f, 0.93f, 0.82f));
             var textRect = (RectTransform)text.transform;
             StretchFull(textRect);
