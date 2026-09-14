@@ -24,6 +24,7 @@ namespace FarmFuryArcade.UI
     {
         [SerializeField] private Button playButton;
         [SerializeField] private Button settingsButton;
+        [SerializeField] private Button exitButton;
 
         [SerializeField] private GameObject levelSelectScreen;
         [SerializeField] private MenuHubScreen menuHubScreen;
@@ -32,6 +33,20 @@ namespace FarmFuryArcade.UI
         {
             playButton.onClick.AddListener(() => SceneTransitionManager.Instance.ShowOnly(levelSelectScreen));
             settingsButton.onClick.AddListener(() => menuHubScreen.Show());
+            exitButton.onClick.AddListener(QuitGame);
+        }
+
+        // Application.Quit() is a documented no-op on iOS (Apple does not allow an app to
+        // self-terminate) — this button has no effect on iOS builds for that reason, only on
+        // Android. The Editor branch exists purely so tapping it in Play mode actually stops
+        // testing instead of silently doing nothing, matching the standard Unity convention.
+        private void QuitGame()
+        {
+#if UNITY_EDITOR
+            UnityEditor.EditorApplication.isPlaying = false;
+#else
+            Application.Quit();
+#endif
         }
 
         // Fires both at app launch (Main Menu starts active) and every time the player navigates

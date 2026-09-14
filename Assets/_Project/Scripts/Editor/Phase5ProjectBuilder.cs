@@ -838,6 +838,25 @@ namespace FarmFuryArcade.EditorTools
             settingsRect.sizeDelta = new Vector2(160f, 160f);
             settingsRect.anchoredPosition = new Vector2(-150f, 70f);
 
+            // Exit.png is a wide pill-shaped plaque (552x256), not a square icon like Play/Settings
+            // — sized to the same 160px height so it reads as part of the same button row, with
+            // width derived from its own real aspect ratio rather than forced into a square (the
+            // "box aspect must match the art" convention used throughout this project, so
+            // SetImageSprite's Sliced type never squashes it). Placed immediately left of
+            // SettingsButton with a fixed gap so the two can never overlap regardless of either
+            // button's own width.
+            const float exitButtonHeight = 160f;
+            const float exitButtonAspect = 552f / 256f;
+            const float exitToSettingsGap = 20f;
+            var exitButton = CreateButton("ExitButton", root.transform, string.Empty, new Color(0.6f, 0.4f, 0.15f), 28f, exitButtonHeight, out _);
+            Object.DestroyImmediate(exitButton.transform.Find("ExitButton_Label").gameObject);
+            var exitRect = (RectTransform)exitButton.transform;
+            exitRect.anchorMin = new Vector2(1f, 0f);
+            exitRect.anchorMax = new Vector2(1f, 0f);
+            exitRect.pivot = new Vector2(1f, 0f);
+            exitRect.sizeDelta = new Vector2(exitButtonHeight * exitButtonAspect, exitButtonHeight);
+            exitRect.anchoredPosition = new Vector2(settingsRect.anchoredPosition.x - settingsRect.sizeDelta.x - exitToSettingsGap, 70f);
+
             // Shop icon moved off Main Menu entirely (2026-08-20) — relocated to Level Select's
             // world-select page, top-left inside the safe-area guide (see BuildLevelSelect). Main
             // Menu is back down to just Play/Settings.
@@ -854,6 +873,7 @@ namespace FarmFuryArcade.EditorTools
             var so = new SerializedObject(controller);
             so.FindProperty("playButton").objectReferenceValue = playButton;
             so.FindProperty("settingsButton").objectReferenceValue = settingsButton;
+            so.FindProperty("exitButton").objectReferenceValue = exitButton;
             so.ApplyModifiedPropertiesWithoutUndo();
 
             return root;

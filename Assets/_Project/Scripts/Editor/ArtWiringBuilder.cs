@@ -320,6 +320,7 @@ namespace FarmFuryArcade.EditorTools
         private const string BtnPlay = "Assets/_Project/Sprites/UI/Btn_play.png";
         private const string BtnPause = "Assets/_Project/Sprites/UI/Btn_pause.png";
         private const string BtnSettings = "Assets/_Project/Sprites/UI/Btn_settings.png";
+        private const string BtnExit = "Assets/_Project/Sprites/UI/Exit.png";
         private const string BtnQuit = "Assets/_Project/Sprites/UI/Btn_quit.png";
         private const string BtnMusic = "Assets/_Project/Sprites/UI/Btn_music.png";
         private const string BtnNoSound = "Assets/_Project/Sprites/UI/Btn_nosound.png";
@@ -561,7 +562,7 @@ namespace FarmFuryArcade.EditorTools
             ScoutFront, ScoutBack, ScoutLeft, ScoutRight, PatrolFront, PatrolBack, PatrolLeft, PatrolRight,
             HeavyFront, HeavyBack, DrifterFront, DrifterLeft, DrifterRight, DrifterBack, RobotEyes, DroneFront,
             LevelCompletePanel, LevelFailedPanel, PausedPanel,
-            BtnPlay, BtnPause, BtnSettings, BtnQuit, BtnMusic, BtnNoSound, BtnHome, BtnSkip, BtnBack, BtnPlaque,
+            BtnPlay, BtnPause, BtnSettings, BtnQuit, BtnMusic, BtnNoSound, BtnHome, BtnSkip, BtnBack, BtnPlaque, BtnExit,
             RevivePromptPanel, BtnRevive, BtnDecline, BtnWatchAd, BtnDoubleCoins, CoinUI,
             CluckCard, BessieCard, PercyCard, WoollyCard, DuckyCard, HoraceCard, GeraldCard, BillyCard,
             DPadUp, DPadDown, DPadLeft, DPadRight,
@@ -1979,9 +1980,11 @@ namespace FarmFuryArcade.EditorTools
             var settings = Load(BtnSettings);
             var home = Load(BtnHome);
             var back = Load(BtnBack);
+            var exit = Load(BtnExit);
 
             SetImageSprite(canvasTransform, "MainMenuScreen/PlayButton", play);
             SetImageSprite(canvasTransform, "MainMenuScreen/SettingsButton", settings);
+            SetImageSprite(canvasTransform, "MainMenuScreen/ExitButton", exit);
 
             // Shop icon moved to LevelSelectScreen/ShopButton (2026-08-20) and is now baked
             // directly at construction time in Phase5ProjectBuilder.BuildLevelSelect — nothing to
