@@ -4524,26 +4524,53 @@ values from the GDD's color palette where one exists (e.g. walls = Wall Brown `#
     if a future "D-pad doesn't work" report turns out not to be a sizing/overlap problem at all.
   - **Enlarged again 2026-09-14, second pass, from a real iPhone 11 playtest (see
     `project_testing_device`/`dpad_keyboard_sync_bug` memories)** — the 98/82 configuration above
-    still read as too small on the real device. `dpadButtonSize`/`dpadSpacing` both jumped straight
-    to `StandardIconButtonSize` (160, matching Pause/Main Menu Play&Settings/every icon-button
-    family in this project) per direct instruction ("resize to the same size as the buttons on
-    pause, landing page etc"), with spacing set equal to size so the diamond's 4 arms now have
-    genuine daylight between them (corner-to-corner distance `spacing*sqrt(2)`=226 > `buttonSize`
-    =160) instead of the small deliberate overlap every earlier pass kept. Insets grown to preserve
-    the same inner (screen-edge-facing) clearance the 98/82 pair had. This roughly doubles the
-    diamond's outer, maze-facing reach (`upButtonTopEdge` 332→550) — a first-pass value reasoned
-    from the ratios above only, not visually confirmed on-device this session (no Editor/device
-    access when made); nudge `dpadInsetX`/`dpadInsetY` inward or `dpadSpacing` down if this now
-    clips playable maze tiles. **Pause moved to its own dedicated gap above Up** (`pauseAboveDpadGap`
-    = 110, replacing the shared `clusterSpacing` = 30 it used before) per direct feedback ("I
-    accidentally kept hitting it when wanting to hit the up direction") — Pause still automatically
-    matches the D-pad's new size since it's sized off `dpadButtonSize` directly. **The ability icon
-    was separately enlarged too** (`abilityButtonSize` 180→220, in the right-side cluster below) per
-    the same playtest ("enlarge it without encroaching on surrounding areas") — safe with respect to
-    the earlier 210→180 shrink's own reasoning (that was about right-edge crowding; this button's
-    `AnchorBottomRight` pivot means growing it only extends further up/left from its fixed corner,
-    never further right toward the safe-area edge) — Swap Character/Locker above it share
-    `abilityButtonSize` and grew with it automatically.
+    still read as too small on the real device. `dpadButtonSize` jumped straight to
+    `StandardIconButtonSize` (160, matching Pause/Main Menu Play&Settings/every icon-button family
+    in this project) per direct instruction ("resize to the same size as the buttons on pause,
+    landing page etc"). `dpadSpacing` was first set equal to `dpadButtonSize` (160/160), reasoned
+    (wrongly — see the third pass below) as "no overlap at all, genuine daylight between arms" from
+    the bounding-box math. **Pause moved to its own dedicated gap above Up**
+    (`pauseAboveDpadGap` = 110, replacing the shared `clusterSpacing` = 30 it used before) per direct
+    feedback ("I accidentally kept hitting it when wanting to hit the up direction") — Pause still
+    automatically matches the D-pad's own size since it's sized off `dpadButtonSize` directly. **The
+    ability icon was separately enlarged too** (`abilityButtonSize` 180→220, in the right-side
+    cluster below) per the same playtest ("enlarge it without encroaching on surrounding areas") —
+    safe with respect to the earlier 210→180 shrink's own reasoning (that was about right-edge
+    crowding; this button's `AnchorBottomRight` pivot means growing it only extends further up/left
+    from its fixed corner, never further right toward the safe-area edge). This first version of the
+    enlargement mistakenly also grew Swap Character/Locker, since both used to share
+    `abilityButtonSize` directly for their own box size — see the third pass below for the fix.
+
+  - **Corrected 2026-09-14, third pass, from a second device screenshot** ("we got that wrong -
+    review again bring the buttons closer, almost touching - then you increased the other icons as
+    well - only the ability needed to be re sized, both are overlaying the counters"). Two real,
+    independent mistakes in the second pass above:
+    1. **`dpadSpacing = dpadButtonSize` did NOT produce "no overlap" visually** — it produced a
+       clearly visible GAP between every arm. Each button is only offset along ONE axis from the
+       shared centre (Up is `(0,+spacing)`, Left is `(-spacing,0)`, etc.), so two adjacent arms
+       (e.g. Up/Left) are DIAGONAL neighbours whose square bounding boxes only share a single point
+       when `spacing == buttonSize` — the round button art inside each square never gets anywhere
+       near its neighbour's art at that ratio, regardless of the boxes technically touching.
+       `dpadSpacing` dropped to 100 (well below `buttonSize` = 160) so the boxes genuinely overlap
+       (`overlap = buttonSize - spacing` = 60, on both axes at once for a diagonal pair) and the
+       visible art reads as close/almost touching, per the direct request. Insets recomputed to keep
+       the same inner (screen-edge-facing) clearance every earlier pass preserved
+       (`insetX-spacing=45`, `insetY-spacing=70`): `dpadInsetX`=145, `dpadInsetY`=170.
+    2. **Swap Character and Locker should never have grown with the ability icon** — they're
+       unrelated buttons that happened to share the same `abilityButtonSize` constant for their own
+       box size purely by coincidence of earlier code, not because they were meant to scale
+       together. Growing all three pushed the whole right-side stack tall enough for Locker
+       (topmost) to visibly overlap `CoinBalanceDisplay` in the top-right corner — the "both are
+       overlaying the counters" report. Fixed by giving Swap Character/Locker their own
+       `clusterIconSize` (180, their pre-enlargement value), independent of `abilityButtonSize` —
+       only the ability/portrait button itself uses the bigger size now. Their stacking offsets
+       (`swapBottomY`/`lockerBottomY`) are computed from each button's own real height instead of
+       assuming every entry in the stack is the same size, so this can't silently happen again if
+       either size is retuned independently later.
+
+    Both still first-pass values reasoned from the math above only, not visually confirmed
+    on-device this session (no Editor/device access when made) — nudge further if either still
+    over- or under-shoots on iPhone 11.
 
     **Real bug found the same session, in `DirectionalPadController.cs` — distinct from the
     keyboard-sync bug above (that one made the D-pad never move the character at all; this is the

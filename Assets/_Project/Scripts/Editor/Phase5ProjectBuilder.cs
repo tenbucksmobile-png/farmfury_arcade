@@ -1111,13 +1111,22 @@ namespace FarmFuryArcade.EditorTools
             // to: this button is AnchorBottomRight-pivoted, so its fixed corner is
             // (abilityInsetX, abilityBottomY) regardless of size — growing the box only extends it
             // further UP and LEFT from that corner, never further right toward the safe-area edge.
-            // Swap Character/Locker above it share this same abilityButtonSize and grow with it, so
-            // the whole stack stays visually consistent; not visually confirmed on-device this
-            // session — nudge back down if it now crowds the top of the stack against the HUD
-            // elements above it (coin balance/timer).
             const float abilityButtonSize = 220f;
             const float abilityShiftLeft = 10f;
             const float abilityInsetX = clusterInsetX - abilityShiftLeft;
+
+            // Real bug found the same session (second device screenshot): the FIRST version of the
+            // ability-icon enlargement above also grew Swap Character/Locker, since both used to
+            // share abilityButtonSize directly for their own box size — per direct correction
+            // ("you increased the other icons as well - only the ability needed to be re sized,
+            // both are overlaying the counters"), those two are unrelated buttons and should have
+            // stayed at their prior size; growing all three pushed the whole stack tall enough for
+            // Locker (topmost) to overlap the CoinBalanceDisplay in the top-right corner. Swap
+            // Character/Locker now use their own clusterIconSize (180, their pre-enlargement value)
+            // — only the ability/portrait button itself uses the bigger abilityButtonSize. Their
+            // stacking offsets below are computed from each button's own real height rather than
+            // assuming every entry in the stack is the same size.
+            const float clusterIconSize = 180f;
 
             const float skipButtonSize = 64f;
 
@@ -1195,12 +1204,14 @@ namespace FarmFuryArcade.EditorTools
 
             // Swap Character button (2026-08-27) — moved here from Pause (see GameplayHUD's own doc
             // comment) so it's reachable with a thumb mid-run on mobile without opening Pause first.
-            // Directly above the ability icon, same X inset and same size (per explicit direction),
-            // just raised by the icon's own height + clusterSpacing.
+            // Directly above the ability icon, same X inset, own clusterIconSize (see that
+            // constant's own doc comment for why this no longer shares abilityButtonSize), raised
+            // by the ability icon's own real height + clusterSpacing.
+            float swapBottomY = abilityBottomY + abilityButtonSize + clusterSpacing;
             var swapCharacterButton = CreateIconButton("SwapCharacterButton", safeArea.transform,
-                LoadUiSprite("SwapCharacterIcon.png"), abilityButtonSize);
-            AnchorBottomRight((RectTransform)swapCharacterButton.transform, new Vector2(abilityButtonSize, abilityButtonSize),
-                new Vector2(abilityInsetX, abilityBottomY + abilityButtonSize + clusterSpacing));
+                LoadUiSprite("SwapCharacterIcon.png"), clusterIconSize);
+            AnchorBottomRight((RectTransform)swapCharacterButton.transform, new Vector2(clusterIconSize, clusterIconSize),
+                new Vector2(abilityInsetX, swapBottomY));
 
             // Locker button (2026-09-09) — sits directly above Swap Character, same size/spacing,
             // opens LockerScreen (see its own doc comment). Originally reused Cosmetics_Icon.png
@@ -1209,10 +1220,11 @@ namespace FarmFuryArcade.EditorTools
             // review) — now uses dedicated Locker.png art (a wardrobe/trunk badge, generated
             // specifically to read clearly as a locker at HUD-icon size and not compete visually
             // with the ability/swap icons the way a character-forward icon would).
+            float lockerBottomY = swapBottomY + clusterIconSize + clusterSpacing;
             var lockerButton = CreateIconButton("LockerButton", safeArea.transform,
-                LoadUiSprite("Locker.png"), abilityButtonSize);
-            AnchorBottomRight((RectTransform)lockerButton.transform, new Vector2(abilityButtonSize, abilityButtonSize),
-                new Vector2(abilityInsetX, abilityBottomY + 2f * (abilityButtonSize + clusterSpacing)));
+                LoadUiSprite("Locker.png"), clusterIconSize);
+            AnchorBottomRight((RectTransform)lockerButton.transform, new Vector2(clusterIconSize, clusterIconSize),
+                new Vector2(abilityInsetX, lockerBottomY));
 
             // Note: the coin-cost skip-cooldown button used to live here as its own "-3" button
             // beside the icon — replaced 2026-08-28 by the coin badge overlaid directly on the
@@ -1271,23 +1283,29 @@ namespace FarmFuryArcade.EditorTools
             // project_testing_device memory) from 98/82 to match StandardIconButtonSize (160), the
             // same size as Pause/Main Menu Play&Settings/every icon button family — "resize to the
             // same size as the buttons on pause, landing page etc, space out accordingly (there is
-            // space)". spacing raised to a full buttonSize (160, was 82, a sub-buttonSize
-            // overlapping value) so the 4 arms now have genuine daylight between them (corner-to-
-            // corner distance spacing*sqrt(2)=226 > buttonSize=160, i.e. no overlap at all — the old
-            // 98/82 pair deliberately overlapped by 16 units at each corner) rather than just
-            // "less overlap." Insets grown to preserve the same inner (screen-edge-facing) clearance
-            // the 98/82 configuration had (insetX-spacing=45, insetY-spacing=70, both unchanged).
-            // This is a first-pass value only reasoned from the ratios above, not visually confirmed
-            // on-device in this session (no Editor/device access here) — the outer, maze-facing
-            // reach grows substantially (upButtonTopEdge = insetY+spacing+buttonSize goes 332->550),
-            // which the earlier 90->98 pass explicitly stayed clear of for maze-overlap reasons;
-            // nudge dpadInsetX/dpadInsetY inward (or dpadSpacing down slightly) if this now clips
-            // playable maze tiles on iPhone 11 — see the maze-overlap history in the comment this
-            // replaced for why that lever was pulled in the first place.
+            // space)".
+            //
+            // First pass after that set dpadSpacing = dpadButtonSize (160/160), reasoned as "no
+            // overlap at all" from the bounding-box math — WRONG in practice, confirmed by a device
+            // screenshot showing a clearly visible gap between every arm, not the near-touching look
+            // that math implied. Each button is only offset along ONE axis from the shared centre
+            // (Up is (0,+spacing), Left is (-spacing,0), etc.), so two adjacent arms (e.g. Up/Left)
+            // are DIAGONAL neighbours whose square bounding boxes only share a single point when
+            // spacing==buttonSize — the round button ART inside each square never gets anywhere near
+            // its neighbour's art at that ratio, regardless of the boxes touching. Per direct
+            // correction ("bring the buttons closer, almost touching"), spacing dropped to 100
+            // (well below buttonSize=160) so the boxes genuinely overlap (overlap = buttonSize -
+            // spacing = 60, both axes at once for a diagonal pair) and the visible art reads as
+            // close/almost touching. Insets kept at the same inner (screen-edge-facing) clearance
+            // the very first 98/82 configuration had (insetX-spacing=45, insetY-spacing=70, both
+            // still unchanged: insetX=145, insetY=170). Still a first-pass value, not visually
+            // confirmed on-device in this session (no Editor/device access here) — nudge
+            // dpadSpacing/dpadInsetX/dpadInsetY further if this over- or under-shoots on iPhone 11,
+            // and watch for maze-tile overlap (see the shrink history above this comment replaced).
             const float dpadButtonSize = 160f;
-            const float dpadSpacing = 160f;
-            const float dpadInsetX = 205f;
-            const float dpadInsetY = 230f;
+            const float dpadSpacing = 100f;
+            const float dpadInsetX = 145f;
+            const float dpadInsetY = 170f;
             Vector2 dpadCenter = new Vector2(dpadInsetX, dpadInsetY);
 
             var upButton = CreateButton("DPadUpButton", safeArea.transform, string.Empty, Color.clear, out _);
