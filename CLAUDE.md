@@ -310,6 +310,25 @@ misbehave identically on a real device. Fixed with `InputController.IsPointerOve
 (`Touchscreen.current.primaryTouch.touchId.ReadValue()`) and calls the id-aware overload; otherwise
 falls back to the parameterless (mouse) check.
 
+**Real bug found and fixed (2026-09-14): the on-screen D-pad never moved the character at all —
+only swipe worked — and the D-pad's own PointerDown/PointerUp wiring was entirely correct the whole
+time.** Root cause was in `InputController.SyncKey` (called every frame from `UpdateKeyboardHeld`):
+it decided whether to release a direction by checking "is this direction anywhere in the shared
+`HeldStack`," with no concept of *which input source* put it there. The D-pad's `PressDirection`
+correctly pushed the pressed direction onto `HeldStack`, but on the very next `Update()` tick,
+`SyncKey` saw that direction sitting in the stack, saw the corresponding physical keyboard key
+wasn't actually pressed, and immediately called `ReleaseDirection` on it — wiping out the D-pad's
+own press one frame later, every single time, regardless of how long the button was actually held.
+Swipe was never affected since `SetSwipeDirection` bypasses `HeldStack` entirely, which is exactly
+why it read as "the only thing that works." Found via direct runtime Console log tracing (temporary
+`Debug.Log` at every stage of the chain, then reading back the actual call-stack sequence from a
+live Play Mode session) after static code review and the `DiagnoseDPadWiring` scene-wiring
+diagnostic both found nothing wrong — **when a UI/input bug survives static review and a wiring
+diagnostic, add temporary logging at each pipeline stage and get a live Console trace instead of
+continuing to guess from code alone.** Fixed by having `SyncKey` track which directions the
+keyboard itself is holding in a separate `KeyboardHeld` set, so it only ever releases a direction it
+itself pressed, never one another source (the D-pad) is currently holding.
+
 **Kinematic Rigidbody2D gotcha:** Cluck's `Rigidbody2D` is Kinematic (so `GridMovement` can drive
 it via `transform.position`) with **`useFullKinematicContacts = true`** set explicitly. Without
 this, Unity's 2D physics does not fire trigger callbacks between a Kinematic body and a plain
@@ -1393,15 +1412,22 @@ does not touch `IAPManager.cs` at all. Keeping it structurally separate from the
 screens (Shop hub, Coin Purchase, Cosmetic/World Purchase) is intentional — a purchase-adjacent UI
 element sitting inside those screens would invite App Review scrutiny it doesn't need to invite.
 
-**In-app surface is a single promotional banner** (`MerchBannerController`, built by
-`Phase5ProjectBuilder.BuildMerchBanner`) — "VISIT OUR STORE" wood-sign art (`MerchBanner.png`,
-666x392), currently placed on Level Select's world-select state, bottom-left corner (same 110/70
-safe-area inset every other bottom-corner element in this screen family uses). Visibility is
-state-driven the same way `currentWorldIndicator` is (just inverted): shown in
-`LevelSelectController.ShowWorldSelect()`, hidden the instant `RevealWorld()` shows a world's tile
-grid. **It briefly lived on Main Menu instead** — removed after a gameplay screenshot showed it
-sitting awkwardly in front of `landing.png`'s baked-in character art; also shrunk from 260px tall
-(sized for open centre space) to 180px tall once moved into a corner slot.
+**In-app surface is a single promotional banner** (`MerchBannerController`) — "VISIT OUR STORE"
+wood-sign art (`MerchBanner.png`, 666x392). **Moved to `MenuHubScreen` (2026-09-14, per direct
+feedback)** — now the third stacked sign there, directly under "Shop" (reached via Main Menu's
+Settings gear → the SETTINGS/Shop hub), no longer a standalone Level Select overlay. Built inline
+inside `Phase5ProjectBuilder.BuildMenuHubScreen` now (the old dedicated `BuildMerchBanner` method
+and its call site in `BuildLevelSelect` are both gone), sharing the exact same box size as the
+Settings/Shop signs rather than its own aspect-matched size — per direct feedback all three signs
+should render at one uniform size. The whole 3-sign stack was shifted up and re-spaced
+(`signHeight` 230→190) to fit the third sign without running into `MenuHubScreen`'s own close
+button. `LevelSelectController`'s old `merchBanner` field and its `ShowWorldSelect`/`RevealWorld`
+show/hide calls (the "visible on world-select only" toggle this bullet used to describe) are gone
+along with it — the banner's visibility is no longer tied to Level Select's own state at all, since
+it doesn't live there anymore. **It previously lived on Level Select's world-select state
+(2026-09-08 through 2026-09-14, bottom-left corner) and, before that, briefly on Main Menu** —
+removed from Main Menu after a gameplay screenshot showed it sitting awkwardly in front of
+`landing.png`'s baked-in character art.
 
 Tapping it calls `Application.OpenURL("https://www.farmfury.games/merch")` (system browser, not an
 in-app WebView — same hand-off pattern `LegalScreen.cs` uses for Privacy Policy/Terms), gated behind
@@ -1855,6 +1881,13 @@ top, so neither purchase path can fire regardless of how the tap reached it. `_b
 `(productId, Image)` list) was replaced with a richer `_itemStates` list (`productId`, `button`,
 `icon`, `badge`) so this one refresh pass can update all three per-item visuals together.
 
+**`OwnedIconTint` softened twice since (2026-09-14 memory note: originally a 0.55 grey multiply
+tint, then 50% alpha, now 70% alpha)** — each pass per direct feedback that an owned icon was too
+hard to make out. Currently a straight 30% alpha reduction (`Color(1,1,1,0.7)`, not a grey tint) —
+the icon should stay clearly recognizable, just visibly dimmer than an unowned one. Applies to
+every purchase page automatically since `CosmeticPurchaseScreen` is one shared component (Hats,
+Trails, World Purchase all use it).
+
 **"Purchase Complete!" banner** — `PurchaseComplete.png` (real commissioned word-art, found already
 sitting unused in `Sprites/UI/`) replaced the old plain `statusText` "Purchase complete!" message
 for a successful purchase (real-money or coins) specifically; every other message (Processing/Not
@@ -2182,7 +2215,20 @@ same shape `UIBuilderHelpers.CreateVerticalScrollView` uses elsewhere, hand-roll
 helper's Content is a `VerticalLayoutGroup`, not the `GridLayoutGroup` this screen needs) whose
 Content carries a `GridLayoutGroup` + `ContentSizeFitter` so it auto-sizes to however many owned
 items there actually are (0 up to all 7) and scrolls if that's more than the visible ~445px-tall
-region shows at once, rather than a fixed box sized for "however many rows might exist." (`Scripts/Data/MazeType.cs`, `Scripts/Utilities/UnlockProgression.cs`, `Scripts/Core/IAPManager.cs`/`SaveManager.cs`/`GameManager.cs`, `Scripts/UI/LevelSelectController.cs`/`SettingsPanel.cs`)
+region shows at once, rather than a fixed box sized for "however many rows might exist."
+
+**Empty state added (2026-09-14)** — when the player owns nothing at all, the (visually empty)
+tile grid is replaced with two banners side by side, centred: `Hats&Caps.png` and `Trails.png`
+(the same art `CosmeticsChooserScreen` uses), each opening its respective real purchase page
+(`hatsPurchaseScreen`/`trailsPurchaseScreen`, both new `LockerScreen` fields) directly. Sized to
+500 wide each (real aspect preserved via `CosmeticsBannerAspect`), centred on the same region the
+tile grid occupies. `CosmeticPurchaseScreen` gained a public `OnClosed` event (fired from
+`OnDisable`) so `LockerScreen` can `Refresh()` itself the instant either purchase screen closes —
+without this, a purchase made from the empty-state banners would leave them showing even after the
+player owns something, since the two screens layer on top of Locker rather than replacing it and
+nothing else would trigger a re-check.
+
+(`Scripts/Data/MazeType.cs`, `Scripts/Utilities/UnlockProgression.cs`, `Scripts/Core/IAPManager.cs`/`SaveManager.cs`/`GameManager.cs`, `Scripts/UI/LevelSelectController.cs`/`SettingsPanel.cs`)
 
 2026-08-25: a whole new $3.99-IAP-gated 25-level world, not a cosmetic — replaced an earlier
 "MazeTheme" idea (buy art that reskins a world you already have, see the removal note under
@@ -2473,6 +2519,15 @@ from their original Phase 5 layouts:
   point (see "Known gaps"). Store regained an entry point later (Monetisation Phase 3's IAP
   plumbing) — a third `ShopButton` opens `ShopController` (see "IAP plumbing" above); Main Menu is
   a three-button screen again, not two, as of that change.
+
+  **An Exit button (`Exit.png`) was added next to Settings (2026-09-14)** — `MainMenuController`
+  gained an `exitButton` field, sized to the same 160px height as Play/Settings with width derived
+  from `Exit.png`'s own real aspect (552x256) rather than forced square, positioned immediately
+  left of Settings with a fixed 20px gap. Tapping it calls `Application.Quit()`, wrapped in
+  `#if UNITY_EDITOR: EditorApplication.isPlaying = false #else: Application.Quit()` so it's also
+  useful for stopping Play Mode during testing. **`Application.Quit()` is a documented no-op on
+  iOS** — Apple does not allow an app to self-terminate, so this button has no visible effect on
+  iOS builds; it only actually exits the app on Android.
 
   **Shop button went through two art passes.** It used a plain orange placeholder + "Shop" text
   label until `Shop.png` (originally a wide banner with its own "Shop" label + coin icon baked in)
@@ -3149,14 +3204,36 @@ purchase surfaces to line up with where players would actually expect them. Supe
 **`MenuHubScreen`** (new) — Main Menu's `SettingsButton` (gear icon) no longer opens `SettingsPanel`
 directly; it now opens this overlay first. Dimmed `Landing_Opacity.png` backdrop (matching every
 other overlay in this family — an earlier full-brightness version was tried first, then dimmed
-after a device screenshot review) with two stacked wood-sign buttons reusing the exact header art
-each destination screen already shows: `SettingsSign.png` ("SETTINGS") and `ShopBanner.png`
-("Shop"). Each sign is an independent tap target with its own listener (`settingsScreen.Show()` /
-`shopScreen.Show()`) — neither routes through the back button. A round `Btn_back.png` closes the
-overlay, revealing Main Menu (the landing page) underneath, since this is a plain `SetActive`
-overlay layered on top of it, not a `SceneTransitionManager` screen swap. This is also Shop's only
-entry point now — Main Menu had no separate Shop button before this (see the corrected "Shop icon
-relocation history" bullet above), so this closes that gap.
+after a device screenshot review) with three stacked wood-sign buttons reusing the exact header art
+each destination screen already shows: `SettingsSign.png` ("SETTINGS"), `ShopBanner.png` ("Shop"),
+and — moved here from Level Select (2026-09-14, see "Merchandise" above) — `MerchBanner.png`
+("Visit Our Store"), directly under Shop. All three share one uniform box size per direct feedback
+("make the banners all the same size"); the stack was shifted up and re-spaced (`signHeight`
+230→190) to fit the third sign clear of this screen's own close button. Each sign is an independent
+tap target with its own listener (`settingsScreen.Show()` / `shopScreen.Show()` /
+`MerchBannerController`'s own `Application.OpenURL` hand-off) — neither routes through the back
+button. A round `Btn_back.png` closes the overlay, revealing Main Menu (the landing page)
+underneath, since this is a plain `SetActive` overlay layered on top of it, not a
+`SceneTransitionManager` screen swap. This is also Shop's only entry point now — Main Menu had no
+separate Shop button before this (see the corrected "Shop icon relocation history" bullet above),
+so this closes that gap.
+
+**A "Home" button (`Btn_home.png`) sits next to the round back button on 8 of these Settings/Shop-
+family overlays** (2026-09-14, per direct feedback that some pages — e.g. Shop → Cosmetics → Hats,
+4 levels deep — took several nested Back-taps to escape before starting a level): `SettingsPanel`,
+`LegalScreen`, `ShopController`, `CoinPurchaseScreen`, `CosmeticsChooserScreen`,
+`CosmeticsHatsScreen`, `CosmeticsTrailsScreen`, and the World Purchase screen. New `GoHomeButton`
+component (`Scripts/UI/GoHomeButton.cs`) — one instance per screen, all sharing the exact same
+fixed `overlaysToClose` list (every overlay in this family plus Pause) — calls
+`SceneTransitionManager.ShowOnly(mainMenuScreen)` then closes every overlay in that list (via
+`PauseMenuController.CloseForNavigation()` specifically for Pause, plain `SetActive(false)` for the
+rest); closing an overlay that was never open is a harmless no-op, so the same fixed list works
+regardless of which screen the button actually lives on or how the player got there.
+**`MenuHubScreen` deliberately does NOT get one** — it's only ever opened directly from Main Menu,
+so its own Back button already goes straight there in one tap; a Home button there would just
+duplicate Back. `Phase5ProjectBuilder.AddHomeButtonNextToBack` (built next to `CreateRoundBackButton`)
+finds each screen's existing `BackButton` child by name and positions Home immediately to its left
+with a fixed 20px gap, same size, same row.
 
 **`SettingsPanel`** was cut down from the 4x2 grid to a single row of 4 icons: Music mute
 (`Btn_music-remove.png`), Leaderboards (`Btn_LeaderBoard.png`), Character Story
@@ -3583,6 +3660,42 @@ centred exactly under the header (which centres at x=960 via `AnchorTopCenter`).
 limitation, not something this pass introduced, but worth knowing the new
 `LevelBestScoreCharacterKeyPrefix` key (added alongside it) inherits the same gap: "Reset Progress"
 won't clear per-level data for Frostbite Garden/Golden Sunset/Harvest Moon.
+
+**World-select collage banners shrunk 15% (2026-09-14)**, per direct feedback they read as
+slightly oversized within their cells — a `worldBannerScale` factor (0.85) applied AFTER the
+existing fit-to-cell computation, not by changing the cell/safe-zone math itself. Since the
+pre-scale fit already guarantees each banner stays within its own non-overlapping cell inside the
+safe zone, scaling it down further can only ever shrink it further inside that already-safe area —
+provably can't introduce a new overlap or safe-zone violation. The extra room this opens within
+each cell is what reads as "more breathing room between banners."
+
+**`WorldLeaderboardDetailScreen` went through 3 more layout passes the same day (2026-09-14),**
+each per a direct screenshot, on top of the 2026-09-13 centring fix above:
+1. Header banner (the per-world art, e.g. "CORN FIELD") moved from centred to **left-aligned**
+   (inset 100, later widened to 280 once a screenshot showed it still spilling past the safe-area
+   guide), and **shrunk to HALF `StandardHeaderSignSize`** (a local override just for this screen —
+   the shared constant is untouched everywhere else) after it badly overlapped the dimmed
+   backdrop's own baked-in "FARM FURY" wordmark at full size.
+2. The stat block (BestFarmFury/HighScore/FastestTime/star rows) moved from centred to the open
+   space on the right (`blockLeftX` computed from a right-margin constant, 200 then tightened to
+   400 to close the gap to the header) and much closer to the top (`bestRowTop` -385 → -80 → -180),
+   with row padding tightened (`WorldDetailRowGap` 20→8) and stars enlarged (`WorldDetailStarSize`
+   56→70).
+3. **Real, two-round text-size bug**: "BestFarmFury" kept rendering visibly smaller than
+   "HighScore"/"FastestTime" even after matching their box HEIGHTs (round 1). Round 2, verified by
+   directly measuring the actual PNGs (PowerShell + `System.Drawing`, not guessed): all three
+   labels are already tightly cropped to their content (~98.6% fill, no padding difference to
+   blame) but have very different image aspect ratios — `Best.png` ~5.92:1 vs `HighScore.png`
+   ~3.94:1 vs `FastestTime.png` ~4.54:1. Forcing all three into the same fixed WIDTH made
+   `preserveAspect` pick width as the binding constraint for whichever was wider-than-the-box,
+   shrinking ITS rendered height well below the intended `rowHeight` — Best.png alone dropped to
+   ~54px against a 78px box. Fixed by sizing each label to its own real aspect at a fixed HEIGHT
+   instead (letting width vary), with the value plaques still column-aligned via a separate fixed
+   zone width (`WorldDetailLabelWidth` 320→380, wide enough to clear the widest natural label width
+   with margin) rather than the width forced onto any individual label image. **General lesson: a
+   "same box height" fix for a "renders smaller" report is not sufficient when the images being
+   compared have different aspect ratios — measure the actual images directly rather than assuming
+   a shared box dimension is enough.**
 
 **`AudioManager`** now has real clips wired (see "Art status") — `PlayMusic`
 crossfades between two looping `AudioSource`s, `PlaySFX` round-robins a pooled array via
@@ -4363,6 +4476,16 @@ values from the GDD's color palette where one exists (e.g. walls = Wall Brown `#
     some aspects (see "Camera" earlier), so shrinking the D-pad's own footprint is the only lever
     available to reduce overlap without changing camera zoom/backdrop sizing; some overlap on
     certain aspects may remain a known limitation rather than something fully solvable this way.
+  - **Enlarged again 2026-09-14** (`dpadButtonSize` 90→98, `dpadSpacing` 70→82, `dpadInsetX`/
+    `dpadInsetY` both grown by the same +12 as spacing) per direct feedback the buttons should
+    better match a thumb, with "some space" confirmed available. Spacing was grown more than
+    button size specifically to shrink (not just preserve) the corner overlap between adjacent
+    arms — at 90/70 they overlapped by 20 units at each corner; at 98/82 that drops to 16. Insets
+    grew by exactly the same amount as spacing so the *inner* corner clearance (nearest the
+    physical screen edge) is unchanged from before; only the outer, maze-facing reach grows
+    (~+11%) — kept well clear of the earlier 110/100 configuration this section's own shrink was
+    reacting to. See `DirectionalPadController`'s own real bug fix above (the keyboard-sync issue)
+    if a future "D-pad doesn't work" report turns out not to be a sizing/overlap problem at all.
   - **Choose Character** — found and fixed the actual bug behind a large yellow block covering the
     active/centred card: `ActiveHighlight` was a *child* of the same GameObject holding the card's
     own `Image` — in uGUI a child always renders in front of its own parent's Image regardless of
@@ -5075,6 +5198,39 @@ Testing group) so it's actually installable, not just "Ready to Test"; delete th
 `.p8`/`.p12`-password files per the cleanup note above now that the pipeline is confirmed working
 end to end; Android's own Cloud Build/Play Console setup remains untouched — this whole build
 pipeline is iOS-only so far.
+
+**Real bug found and fixed (2026-09-14): the app crashed immediately on open in TestFlight**, on
+literally the very first install of the build described above. Crash log named
+`GADApplicationVerifyPublisherInitializedCorrectly` (Google Mobile Ads, bundled here as LevelPlay's
+AdMob mediation adapter) throwing an uncaught `NSException`, immediately followed by `abort()`/
+SIGSEGV, before the app ever reached Unity's own code. Root cause, confirmed against Google's own
+documentation of this exact class of crash: Google Mobile Ads verifies at process start that
+`GADApplicationIdentifier` (the AdMob **App ID**, a different value from the LevelPlay app
+keys/ad-unit IDs already on `AdManager`) exists in `Info.plist`, and throws if it's missing —
+nothing in this project's build pipeline had ever written that key, since Unity's iOS export has no
+built-in field for it. Fixed by having `IOSPostProcessBuild.AddGADApplicationIdentifier` set it
+directly on every iOS build (`ca-app-pub-1264425755955045~9222731930`, obtained from
+apps.admob.com > Apps > this app > App settings > App ID). Also added
+`ITSAppUsesNonExemptEncryption=false` to the same `Info.plist` pass in the same fix — the app uses
+no encryption beyond standard OS HTTPS, so it's exempt, and without this key App Store Connect asks
+the Export Compliance question again on every single new build instead of just the first.
+
+**A second, unrelated issue blocked the very next upload**: Apple rejected it for reusing the same
+`CFBundleVersion` (`buildNumber.iPhone` in `ProjectSettings.asset`, was `1`) as the already-uploaded
+crashing build — bumped to `2`. **The crash fix was then confirmed working**: the next TestFlight
+install opened without crashing. If a future `GADApplicationVerifyPublisherInitializedCorrectly` (or
+similarly-named `GADInvalidInitializationException`) crash reappears, check that this Info.plist key
+survived whatever changed first, before assuming a new root cause — this is a well-documented,
+already-solved Google Mobile Ads requirement, not a novel bug.
+
+**Known parallel gap, deliberately not fixed yet:** Android has the equivalent requirement (a
+`com.google.android.gms.ads.APPLICATION_ID` meta-data tag in `AndroidManifest.xml`) and nothing in
+this project declares it either — no `Assets/Plugins/Android/AndroidManifest.xml` exists at all.
+Left alone specifically because hand-authoring a custom Android manifest with no Android SDK/Gradle
+build available in this environment to verify it merges correctly risks silently breaking the
+Android build outright (same reasoning as the "Android multi-window" deferred-fix section below) —
+and Android has never had a single Cloud Build attempt in this project's history to test it against
+anyway. Fix this the moment Android build work actually starts, testing against a real build then.
 
 ## iOS build toolchain — known Xcode 26 gotcha (2026-08-29, researched — did not manifest on the first real archive, see the successful-build note above)
 
