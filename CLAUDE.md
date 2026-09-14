@@ -4601,7 +4601,15 @@ values from the GDD's color palette where one exists (e.g. walls = Wall Brown `#
     `dpadInsetX` further left (or `dpadButtonSize` down again) if the diamond still touches the
     board, and `dpadSpacing` if the touch reads as too light or too heavy an overlap.
 
-    **Real bug found the same session, in `DirectionalPadController.cs` — distinct from the
+  - **Fifth pass, from a fourth device screenshot — confirmed both fixes above landed correctly**
+    (D-pad clear of the maze, ability cluster centred/dropped) **and asked for one small further
+    nudge**: "bring the buttons slightly closer together; the corners can slightly touch. the rest
+    is fine." Only `dpadSpacing` moved, 120→110 (overlap now 30, up from the earlier 20-unit light
+    touch) — `dpadButtonSize`/`dpadInsetX` left untouched since size/position were explicitly
+    confirmed correct this round. `dpadInsetY` kept at the same relative clearance from
+    `dpadSpacing` every pass has preserved (`insetY-spacing=70`): 110+70=180.
+
+  - **Real bug found the same session, in `DirectionalPadController.cs` — distinct from the
     keyboard-sync bug above (that one made the D-pad never move the character at all; this is the
     opposite, a direction getting stuck ON).** Reported live: Percy kept moving right with nothing
     touching the screen, resolved only once a swipe overrode `CurrentHeldDirection` directly

@@ -1321,16 +1321,19 @@ namespace FarmFuryArcade.EditorTools
             // itself ("move the whole Dpad to the left so it is off the maze") — dpadInsetX pulled
             // in hard, 145->70, and per direct instruction that crossing the yellow safe-area guide
             // slightly is acceptable on mobile, dpadButtonSize was also shrunk a bit (160->140) to
-            // help it clear the board without needing an even more extreme inset. dpadInsetY kept at
-            // the same relative clearance from dpadSpacing established by the very first 98/82 pass
-            // (insetY-spacing=70): 120+70=190. Still first-pass values, not visually confirmed
-            // on-device this session — nudge dpadInsetX further left (or dpadButtonSize down again)
-            // if the diamond still touches the board; nudge dpadSpacing if the touch reads as too
-            // light or too heavy an overlap.
+            // help it clear the board without needing an even more extreme inset.
+            //
+            // Fifth pass (2026-09-14, fourth device screenshot — confirmed both fixes above landed
+            // correctly: D-pad clear of the maze, ability cluster centred/dropped): "bring the
+            // buttons slightly closer together; the corners can slightly touch. the rest is fine."
+            // Only dpadSpacing needed a small nudge, 120->110 (overlap now 30, up from the light
+            // 20-unit touch) — buttonSize/insetX untouched since position/size were explicitly
+            // confirmed correct this round. dpadInsetY still kept at the same relative clearance
+            // from dpadSpacing every pass has preserved (insetY-spacing=70): 110+70=180.
             const float dpadButtonSize = 140f;
-            const float dpadSpacing = 120f;
+            const float dpadSpacing = 110f;
             const float dpadInsetX = 70f;
-            const float dpadInsetY = 190f;
+            const float dpadInsetY = 180f;
             Vector2 dpadCenter = new Vector2(dpadInsetX, dpadInsetY);
 
             var upButton = CreateButton("DPadUpButton", safeArea.transform, string.Empty, Color.clear, out _);
