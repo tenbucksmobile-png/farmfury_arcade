@@ -66,6 +66,18 @@ namespace FarmFuryArcade.Core
         public const string WorldGoldenSunsetProductId = "world_goldensunset";
         public const string WorldHarvestMoonProductId = "world_harvestmoon";
 
+        // Machine Cosmetics (2026-09-15) - CosmeticType.Skin, each exclusive to one specific
+        // character (not a per-character "set" like Baseball Cap/Cowboy Hat - a tractor drawn
+        // around Clucky doesn't exist for any other character). $3.99 NonConsumable, priced above
+        // the $1.99 hats/trails given the extra per-character art cost (4 directional poses each,
+        // vs. one hat design fitted per character). The product id doubles as the CosmeticData's
+        // cosmeticId, same convention trail product ids already use. Deliberately NOT in
+        // CosmeticCoinCosts - real-money only, same reasoning World Purchase stays real-money only
+        // (a premium item, not worth the cannibalization risk).
+        public const string MachineTractorCluckyProductId = "machine_tractor_clucky";
+        public const string MachineTruckBessieProductId = "machine_truck_bessie";
+        public const string MachineHayHoraceProductId = "machine_hay_horace";
+
         /// <summary>Universal (character-agnostic) cosmeticId for the single-art hat styles —
         /// unlike the 8 per-character "baseball_cap_&lt;character&gt;"/"cowboy_hat_&lt;character&gt;"
         /// assets, these 3 only have one piece of art (not fitted per character), so one
@@ -154,6 +166,9 @@ namespace FarmFuryArcade.Core
             { WorldFrostbiteGardenProductId, "$3.99" },
             { WorldGoldenSunsetProductId, "$3.99" },
             { WorldHarvestMoonProductId, "$3.99" },
+            { MachineTractorCluckyProductId, "$3.99" },
+            { MachineTruckBessieProductId, "$3.99" },
+            { MachineHayHoraceProductId, "$3.99" },
         };
 
         public bool IsInitialized { get; private set; }
@@ -213,6 +228,9 @@ namespace FarmFuryArcade.Core
                 new ProductDefinition(WorldFrostbiteGardenProductId, ProductType.NonConsumable),
                 new ProductDefinition(WorldGoldenSunsetProductId, ProductType.NonConsumable),
                 new ProductDefinition(WorldHarvestMoonProductId, ProductType.NonConsumable),
+                new ProductDefinition(MachineTractorCluckyProductId, ProductType.NonConsumable),
+                new ProductDefinition(MachineTruckBessieProductId, ProductType.NonConsumable),
+                new ProductDefinition(MachineHayHoraceProductId, ProductType.NonConsumable),
             };
             _storeController.FetchProducts(definitions);
         }
@@ -413,6 +431,18 @@ namespace FarmFuryArcade.Core
             {
                 GrantAndEquipTrail(productId);
             }
+            else if (productId == MachineTractorCluckyProductId)
+            {
+                GrantAndEquipSkin(MachineTractorCluckyProductId, CharacterType.Cluck);
+            }
+            else if (productId == MachineTruckBessieProductId)
+            {
+                GrantAndEquipSkin(MachineTruckBessieProductId, CharacterType.Bessie);
+            }
+            else if (productId == MachineHayHoraceProductId)
+            {
+                GrantAndEquipSkin(MachineHayHoraceProductId, CharacterType.Horace);
+            }
             else
             {
                 return false;
@@ -525,6 +555,26 @@ namespace FarmFuryArcade.Core
             SaveManager.Instance.SetCosmeticOwned(cosmeticId);
             SaveManager.Instance.SetEquippedTrail(cosmeticId);
             CharacterManager.Instance?.ActiveCharacterObject?.GetComponent<CharacterCosmeticRenderer>()?.Refresh();
+        }
+
+        /// <summary>Machine Cosmetics — unlike GrantAndEquipHat/GrantAndEquipTrail, always equips on
+        /// a FIXED character rather than "whichever character is currently active," since a machine
+        /// skin is exclusive to the one character it was drawn for (Clucky's tractor makes no sense
+        /// equipped on Bessie). Only refreshes the live renderer when that character happens to be
+        /// the one currently active/on screen.</summary>
+        private void GrantAndEquipSkin(string cosmeticId, CharacterType character)
+        {
+            if (SaveManager.Instance == null)
+            {
+                return;
+            }
+
+            SaveManager.Instance.SetCosmeticOwned(cosmeticId);
+            SaveManager.Instance.SetEquippedCosmetic(CosmeticType.Skin, character, cosmeticId);
+            if (CharacterManager.Instance != null && CharacterManager.Instance.ActiveCharacter == character)
+            {
+                CharacterManager.Instance.ActiveCharacterObject?.GetComponent<CharacterCosmeticRenderer>()?.Refresh();
+            }
         }
 
         /// <summary>World Purchase — unlocks a whole 25-level world permanently, independent of

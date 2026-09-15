@@ -307,6 +307,13 @@ namespace FarmFuryArcade.UI
                     return SaveManager.Instance.IsWorldPurchased(MazeType.GoldenSunset);
                 case IAPManager.WorldHarvestMoonProductId:
                     return SaveManager.Instance.IsWorldPurchased(MazeType.HarvestMoon);
+                case IAPManager.MachineTractorCluckyProductId:
+                case IAPManager.MachineTruckBessieProductId:
+                case IAPManager.MachineHayHoraceProductId:
+                    // Machine product ids intentionally match their CosmeticData.cosmeticId exactly
+                    // (same convention trail product ids already use) - each is exclusive to one
+                    // fixed character, so no active-character resolution is needed here.
+                    return SaveManager.Instance.IsCosmeticOwned(productId);
                 default:
                     return false;
             }

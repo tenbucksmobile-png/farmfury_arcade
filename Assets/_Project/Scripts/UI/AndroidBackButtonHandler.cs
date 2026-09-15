@@ -31,6 +31,7 @@ namespace FarmFuryArcade.UI
         [SerializeField] private CoinPurchaseScreen coinPurchaseScreen;
         [SerializeField] private CosmeticPurchaseScreen cosmeticsHatsScreen;
         [SerializeField] private CosmeticPurchaseScreen cosmeticsTrailsScreen;
+        [SerializeField] private CosmeticPurchaseScreen cosmeticsMachinesScreen;
         [SerializeField] private CosmeticsChooserScreen cosmeticsChooserScreen;
         [SerializeField] private LegalScreen legalScreen;
         [SerializeField] private SettingsPanel settingsPanel;
@@ -56,6 +57,7 @@ namespace FarmFuryArcade.UI
             if (CloseIfActive(coinPurchaseScreen)) return;
             if (CloseIfActive(cosmeticsHatsScreen)) return;
             if (CloseIfActive(cosmeticsTrailsScreen)) return;
+            if (CloseIfActive(cosmeticsMachinesScreen)) return;
             if (CloseIfActive(cosmeticsChooserScreen)) return;
             if (CloseIfActive(legalScreen)) return;
             if (CloseIfActive(settingsPanel)) return;

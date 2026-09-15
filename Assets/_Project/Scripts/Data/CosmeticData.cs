@@ -145,5 +145,12 @@ namespace FarmFuryArcade.Data
                  "equipped. Leave null to fall back to a procedural placeholder effect (same " +
                  "\"dedicated art with a procedural fallback\" convention PelletCollectBurst uses).")]
         public GameObject trailEffectPrefab;
+
+        [Tooltip("Skin only. When true, a puff-of-smoke particle periodically spawns behind the " +
+                 "character while moving — built for the Machine Cosmetics line (tractor exhaust, " +
+                 "etc.), independent of whatever Trail cosmetic (if any) is separately equipped. " +
+                 "Procedural placeholder (PlaceholderSprite.GetCircle) until dedicated exhaust-" +
+                 "smoke art exists — see CharacterCosmeticRenderer.SpawnMachineSmokePuff.")]
+        public bool spawnsMovementSmoke;
     }
 }

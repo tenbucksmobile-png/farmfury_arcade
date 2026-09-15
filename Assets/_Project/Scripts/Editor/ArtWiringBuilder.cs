@@ -137,13 +137,21 @@ namespace FarmFuryArcade.EditorTools
         // the real 2-frame walk-cycle pair (same "extra art, no slot for it yet" convention as
         // Cluck_rightwalk.png). No back art yet — Up falls back to front. Only one Right frame
         // (right2, no "right1") exists so far — used for both Right0/Right1 slots.
-        private const string HoraceLeft1 = "Assets/_Project/Sprites/Characters/Horace_left1.png";
-        private const string HoraceLeft2 = "Assets/_Project/Sprites/Characters/Horace_Left2.png";
-        private const string HoraceRight2 = "Assets/_Project/Sprites/Characters/Horace_right2.png";
+        // Full art refresh (2026-09-15) - replaced the earlier 2-frame-Left/single-frame-Right set
+        // (Horace_left1.png/Horace_Left2.png/Horace_right2.png, now gone from disk) with a new
+        // single-frame Left and a real 2-frame Right walk cycle.
+        private const string HoraceLeft = "Assets/_Project/Sprites/Characters/Horace_left.png";
+        private const string HoraceRight0 = "Assets/_Project/Sprites/Characters/Horace_right.png";
+        private const string HoraceRight1 = "Assets/_Project/Sprites/Characters/Horace_right1.png";
         // Rear Kick's landing-impact "buck" — mirrored per knockback direction, same convention as
         // Ducky's splash.
-        private const string HoraceAbilityBuckLeft = "Assets/_Project/Sprites/Characters/Horace_ability_buckleft.png";
-        private const string HoraceAbilityBuckRight = "Assets/_Project/Sprites/Characters/Horace_ability_buckright.png";
+        // Replaced (2026-09-15) with a single new pose, Horace_buck_left.png - Kling AI kept
+        // returning near-duplicates of the reference art for other angles, so only one direction
+        // exists for now; both constants point at the same file and HoraceBuck.prefab shows it
+        // unmirrored for both Left/Right until a genuine second angle lands. Re-point
+        // HoraceAbilityBuckRight to its own file once real Right art exists.
+        private const string HoraceAbilityBuckLeft = "Assets/_Project/Sprites/Characters/Horace_buck_left.png";
+        private const string HoraceAbilityBuckRight = "Assets/_Project/Sprites/Characters/Horace_buck_left.png";
 
         // Billy's first real art — full 2-frame walk cycle on both Left and Right (same flick
         // convention as Cluck/Bessie/Percy), plus front/back.
@@ -558,7 +566,7 @@ namespace FarmFuryArcade.EditorTools
             WoollyFront, WoollyBack, WoollyLeft, WoollyRight, WoollyEffect,
             PercyFront, PercyBack, PercyLeftWalk0, PercyLeftWalk1, PercyRightWalk0, PercyRightWalk1, PercyEffect, DuckyFront, DuckyBack, DuckyLeft, DuckyRight, BessieSlam,
             DuckyAbilityLeft, DuckyAbilityRight,
-            HoraceFront, HoraceLeft1, HoraceLeft2, HoraceRight2, HoraceAbilityBuckLeft, HoraceAbilityBuckRight,
+            HoraceFront, HoraceLeft, HoraceRight0, HoraceRight1, HoraceAbilityBuckLeft,
             ScoutFront, ScoutBack, ScoutLeft, ScoutRight, PatrolFront, PatrolBack, PatrolLeft, PatrolRight,
             HeavyFront, HeavyBack, DrifterFront, DrifterLeft, DrifterRight, DrifterBack, RobotEyes, DroneFront,
             LevelCompletePanel, LevelFailedPanel, PausedPanel,
@@ -925,27 +933,29 @@ namespace FarmFuryArcade.EditorTools
         /// (Horace_right2.png, no "right1") so it repeats for both Right0/Right1, same as any
         /// single-pose direction elsewhere — it's still real, dedicated art, not a Left mirror, so
         /// hasDedicatedRightArt is still set. No Up/back art yet — Up falls back to front.</summary>
+        /// <summary>Full art refresh (2026-09-15) — Horace now has a single-frame Left (was a
+        /// 2-frame flick) and a real 2-frame Right walk cycle (was a single repeated frame). No
+        /// Up/back art yet, so Up still falls back to front.</summary>
         private static void WireHorace()
         {
             var front = Load(HoraceFront);
-            var left1 = Load(HoraceLeft1);
-            var left2 = Load(HoraceLeft2);
-            var right2 = Load(HoraceRight2);
+            var left = Load(HoraceLeft);
+            var right0 = Load(HoraceRight0);
+            var right1 = Load(HoraceRight1);
 
             string path = $"{CharacterDataFolder}/CharacterData_Horace.asset";
             var data = AssetDatabase.LoadAssetAtPath<CharacterData>(path);
             if (data != null)
             {
-                Sprite left1OrFront = left1 != null ? left1 : front;
-                Sprite left2OrFront = left2 != null ? left2 : left1OrFront;
+                Sprite leftOrFront = left != null ? left : front;
                 data.walkAnimationFrames = new[]
                 {
                     front, front,                             // Up0, Up1 (no back art yet)
                     front, front,                              // Down0, Down1
-                    left1OrFront, left2OrFront,                // Left0, Left1
-                    right2 != null ? right2 : left1OrFront, right2 != null ? right2 : left2OrFront // Right0, Right1
+                    leftOrFront, leftOrFront,                  // Left0, Left1 (single frame now)
+                    right0 != null ? right0 : leftOrFront, right1 != null ? right1 : (right0 != null ? right0 : leftOrFront) // Right0, Right1
                 };
-                data.hasDedicatedRightArt = right2 != null;
+                data.hasDedicatedRightArt = right0 != null;
                 data.portraitSprite = front;
                 EditorUtility.SetDirty(data);
             }

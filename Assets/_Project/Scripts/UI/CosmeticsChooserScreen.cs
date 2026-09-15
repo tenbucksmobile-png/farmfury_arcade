@@ -6,9 +6,10 @@ namespace FarmFuryArcade.UI
     /// <summary>Shop hub's Cosmetics icon (2026-09-12) no longer jumps straight into a single flat
     /// screen with all 11 hat/trail items — it opens this small chooser first, matching a new
     /// mockup: the dimmed Landing_Opacity.png background (same convention every screen in this
-    /// family uses) with two stacked wood-sign banners, "Hats & Caps" (Hats&Caps.png) and "Trails"
-    /// (Trails.png) — real per-page header art, not a shared generic sign, reused here as tap
-    /// targets. Same shape as MenuHubScreen (Settings/Shop signs opening their own screens).
+    /// family uses) with stacked wood-sign banners, "Hats & Caps" (Hats&Caps.png), "Trails"
+    /// (Trails.png), and "Machines" (machine.png, added 2026-09-15) — real per-page header art, not
+    /// a shared generic sign, reused here as tap targets. Same shape as MenuHubScreen (Settings/Shop
+    /// signs opening their own screens).
     ///
     /// Overlay convention, same as every other screen in this family — shown/hidden directly via
     /// Show()/SetActive, not through SceneTransitionManager. Layers on top of the Shop hub; its own
@@ -23,6 +24,9 @@ namespace FarmFuryArcade.UI
 
         [SerializeField] private Button trailsButton;
         [SerializeField] private CosmeticPurchaseScreen trailsScreen;
+
+        [SerializeField] private Button machinesButton;
+        [SerializeField] private CosmeticPurchaseScreen machinesScreen;
 
         [SerializeField] private Button closeButton;
 
@@ -39,6 +43,10 @@ namespace FarmFuryArcade.UI
             if (trailsButton != null && trailsScreen != null)
             {
                 trailsButton.onClick.AddListener(() => trailsScreen.Show());
+            }
+            if (machinesButton != null && machinesScreen != null)
+            {
+                machinesButton.onClick.AddListener(() => machinesScreen.Show());
             }
         }
 

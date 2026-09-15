@@ -1,6 +1,7 @@
 using System.Collections;
 using UnityEngine;
 using FarmFuryArcade.Core;
+using FarmFuryArcade.Data;
 using FarmFuryArcade.Enemies;
 using FarmFuryArcade.Utilities;
 
@@ -21,6 +22,10 @@ namespace FarmFuryArcade.Abilities
         private const float KillzoneDurationSeconds = 3f;
 
         [SerializeField] private GameObject shockwavePrefab;
+        // Machine Cosmetics (2026-09-15) - Milk Tanker skin reskins the shockwave visual to a milk
+        // splash; same radius/timing/defeat rule, purely a themed swap of which sprite the effect
+        // shows (see EggDropAbility's own doc comment for why this is safe as a paid cosmetic).
+        [SerializeField] private GameObject milkShockwavePrefab;
         [SerializeField] private float shakeDuration = 0.3f;
         [SerializeField] private float shakeMagnitude = 0.15f;
 
@@ -36,6 +41,9 @@ namespace FarmFuryArcade.Abilities
         /// different mechanisms with no ordering guarantee between them).</summary>
         public bool IsActive { get; private set; }
 
+        private Vector2Int _lingeringOrigin;
+        private float _lingeringRadius;
+
         protected override void Execute()
         {
             AudioManager.Instance?.PlayGroundSlamSfx();
@@ -46,9 +54,12 @@ namespace FarmFuryArcade.Abilities
 
             DefeatRobotsInRadius(origin, radius);
 
-            if (shockwavePrefab != null)
+            bool milkTankerSkinEquipped = SaveManager.Instance != null &&
+                SaveManager.Instance.GetEquippedCosmetic(CosmeticType.Skin, CharacterType.Bessie) == IAPManager.MachineTruckBessieProductId;
+            GameObject shockwaveToSpawn = milkTankerSkinEquipped && milkShockwavePrefab != null ? milkShockwavePrefab : shockwavePrefab;
+            if (shockwaveToSpawn != null)
             {
-                var shockwaveGO = Instantiate(shockwavePrefab, transform.position, Quaternion.identity);
+                var shockwaveGO = Instantiate(shockwaveToSpawn, transform.position, Quaternion.identity);
                 // Diameter in world units = 2 * radius(tiles) * CellSize — see ShockwaveEffect.Configure's
                 // doc comment for why this makes the VFX's footprint match the real kill radius instead
                 // of a fixed placeholder size unrelated to it.
@@ -58,20 +69,42 @@ namespace FarmFuryArcade.Abilities
 
             CameraShake.Instance?.Shake(shakeDuration, shakeMagnitude);
 
-            StartCoroutine(LingeringKillzone(origin, radius));
+            _lingeringOrigin = origin;
+            _lingeringRadius = radius;
+            StartCoroutine(LingeringKillzone());
         }
 
-        private IEnumerator LingeringKillzone(Vector2Int origin, float radius)
+        private IEnumerator LingeringKillzone()
         {
             IsActive = true;
             float elapsed = 0f;
             while (elapsed < KillzoneDurationSeconds)
             {
-                DefeatRobotsInRadius(origin, radius, verbose: false);
                 elapsed += Time.deltaTime;
                 yield return null;
             }
             IsActive = false;
+        }
+
+        /// <summary>Real bug found and fixed (2026-09-15): "a robot walks straight through it and
+        /// then kills Bessie even though she's ground-slammed." The lingering sweep used to run
+        /// from inside LingeringKillzone's own coroutine, which resumes during Unity's Update phase
+        /// — Unity gives NO ordering guarantee between that coroutine resumption and any individual
+        /// robot's own Update()-driven RobotBase.UpdateMovement in the same frame. If the coroutine's
+        /// step happened to run before a given robot's movement update that frame, the sweep checked
+        /// a one-frame-stale CurrentGridPosition; a robot moving fast enough (or a frame drop letting
+        /// UpdateMovement's own multi-cell-per-Update guard loop advance it several tiles at once)
+        /// could cross the whole radius between two samples and never once register as "in range,"
+        /// despite the sweep genuinely running every single frame. Moving the sweep into LateUpdate
+        /// fixes this deterministically — Unity guarantees every GameObject's own Update() (which is
+        /// what drives robot movement) completes before ANY GameObject's LateUpdate() runs in the
+        /// same frame, so this now always sees each robot's fully up-to-date position.</summary>
+        private void LateUpdate()
+        {
+            if (IsActive)
+            {
+                DefeatRobotsInRadius(_lingeringOrigin, _lingeringRadius, verbose: false);
+            }
         }
 
         // TEMP diagnostic (remove once the "Ground Slam does nothing" report is root-caused) —

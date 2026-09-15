@@ -38,13 +38,20 @@ namespace FarmFuryArcade.UI
             // Null only for Baseball Cap — its real cosmeticId depends on the active character
             // (baseball_cap_<character>) and is resolved per-tile via ResolveCosmeticId instead.
             public readonly string fixedCosmeticId;
+            // Machine Cosmetics only (2026-09-15) - each machine skin is exclusive to one specific
+            // character, so equip/unequip must always target that fixed character rather than
+            // "whichever character is currently active" (every other catalog entry so far is
+            // either character-agnostic (Trail) or applies to the active character (Hat)). Null for
+            // every non-machine entry, same "active character" resolution as before.
+            public readonly CharacterType? fixedCharacter;
 
-            public CatalogEntry(string displayName, CosmeticType type, string productId, string fixedCosmeticId)
+            public CatalogEntry(string displayName, CosmeticType type, string productId, string fixedCosmeticId, CharacterType? fixedCharacter = null)
             {
                 this.displayName = displayName;
                 this.type = type;
                 this.productId = productId;
                 this.fixedCosmeticId = fixedCosmeticId;
+                this.fixedCharacter = fixedCharacter;
             }
         }
 
@@ -70,6 +77,11 @@ namespace FarmFuryArcade.UI
             new CatalogEntry("Rainbow Ribbon Trail", CosmeticType.Trail, IAPManager.TrailRainbowRibbonProductId, IAPManager.TrailRainbowRibbonProductId),
             new CatalogEntry("Confetti Trail", CosmeticType.Trail, IAPManager.TrailConfettiProductId, IAPManager.TrailConfettiProductId),
             new CatalogEntry("Bubbles Trail", CosmeticType.Trail, IAPManager.TrailBubblesProductId, IAPManager.TrailBubblesProductId),
+            // Machine Cosmetics (2026-09-15) - product id doubles as cosmeticId, same convention
+            // trails already use; each is fixed to the one character it was drawn for.
+            new CatalogEntry("Clucky's Tractor", CosmeticType.Skin, IAPManager.MachineTractorCluckyProductId, IAPManager.MachineTractorCluckyProductId, CharacterType.Cluck),
+            new CatalogEntry("Bessie's Milk Tanker", CosmeticType.Skin, IAPManager.MachineTruckBessieProductId, IAPManager.MachineTruckBessieProductId, CharacterType.Bessie),
+            new CatalogEntry("Horace's Hay Baler", CosmeticType.Skin, IAPManager.MachineHayHoraceProductId, IAPManager.MachineHayHoraceProductId, CharacterType.Horace),
         };
 
         private const float TileIconSize = 90f;
@@ -251,8 +263,9 @@ namespace FarmFuryArcade.UI
             {
                 return SaveManager.Instance.GetEquippedTrail() == cosmeticId;
             }
-            CharacterType active = CharacterManager.Instance != null ? CharacterManager.Instance.ActiveCharacter : CharacterType.Cluck;
-            return SaveManager.Instance.GetEquippedCosmetic(CosmeticType.Hat, active) == cosmeticId;
+            CharacterType target = entry.fixedCharacter ??
+                (CharacterManager.Instance != null ? CharacterManager.Instance.ActiveCharacter : CharacterType.Cluck);
+            return SaveManager.Instance.GetEquippedCosmetic(entry.type, target) == cosmeticId;
         }
 
         private void BuildTile(CatalogEntry entry, string cosmeticId)
@@ -360,8 +373,9 @@ namespace FarmFuryArcade.UI
             }
             else
             {
-                CharacterType active = CharacterManager.Instance != null ? CharacterManager.Instance.ActiveCharacter : CharacterType.Cluck;
-                SaveManager.Instance.SetEquippedCosmetic(CosmeticType.Hat, active, newValue);
+                CharacterType target = entry.fixedCharacter ??
+                    (CharacterManager.Instance != null ? CharacterManager.Instance.ActiveCharacter : CharacterType.Cluck);
+                SaveManager.Instance.SetEquippedCosmetic(entry.type, target, newValue);
             }
 
             CharacterManager.Instance?.ActiveCharacterObject?.GetComponent<CharacterCosmeticRenderer>()?.Refresh();

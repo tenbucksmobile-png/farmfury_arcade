@@ -1,10 +1,19 @@
 fileFormatVersion: 2
-guid: 85e7a753ccc9a90459b86650834c8feb
+guid: 8569b8d86813c284d885aae1abe585b9
 TextureImporter:
   internalIDToNameTable:
   - first:
-      213: -6680546787522300240
-    second: Horace_Left2_0
+      213: 3522517015941118124
+    second: Horace_right1_0
+  - first:
+      213: 4038842833488660201
+    second: Horace_right1_1
+  - first:
+      213: 3280146110828776436
+    second: Horace_right1_2
+  - first:
+      213: 1387944087641703330
+    second: Horace_right1_3
   externalObjects: {}
   serializedVersion: 13
   mipmaps:
@@ -97,19 +106,6 @@ TextureImporter:
     androidETC2FallbackOverride: 0
     forceMaximumCompressionQuality_BC6H_BC7: 0
   - serializedVersion: 4
-    buildTarget: WebGL
-    maxTextureSize: 2048
-    resizeAlgorithm: 0
-    textureFormat: -1
-    textureCompression: 1
-    compressionQuality: 50
-    crunchedCompression: 0
-    allowsAlphaSplitting: 0
-    overridden: 0
-    ignorePlatformSupport: 0
-    androidETC2FallbackOverride: 0
-    forceMaximumCompressionQuality_BC6H_BC7: 0
-  - serializedVersion: 4
     buildTarget: Android
     maxTextureSize: 2048
     resizeAlgorithm: 0
@@ -119,6 +115,19 @@ TextureImporter:
     crunchedCompression: 0
     allowsAlphaSplitting: 0
     overridden: 1
+    ignorePlatformSupport: 0
+    androidETC2FallbackOverride: 0
+    forceMaximumCompressionQuality_BC6H_BC7: 0
+  - serializedVersion: 4
+    buildTarget: WebGL
+    maxTextureSize: 2048
+    resizeAlgorithm: 0
+    textureFormat: -1
+    textureCompression: 1
+    compressionQuality: 50
+    crunchedCompression: 0
+    allowsAlphaSplitting: 0
+    overridden: 0
     ignorePlatformSupport: 0
     androidETC2FallbackOverride: 0
     forceMaximumCompressionQuality_BC6H_BC7: 0
@@ -139,13 +148,13 @@ TextureImporter:
     serializedVersion: 2
     sprites:
     - serializedVersion: 2
-      name: Horace_Left2_0
+      name: Horace_right1_0
       rect:
         serializedVersion: 2
         x: 0
-        y: 0
+        y: 19
         width: 500
-        height: 500
+        height: 481
       alignment: 0
       pivot: {x: 0, y: 0}
       border: {x: 0, y: 0, z: 0, w: 0}
@@ -154,8 +163,74 @@ TextureImporter:
       physicsShape: []
       tessellationDetail: -1
       bones: []
-      spriteID: 0b63b50871ee943a0800000000000000
-      internalID: -6680546787522300240
+      spriteID: ca8707a109e72e030800000000000000
+      internalID: 3522517015941118124
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Horace_right1_1
+      rect:
+        serializedVersion: 2
+        x: 246
+        y: 14
+        width: 84
+        height: 6
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 9e649b9882adc0830800000000000000
+      internalID: 4038842833488660201
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Horace_right1_2
+      rect:
+        serializedVersion: 2
+        x: 119
+        y: 9
+        width: 11
+        height: 6
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 4fb0453428b658d20800000000000000
+      internalID: 3280146110828776436
+      vertices: []
+      indices: 
+      edges: []
+      weights: []
+    - serializedVersion: 2
+      name: Horace_right1_3
+      rect:
+        serializedVersion: 2
+        x: 345
+        y: 0
+        width: 58
+        height: 8
+      alignment: 0
+      pivot: {x: 0, y: 0}
+      border: {x: 0, y: 0, z: 0, w: 0}
+      customData: 
+      outline: []
+      physicsShape: []
+      tessellationDetail: -1
+      bones: []
+      spriteID: 2a3ccf74bc7f24310800000000000000
+      internalID: 1387944087641703330
       vertices: []
       indices: 
       edges: []
@@ -174,7 +249,10 @@ TextureImporter:
     spriteCustomMetadata:
       entries: []
     nameFileIdTable:
-      Horace_Left2_0: -6680546787522300240
+      Horace_right1_0: 3522517015941118124
+      Horace_right1_1: 4038842833488660201
+      Horace_right1_2: 3280146110828776436
+      Horace_right1_3: 1387944087641703330
   mipmapLimitGroupName: 
   pSDRemoveMatte: 0
   userData: 

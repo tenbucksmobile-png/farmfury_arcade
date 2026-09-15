@@ -57,6 +57,15 @@ namespace FarmFuryArcade.Gameplay
         private const float GhostLifetimeSeconds = 0.7f;
         private const float GhostScale = 1f;
 
+        /// <summary>Machine Cosmetics exhaust puff (2026-09-15) — independent of the Trail slot
+        /// above (a machine skin's own smoke shows regardless of whatever Trail cosmetic, if any,
+        /// is separately equipped). Spawn distance is tighter than the trail ghost's own 0.4 since
+        /// a puff is small and meant to read as a steady trickle right behind the vehicle, not a
+        /// widely-spaced afterimage of the character itself.</summary>
+        private const float SmokeSpawnDistance = 0.25f;
+        private const float SmokeLifetimeSeconds = 0.6f;
+        private const float SmokeBehindOffset = 0.35f;
+
         private CharacterAnimator _animator;
         private CharacterBase _characterBase;
         private SpriteRenderer _baseRenderer;
@@ -74,6 +83,9 @@ namespace FarmFuryArcade.Gameplay
         private string _appliedTrailId;
         private Sprite _activeGhostSprite;
         private Vector3 _lastGhostSpawnPosition;
+
+        private bool _smokeEnabled;
+        private Vector3 _lastSmokeSpawnPosition;
 
         private void Awake()
         {
@@ -122,6 +134,8 @@ namespace FarmFuryArcade.Gameplay
             string equippedSkinId = SaveManager.Instance.GetEquippedCosmetic(CosmeticType.Skin, character);
             CosmeticData skin = DataManager.Instance.GetCosmeticData(equippedSkinId);
             _animator.SetCosmeticFrameOverride(skin != null ? skin.skinFrames : null);
+            _smokeEnabled = skin != null && skin.spawnsMovementSmoke;
+            _lastSmokeSpawnPosition = transform.position;
 
             string equippedHatId = SaveManager.Instance.GetEquippedCosmetic(CosmeticType.Hat, character);
             _equippedHat = DataManager.Instance.GetCosmeticData(equippedHatId);
@@ -334,6 +348,13 @@ namespace FarmFuryArcade.Gameplay
                 SpawnGhost();
                 _lastGhostSpawnPosition = transform.position;
             }
+
+            if (_smokeEnabled &&
+                Vector3.Distance(transform.position, _lastSmokeSpawnPosition) >= SmokeSpawnDistance)
+            {
+                SpawnMachineSmokePuff();
+                _lastSmokeSpawnPosition = transform.position;
+            }
         }
 
         private void SpawnGhost()
@@ -342,6 +363,20 @@ namespace FarmFuryArcade.Gameplay
             go.transform.position = transform.position;
             var ghost = go.AddComponent<CosmeticTrailGhost>();
             ghost.Configure(_activeGhostSprite, _baseRenderer.sortingLayerID, _baseRenderer.sortingOrder - 1, GhostScale, GhostLifetimeSeconds);
+        }
+
+        /// <summary>Spawned just behind the character (opposite of its current facing), same idea as
+        /// an exhaust pipe trailing whichever way the vehicle is pointed — reads correctly for every
+        /// direction since it's derived live from CurrentDisplayDirection, not a fixed offset.</summary>
+        private void SpawnMachineSmokePuff()
+        {
+            Vector2Int behind = -DirectionUtils.ToVector(_animator.CurrentDisplayDirection);
+            Vector3 offset = new Vector3(behind.x, behind.y, 0f) * SmokeBehindOffset;
+
+            var go = new GameObject("MachineSmokePuff");
+            go.transform.position = transform.position + offset;
+            var puff = go.AddComponent<MachineSmokePuff>();
+            puff.Configure(_baseRenderer.sortingLayerID, _baseRenderer.sortingOrder - 1, SmokeLifetimeSeconds);
         }
     }
 }

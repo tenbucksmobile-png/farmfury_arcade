@@ -49,6 +49,14 @@ namespace FarmFuryArcade.Gameplay
         // ordering guarantee between them either way.
         private GroundSlamAbility _groundSlamAbility;
 
+        // Real bug found and fixed (2026-09-15): Cluck could die from the exact robot her own
+        // freshly-dropped egg/oil spill was about to defeat, if the robot arrived at her tile the
+        // same frame she dropped it. Unlike the four abilities above, Egg Drop's hazard is a
+        // separate spawned GameObject, not a sibling component on Cluck's own body — see
+        // EggDropAbility.IsProtectingCurrentTile's own doc comment for the exact race and why this
+        // is keyed on tile position rather than a fixed "just activated" window.
+        private EggDropAbility _eggDropAbility;
+
         public bool IsRespawning { get; private set; }
 
         private void Awake()
@@ -59,6 +67,7 @@ namespace FarmFuryArcade.Gameplay
             _headbuttThroughAbility = GetComponent<HeadbuttThroughAbility>();
             _puffUpAbility = GetComponent<PuffUpAbility>();
             _groundSlamAbility = GetComponent<GroundSlamAbility>();
+            _eggDropAbility = GetComponent<EggDropAbility>();
         }
 
         /// <summary>True while an active ability on this same GameObject is already handling any
@@ -67,7 +76,8 @@ namespace FarmFuryArcade.Gameplay
             (_bounceRollAbility != null && _bounceRollAbility.IsRolling) ||
             (_headbuttThroughAbility != null && _headbuttThroughAbility.IsCharging) ||
             (_puffUpAbility != null && _puffUpAbility.IsPuffed) ||
-            (_groundSlamAbility != null && _groundSlamAbility.IsActive);
+            (_groundSlamAbility != null && _groundSlamAbility.IsActive) ||
+            (_eggDropAbility != null && _eggDropAbility.IsProtectingCurrentTile);
 
         private void Start()
         {

@@ -1,5 +1,6 @@
 using UnityEngine;
 using FarmFuryArcade.Core;
+using FarmFuryArcade.Data;
 using FarmFuryArcade.Enemies;
 using FarmFuryArcade.Gameplay;
 
@@ -16,6 +17,12 @@ namespace FarmFuryArcade.Abilities
         private const int KnockbackTiles = 4;
 
         [SerializeField] private GameObject buckEffectPrefab;
+        // Machine Cosmetics (2026-09-15) - Hay Baler skin reskins the landing effect to a dropped
+        // hay bale instead of the buck-impact pose; same knockback distance/defeat rule, purely a
+        // themed swap of which sprite plays (see EggDropAbility's own doc comment for why this is
+        // safe as a paid cosmetic). Single non-directional sprite - HayBaleEffect is a HoraceBuckEffect
+        // instance with the same sprite wired into both leftSprite/rightSprite slots.
+        [SerializeField] private GameObject hayBaleEffectPrefab;
 
         protected override void Execute()
         {
@@ -39,15 +46,28 @@ namespace FarmFuryArcade.Abilities
 
         private void SpawnBuckEffect(Vector3 position, bool movingRight)
         {
-            if (buckEffectPrefab == null)
+            bool hayBalerSkinEquipped = SaveManager.Instance != null &&
+                SaveManager.Instance.GetEquippedCosmetic(CosmeticType.Skin, CharacterType.Horace) == IAPManager.MachineHayHoraceProductId;
+            GameObject prefabToSpawn = hayBalerSkinEquipped && hayBaleEffectPrefab != null ? hayBaleEffectPrefab : buckEffectPrefab;
+            if (prefabToSpawn == null)
             {
                 return;
             }
 
-            var go = Instantiate(buckEffectPrefab, position, Quaternion.identity);
+            var go = Instantiate(prefabToSpawn, position, Quaternion.identity);
             go.GetComponent<HoraceBuckEffect>()?.PlayForDirection(movingRight);
         }
 
+        /// <summary>Real bug found and fixed (2026-09-15): "the rear kick doesn't seem to be
+        /// effective." A Defeated robot's GameObject is never destroyed — RobotBase.Disappear only
+        /// disables its SpriteRenderer/Collider2D, so it stays fully findable via FindObjectsByType
+        /// (and invisible/harmless) for the rest of the maze. This search never excluded that state,
+        /// so if an already-defeated robot's leftover corpse happened to be nearer to Horace than
+        /// any live threat, the WHOLE activation got wasted on it: RobotBase.KnockBack immediately
+        /// no-ops for a Defeated robot, so nothing actually happened — no slide, no kill — even
+        /// though the buck effect/SFX still played at that empty spot, reading as "kicked at
+        /// nothing" while a real robot right next to Horace went untouched. Now skips Defeated
+        /// robots entirely so only a genuinely live threat can ever be picked.</summary>
         private static RobotBase FindNearestRobotWithinManhattan(Vector2Int origin, int maxDistance)
         {
             RobotBase nearest = null;
@@ -55,6 +75,11 @@ namespace FarmFuryArcade.Abilities
 
             foreach (var robot in FindObjectsByType<RobotBase>(FindObjectsSortMode.None))
             {
+                if (robot.CurrentState == RobotState.Defeated)
+                {
+                    continue;
+                }
+
                 int distance = Mathf.Abs(robot.CurrentGridPosition.x - origin.x) +
                                Mathf.Abs(robot.CurrentGridPosition.y - origin.y);
                 if (distance <= maxDistance && distance < bestDistance)

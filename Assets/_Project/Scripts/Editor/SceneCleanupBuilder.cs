@@ -731,6 +731,63 @@ namespace FarmFuryArcade.EditorTools
             Debug.Log($"[SceneCleanupBuilder] Cleared equipped Hat for {character}.");
         }
 
+        /// <summary>Machine Cosmetics testing (2026-09-15) — each machine is exclusive to one FIXED
+        /// character (unlike Hat's "whichever character is currently active"), so this force-equips
+        /// on that character directly via the same checksum-protected
+        /// SaveManager.DebugForceEquipForTesting path every other cosmetic testing tool here uses
+        /// (bypassing IAPManager.PurchaseProduct — no real store connection exists in the Editor).
+        /// Only refreshes the live renderer if that fixed character happens to be the one currently
+        /// active/on screen; otherwise swap to that character (or reload the level) to see it.</summary>
+        private static void DebugEquipMachine(CharacterType character, string cosmeticId, string displayName)
+        {
+            SaveManager.DebugForceEquipForTesting(CosmeticType.Skin, character, cosmeticId);
+
+            if (CharacterManager.Instance != null && CharacterManager.Instance.ActiveCharacter == character &&
+                CharacterManager.Instance.ActiveCharacterObject != null)
+            {
+                var renderer = CharacterManager.Instance.ActiveCharacterObject.GetComponent<CharacterCosmeticRenderer>();
+                if (renderer != null)
+                {
+                    renderer.Refresh();
+                    Debug.Log($"[SceneCleanupBuilder] Equipped Machine '{displayName}' ({cosmeticId}) on {character} and refreshed it live — should be visible now.");
+                    return;
+                }
+            }
+
+            Debug.Log($"[SceneCleanupBuilder] Equipped Machine '{displayName}' ({cosmeticId}) on {character}. " +
+                      $"Swap to {character} (or load a level as {character}) to see it render.");
+        }
+
+        [MenuItem("Farm Fury Arcade/Debug/Equip Machine (Testing)/Clucky's Tractor")]
+        public static void EquipMachineTractorClucky() =>
+            DebugEquipMachine(CharacterType.Cluck, IAPManager.MachineTractorCluckyProductId, "Clucky's Tractor");
+
+        [MenuItem("Farm Fury Arcade/Debug/Equip Machine (Testing)/Bessie's Milk Tanker")]
+        public static void EquipMachineTruckBessie() =>
+            DebugEquipMachine(CharacterType.Bessie, IAPManager.MachineTruckBessieProductId, "Bessie's Milk Tanker");
+
+        [MenuItem("Farm Fury Arcade/Debug/Equip Machine (Testing)/Horace's Hay Baler")]
+        public static void EquipMachineHayHorace() =>
+            DebugEquipMachine(CharacterType.Horace, IAPManager.MachineHayHoraceProductId, "Horace's Hay Baler");
+
+        /// <summary>Clears all 3 machine skins at once (rather than one-at-a-time "clear active
+        /// character" like Hat — each machine already targets a fixed character regardless of
+        /// which one is active, so there's no single "active character" slot to clear here).</summary>
+        [MenuItem("Farm Fury Arcade/Debug/Equip Machine (Testing)/None (Clear All 3)")]
+        public static void ClearEquippedMachines()
+        {
+            PlayerPrefs.DeleteKey("FFA_EquippedSkin_" + CharacterType.Cluck);
+            PlayerPrefs.DeleteKey("FFA_EquippedSkin_" + CharacterType.Bessie);
+            PlayerPrefs.DeleteKey("FFA_EquippedSkin_" + CharacterType.Horace);
+            PlayerPrefs.Save();
+            Debug.Log("[SceneCleanupBuilder] Cleared equipped Machine skins for Clucky/Bessie/Horace.");
+
+            if (CharacterManager.Instance != null && CharacterManager.Instance.ActiveCharacterObject != null)
+            {
+                CharacterManager.Instance.ActiveCharacterObject.GetComponent<CharacterCosmeticRenderer>()?.Refresh();
+            }
+        }
+
         private static int _sfxDiagFrame;
 
         /// <summary>Minimal, self-contained Play Mode check for "SFX doesn't play" reports — opens

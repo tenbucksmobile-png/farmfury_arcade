@@ -92,9 +92,12 @@ namespace FarmFuryArcade.EditorTools
             var cosmeticsChooser = BuildCosmeticsChooserScreen(canvas.transform);
             var cosmeticsHats = BuildCosmeticsHatsScreen(canvas.transform);
             var cosmeticsTrails = BuildCosmeticsTrailsScreen(canvas.transform);
+            // Machines (2026-09-15) - third cosmetics category, same shape as Hats/Trails.
+            var cosmeticsMachines = BuildCosmeticsMachinesScreen(canvas.transform);
             SetRefs(cosmeticsChooser.GetComponent<CosmeticsChooserScreen>(),
                 ("hatsScreen", cosmeticsHats.GetComponent<CosmeticPurchaseScreen>()),
-                ("trailsScreen", cosmeticsTrails.GetComponent<CosmeticPurchaseScreen>()));
+                ("trailsScreen", cosmeticsTrails.GetComponent<CosmeticPurchaseScreen>()),
+                ("machinesScreen", cosmeticsMachines.GetComponent<CosmeticPurchaseScreen>()));
             // In-maze cosmetics "Locker" (2026-09-09) - reached from Gameplay HUD's own Locker
             // button, not through Shop/MenuHub at all. Its own dormant "You may like" purchaseScreen
             // reference (currently unused - see LockerScreen's own doc comment) points at the Hats
@@ -131,7 +134,7 @@ namespace FarmFuryArcade.EditorTools
             var homeOverlaysToClose = new[]
             {
                 menuHub, settings, legal, storeComingSoon, coinPurchase,
-                cosmeticsChooser, cosmeticsHats, cosmeticsTrails, worldPurchase, pause
+                cosmeticsChooser, cosmeticsHats, cosmeticsTrails, cosmeticsMachines, worldPurchase, pause
             };
             AddHomeButtonNextToBack(settings, mainMenu, homeOverlaysToClose);
             AddHomeButtonNextToBack(legal, mainMenu, homeOverlaysToClose);
@@ -140,6 +143,7 @@ namespace FarmFuryArcade.EditorTools
             AddHomeButtonNextToBack(cosmeticsChooser, mainMenu, homeOverlaysToClose);
             AddHomeButtonNextToBack(cosmeticsHats, mainMenu, homeOverlaysToClose);
             AddHomeButtonNextToBack(cosmeticsTrails, mainMenu, homeOverlaysToClose);
+            AddHomeButtonNextToBack(cosmeticsMachines, mainMenu, homeOverlaysToClose);
             AddHomeButtonNextToBack(worldPurchase, mainMenu, homeOverlaysToClose);
             var (levelComplete, unlockScreen) = BuildLevelComplete(canvas.transform);
             var levelFailed = BuildLevelFailed(canvas.transform);
@@ -182,6 +186,7 @@ namespace FarmFuryArcade.EditorTools
                 ("coinPurchaseScreen", coinPurchase.GetComponent<CoinPurchaseScreen>()),
                 ("cosmeticsHatsScreen", cosmeticsHats.GetComponent<CosmeticPurchaseScreen>()),
                 ("cosmeticsTrailsScreen", cosmeticsTrails.GetComponent<CosmeticPurchaseScreen>()),
+                ("cosmeticsMachinesScreen", cosmeticsMachines.GetComponent<CosmeticPurchaseScreen>()),
                 ("cosmeticsChooserScreen", cosmeticsChooser.GetComponent<CosmeticsChooserScreen>()),
                 ("legalScreen", legal.GetComponent<LegalScreen>()),
                 ("settingsPanel", settings.GetComponent<SettingsPanel>()),
@@ -221,6 +226,7 @@ namespace FarmFuryArcade.EditorTools
             cosmeticsChooser.SetActive(false);
             cosmeticsHats.SetActive(false);
             cosmeticsTrails.SetActive(false);
+            cosmeticsMachines.SetActive(false);
             lockerScreen.SetActive(false);
             worldPurchase.SetActive(false);
             chooseCharacter.gameObject.SetActive(false);
@@ -2768,6 +2774,11 @@ namespace FarmFuryArcade.EditorTools
             var trailsButton = CreateIconButton("TrailsBannerButton", root.transform, LoadCosmeticsSprite("Trails.png"), CosmeticsBannerWidth);
             AnchorTopCenter((RectTransform)trailsButton.transform, new Vector2(CosmeticsBannerWidth, CosmeticsBannerHeight), new Vector2(0f, CosmeticsBannerTopOffset - CosmeticsBannerHeight - CosmeticsBannerGap));
 
+            // Machines (2026-09-15) - third banner, stacked directly under Trails with the same
+            // fixed gap so all three can never overlap regardless of screen aspect.
+            var machinesButton = CreateIconButton("MachinesBannerButton", root.transform, LoadCosmeticsSprite("machine.png"), CosmeticsBannerWidth);
+            AnchorTopCenter((RectTransform)machinesButton.transform, new Vector2(CosmeticsBannerWidth, CosmeticsBannerHeight), new Vector2(0f, CosmeticsBannerTopOffset - 2f * (CosmeticsBannerHeight + CosmeticsBannerGap)));
+
             var closeButton = CreateRoundBackButton(root.transform, bottomRight: true);
             closeButton.GetComponent<Image>().sprite = LoadUiSprite("Btn_back.png");
 
@@ -2775,8 +2786,10 @@ namespace FarmFuryArcade.EditorTools
             SetRefs(chooser,
                 ("hatsButton", hatsButton),
                 ("trailsButton", trailsButton),
+                ("machinesButton", machinesButton),
                 ("closeButton", closeButton));
-            // hatsScreen/trailsScreen are wired later in BuildAll once those screens actually exist.
+            // hatsScreen/trailsScreen/machinesScreen are wired later in BuildAll once those screens
+            // actually exist.
 
             return root;
         }
@@ -2884,6 +2897,45 @@ namespace FarmFuryArcade.EditorTools
             AnchorBottomCenter((RectTransform)statusText.transform, new Vector2(860f, 40f), new Vector2(0f, 20f));
 
             WireCosmeticPurchaseScreen(root, trailRow, closeButton, statusText);
+
+            return root;
+        }
+
+        /// <summary>Machines purchase page (2026-09-15) — same shape as BuildCosmeticsHatsScreen/
+        /// BuildCosmeticsTrailsScreen, reached via CosmeticsChooserScreen's "Machines" banner. Only
+        /// 3 items (one per character a machine exists for), same middle-aligned row below the
+        /// header, same icon size as every other cosmetics item. Unlike the hat/trail price plaques
+        /// (which live directly under Sprites/Cosmetics/), these 3 already-priced plaques live under
+        /// the Cosmetics_machine subfolder alongside the rest of the machine art.</summary>
+        private static GameObject BuildCosmeticsMachinesScreen(Transform canvasTransform)
+        {
+            var root = CreatePanel("CosmeticsMachinesScreen", canvasTransform, Color.black);
+            ApplyDimmedLandingBackground(root);
+            CreateCosmeticsPageHeaderBanner(root.transform, LoadCosmeticsSprite("machine.png"));
+
+            const float itemWidth = CosmeticsItemWidth;
+            const float itemHeight = CosmeticsItemHeight;
+            // Only 3 items at this icon size - generous spacing, well inside the 1920-wide
+            // reference canvas even wider than Hats' own 77.
+            const float itemSpacing = 100f;
+
+            var machineItems = new (string productId, Sprite sprite)[]
+            {
+                (IAPManager.MachineTractorCluckyProductId, LoadCosmeticsSprite("Cosmetics_machine/Price_Clucky_truck.png")),
+                (IAPManager.MachineTruckBessieProductId, LoadCosmeticsSprite("Cosmetics_machine/Price_Bessie_truck.png")),
+                (IAPManager.MachineHayHoraceProductId, LoadCosmeticsSprite("Cosmetics_machine/Price_Horace_truck.png")),
+            };
+
+            // Same vertical position as HatRow/TrailRow above, same reasoning.
+            var machineRow = BuildItemRow("MachineRow", root.transform, machineItems, itemWidth, itemHeight, itemSpacing, -60f);
+
+            var closeButton = CreateRoundBackButton(root.transform, bottomRight: true);
+            closeButton.GetComponent<Image>().sprite = LoadUiSprite("Btn_back.png");
+
+            var statusText = CreateText("StatusText", root.transform, string.Empty, 24f, TextAlignmentOptions.Center, 40f);
+            AnchorBottomCenter((RectTransform)statusText.transform, new Vector2(860f, 40f), new Vector2(0f, 20f));
+
+            WireCosmeticPurchaseScreen(root, machineRow, closeButton, statusText);
 
             return root;
         }
