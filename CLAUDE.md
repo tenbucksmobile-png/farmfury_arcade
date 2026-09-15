@@ -718,6 +718,44 @@ IsActive` (true from `Execute()` through the end of `LingeringKillzone`, matchin
 IsPuffed`'s "protected for the whole active hazard window" convention, not just the initial cast
 frame) is now included in `PlayerHealth.IsProtectedByActiveAbility`.
 
+**Same gap, found a third time for Cluck (2026-09-15): `EggDropAbility`'s hazard was never
+protected either, and couldn't be fixed the same way as the three above.** Unlike Percy/Billy/
+Gerald/Bessie's abilities, Cluck's egg (or, with the Tractor Machine Cosmetic equipped, oil spill)
+is a genuinely separate spawned GameObject, not a sibling component on her own body — it's
+instantiated at her exact current tile. A robot arriving at that same tile the same frame she drops
+it fires two independent, unordered `OnTriggerEnter2D` events (`PlayerHealth` on Cluck, `EggHazard`
+on the egg); if Cluck's own death check happened to win the race, she died before the egg got a
+chance to catch the contact. Fixed with `EggDropAbility.IsProtectingCurrentTile` — true only while
+she's still standing on the exact tile of an unresolved hazard she just dropped (Unity's fake-null
+operator makes the tracked instance reference become falsy the instant the hazard resolves, whether
+by a robot triggering it or its own timeout, so this needs no manual cleanup) — checked by
+`PlayerHealth.IsProtectedByActiveAbility` alongside the other four.
+
+**Real bug found and fixed (2026-09-15): "a robot walks straight through [Ground Slam's killzone]
+and then kills Bessie even though she's ground-slammed."** Distinct from the death-race bug above —
+this was the lingering sweep itself sometimes failing to catch a robot that visibly passed through
+the zone. Root cause: the sweep ran from inside `LingeringKillzone`'s own coroutine, which resumes
+during Unity's Update phase — Unity gives no ordering guarantee between that coroutine and any
+individual robot's own `Update()`-driven `RobotBase.UpdateMovement` in the same frame. If the
+coroutine's step happened to run before a given robot's movement update that frame, the sweep
+checked a one-frame-stale `CurrentGridPosition`; a robot moving fast enough (or a frame drop letting
+`UpdateMovement`'s own multi-cell-per-Update guard loop advance it several tiles at once) could
+cross the whole radius between two samples and never once register as "in range." Fixed by moving
+the actual sweep out of the coroutine (which now only tracks `IsActive`'s timing) and into a plain
+`LateUpdate()` — Unity guarantees every GameObject's own `Update()` completes before *any*
+`LateUpdate()` runs in the same frame, so the sweep now always sees each robot's fully current
+position for that frame.
+
+**Real bug found and fixed (2026-09-15): "the [Horace] rear kick doesn't seem to be effective."**
+`RearKickAbility.FindNearestRobotWithinManhattan` searched every `RobotBase` in the scene with no
+state filter — a Defeated robot's GameObject is never destroyed (`RobotBase.Disappear` only
+disables its `SpriteRenderer`/`Collider2D`), so it stayed fully findable for the rest of the maze.
+If an already-defeated robot's leftover corpse happened to be nearer to Horace than any live
+threat, the whole activation was wasted on it — `RobotBase.KnockBack` immediately no-ops for a
+Defeated robot, so nothing actually happened (no slide, no kill) even though the buck effect/SFX
+still played at that empty spot, reading as "kicked at nothing" while a real robot right next to
+Horace went untouched. Fixed by skipping `RobotState.Defeated` robots in the search entirely.
+
 **`BounceRollAbility` (Percy) reworked from wall-phasing to a forward roll-and-kill.** The original
 version armed a "next wall hit becomes temporarily walkable" window (see the old "Wall mutation"
 description this replaced, further down); per feedback it was replaced entirely with a rolling dash:
@@ -1414,6 +1452,11 @@ above) aren't registered in Play Console yet; same registration steps as the oth
 ready. **Registered in App Store Connect as of 2026-09-08** (all 15 products total now live there
 for iOS) — Google Play Console remains the only store with zero products registered.
 
+**3 more products since (2026-09-15): the Machine Cosmetics line** (`machine_tractor_clucky`/
+`machine_truck_bessie`/`machine_hay_horace`, $3.99 each — see "Machine Cosmetics" above) — registered
+in App Store Connect the same day, bringing the iOS total to **18 products**. Same Google Play
+Console gap applies to these too.
+
 Separately, on the **ad** side (not IAP): the ironSource Ads network (mediated via LevelPlay, see
 "Ad mediation" above) was approved 2026-08-25 — the app is live and receiving inventory on iOS;
 Android-side ironSource setup is still in progress on their end. This is a dashboard/network status,
@@ -2004,6 +2047,89 @@ looks it up by that name still finds it. `BuildCosmeticsHubScreen` itself is gon
 `BuildCosmeticsChooserScreen`/`BuildCosmeticsHatsScreen`/`BuildCosmeticsTrailsScreen` plus a shared
 `WireCosmeticPurchaseScreen` helper (the `CosmeticPurchaseScreen` component setup both new pages
 need, factored out once there were two call sites instead of one).
+
+### Machine Cosmetics — full character-vehicle skins (2026-09-15, `Scripts/Editor/MachineWiringBuilder.cs`)
+
+A new cosmetic line distinct from Hat/Trail in kind, not just content: the character is drawn
+**into** a piece of farm machinery (Clucky driving a tractor, Bessie behind the wheel of a milk
+tanker, Horace astride a hay baler) rather than wearing an add-on prop, so each one is a full
+`CosmeticType.Skin` — the Skin slot already existed in the cosmetic data model (`CosmeticData.
+skinFrames`, `CharacterCosmeticRenderer.Refresh`) but had zero real assets built for it before this.
+Reached via a third "Machines" banner in `CosmeticsChooserScreen`, stacked directly under Trails
+with the same `CosmeticsBannerGap` spacing — opens `BuildCosmeticsMachinesScreen`, a third
+`CosmeticPurchaseScreen` instance built the same way `BuildCosmeticsHatsScreen`/
+`BuildCosmeticsTrailsScreen` already are.
+
+**Each machine is exclusive to the one character it was drawn for** — not a per-character "set" like
+Baseball Cap/Cowboy Hat (Clucky's tractor doesn't exist for any other character). `IAPManager` gained
+3 new `NonConsumable` products at **$3.99** (`machine_tractor_clucky`/`machine_truck_bessie`/
+`machine_hay_horace`, priced above the $1.99 hats/trails given the extra per-character art cost —
+4 directional poses each, vs. one hat design fitted per character), each product id doubling as its
+`CosmeticData.cosmeticId` (same convention trail product ids already use). Deliberately **not** in
+`IAPManager.CosmeticCoinCosts` — real-money only, same reasoning World Purchase stays real-money
+only (a premium item, not worth the cannibalization risk). `IAPManager.GrantAndEquipSkin` is the
+grant path — unlike `GrantAndEquipHat`/`GrantAndEquipTrail`, it always equips on a **fixed**
+character rather than "whichever character is currently active," since a machine skin only makes
+sense on the one character it was drawn for. `CosmeticPurchaseScreen.IsProductOwned` and
+`LockerScreen`'s catalog both list all 3 — the owned/dimmed-icon badge and the in-maze Locker's
+"owned items only" grid both work for Machine skins with no special-casing beyond resolving the
+right character (see the `LockerScreen` generalisation below).
+
+**`LockerScreen` had to be generalised, not just extended, to support this.** Its `IsEquipped`/
+`HandleTileTapped` were both hardcoded to `CosmeticType.Hat` + "whichever character is currently
+active" — correct for every catalog entry that existed before (Hat/Trail), wrong for a Skin fixed to
+one specific character. `CatalogEntry` gained an optional `fixedCharacter` (`CharacterType?`); both
+methods now resolve `entry.fixedCharacter ?? activeCharacter` and call
+`SaveManager.GetEquippedCosmetic(entry.type, target)`/`SetEquippedCosmetic(entry.type, target, ...)`
+generically instead of the hardcoded `Hat`/active-character pair — a pure generalisation, so every
+existing Hat/Trail catalog entry (passing `fixedCharacter: null`) behaves exactly as before.
+
+**Hazard reskins — same power, purely visual, so a paid cosmetic can never be pay-to-win.** Rather
+than grant a machine skin any new gameplay effect, each of the 3 skinned characters' *existing*
+ability hazard is reskinned to match its vehicle when that skin is equipped — same cooldown, same
+radius/distance, same defeat rule as the un-skinned character:
+
+| Character | Base hazard | Machine reskin |
+|---|---|---|
+| Cluck | Egg (`EggHazard`, crack/burst) | Oil spill (`OilSpillHazard.prefab`) |
+| Bessie | Shockwave visual (`ShockwaveEffect`) | Milk splash (`MilkSplashShockwave.prefab`) |
+| Horace | Buck-impact pose (`HoraceBuckEffect`) | Hay bale (`HayBaleEffect.prefab`) |
+
+Each ability (`EggDropAbility`/`GroundSlamAbility`/`RearKickAbility`) checks
+`SaveManager.GetEquippedCosmetic(CosmeticType.Skin, <that character>)` against its own machine
+product id at cast time and picks the reskinned prefab instead of the default one — the prefabs
+themselves are plain clones of the existing Egg/Shockwave/HoraceBuck prefabs
+(`MachineWiringBuilder.CloneAbilityPrefab`) with their sprite(s) swapped, not new mechanics. Milk's
+own 3rd (dissipating) frame is a known duplicate of the resting puddle — Kling AI struggled to
+render a distinct third stage, and since `ShockwaveEffect` only ever shows one sprite anyway (it
+scales/fades a single image, no crack/burst animation the way `EggHazard` has), this doesn't matter
+in practice — only `Milk1.png` (the splash frame) is actually used.
+
+**Puff-of-smoke movement flourish**, independent of whatever Trail cosmetic (if any) is separately
+equipped — `CosmeticData.spawnsMovementSmoke` (Skin only) and `Scripts/Gameplay/MachineSmokePuff.cs`
+(a procedural fading grey circle, `PlaceholderSprite.GetCircle` until dedicated exhaust-smoke art
+exists, same "placeholder until real art lands" convention `PelletCollectBurst`/`ConfettiBurst`
+already use). `CharacterCosmeticRenderer.SpawnMachineSmokePuff` spawns one every
+`SmokeSpawnDistance` (0.25 world units) of movement, positioned just behind the character —
+derived live from `CharacterAnimator.CurrentDisplayDirection` via `DirectionUtils.ToVector`, so it
+trails correctly regardless of facing.
+
+**Art coverage is partial for 2 of the 3 — re-run the tool once more directions land.** Clucky's
+Tractor has real front/back/left/right art (`Clucky_tractor_front/back.png`, `Cluck_Tractor_left.
+png`, `Clucky_tractor_right.png`); Bessie's Milk Tanker and Horace's Hay Baler each have only ONE
+direction so far (`Bessie_Truck_Left.png`/`Horace_hay_left.png` — both visually face right despite
+the "left" filenames, a naming mismatch left as-is rather than guessed at), repeated across all 8
+`skinFrames` slots as an interim fallback, same "one real frame, no mirroring" convention this
+project uses elsewhere for partial art coverage. `MachineWiringBuilder.WireAll`
+(`Farm Fury Arcade > Wire Cosmetic Art (Machines)`) is idempotent — safe to re-run after more
+directions land, no code changes needed, just new files under `Sprites/Cosmetics/Cosmetics_machine/`.
+
+**Debug testing:** `Farm Fury Arcade > Debug > Equip Machine (Testing)` (`SceneCleanupBuilder`) —
+one entry per machine plus "None (Clear All 3)", same checksum-protected
+`SaveManager.DebugForceEquipForTesting` bypass every other cosmetic testing tool here uses. Unlike
+Hat's own testing menu (which always targets "whichever character is currently active"), each
+Machine entry force-equips its own fixed character directly and only refreshes the live renderer if
+that character happens to be the one currently active/on screen.
 
 ### Hat/trail expansion — full directional art, Cowboy Hat goes per-character, 2 new universal hats, level-cycling Sombrero, 2 new trails (2026-09-11)
 
@@ -4776,8 +4902,24 @@ up/down. Fixed the same way — `HoraceFront` was added to `ArtWiringBuilder.
 ConfigureSpriteImporters`'s height-based-PPU override list (alongside the Billy entries), so PPU is
 set to the texture's own height (403) instead of width, rendering him at exactly 1 world unit tall
 with proportionally narrower width — matching every other character's apparent height regardless
-of this crop's own aspect. `Horace_left1/Left2/right2.png` are unaffected (still loosely-padded
-500×500 squares, same as before) — only `Horace_front.png` needed the override.
+of this crop's own aspect. `Horace_left1/Left2/right2.png` (since replaced — see the 2026-09-15
+refresh below) were unaffected at the time (still loosely-padded 500×500 squares) — only
+`Horace_front.png` needed the override.
+
+**Full Horace walk-cycle/ability-art refresh (2026-09-15).** `Horace_left1.png`/`Horace_Left2.png`/
+`Horace_right2.png` and the old `Horace_ability_buckleft/right.png` were all deleted and replaced:
+Left is now a single frame (`Horace_left.png`, was a 2-frame flick), Right is now a real 2-frame
+walk cycle (`Horace_right.png` → `Horace_right1.png`, was one repeated frame) — `hasDedicatedRightArt`
+stays true. All 3 new files (plus the new `Horace_buck_left.png`) are standard 500×500 squares, so
+none needed the height-based-PPU override `Horace_front.png` itself still uses. **The new buck-kick
+pose is still not a distinct "impact" pose** — `Horace_buck_left.png` reads as another running-gallop
+pose nearly identical to `Horace_left.png`, the same legibility problem the old art had (reported as
+"the buck kick doesn't render" — it does render, it just doesn't read as anything happening since it
+barely differs from his own walk cycle). Kling AI kept returning close variants of the reference
+image for other angles/poses instead of a genuinely different one; wired as an interim placeholder
+per direct instruction ("use these so long") — both `HoraceAbilityBuckLeft`/`HoraceAbilityBuckRight`
+in `ArtWiringBuilder` point at the same single file until a real distinct pose (and a second angle)
+lands, at which point they should be re-split back into two real constants.
 
 **Gerald and Billy now have real art too, completing all 8 characters.** Gerald gets a real
 2-frame Left walk cycle (`Gerald_left.png` → `Gerald_left1.png`) and a single dedicated Right frame
