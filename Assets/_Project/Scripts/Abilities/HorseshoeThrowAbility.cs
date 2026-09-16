@@ -36,7 +36,8 @@ namespace FarmFuryArcade.Abilities
         // "a horseshoe/hay bale is being thrown." Cut to 2 tiles (4 with Crossfire, still double)
         // and slowed to 0.4s/tile (a 2-tile throw now takes 0.8s total, clearly visible) — applies
         // to both the horseshoe and the Hay Baler skin's hay bale, since they share this same
-        // Execute()/Launch() call.
+        // Execute()/Launch() call. Same session, second pass: the spawn point moved from Horace's
+        // own tile to one tile ahead of him — see Execute()'s own doc comment on `oneAhead` below.
         private const int ThrowTilesBase = 2;
         private const int ThrowTilesBuffed = 4;
         private const float SecondsPerTile = 0.4f;
@@ -65,10 +66,24 @@ namespace FarmFuryArcade.Abilities
             // BounceRollAbility's own roll uses.
             Direction facing = Movement.LastFacingDirection;
             Vector2Int dirVector = DirectionUtils.ToVector(facing);
-            Vector2Int startCell = Movement.CurrentGridPosition;
+            Vector2Int horaceCell = Movement.CurrentGridPosition;
 
-            var projectile = Instantiate(prefabToThrow, TileMap.GridToWorld(startCell), Quaternion.identity);
-            projectile.GetComponent<ThrownProjectileEffect>()?.Launch(TileMap, startCell, dirVector, tiles, SecondsPerTile);
+            // Spawns one tile AHEAD of Horace instead of at his own feet (2026-09-16, per direct
+            // feedback: it used to spawn on his own tile and animate its first hop moving out from
+            // under him, which read as "left behind, rolling forward" rather than a clean throw, and
+            // made it harder to actually line up with a nearby robot). `tiles` (2 base / 4 buffed)
+            // is still the total reach in front of him — the projectile just appears instantly at
+            // the first of those tiles rather than animating its way there, then visibly travels the
+            // remaining tiles from there. Falls back to spawning at Horace's own tile only if a wall
+            // sits immediately in front of him (matching TravelRoutine's own "stop early at a wall"
+            // rule, so a wall-blocked throw still degrades gracefully instead of spawning inside it).
+            Vector2Int oneAhead = horaceCell + dirVector;
+            bool oneAheadWalkable = TileMap.IsWalkable(oneAhead);
+            Vector2Int spawnCell = oneAheadWalkable ? oneAhead : horaceCell;
+            int hopsFromSpawn = oneAheadWalkable ? tiles - 1 : tiles;
+
+            var projectile = Instantiate(prefabToThrow, TileMap.GridToWorld(spawnCell), Quaternion.identity);
+            projectile.GetComponent<ThrownProjectileEffect>()?.Launch(TileMap, spawnCell, dirVector, hopsFromSpawn, SecondsPerTile);
         }
 
         private static bool IsHayBalerSkinEquipped()

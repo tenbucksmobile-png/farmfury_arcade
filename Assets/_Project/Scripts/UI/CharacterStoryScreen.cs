@@ -572,12 +572,13 @@ namespace FarmFuryArcade.UI
             triggerTmp.alignment = TextAlignmentOptions.TopLeft;
             triggerTmp.color = new Color(0.45f, 0.32f, 0.12f);
             triggerTmp.enableWordWrapping = true;
-            // fontSizeMax raised 22->28 (2026-09-16, per direct feedback) — same "ceiling too low
-            // for a short line" fix as BuildInfoRow's body/BuildRow's blurb; auto-sizing still
-            // shrinks below 28 for anything that doesn't fit lineHeight, so this can't overflow.
+            // fontSizeMax raised 22->28->34 (2026-09-16, per direct feedback, second pass) — same
+            // "ceiling too low for a short line" fix as BuildInfoRow's body/BuildRow's blurb;
+            // auto-sizing still shrinks below 34 for anything that doesn't fit lineHeight, so this
+            // can't overflow.
             triggerTmp.enableAutoSizing = true;
             triggerTmp.fontSizeMin = 14f;
-            triggerTmp.fontSizeMax = 28f;
+            triggerTmp.fontSizeMax = 34f;
             triggerTmp.overflowMode = TextOverflowModes.Truncate;
 
             var effectGO = new GameObject("Effect", typeof(RectTransform));
@@ -592,10 +593,10 @@ namespace FarmFuryArcade.UI
             effectTmp.enableWordWrapping = true;
             // Shrink-to-fit so a combo's trigger/effect text can never spill past its own bordered
             // card, same convention BuildInfoRow's body / BuildRow's story blurb use. fontSizeMax
-            // raised 22->28 (2026-09-16), same reasoning as the Trigger line above.
+            // raised 22->28->34 (2026-09-16, second pass), same reasoning as the Trigger line above.
             effectTmp.enableAutoSizing = true;
             effectTmp.fontSizeMin = 14f;
-            effectTmp.fontSizeMax = 28f;
+            effectTmp.fontSizeMax = 34f;
             effectTmp.overflowMode = TextOverflowModes.Truncate;
         }
 
@@ -699,11 +700,12 @@ namespace FarmFuryArcade.UI
             bodyTmp.alignment = TextAlignmentOptions.TopLeft;
             bodyTmp.color = Color.black;
             bodyTmp.enableWordWrapping = true;
-            // fontSizeMax raised 24->32 (2026-09-16, per direct feedback), same reasoning as
-            // BuildInfoRow's own body text fix above — this row uses the same rowHeight/box shape.
+            // fontSizeMax raised 24->32->38 (2026-09-16, second pass, per direct feedback), same
+            // reasoning as BuildInfoRow's own body text fix above — this row uses the same
+            // rowHeight/box shape.
             bodyTmp.enableAutoSizing = true;
             bodyTmp.fontSizeMin = 16f;
-            bodyTmp.fontSizeMax = 32f;
+            bodyTmp.fontSizeMax = 38f;
             bodyTmp.overflowMode = TextOverflowModes.Truncate;
         }
 

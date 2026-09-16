@@ -4980,6 +4980,16 @@ vanishing instantly — currently only `HayBaleEffect.prefab` has one wired (`Ha
 starburst impact graphic, `MachineWiringBuilder.ConfigureHayBaleEffect`); `Horseshoe.prefab` has no
 impact art yet, so it still disappears instantly on hit until/unless that lands too.
 
+**Third re-tune the same day, per direct feedback: the spawn point.** The projectile used to spawn
+directly on Horace's own tile and animate its first hop moving out from under him, which read as
+"left behind, rolling forward" rather than a clean throw, and made it harder to actually line up
+with a nearby robot in the brief travel window. `HorseshoeThrowAbility.Execute()` now spawns it
+one tile AHEAD of Horace instead (falling back to his own tile only if a wall sits immediately in
+front of him, so a wall-blocked throw still degrades gracefully rather than spawning inside the
+wall) — `tiles` (2 base / 4 buffed) is still the total reach in front of him, the projectile just
+appears instantly at the first of those tiles instead of animating its way there, then visibly
+travels the remaining tiles from there.
+
 **Gerald and Billy now have real art too, completing all 8 characters.** Gerald gets a real
 2-frame Left walk cycle (`Gerald_left.png` → `Gerald_left1.png`) and a single dedicated Right frame
 (`Gerald_right.png`, repeats for both Right0/Right1 slots, same "one real frame, no mirroring"
