@@ -222,8 +222,11 @@ namespace FarmFuryArcade.Core
         /// <summary>Billy's Headbutt Through — fires from HeadbuttThroughAbility.Execute(), same
         /// double-activation guard as PlayPercyRollSfx above.</summary>
         public void PlayBillyChargeSfx() => PlaySFX(billyChargeClip);
-        /// <summary>Horace's Rear Kick — fires from RearKickAbility.Execute() only when a target
-        /// robot is actually found within range (not the no-op case with nothing nearby).</summary>
+        /// <summary>Horace's ability — fires from HorseshoeThrowAbility.Execute() whenever a
+        /// horseshoe/hay bale is actually thrown (only skipped if neither prefab is wired at all).
+        /// Kept its original name (was "Rear Kick"'s sfx before the 2026-09-16 rework into a
+        /// launched-projectile ability) rather than renaming the clip/field — same "keep the
+        /// serialized reference stable" convention BounceRollAbility's trailPrefab field uses.</summary>
         public void PlayHoraceKickSfx() => PlaySFX(horaceKickClip);
         /// <summary>Gerald's Puff Up — fires from PuffUpAbility.Execute(), guarded the same way
         /// Execute() itself is against the reachable double-activation edge case.</summary>

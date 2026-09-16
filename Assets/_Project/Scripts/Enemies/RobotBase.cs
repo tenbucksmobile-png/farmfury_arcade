@@ -265,9 +265,9 @@ namespace FarmFuryArcade.Enemies
         }
 
         /// <summary>Freezes this robot in place (no state-cycle progress, no movement) for
-        /// duration seconds. Used by EggDropAbility, GroundSlamAbility, and RearKickAbility's
-        /// knockback landing. Does nothing to a robot that's already Defeated.
-        /// Extends rather than resets if already stunned with more time remaining.</summary>
+        /// duration seconds. Only ComboSystem's Full Fury combo calls this today (a direct,
+        /// immediate stun on every robot in the maze) — Does nothing to a robot that's already
+        /// Defeated. Extends rather than resets if already stunned with more time remaining.</summary>
         public virtual void Stun(float duration)
         {
             if (CurrentState == RobotState.Defeated)
@@ -281,9 +281,13 @@ namespace FarmFuryArcade.Enemies
 
         /// <summary>Slides this robot up to tiles cells in direction (stopping early at a wall),
         /// freezing its AI for the slide, then defeats it on landing (ForceDefeat, bypassing the
-        /// Vulnerable requirement — same convention as PuffUpAbility). Used by RearKickAbility.
-        /// Was a stun; changed per a gameplay rule that a deployed ability hazard should kill a
-        /// robot that runs through it, not just incapacitate it.</summary>
+        /// Vulnerable requirement — same convention as PuffUpAbility).
+        ///
+        /// Currently unused — its only caller (Horace's old RearKickAbility, "find the nearest robot
+        /// and yank it") was reworked 2026-09-16 into HorseshoeThrowAbility, a launched projectile
+        /// that ForceDefeats on contact directly (ThrownProjectileEffect) with no knockback slide at
+        /// all. Left in place as a generic, already-working robot mechanic rather than deleted, in
+        /// case a future ability wants a knockback-then-defeat effect again.</summary>
         public virtual void KnockBack(Vector2Int direction, int tiles)
         {
             if (CurrentState == RobotState.Defeated)

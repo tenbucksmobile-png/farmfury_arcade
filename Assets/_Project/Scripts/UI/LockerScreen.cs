@@ -378,7 +378,23 @@ namespace FarmFuryArcade.UI
                 SaveManager.Instance.SetEquippedCosmetic(entry.type, target, newValue);
             }
 
-            CharacterManager.Instance?.ActiveCharacterObject?.GetComponent<CharacterCosmeticRenderer>()?.Refresh();
+            // A Machine Cosmetic (fixedCharacter set) equipped for a character other than the one
+            // currently active would otherwise sit invisibly in save data until the player happened
+            // to swap to that exact character on their own (2026-09-16, per direct feedback) — force
+            // the swap here so tapping it in the Locker shows the result immediately, the same fix
+            // applied to IAPManager.GrantAndEquipSkin's purchase path. Only applies on equip (not on
+            // un-equipping a tile), and only for entries with a fixed character (Hat/Trail entries
+            // already apply to the active character, so there's nothing to swap to for those).
+            if (!equipped && entry.fixedCharacter.HasValue &&
+                CharacterManager.Instance != null && CharacterManager.Instance.ActiveCharacter != entry.fixedCharacter.Value)
+            {
+                CharacterManager.Instance.SwapCharacter(entry.fixedCharacter.Value);
+            }
+            else
+            {
+                CharacterManager.Instance?.ActiveCharacterObject?.GetComponent<CharacterCosmeticRenderer>()?.Refresh();
+            }
+
             Refresh(); // rebuilds every tile's border/status so the new equip state reads immediately
         }
 

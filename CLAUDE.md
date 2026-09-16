@@ -656,7 +656,7 @@ ability:
 | Percy | BounceRoll | Rolls 3 tiles forward (9 if buffed) in his current facing direction, instantly defeating any robot touched; stops early at a wall | 10s |
 | Woolly | TripleClone | Spawns 2 AI clones (`WoollyClone`) that wander/collect crops for 10s | 10s |
 | Ducky | SkipShot | Teleports across an adjacent unused water tile pair — once per pair per maze | 10s (this is the real gate now too — see the note below on why it went from a 2s debounce to matching everyone else) |
-| Horace | RearKick | Nearest robot within 3 tiles (Manhattan) knocked back 4 tiles, instantly defeated on landing | 10s |
+| Horace | HorseshoeThrow | Launches a horseshoe 2 tiles (4 if buffed) in his current facing direction, spinning, instantly defeating the first robot it touches — both vanish together on impact, unlike Percy's roll it does NOT carry on to a second target; stops early at a wall (reworked 2026-09-16 from RearKickAbility's "yank the nearest enemy within 3 tiles" — see below; distance/speed re-tuned the same day, see that ability's own doc comment) | 10s |
 | Gerald | PuffUp | Pulsates between normal size and 2x scale for 3s, instantly defeats any robot touched throughout the pulse, half speed, can't use warp tunnels | 10s |
 | Billy | HeadbuttThrough | Speeds up and charges 3 tiles forward in his current facing direction, instantly defeating any robot touched (reworked 2026-08-21 from a wall-destroy ability — see below) | 10s |
 
@@ -686,11 +686,12 @@ isn't, regardless of how it got there.
 **Every ability-created robot hazard now defeats on contact, not just stuns** (`ForceDefeat`,
 bypassing the Vulnerable requirement — same convention `PuffUpAbility` already used) — a later
 gameplay rule change: a deployed ability effect a robot runs through should kill it outright.
-Applies to `EggHazard`, `GroundSlamAbility`, `RobotBase.KnockBack` (used by `RearKickAbility`,
-which dropped its now-unused stun-duration parameter accordingly), and (once `BounceRollAbility`
-was reworked into a forward roll — see below) `BounceRollAbility` itself via its own
-`OnTriggerEnter2D`. Ducky's `SkipShot` is now the only character ability with no robot-facing
-hazard at all.
+Applies to `EggHazard`, `GroundSlamAbility`, `RobotBase.KnockBack` (this rule's original beneficiary
+via `RearKickAbility` — see "Horseshoe Throw rework" below for why that ability no longer calls
+`KnockBack` at all, though the method itself is kept), and (once `BounceRollAbility` was reworked
+into a forward roll — see below) `BounceRollAbility` itself via its own `OnTriggerEnter2D`, plus
+`ThrownProjectileEffect` (Horace's horseshoe/hay bale, same convention). Ducky's `SkipShot` is now
+the only character ability with no robot-facing hazard at all.
 
 **Real bug found and fixed (2026-08-29): a character could die from the exact robot their own
 ability was about to instantly defeat.** `BounceRollAbility` (Percy), `HeadbuttThroughAbility`
@@ -755,6 +756,8 @@ threat, the whole activation was wasted on it — `RobotBase.KnockBack` immediat
 Defeated robot, so nothing actually happened (no slide, no kill) even though the buck effect/SFX
 still played at that empty spot, reading as "kicked at nothing" while a real robot right next to
 Horace went untouched. Fixed by skipping `RobotState.Defeated` robots in the search entirely.
+**This whole targeting mechanism (and the ability it belonged to) no longer exists** — see
+"Horseshoe Throw rework" below; kept here for historical context only.
 
 **`BounceRollAbility` (Percy) reworked from wall-phasing to a forward roll-and-kill.** The original
 version armed a "next wall hit becomes temporarily walkable" window (see the old "Wall mutation"
@@ -859,7 +862,7 @@ subclass already used, so no subclass code needed to change.
 | Earthquake Roll | Bessie → Percy | Percy's next Bounce Roll travels 9 tiles instead of 3 |
 | Skip Shatter | Ducky → Woolly | Ducky's next SkipShot spawns 2 wool clones at the destination |
 | Double Slam | Bessie → Bessie (2nd+ activation via swap) | Ground Slam radius doubles to 4 tiles |
-| Crossfire | Billy → Horace | Rear Kick knockback doubles to 8 tiles |
+| Crossfire | Billy → Horace | His thrown horseshoe/hay bale travels twice as far (4 tiles instead of 2) |
 | Iron Stampede | Bessie → Gerald | Puff Up also destroys walls Gerald is adjacent to |
 | Kick and Roll | Horace → Percy | Same buff as Earthquake Roll (9-tile roll, identical effect per GDD) |
 | Full Fury | 5+ distinct characters used this maze | Immediate: every robot stunned 5s (not a "next use" buff) |
@@ -2093,17 +2096,36 @@ radius/distance, same defeat rule as the un-skinned character:
 |---|---|---|
 | Cluck | Egg (`EggHazard`, crack/burst) | Oil spill (`OilSpillHazard.prefab`) |
 | Bessie | Shockwave visual (`ShockwaveEffect`) | Milk splash (`MilkSplashShockwave.prefab`) |
-| Horace | Buck-impact pose (`HoraceBuckEffect`) | Hay bale (`HayBaleEffect.prefab`) |
+| Horace | Horseshoe (`ThrownProjectileEffect`, thrown/spinning) | Hay bale (`HayBaleEffect.prefab`) |
 
-Each ability (`EggDropAbility`/`GroundSlamAbility`/`RearKickAbility`) checks
+Each ability (`EggDropAbility`/`GroundSlamAbility`/`HorseshoeThrowAbility`) checks
 `SaveManager.GetEquippedCosmetic(CosmeticType.Skin, <that character>)` against its own machine
 product id at cast time and picks the reskinned prefab instead of the default one — the prefabs
-themselves are plain clones of the existing Egg/Shockwave/HoraceBuck prefabs
+themselves are plain clones of the existing Egg/Shockwave/Horseshoe prefabs
 (`MachineWiringBuilder.CloneAbilityPrefab`) with their sprite(s) swapped, not new mechanics. Milk's
 own 3rd (dissipating) frame is a known duplicate of the resting puddle — Kling AI struggled to
 render a distinct third stage, and since `ShockwaveEffect` only ever shows one sprite anyway (it
 scales/fades a single image, no crack/burst animation the way `EggHazard` has), this doesn't matter
 in practice — only `Milk1.png` (the splash frame) is actually used.
+
+**Real, reported bug found and fixed (2026-09-16): the milk splash rendered oversized.**
+`GroundSlamAbility.Configure()` sets both the base and milk-skin shockwave's `maxScale` from the
+SAME real kill-radius diameter — this effect has no collider of its own (the ability's own
+grid-distance sweep is what actually defeats robots), so its on-screen size is purely cosmetic.
+`Milk1.png`'s jagged splash shape reads visually larger than an equally-sized plain circle would,
+since its splash droplets extend further toward the canvas edges than a smooth circle's silhouette
+does. Fixed with `ShockwaveEffect.visualScaleMultiplier` (new field, defaults to 1 so the un-skinned
+`Shockwave.prefab` is unaffected) — `MachineWiringBuilder.ConfigureMilkSplashShockwave` sets it to
+0.55 on `MilkSplashShockwave.prefab` only. A first-pass correction with no visual Editor access this
+session — nudge further once actually seen in Play mode.
+
+**`MachineWiringBuilder.CloneAbilityPrefab` now always re-clones from its source** (2026-09-16,
+was only-if-missing) — found while wiring the Horseshoe Throw rework: `HayBaleEffect.prefab` had
+already been cloned from the old `HoraceBuck.prefab` before that prefab gained a Rigidbody2D/
+Collider2D (needed for `ThrownProjectileEffect`'s `OnTriggerEnter2D` to ever fire), and the
+only-if-missing guard meant the stale clone would have silently kept missing them forever. Every
+`Configure*` method here already re-applies its sprite fields idempotently regardless, so a fresh
+delete-then-copy on every run is free and can't drift out of structural sync with its source again.
 
 **Puff-of-smoke movement flourish**, independent of whatever Trail cosmetic (if any) is separately
 equipped — `CosmeticData.spawnsMovementSmoke` (Skin only) and `Scripts/Gameplay/MachineSmokePuff.cs`
@@ -2114,15 +2136,22 @@ already use). `CharacterCosmeticRenderer.SpawnMachineSmokePuff` spawns one every
 derived live from `CharacterAnimator.CurrentDisplayDirection` via `DirectionUtils.ToVector`, so it
 trails correctly regardless of facing.
 
-**Art coverage is partial for 2 of the 3 — re-run the tool once more directions land.** Clucky's
-Tractor has real front/back/left/right art (`Clucky_tractor_front/back.png`, `Cluck_Tractor_left.
-png`, `Clucky_tractor_right.png`); Bessie's Milk Tanker and Horace's Hay Baler each have only ONE
-direction so far (`Bessie_Truck_Left.png`/`Horace_hay_left.png` — both visually face right despite
-the "left" filenames, a naming mismatch left as-is rather than guessed at), repeated across all 8
-`skinFrames` slots as an interim fallback, same "one real frame, no mirroring" convention this
-project uses elsewhere for partial art coverage. `MachineWiringBuilder.WireAll`
-(`Farm Fury Arcade > Wire Cosmetic Art (Machines)`) is idempotent — safe to re-run after more
-directions land, no code changes needed, just new files under `Sprites/Cosmetics/Cosmetics_machine/`.
+**All 3 machines now have full front/back/left/right art (2026-09-16).** Clucky's Tractor had
+real 4-direction art from the start (`Clucky_tractor_front/back.png`, `Cluck_Tractor_left.png`,
+`Clucky_tractor_right.png`). Bessie's Milk Tanker and Horace's Hay Baler originally shipped with
+only their one Left frame (`Bessie_Truck_Left.png`/`Horace_hay_left.png` — both visually face
+right despite the "left" filenames, a naming mismatch left as-is rather than guessed at), repeated
+across all 8 `skinFrames` slots as an interim fallback — the missing front/back/right frames were
+filled in by generating a Kling image-to-video "turntable" orbit of each machine (camera circles a
+stationary subject 360°) from that one existing reference image, then extracting and tight-cropping
+still frames from the resulting clip at the moments it passed through front/back/right, followed by
+a manual touch-up/re-crop pass before wiring (`Bessie_Truck_front/back/right.png`,
+`Horace_hay_front/back/right.png`). The source clips (`Bessie_MilkTruck.mp4`/
+`Horace_TruckHaybale.mp4`) are left sitting in the same `Cosmetics_machine/` folder alongside the
+extracted stills — not required by the build, just the raw material in case a different frame or a
+higher-quality re-extraction is ever wanted. `MachineWiringBuilder.WireAll`
+(`Farm Fury Arcade > Wire Cosmetic Art (Machines)`) is idempotent — safe to re-run any time art
+under `Sprites/Cosmetics/Cosmetics_machine/` changes, no code changes needed.
 
 **Debug testing:** `Farm Fury Arcade > Debug > Equip Machine (Testing)` (`SceneCleanupBuilder`) —
 one entry per machine plus "None (Clear All 3)", same checksum-protected
@@ -4921,6 +4950,36 @@ per direct instruction ("use these so long") — both `HoraceAbilityBuckLeft`/`H
 in `ArtWiringBuilder` point at the same single file until a real distinct pose (and a second angle)
 lands, at which point they should be re-split back into two real constants.
 
+**Horseshoe Throw rework (2026-09-16) — the "buck-kick doesn't render as anything" problem above
+is now moot, not fixed.** Rather than keep chasing a distinct impact pose from Kling AI, Horace's
+whole ability was reworked from `RearKickAbility` ("find the nearest robot within 3 tiles and
+knock it back") into `HorseshoeThrowAbility` — he launches a horseshoe in his current facing
+direction instead, spinning via code (`ThrownProjectileEffect`) rather than needing a pre-drawn
+per-direction pose at all. Two real problems motivated this, both found via direct playtesting:
+(1) requiring an enemy already in range meant the ability could silently do nothing at all
+("nothing dropped" when tested with no robot nearby); (2) the art problem this section already
+documents. `Horace_buck_left.png` was repurposed rather than discarded — the user renamed it to
+`Horace_left1.png` and it's now genuinely useful as Horace's second Left walk-cycle frame (a real
+different leg pose from `Horace_left.png`, confirmed by viewing both files directly), giving him a
+real 2-frame cycle on Left matching Right's own shape. The horseshoe itself is new prop art
+(`Sprites/UI/horseshoe.png`, `ArtWiringBuilder.HorseshoeSprite`) — a single symmetric object with
+no left/right pair needed, since the projectile spins via `transform.Rotate` at runtime instead of
+picking a drawn pose. See `HorseshoeThrowAbility`/`ThrownProjectileEffect`'s own doc comments, the
+Machine Cosmetics hazard-reskin table above, and the Combos table's Crossfire entry (now doubles
+throw distance instead of knockback tiles).
+
+**Re-tuned twice more the same day, both per direct feedback.** First: distance/speed — 5 tiles at
+0.1s/tile was both too far to track and nearly instant, cut to **2 tiles (4 buffed) at 0.4s/tile**
+(a throw now visibly takes ~0.8s). Second: `ThrownProjectileEffect` used to keep travelling through
+to its full distance regardless of what it hit (same "flatten through multiple enemies" convention
+as `BounceRollAbility`) — now it **stops and destroys itself on the first robot it touches**, per
+feedback that both should disappear together on impact rather than the object carrying on
+afterward. It also gained an optional `impactSprite`: on hit, if one is wired, the projectile swaps
+to it and holds/fades out over ~0.9s total (`ImpactHoldSeconds`+`ImpactFadeSeconds`) instead of
+vanishing instantly — currently only `HayBaleEffect.prefab` has one wired (`Haybail_Damaged.png`, a
+starburst impact graphic, `MachineWiringBuilder.ConfigureHayBaleEffect`); `Horseshoe.prefab` has no
+impact art yet, so it still disappears instantly on hit until/unless that lands too.
+
 **Gerald and Billy now have real art too, completing all 8 characters.** Gerald gets a real
 2-frame Left walk cycle (`Gerald_left.png` → `Gerald_left1.png`) and a single dedicated Right frame
 (`Gerald_right.png`, repeats for both Right0/Right1 slots, same "one real frame, no mirroring"
@@ -5193,7 +5252,7 @@ happened rather than which clip field to reach into):
 | `Clucky_abiltiy.mp3` | `PlayEggDropSfx` | `EggDropAbility.Execute()`, only when the egg is actually spawned (not the no-op case where her current tile isn't walkable) — filename typo ("abiltiy") is on-disk, not a doc typo |
 | `Percy_ability.mp3` | `PlayPercyRollSfx` | `BounceRollAbility.Execute()`, guarded the same way `Execute()` itself is against the reachable double-activation edge case |
 | `billy_ability.mp3` | `PlayBillyChargeSfx` | `HeadbuttThroughAbility.Execute()`, same double-activation guard — note the lowercase 'b', unlike `Percy_ability.mp3`'s capital 'P' |
-| `Horace_ability.mp3` | `PlayHoraceKickSfx` | `RearKickAbility.Execute()`, only when a target robot is actually found within range (not the no-op case with nothing nearby) |
+| `Horace_ability.mp3` | `PlayHoraceKickSfx` | `HorseshoeThrowAbility.Execute()`, whenever a horseshoe/hay bale is actually thrown — always fires now (kept its "Kick" name for serialized-field/clip stability, see that method's own doc comment) |
 | `Gerald_ability.mp3` | `PlayGeraldPuffSfx` | `PuffUpAbility.Execute()`, same double-activation guard as `PlayBillyChargeSfx` |
 
 All 8 characters now have a dedicated ability SFX cue.

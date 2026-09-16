@@ -60,7 +60,7 @@ namespace FarmFuryArcade.EditorTools
         private const string WoollyClonePrefabPath = AbilityPrefabFolder + "/WoollyClone.prefab";
         private const string WaterTilePrefabPath = AbilityPrefabFolder + "/WaterTile.prefab";
         private const string DuckySplashPrefabPath = AbilityPrefabFolder + "/DuckySplash.prefab";
-        private const string HoraceBuckPrefabPath = AbilityPrefabFolder + "/HoraceBuck.prefab";
+        private const string HorseshoePrefabPath = AbilityPrefabFolder + "/Horseshoe.prefab";
         private const string WaterTileSprite = "Assets/_Project/Sprites/UI/Water_tile.png";
 
         private const string RosterCardPrefabPath = UIPrefabFolder + "/RosterCard.prefab";
@@ -133,25 +133,20 @@ namespace FarmFuryArcade.EditorTools
         private const string GeraldLeft1 = "Assets/_Project/Sprites/Characters/Gerald_left1.png";
         private const string GeraldRight = "Assets/_Project/Sprites/Characters/Gerald_right.png";
         private const string HoraceFront = "Assets/_Project/Sprites/Characters/Horace_front.png";
-        // Horace_left.png (no suffix) is an earlier/superseded draft — Horace_left1/Left2.png are
-        // the real 2-frame walk-cycle pair (same "extra art, no slot for it yet" convention as
-        // Cluck_rightwalk.png). No back art yet — Up falls back to front. Only one Right frame
-        // (right2, no "right1") exists so far — used for both Right0/Right1 slots.
-        // Full art refresh (2026-09-15) - replaced the earlier 2-frame-Left/single-frame-Right set
-        // (Horace_left1.png/Horace_Left2.png/Horace_right2.png, now gone from disk) with a new
-        // single-frame Left and a real 2-frame Right walk cycle.
+        // Real 2-frame Left walk cycle (2026-09-16) — Horace_left.png (Left0) / Horace_left1.png
+        // (Left1, the old Horace_buck_left.png renamed and repurposed as a walk frame once the
+        // ability that used it was reworked away from a per-direction "buck" pose — see
+        // HorseshoeThrowAbility's own doc comment). Same shape as Right's own 2-frame cycle below.
+        // No back art yet — Up falls back to front.
         private const string HoraceLeft = "Assets/_Project/Sprites/Characters/Horace_left.png";
+        private const string HoraceLeft1 = "Assets/_Project/Sprites/Characters/Horace_left1.png";
         private const string HoraceRight0 = "Assets/_Project/Sprites/Characters/Horace_right.png";
         private const string HoraceRight1 = "Assets/_Project/Sprites/Characters/Horace_right1.png";
-        // Rear Kick's landing-impact "buck" — mirrored per knockback direction, same convention as
-        // Ducky's splash.
-        // Replaced (2026-09-15) with a single new pose, Horace_buck_left.png - Kling AI kept
-        // returning near-duplicates of the reference art for other angles, so only one direction
-        // exists for now; both constants point at the same file and HoraceBuck.prefab shows it
-        // unmirrored for both Left/Right until a genuine second angle lands. Re-point
-        // HoraceAbilityBuckRight to its own file once real Right art exists.
-        private const string HoraceAbilityBuckLeft = "Assets/_Project/Sprites/Characters/Horace_buck_left.png";
-        private const string HoraceAbilityBuckRight = "Assets/_Project/Sprites/Characters/Horace_buck_left.png";
+        // Horace's ability projectile (a horseshoe) — single symmetric prop reused for every
+        // direction via runtime rotation (ThrownProjectileEffect), so unlike the old per-direction
+        // "buck" pose this needs no left/right pair at all. Dropped under Sprites/UI/, not
+        // Characters/, since it's a prop, not part of Horace's own walk-cycle art.
+        private const string HorseshoeSprite = "Assets/_Project/Sprites/UI/horseshoe.png";
 
         // Billy's first real art — full 2-frame walk cycle on both Left and Right (same flick
         // convention as Cluck/Bessie/Percy), plus front/back.
@@ -566,7 +561,7 @@ namespace FarmFuryArcade.EditorTools
             WoollyFront, WoollyBack, WoollyLeft, WoollyRight, WoollyEffect,
             PercyFront, PercyBack, PercyLeftWalk0, PercyLeftWalk1, PercyRightWalk0, PercyRightWalk1, PercyEffect, DuckyFront, DuckyBack, DuckyLeft, DuckyRight, BessieSlam,
             DuckyAbilityLeft, DuckyAbilityRight,
-            HoraceFront, HoraceLeft, HoraceRight0, HoraceRight1, HoraceAbilityBuckLeft,
+            HoraceFront, HoraceLeft, HoraceLeft1, HoraceRight0, HoraceRight1, HorseshoeSprite,
             ScoutFront, ScoutBack, ScoutLeft, ScoutRight, PatrolFront, PatrolBack, PatrolLeft, PatrolRight,
             HeavyFront, HeavyBack, DrifterFront, DrifterLeft, DrifterRight, DrifterBack, RobotEyes, DroneFront,
             LevelCompletePanel, LevelFailedPanel, PausedPanel,
@@ -667,11 +662,11 @@ namespace FarmFuryArcade.EditorTools
                 //
                 // HoraceFront hits the exact same bug (2026-09-08 art replacement): the new
                 // Kling-generated Horace_front.png came back as a tight 215x403 portrait crop
-                // (near-identical aspect to Billy's own 213x401 Front/Back), while
-                // Horace_left1/Left2/right2.png are still the loosely-padded 500x500 square every
-                // other character's art uses — the standard width-PPU rule would render him ~1.87
-                // world units tall (403/215) facing up/down, oversized next to every other
-                // character exactly like Billy's original bug. Same fix: PPU = texture height.
+                // (near-identical aspect to Billy's own 213x401 Front/Back), while his Left/Right
+                // walk-cycle art is still the loosely-padded 500x500 square every other character's
+                // art uses — the standard width-PPU rule would render him ~1.87 world units tall
+                // (403/215) facing up/down, oversized next to every other character exactly like
+                // Billy's original bug. Same fix: PPU = texture height.
                 if (path == BillyFront || path == BillyBack || path == BillyLeft0 || path == BillyLeft1
                     || path == BillyRight0 || path == BillyRight1 || path == BillyRamLeft || path == BillyRamRight
                     || path == HoraceFront)
@@ -927,19 +922,17 @@ namespace FarmFuryArcade.EditorTools
         }
 
         /// <summary>Horace's first real art — previously a solid-colour placeholder square in every
-        /// direction. Left gets a real 2-frame walk cycle (Horace_left1/Left2.png — Horace_left.png,
-        /// no suffix, is an earlier superseded draft left unreferenced, same "extra art, no slot for
-        /// it yet" convention as Cluck_rightwalk.png); Right has only one uploaded frame
-        /// (Horace_right2.png, no "right1") so it repeats for both Right0/Right1, same as any
-        /// single-pose direction elsewhere — it's still real, dedicated art, not a Left mirror, so
-        /// hasDedicatedRightArt is still set. No Up/back art yet — Up falls back to front.</summary>
-        /// <summary>Full art refresh (2026-09-15) — Horace now has a single-frame Left (was a
-        /// 2-frame flick) and a real 2-frame Right walk cycle (was a single repeated frame). No
-        /// Up/back art yet, so Up still falls back to front.</summary>
+        /// <summary>Full art refresh (2026-09-16) — Horace now has a real 2-frame walk cycle on
+        /// BOTH Left (Horace_left.png / Horace_left1.png — the latter is the former
+        /// Horace_buck_left.png, renamed and repurposed as a walk frame once HorseshoeThrowAbility
+        /// replaced the per-direction "buck" pose that used to need it) and Right (Horace_right.png
+        /// / Horace_right1.png), matching shape. No Up/back art yet, so Up still falls back to
+        /// front.</summary>
         private static void WireHorace()
         {
             var front = Load(HoraceFront);
-            var left = Load(HoraceLeft);
+            var left0 = Load(HoraceLeft);
+            var left1 = Load(HoraceLeft1);
             var right0 = Load(HoraceRight0);
             var right1 = Load(HoraceRight1);
 
@@ -947,13 +940,14 @@ namespace FarmFuryArcade.EditorTools
             var data = AssetDatabase.LoadAssetAtPath<CharacterData>(path);
             if (data != null)
             {
-                Sprite leftOrFront = left != null ? left : front;
+                Sprite left0OrFront = left0 != null ? left0 : front;
+                Sprite left1OrLeft0 = left1 != null ? left1 : left0OrFront;
                 data.walkAnimationFrames = new[]
                 {
                     front, front,                             // Up0, Up1 (no back art yet)
                     front, front,                              // Down0, Down1
-                    leftOrFront, leftOrFront,                  // Left0, Left1 (single frame now)
-                    right0 != null ? right0 : leftOrFront, right1 != null ? right1 : (right0 != null ? right0 : leftOrFront) // Right0, Right1
+                    left0OrFront, left1OrLeft0,                // Left0, Left1
+                    right0 != null ? right0 : left0OrFront, right1 != null ? right1 : (right0 != null ? right0 : left1OrLeft0) // Right0, Right1
                 };
                 data.hasDedicatedRightArt = right0 != null;
                 data.portraitSprite = front;
@@ -1869,13 +1863,16 @@ namespace FarmFuryArcade.EditorTools
             SetPrefabSprite(BounceTrailPrefabPath, Load(PercyEffect));
             SetPrefabSprite(WoollyClonePrefabPath, Load(WoollyEffect));
             SetPrefabLeftRightSprites(DuckySplashPrefabPath, Load(DuckyAbilityLeft), Load(DuckyAbilityRight));
-            SetPrefabLeftRightSprites(HoraceBuckPrefabPath, Load(HoraceAbilityBuckLeft), Load(HoraceAbilityBuckRight));
+            // Horseshoe (2026-09-16) — single symmetric prop, no per-direction pair needed any more
+            // (ThrownProjectileEffect spins it via code instead of picking a pre-drawn pose), so this
+            // is a plain SetPrefabSprite call now, same as Shockwave/BounceTrail/WoollyClone above.
+            SetPrefabSprite(HorseshoePrefabPath, Load(HorseshoeSprite));
         }
 
-        /// <summary>Like SetPrefabSprite, but for DuckySplashEffect/HoraceBuckEffect's own
-        /// leftSprite/rightSprite fields (chosen at runtime by direction) rather than a single
-        /// SpriteRenderer.sprite — the prefab's SpriteRenderer itself is left without a sprite
-        /// until PlayForDirection sets one at spawn time.</summary>
+        /// <summary>Like SetPrefabSprite, but for DuckySplashEffect's own leftSprite/rightSprite
+        /// fields (chosen at runtime by direction) rather than a single SpriteRenderer.sprite — the
+        /// prefab's SpriteRenderer itself is left without a sprite until PlayForDirection sets one
+        /// at spawn time.</summary>
         private static void SetPrefabLeftRightSprites(string prefabPath, Sprite left, Sprite right)
         {
             if ((left == null && right == null) || !File.Exists(prefabPath))
@@ -1887,11 +1884,7 @@ namespace FarmFuryArcade.EditorTools
             Component effect = contents.GetComponent<DuckySplashEffect>();
             if (effect == null)
             {
-                effect = contents.GetComponent<HoraceBuckEffect>();
-            }
-            if (effect == null)
-            {
-                Debug.LogWarning($"[ArtWiringBuilder] {prefabPath} has neither DuckySplashEffect nor HoraceBuckEffect — skipping.");
+                Debug.LogWarning($"[ArtWiringBuilder] {prefabPath} has no DuckySplashEffect — skipping.");
                 PrefabUtility.UnloadPrefabContents(contents);
                 return;
             }

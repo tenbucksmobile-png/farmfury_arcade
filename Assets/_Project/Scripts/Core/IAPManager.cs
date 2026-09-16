@@ -560,8 +560,20 @@ namespace FarmFuryArcade.Core
         /// <summary>Machine Cosmetics — unlike GrantAndEquipHat/GrantAndEquipTrail, always equips on
         /// a FIXED character rather than "whichever character is currently active," since a machine
         /// skin is exclusive to the one character it was drawn for (Clucky's tractor makes no sense
-        /// equipped on Bessie). Only refreshes the live renderer when that character happens to be
-        /// the one currently active/on screen.</summary>
+        /// equipped on Bessie).
+        ///
+        /// 2026-09-16, per direct feedback: buying/equipping a machine used to only refresh the live
+        /// renderer when the fixed character already happened to be active — a player who bought
+        /// Bessie's Milk Tanker while playing as anyone else would see nothing happen at all, and
+        /// had no idea it had actually worked until they separately swapped to Bessie. Now
+        /// force-swaps the active character to the machine's own fixed character so the purchase is
+        /// immediately visible regardless of who was being played — CharacterManager.SwapCharacter's
+        /// own SpawnCharacterObject-&gt;CharacterBase.Initialize already calls
+        /// CharacterCosmeticRenderer.Refresh() on the freshly spawned object, so no extra Refresh()
+        /// call is needed for that branch. SwapCharacter no-ops (returns false) outside gameplay (no
+        /// ActiveCharacterObject yet, e.g. bought from the Shop on Main Menu) or if `character` isn't
+        /// unlocked yet — in both cases the skin is still saved correctly and will render the next
+        /// time that character is actually spawned.</summary>
         private void GrantAndEquipSkin(string cosmeticId, CharacterType character)
         {
             if (SaveManager.Instance == null)
@@ -571,9 +583,19 @@ namespace FarmFuryArcade.Core
 
             SaveManager.Instance.SetCosmeticOwned(cosmeticId);
             SaveManager.Instance.SetEquippedCosmetic(CosmeticType.Skin, character, cosmeticId);
-            if (CharacterManager.Instance != null && CharacterManager.Instance.ActiveCharacter == character)
+
+            if (CharacterManager.Instance == null)
+            {
+                return;
+            }
+
+            if (CharacterManager.Instance.ActiveCharacter == character)
             {
                 CharacterManager.Instance.ActiveCharacterObject?.GetComponent<CharacterCosmeticRenderer>()?.Refresh();
+            }
+            else
+            {
+                CharacterManager.Instance.SwapCharacter(character);
             }
         }
 

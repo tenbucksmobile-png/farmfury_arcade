@@ -61,13 +61,12 @@ namespace FarmFuryArcade.UI
         private readonly List<ItemState> _itemStates = new List<ItemState>();
 
         /// <summary>Dims an already-owned item's own icon so it visually matches its
-        /// non-interactable state (the green ownedBadgeSprite checkmark alone wasn't a strong
-        /// enough "don't bother tapping this" cue — see HandleItemTapped's own real-bug-fix doc
-        /// comment for the tap-side half of this). Softened twice now, both per direct feedback that
-        /// the fade made the icon too hard to recognize: grey multiply tint (0.55) -> 50% alpha ->
-        /// this, a 30% alpha REDUCTION (0.7 remaining opacity) — the icon should still be clearly
-        /// recognizable, just visibly dimmer than an unowned one.</summary>
-        private static readonly Color OwnedIconTint = new Color(1f, 1f, 1f, 0.7f);
+        /// non-interactable state, alongside the green ownedBadgeSprite checkmark. Softened three
+        /// times now, each per direct feedback the fade made the icon too hard to recognize: grey
+        /// multiply tint (0.55) -> 50% alpha -> 70% alpha -> this, a bare 10% alpha reduction (0.9
+        /// remaining opacity) — per direct feedback the checkmark badge alone is already sufficient
+        /// "you own this" signal, so the icon itself only needs a light touch, not a real fade.</summary>
+        private static readonly Color OwnedIconTint = new Color(1f, 1f, 1f, 0.9f);
 
         /// <summary>"Purchase Complete!" banner (2026-09-13) — real commissioned art
         /// (PurchaseComplete.png) replacing the old plain "Purchase complete!" statusText message

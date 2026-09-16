@@ -42,7 +42,7 @@ namespace FarmFuryArcade.Core
         public bool PendingEggDropClones { get; private set; }    // Feather Storm -> TripleCloneAbility
         public bool PendingDoubleWoolClones { get; private set; } // Skip Shatter -> SkipShotAbility
         public bool PendingDoubleSlamRadius { get; private set; } // Double Slam -> GroundSlamAbility
-        public bool PendingDoubleKnockback { get; private set; }  // Crossfire -> RearKickAbility
+        public bool PendingDoubleThrowDistance { get; private set; }  // Crossfire -> HorseshoeThrowAbility
         public bool PendingWallDestroyPuff { get; private set; }  // Iron Stampede -> PuffUpAbility
 
         public void ResetForNewMaze()
@@ -57,7 +57,7 @@ namespace FarmFuryArcade.Core
             PendingEggDropClones = false;
             PendingDoubleWoolClones = false;
             PendingDoubleSlamRadius = false;
-            PendingDoubleKnockback = false;
+            PendingDoubleThrowDistance = false;
             PendingWallDestroyPuff = false;
         }
 
@@ -105,7 +105,7 @@ namespace FarmFuryArcade.Core
             }
             else if (previous == CharacterType.Billy && next == CharacterType.Horace)
             {
-                Trigger("Crossfire", () => PendingDoubleKnockback = true);
+                Trigger("Crossfire", () => PendingDoubleThrowDistance = true);
             }
             else if (previous == CharacterType.Bessie && next == CharacterType.Gerald)
             {
@@ -172,10 +172,10 @@ namespace FarmFuryArcade.Core
             return value;
         }
 
-        public bool ConsumeDoubleKnockback()
+        public bool ConsumeDoubleThrowDistance()
         {
-            bool value = PendingDoubleKnockback;
-            PendingDoubleKnockback = false;
+            bool value = PendingDoubleThrowDistance;
+            PendingDoubleThrowDistance = false;
             return value;
         }
 

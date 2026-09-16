@@ -1881,6 +1881,15 @@ namespace FarmFuryArcade.EditorTools
             var charactersTabButton = CreateButton("CharactersTabButton", tabBar.transform, "Characters", TabInactiveColor, 28f, tabBarHeight, out var charactersTabLabel);
             var cosmeticsTabButton = CreateButton("CosmeticsTabButton", tabBar.transform, "Cosmetics", TabInactiveColor, 28f, tabBarHeight, out var cosmeticsTabLabel);
 
+            // Font sizing fix (2026-09-16, per direct feedback: "on a mobile device the writing is
+            // very small" for these 5 tab pills) — CreateButton's fixed 28pt was small relative to
+            // the 70px-tall plaque button, especially the shorter labels ("Story", "Combos") which
+            // had plenty of unused vertical space above/below the glyphs. Auto-sizing (below,
+            // fontSizeMax raised well past the old flat 28) lets each label grow to fill its own
+            // plaque as much as its own text length allows, while fontSizeMin keeps the longest
+            // label ("How to Play") shrinking to fit rather than ever overflowing the plaque's
+            // rounded border or the side padding set below it.
+
             // Real Btn_plaque.png background (2026-09-10), replacing the flat solid-colour "pill"
             // squares CreateButton's placeholder sprite drew — same Image.Type.Sliced + border
             // technique StyleLegalPlaqueButton/CoinPurchaseScreen's Restore Purchases button already
@@ -1907,7 +1916,15 @@ namespace FarmFuryArcade.EditorTools
 
                 tabLabel.alignment = TextAlignmentOptions.Center; // horizontally AND vertically centred
                 tabLabel.enableWordWrapping = false;
-                tabLabel.overflowMode = TextOverflowModes.Overflow;
+                // Shrink-to-fit within [28,44]pt instead of a flat 28pt — lets "Story"/"Combos" grow
+                // well past the old size while "How to Play" (the longest label) shrinks just enough
+                // to stay inside its own padded box. Truncate (not Overflow) plus the unchanged 28px
+                // side padding below guarantees text can never spill past the plaque's rounded edge
+                // or into a neighbouring tab's art.
+                tabLabel.enableAutoSizing = true;
+                tabLabel.fontSizeMin = 28f;
+                tabLabel.fontSizeMax = 44f;
+                tabLabel.overflowMode = TextOverflowModes.Truncate;
                 var labelRect = (RectTransform)tabLabel.transform;
                 labelRect.offsetMin = new Vector2(28f, labelRect.offsetMin.y);
                 labelRect.offsetMax = new Vector2(-28f, labelRect.offsetMax.y);
@@ -2058,6 +2075,14 @@ namespace FarmFuryArcade.EditorTools
                 // "bubbles.png", unlike every other icon-only UI sprite here.
                 ("Confetti Trail", LoadUiSprite("Confetti.png")),
                 ("Bubbles Trail", LoadUiSprite("bubbles.png")),
+                // Machine Cosmetics (2026-09-16) — corrected to their real dedicated icon-only art
+                // (CluckyTruck/BessieTruck/HoraceTruck.png, Sprites/UI/ — wood-sign badges, same
+                // style as the World Purchase shields) after an earlier pass wrongly reused the
+                // Shop's price-baked preview art here. Same "plain icon-only art, no price baked in"
+                // convention every other entry on this informational tab already uses.
+                ("Clucky's Tractor", LoadUiSprite("CluckyTruck.png")),
+                ("Bessie's Milk Tanker", LoadUiSprite("BessieTruck.png")),
+                ("Horace's Hay Baler", LoadUiSprite("HoraceTruck.png")),
             };
             var cosmeticEntriesProp = iconsSO.FindProperty("cosmeticEntries");
             cosmeticEntriesProp.arraySize = cosmeticEntryData.Length;
@@ -4089,12 +4114,17 @@ namespace FarmFuryArcade.EditorTools
             float row2Top = row1Top - rowHeight - rowGap;
             float row3Top = row2Top - rowHeight - rowGap;
             float row4Top = row3Top - rowHeight - rowGap;
+            // Coin balance row (2026-09-16), added below the 3 star-count rows per direct mockup —
+            // same "previous row's bottom edge minus a fixed gap" chain as every row above, so it
+            // can never overlap row4 regardless of how these constants get retuned later.
+            float row5Top = row4Top - rowHeight - rowGap;
 
             var highScoreText = BuildLeaderboardStatRow(root.transform, LoadUiSprite("HighScore.png"), blockLeftX, row0Top);
             var fastestTimeText = BuildLeaderboardStatRow(root.transform, LoadUiSprite("FastestTime.png"), blockLeftX, row1Top);
             var oneStarText = BuildLeaderboardStarRow(root.transform, 1, blockLeftX, row2Top);
             var twoStarText = BuildLeaderboardStarRow(root.transform, 2, blockLeftX, row3Top);
             var threeStarText = BuildLeaderboardStarRow(root.transform, 3, blockLeftX, row4Top);
+            var coinBalanceText = BuildLeaderboardCoinRow(root.transform, blockLeftX, row5Top);
 
             var closeButton = CreateRoundBackButton(root.transform, bottomRight: true);
             closeButton.GetComponent<Image>().sprite = LoadUiSprite("Btn_back.png");
@@ -4122,6 +4152,7 @@ namespace FarmFuryArcade.EditorTools
             so.FindProperty("oneStarCountText").objectReferenceValue = oneStarText;
             so.FindProperty("twoStarCountText").objectReferenceValue = twoStarText;
             so.FindProperty("threeStarCountText").objectReferenceValue = threeStarText;
+            so.FindProperty("coinBalanceText").objectReferenceValue = coinBalanceText;
             so.FindProperty("closeButton").objectReferenceValue = closeButton;
             so.ApplyModifiedPropertiesWithoutUndo();
 
@@ -4183,6 +4214,28 @@ namespace FarmFuryArcade.EditorTools
                 AnchorTopLeft((RectTransform)starGO.transform, new Vector2(starSize, starSize),
                     new Vector2(leftX + i * (starSize + starSpacing), topOffsetY - (rowHeight - starSize) * 0.5f));
             }
+
+            return BuildLeaderboardPlaque(parent, leftX + labelWidth + innerGap, topOffsetY, plaqueWidth, rowHeight, plaqueBorder);
+        }
+
+        /// <summary>Same row shape as BuildLeaderboardStatRow/BuildLeaderboardStarRow, but the
+        /// "label" is a single square Coin_UI.png icon instead of a wide word-art banner or a row of
+        /// stars — this is the player's own current coin balance (2026-09-16), not a per-world
+        /// leaderboard stat, added below the 3 star-count rows per direct mockup.</summary>
+        private static TextMeshProUGUI BuildLeaderboardCoinRow(Transform parent, float leftX, float topOffsetY)
+        {
+            const float rowHeight = WorldDetailRowHeight;
+            const float labelWidth = WorldDetailLabelWidth;
+            const float plaqueWidth = WorldDetailPlaqueWidth;
+            const float innerGap = WorldDetailInnerGap;
+            var plaqueBorder = new Vector4(90f, 70f, 90f, 70f);
+
+            var coinGO = new GameObject("CoinIcon", typeof(RectTransform), typeof(Image));
+            coinGO.transform.SetParent(parent, false);
+            var coinImage = coinGO.GetComponent<Image>();
+            coinImage.sprite = LoadUiSprite("Coin_UI.png");
+            coinImage.preserveAspect = true;
+            AnchorTopLeft((RectTransform)coinGO.transform, new Vector2(rowHeight, rowHeight), new Vector2(leftX, topOffsetY));
 
             return BuildLeaderboardPlaque(parent, leftX + labelWidth + innerGap, topOffsetY, plaqueWidth, rowHeight, plaqueBorder);
         }

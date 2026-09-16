@@ -21,7 +21,7 @@ namespace FarmFuryArcade.EditorTools
     /// comment), and wires CharacterManager/ComboSystem/UnlockManager/CameraShake into Game.unity
     /// (ChooseCharacterScreen, its Phase 5 replacement, is wired by Phase5ProjectBuilder instead).
     /// Safe to re-run. Depends on Phase 2 (Cluck prefab, LevelData_01) and Phase 3 (robot types,
-    /// for RearKick/PuffUp/GroundSlam to find at runtime — no direct build-time dependency).
+    /// for HorseshoeThrow/PuffUp/GroundSlam to find at runtime — no direct build-time dependency).
     /// </summary>
     public static class Phase4ProjectBuilder
     {
@@ -43,7 +43,7 @@ namespace FarmFuryArcade.EditorTools
             GameObject woolClonePrefab = BuildWoolClonePrefab();
             GameObject waterTilePrefab = BuildWaterTilePrefab();
             GameObject duckySplashPrefab = BuildDuckySplashPrefab();
-            GameObject horaceBuckPrefab = BuildHoraceBuckPrefab();
+            GameObject horseshoePrefab = BuildHorseshoeProjectilePrefab();
 
             GameObject cluckPrefab = AddCharacterBaseAndAbilityToCluck(eggPrefab);
 
@@ -82,10 +82,10 @@ namespace FarmFuryArcade.EditorTools
                 });
 
             GameObject horacePrefab = BuildCharacterPrefab("Horace", new Color(0.45f, 0.30f, 0.15f),
-                typeof(RearKickAbility), UnifiedAbilityCooldown, ability =>
+                typeof(HorseshoeThrowAbility), UnifiedAbilityCooldown, ability =>
                 {
                     var so = new SerializedObject(ability);
-                    so.FindProperty("buckEffectPrefab").objectReferenceValue = horaceBuckPrefab;
+                    so.FindProperty("horseshoePrefab").objectReferenceValue = horseshoePrefab;
                     so.ApplyModifiedPropertiesWithoutUndo();
                 });
 
@@ -251,15 +251,32 @@ namespace FarmFuryArcade.EditorTools
             return SaveAndDestroy(go, $"{AbilityPrefabFolder}/DuckySplash.prefab");
         }
 
-        private static GameObject BuildHoraceBuckPrefab()
+        /// <summary>Horace's thrown ability projectile (2026-09-16, replacing the old HoraceBuck
+        /// static landing-flash prefab — see HorseshoeThrowAbility/ThrownProjectileEffect's own doc
+        /// comments for why). Needs a real Rigidbody2D + trigger Collider2D, unlike its
+        /// predecessor: it now travels across tiles and must detect robot contact along the way
+        /// (OnTriggerEnter2D), same Kinematic + useFullKinematicContacts requirement every other
+        /// trigger-participating spawned hazard in this project uses (Egg, WoollyClone) — see the
+        /// "Kinematic Rigidbody2D gotcha" this project has hit before.</summary>
+        private static GameObject BuildHorseshoeProjectilePrefab()
         {
-            var go = new GameObject("HoraceBuck");
+            var go = new GameObject("Horseshoe");
             var sr = go.AddComponent<SpriteRenderer>();
-            sr.sprite = PlaceholderSprite.Get(new Color(0.75f, 0.5f, 0.25f, 0.7f));
+            sr.sprite = PlaceholderSprite.Get(new Color(0.75f, 0.75f, 0.78f));
             sr.sortingOrder = 5;
-            go.transform.localScale = Vector3.one * TileMapRenderer.CellSize;
-            go.AddComponent<HoraceBuckEffect>();
-            return SaveAndDestroy(go, $"{AbilityPrefabFolder}/HoraceBuck.prefab");
+            go.transform.localScale = Vector3.one * 0.6f * TileMapRenderer.CellSize;
+
+            var rb = go.AddComponent<Rigidbody2D>();
+            rb.bodyType = RigidbodyType2D.Kinematic;
+            rb.gravityScale = 0f;
+            rb.useFullKinematicContacts = true;
+
+            var col = go.AddComponent<CircleCollider2D>();
+            col.isTrigger = true;
+            col.radius = 0.4f;
+
+            go.AddComponent<ThrownProjectileEffect>();
+            return SaveAndDestroy(go, $"{AbilityPrefabFolder}/Horseshoe.prefab");
         }
 
         private static GameObject BuildWoolClonePrefab()

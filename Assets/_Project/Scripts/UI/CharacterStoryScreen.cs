@@ -38,12 +38,14 @@ namespace FarmFuryArcade.UI
     /// ChooseCharacterScreen uses; every card shows unlocked/non-active/non-interactive — this is a
     /// browsing list, not the swap gate ChooseCharacterScreen enforces, and tapping a card does
     /// nothing since there's no per-character sub-screen (the story IS the blurb next to it).
-    /// Cosmetics tab: one row per purchasable hat/trail (BuildCosmeticRow). Originally reused the
-    /// Shop's price-baked icon art (sombrero_price.png etc.); swapped 2026-09-11 for new plain
-    /// icon-only art (Sombrero.png etc., Sprites/UI/, no price baked in — this tab is informational,
-    /// not a purchase surface) sized like BuildComboRow's own art column, with a short, playful
-    /// blurb per item instead of a price tag. Purely informational, same as the Characters tab:
-    /// tapping a row does nothing, there's no purchase flow here.</summary>
+    /// Cosmetics tab: one row per purchasable hat/trail/machine (BuildCosmeticRow). Originally
+    /// reused the Shop's price-baked icon art (sombrero_price.png etc.); swapped 2026-09-11 for new
+    /// plain icon-only art (Sombrero.png etc., Sprites/UI/, no price baked in — this tab is
+    /// informational, not a purchase surface) sized like BuildComboRow's own art column, with a
+    /// short, playful blurb per item instead of a price tag. The 3 Machine Cosmetics skins
+    /// (2026-09-15) were added 2026-09-16, reusing their purchase-screen preview art since no
+    /// dedicated icon-only art exists for them yet. Purely informational, same as the Characters
+    /// tab: tapping a row does nothing, there's no purchase flow here.</summary>
     public class CharacterStoryScreen : MonoBehaviour
     {
         [System.Serializable]
@@ -65,7 +67,7 @@ namespace FarmFuryArcade.UI
 
         // Wired by Phase5ProjectBuilder.BuildCharacterStoryPlaceholder — one icon per GameplayTopics
         // entry (same order), one icon per ComboEntries entry (same order — the real Combo_*.png
-        // banner art), and the 7 Cosmetics rows (icon + display name; blurb text lives here, keyed
+        // banner art), and the Cosmetics rows (icon + display name; blurb text lives here, keyed
         // by displayName, same convention CharacterStories uses for characters).
         [SerializeField] private Sprite[] gameplayTopicIcons;
         [SerializeField] private Sprite[] comboIcons;
@@ -185,6 +187,9 @@ namespace FarmFuryArcade.UI
             { "Ember Trail", "A trail of glowing embers — warm, cozy, and a little bit fiery." },
             { "Confetti Trail", "A burst of colourful confetti with every step — instant party!" },
             { "Bubbles Trail", "Leaves a trail of soft, shimmering bubbles floating behind you." },
+            { "Clucky's Tractor", "Clucky trades her feet for wheels — zoom around the farm in style!" },
+            { "Bessie's Milk Tanker", "Bessie rolls out in her very own milk tanker truck." },
+            { "Horace's Hay Baler", "Horace saddles up on a hay baler built for farmyard speed." },
         };
 
         private static readonly Dictionary<CharacterType, string> CharacterStories = new Dictionary<CharacterType, string>
@@ -456,10 +461,14 @@ namespace FarmFuryArcade.UI
             bodyTmp.color = Color.black;
             bodyTmp.enableWordWrapping = true;
             // Shrink-to-fit so a topic's body text can never spill past its own bordered card, same
-            // convention BuildRow's story blurb uses.
+            // convention BuildRow's story blurb uses. fontSizeMax raised 24->32 (2026-09-16, per
+            // direct feedback) — this box is rowHeight-88 = 92px tall, and the short 1-2 sentence
+            // copy here left visible headroom at the old cap; auto-sizing still shrinks below 32 for
+            // anything that doesn't actually fit, so this can only let short copy fill more of the
+            // box, never cause overflow.
             bodyTmp.enableAutoSizing = true;
             bodyTmp.fontSizeMin = 16f;
-            bodyTmp.fontSizeMax = 24f;
+            bodyTmp.fontSizeMax = 32f;
             bodyTmp.overflowMode = TextOverflowModes.Truncate;
         }
 
@@ -563,9 +572,12 @@ namespace FarmFuryArcade.UI
             triggerTmp.alignment = TextAlignmentOptions.TopLeft;
             triggerTmp.color = new Color(0.45f, 0.32f, 0.12f);
             triggerTmp.enableWordWrapping = true;
+            // fontSizeMax raised 22->28 (2026-09-16, per direct feedback) — same "ceiling too low
+            // for a short line" fix as BuildInfoRow's body/BuildRow's blurb; auto-sizing still
+            // shrinks below 28 for anything that doesn't fit lineHeight, so this can't overflow.
             triggerTmp.enableAutoSizing = true;
             triggerTmp.fontSizeMin = 14f;
-            triggerTmp.fontSizeMax = 22f;
+            triggerTmp.fontSizeMax = 28f;
             triggerTmp.overflowMode = TextOverflowModes.Truncate;
 
             var effectGO = new GameObject("Effect", typeof(RectTransform));
@@ -579,10 +591,11 @@ namespace FarmFuryArcade.UI
             effectTmp.color = new Color(0.15f, 0.5f, 0.2f);
             effectTmp.enableWordWrapping = true;
             // Shrink-to-fit so a combo's trigger/effect text can never spill past its own bordered
-            // card, same convention BuildInfoRow's body / BuildRow's story blurb use.
+            // card, same convention BuildInfoRow's body / BuildRow's story blurb use. fontSizeMax
+            // raised 22->28 (2026-09-16), same reasoning as the Trigger line above.
             effectTmp.enableAutoSizing = true;
             effectTmp.fontSizeMin = 14f;
-            effectTmp.fontSizeMax = 22f;
+            effectTmp.fontSizeMax = 28f;
             effectTmp.overflowMode = TextOverflowModes.Truncate;
         }
 
@@ -590,16 +603,23 @@ namespace FarmFuryArcade.UI
         /// Icon art swapped 2026-09-11 from the Shop's price-baked purchase art (sombrero_price.png
         /// etc.) to new plain icon-only art (Sombrero.png etc., Sprites/UI/) with no price baked in
         /// — this tab is informational, not a purchase surface, so the price no longer belongs here.
-        /// Icon box sized the same way BuildComboRow's own art column is (a wide, non-square
-        /// landscape/portrait box with preserveAspect, sized to the row's real content height rather
-        /// than a small fixed square) instead of the old 130x130 square. Purely informational — no
-        /// tap action, no purchase flow here (matches BuildRow's own "browsing list" convention for
-        /// characters).</summary>
+        ///
+        /// Icon box width is computed from the icon's own real aspect at a FIXED height (2026-09-16
+        /// fix, real bug) rather than the old fixed 300-wide box every entry shared regardless of
+        /// its art's actual shape — the Machine Cosmetics icons (CluckyTruck/BessieTruck/
+        /// HoraceTruck.png) are roughly square wood-sign badges, so forced into a 300-wide box they
+        /// rendered shrunk down to a 140x140 square in the middle of a mostly-empty box (preserveAspect
+        /// stops stretching, but can't stop a square image being capped by the box's own shorter
+        /// dimension). Sizing width from height * aspect instead means a square icon genuinely fills
+        /// a 140x140 square, and a wide landscape icon (the combo-banner-style trail/hat art) still
+        /// renders at its own real proportions — same "box aspect must match the art" fix pattern
+        /// this project has hit many times before. Capped at 360 so a very wide icon can't eat too
+        /// much of the text column.</summary>
         private void BuildCosmeticRow(string displayName, Sprite icon, string blurb)
         {
             const float rowHeight = 180f;
-            const float iconSize = 300f; // matches BuildComboRow's iconWidth
             const float iconHeight = 140f; // rowHeight minus the hlg's own 20px top/bottom padding
+            const float iconMaxWidth = 360f;
 
             var rowGO = new GameObject($"CosmeticRow_{displayName}", typeof(RectTransform), typeof(Image));
             rowGO.transform.SetParent(cosmeticsContainer, false);
@@ -635,19 +655,17 @@ namespace FarmFuryArcade.UI
 
             var iconGO = new GameObject("Icon", typeof(RectTransform), typeof(Image));
             iconGO.transform.SetParent(contentGO.transform, false);
-            ((RectTransform)iconGO.transform).sizeDelta = new Vector2(iconSize, iconHeight);
             var iconImage = iconGO.GetComponent<Image>();
             iconImage.preserveAspect = true;
-            if (icon != null)
-            {
-                iconImage.sprite = icon;
-            }
-            else
-            {
-                iconImage.sprite = PlaceholderSprite.GetCircle(new Color(0.85f, 0.65f, 0.2f));
-            }
+            Sprite iconSprite = icon != null ? icon : PlaceholderSprite.GetCircle(new Color(0.85f, 0.65f, 0.2f));
+            iconImage.sprite = iconSprite;
 
-            float innerWidth = RowWidth - RowBorderThickness * 2f - 60f - 30f - iconSize - 60f;
+            float iconWidth = iconSprite != null && iconSprite.rect.height > 0f
+                ? Mathf.Min(iconHeight * (iconSprite.rect.width / iconSprite.rect.height), iconMaxWidth)
+                : iconHeight;
+            ((RectTransform)iconGO.transform).sizeDelta = new Vector2(iconWidth, iconHeight);
+
+            float innerWidth = RowWidth - RowBorderThickness * 2f - 60f - 30f - iconWidth - 60f;
 
             var textColumnGO = new GameObject("TextColumn", typeof(RectTransform));
             textColumnGO.transform.SetParent(contentGO.transform, false);
@@ -681,9 +699,11 @@ namespace FarmFuryArcade.UI
             bodyTmp.alignment = TextAlignmentOptions.TopLeft;
             bodyTmp.color = Color.black;
             bodyTmp.enableWordWrapping = true;
+            // fontSizeMax raised 24->32 (2026-09-16, per direct feedback), same reasoning as
+            // BuildInfoRow's own body text fix above — this row uses the same rowHeight/box shape.
             bodyTmp.enableAutoSizing = true;
             bodyTmp.fontSizeMin = 16f;
-            bodyTmp.fontSizeMax = 24f;
+            bodyTmp.fontSizeMax = 32f;
             bodyTmp.overflowMode = TextOverflowModes.Truncate;
         }
 
@@ -790,9 +810,16 @@ namespace FarmFuryArcade.UI
             tmp.color = Color.black;
             // Shrink-to-fit so a long blurb can never spill past the card's own bordered background
             // (the "keep text inside the container" feedback) — same convention as IntroText above.
+            // fontSizeMax raised 30->46 (2026-09-16, per direct feedback the text read too small):
+            // this text box is RowHeight-20 = 360px tall, and a typical ~250-320 character blurb at
+            // the old 30pt cap only filled roughly a third of that height, leaving large empty
+            // padding above/below — a real "ceiling too low for the available box" bug, not a
+            // container-size problem, since auto-sizing already correctly shrinks below the ceiling
+            // for any text that doesn't fit at 46pt (so this can't cause overflow, only let short-
+            // enough text actually grow into the space it already has).
             tmp.enableAutoSizing = true;
             tmp.fontSizeMin = 14f;
-            tmp.fontSizeMax = 30f;
+            tmp.fontSizeMax = 46f;
             tmp.overflowMode = TextOverflowModes.Truncate;
         }
     }

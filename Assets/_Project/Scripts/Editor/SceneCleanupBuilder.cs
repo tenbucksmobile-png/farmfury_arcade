@@ -736,26 +736,39 @@ namespace FarmFuryArcade.EditorTools
         /// on that character directly via the same checksum-protected
         /// SaveManager.DebugForceEquipForTesting path every other cosmetic testing tool here uses
         /// (bypassing IAPManager.PurchaseProduct — no real store connection exists in the Editor).
-        /// Only refreshes the live renderer if that fixed character happens to be the one currently
-        /// active/on screen; otherwise swap to that character (or reload the level) to see it.</summary>
+        ///
+        /// 2026-09-16: now force-swaps the active character to the machine's own fixed character
+        /// (same fix as IAPManager.GrantAndEquipSkin's real purchase path) instead of only refreshing
+        /// when that character already happened to be active — otherwise this tool made it look like
+        /// nothing had happened (and the smoke puff never got a chance to render) unless the tester
+        /// separately swapped characters first.</summary>
         private static void DebugEquipMachine(CharacterType character, string cosmeticId, string displayName)
         {
             SaveManager.DebugForceEquipForTesting(CosmeticType.Skin, character, cosmeticId);
 
-            if (CharacterManager.Instance != null && CharacterManager.Instance.ActiveCharacter == character &&
-                CharacterManager.Instance.ActiveCharacterObject != null)
+            if (CharacterManager.Instance == null || CharacterManager.Instance.ActiveCharacterObject == null)
             {
-                var renderer = CharacterManager.Instance.ActiveCharacterObject.GetComponent<CharacterCosmeticRenderer>();
-                if (renderer != null)
-                {
-                    renderer.Refresh();
-                    Debug.Log($"[SceneCleanupBuilder] Equipped Machine '{displayName}' ({cosmeticId}) on {character} and refreshed it live — should be visible now.");
-                    return;
-                }
+                Debug.Log($"[SceneCleanupBuilder] Equipped Machine '{displayName}' ({cosmeticId}) on {character}. " +
+                          "No character is active right now (not in Play mode / no level loaded) — it will render the next time one loads.");
+                return;
             }
 
-            Debug.Log($"[SceneCleanupBuilder] Equipped Machine '{displayName}' ({cosmeticId}) on {character}. " +
-                      $"Swap to {character} (or load a level as {character}) to see it render.");
+            if (CharacterManager.Instance.ActiveCharacter == character)
+            {
+                CharacterManager.Instance.ActiveCharacterObject.GetComponent<CharacterCosmeticRenderer>()?.Refresh();
+                Debug.Log($"[SceneCleanupBuilder] Equipped Machine '{displayName}' ({cosmeticId}) on {character} and refreshed it live — should be visible now.");
+                return;
+            }
+
+            if (CharacterManager.Instance.SwapCharacter(character))
+            {
+                Debug.Log($"[SceneCleanupBuilder] Equipped Machine '{displayName}' ({cosmeticId}) and swapped to {character} to show it — should be visible now.");
+            }
+            else
+            {
+                Debug.Log($"[SceneCleanupBuilder] Equipped Machine '{displayName}' ({cosmeticId}) on {character}, but couldn't swap to them right now " +
+                          "(not yet unlocked?). Swap to them manually (or load a level as them) to see it render.");
+            }
         }
 
         [MenuItem("Farm Fury Arcade/Debug/Equip Machine (Testing)/Clucky's Tractor")]

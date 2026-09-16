@@ -18,18 +18,18 @@ namespace FarmFuryArcade.EditorTools
     ///    Sprites/Cosmetics/Cosmetics_machine art and adds CharacterCosmeticRenderer to the 3
     ///    character prefabs (idempotent, safe alongside CosmeticWiringBuilder's own calls — that
     ///    component is already a no-op AddComponent guard).
-    /// 2. WireMachineHazards — clones the existing Egg/Shockwave/HoraceBuck ability-effect prefabs
+    /// 2. WireMachineHazards — clones the existing Egg/Shockwave/Horseshoe ability-effect prefabs
     ///    into machine-themed reskins (oil spill / milk splash / hay bale) and wires them onto
-    ///    EggDropAbility/GroundSlamAbility/RearKickAbility's new oilHazardPrefab/
-    ///    milkShockwavePrefab/hayBaleEffectPrefab fields — same power/timing as the un-skinned
+    ///    EggDropAbility/GroundSlamAbility/HorseshoeThrowAbility's oilHazardPrefab/
+    ///    milkShockwavePrefab/hayBaleProjectilePrefab fields — same power/timing as the un-skinned
     ///    ability, purely a themed visual swap (see EggDropAbility's own doc comment for why this
     ///    keeps the cosmetic non-gameplay-affecting despite being a real functional hazard).
     ///
-    /// Cluck's Tractor has real 4-direction art (front/back/left/right); Bessie's Milk Tanker and
-    /// Horace's Hay Baler only have one direction so far (more coming) — that single sprite is used
-    /// across all 8 skinFrames slots as an interim fallback, same "one real frame, no mirroring"
-    /// convention this project uses elsewhere until the rest of the directions land. Re-run this
-    /// tool once more directions arrive to replace the fallback.
+    /// All 3 machines now have real 4-direction art (front/back/left/right) — Bessie's Milk Tanker
+    /// and Horace's Hay Baler gained their front/back/right frames 2026-09-16 (pulled as stills from
+    /// a Kling-generated turntable orbit video of each machine, then hand-touched-up/re-cropped),
+    /// replacing the earlier interim fallback that repeated their one Left frame across all 8
+    /// skinFrames slots.
     ///
     /// Milk's own third (dissipating) frame is a known duplicate of the resting puddle — per direct
     /// instruction, the resting sprite is reused for the impact frame's own resting art is separate
@@ -60,16 +60,15 @@ namespace FarmFuryArcade.EditorTools
                 left: "Cluck_Tractor_left.png", right: "Clucky_tractor_right.png",
                 preview: "Price_Clucky_truck.png");
 
-            // Only one direction exists yet for these two — repeated across all 8 slots (see class
-            // doc comment). Re-run once front/back/right art lands.
+            // Full 4-direction art (2026-09-16) — see class doc comment.
             WireSkin(CharacterType.Bessie, "MachineTruckBessie", IAPManager.MachineTruckBessieProductId,
-                front: "Bessie_Truck_Left.png", back: "Bessie_Truck_Left.png",
-                left: "Bessie_Truck_Left.png", right: "Bessie_Truck_Left.png",
+                front: "Bessie_Truck_front.png", back: "Bessie_Truck_back.png",
+                left: "Bessie_Truck_Left.png", right: "Bessie_Truck_right.png",
                 preview: "Price_Bessie_truck.png");
 
             WireSkin(CharacterType.Horace, "MachineHayHorace", IAPManager.MachineHayHoraceProductId,
-                front: "Horace_hay_left.png", back: "Horace_hay_left.png",
-                left: "Horace_hay_left.png", right: "Horace_hay_left.png",
+                front: "Horace_hay_front.png", back: "Horace_hay_back.png",
+                left: "Horace_hay_left.png", right: "Horace_hay_right.png",
                 preview: "Price_Horace_truck.png");
         }
 
@@ -151,24 +150,32 @@ namespace FarmFuryArcade.EditorTools
             ConfigureMilkSplashShockwave(milkPath);
             WireAbilityPrefabField(CharacterType.Bessie, typeof(GroundSlamAbility), "milkShockwavePrefab", milkPath);
 
-            string hayPath = CloneAbilityPrefab("HoraceBuck.prefab", "HayBaleEffect.prefab");
+            string hayPath = CloneAbilityPrefab("Horseshoe.prefab", "HayBaleEffect.prefab");
             ConfigureHayBaleEffect(hayPath);
-            WireAbilityPrefabField(CharacterType.Horace, typeof(RearKickAbility), "hayBaleEffectPrefab", hayPath);
+            WireAbilityPrefabField(CharacterType.Horace, typeof(HorseshoeThrowAbility), "hayBaleProjectilePrefab", hayPath);
         }
 
+        /// <summary>Always re-clones from the current source rather than only-if-missing (2026-09-16
+        /// — previously left an already-existing clone stale even after its source prefab's own
+        /// structure changed, e.g. HayBaleEffect.prefab kept missing the Rigidbody2D/Collider2D that
+        /// Horseshoe.prefab gained when HorseshoeThrowAbility replaced RearKickAbility). Every
+        /// Configure* method below already re-applies its sprite fields idempotently regardless, so
+        /// a fresh delete-then-copy on every run costs nothing and can never drift out of structural
+        /// sync with its source again.</summary>
         private static string CloneAbilityPrefab(string sourceName, string targetName)
         {
             string sourcePath = $"{AbilityPrefabFolder}/{sourceName}";
             string targetPath = $"{AbilityPrefabFolder}/{targetName}";
-            if (!File.Exists(targetPath))
+            if (!File.Exists(sourcePath))
             {
-                if (!File.Exists(sourcePath))
-                {
-                    Debug.LogWarning($"[MachineWiringBuilder] Source prefab not found, cannot clone: {sourcePath}");
-                    return null;
-                }
-                AssetDatabase.CopyAsset(sourcePath, targetPath);
+                Debug.LogWarning($"[MachineWiringBuilder] Source prefab not found, cannot clone: {sourcePath}");
+                return null;
             }
+            if (File.Exists(targetPath))
+            {
+                AssetDatabase.DeleteAsset(targetPath);
+            }
+            AssetDatabase.CopyAsset(sourcePath, targetPath);
             return targetPath;
         }
 
@@ -206,7 +213,20 @@ namespace FarmFuryArcade.EditorTools
         /// dynamic-looking of the two milk images, so it's used here rather than the resting
         /// puddle. Milk - Copy.png/Milk2.png are duplicates of the same resting art (Kling AI
         /// struggled to render a distinct third stage) — not needed here since this effect only
-        /// ever shows one image, scaled/faded over time by the existing ShockwaveEffect logic.</summary>
+        /// ever shows one image, scaled/faded over time by the existing ShockwaveEffect logic.
+        ///
+        /// Real, reported bug fixed 2026-09-16: the milk splash rendered noticeably oversized
+        /// compared to the plain placeholder shockwave circle. GroundSlamAbility.Configure() sets
+        /// BOTH variants' maxScale from the SAME real kill-radius diameter (this effect has no
+        /// collider of its own — GroundSlamAbility.DefeatRobotsInRadius's own grid-distance sweep is
+        /// what actually defeats robots, so the sprite's visual size is purely cosmetic and can be
+        /// tuned per-prefab with zero gameplay effect). Milk1.png's splash shape reads visually
+        /// larger than an equally-sized plain circle would — its jagged splash droplets extend
+        /// further toward the canvas edges than a circle's smooth silhouette does, so the same
+        /// bounding-box diameter looks more dominant. Fixed with ShockwaveEffect.
+        /// visualScaleMultiplier (new field, defaults to 1 so the un-skinned Shockwave.prefab is
+        /// unaffected) set to 0.55 here — a first-pass correction with no visual Editor access this
+        /// session, nudge further if it still reads too big/small once actually seen in Play mode.</summary>
         private static void ConfigureMilkSplashShockwave(string path)
         {
             if (path == null)
@@ -222,10 +242,28 @@ namespace FarmFuryArcade.EditorTools
                 sr.sprite = splash;
                 sr.color = Color.white;
             }
+            var effect = contents.GetComponent<ShockwaveEffect>();
+            if (effect != null)
+            {
+                var so = new SerializedObject(effect);
+                so.FindProperty("visualScaleMultiplier").floatValue = 0.55f;
+                so.ApplyModifiedPropertiesWithoutUndo();
+            }
             PrefabUtility.SaveAsPrefabAsset(contents, path);
             PrefabUtility.UnloadPrefabContents(contents);
         }
 
+        /// <summary>Horseshoe.prefab/HayBaleEffect.prefab both carry ThrownProjectileEffect
+        /// (2026-09-16, replacing HoraceBuckEffect's per-direction leftSprite/rightSprite pair) —
+        /// a single SpriteRenderer.sprite swap is all the reskin needs now, since the projectile
+        /// spins via code at runtime instead of picking a pre-drawn per-direction pose.
+        ///
+        /// Also wires Haybail_Damaged.png as this prefab's impactSprite (2026-09-16, per direct
+        /// feedback) — the real starburst/impact art the hay bale swaps to and holds/fades out on
+        /// for a visible moment when it hits a robot, instead of just vanishing (see
+        /// ThrownProjectileEffect.ImpactAndDissipate). Horseshoe.prefab is left with no
+        /// impactSprite — no dedicated horseshoe-impact art exists yet, so it keeps the plain
+        /// instant destroy on hit until/unless that art lands too.</summary>
         private static void ConfigureHayBaleEffect(string path)
         {
             if (path == null)
@@ -233,16 +271,20 @@ namespace FarmFuryArcade.EditorTools
                 return;
             }
             var hayBale = ConfigureAndLoadSprite($"{MachineSpriteFolder}/Haybail.png");
+            var hayBaleDamaged = ConfigureAndLoadSprite($"{MachineSpriteFolder}/Haybail_Damaged.png");
 
             var contents = PrefabUtility.LoadPrefabContents(path);
-            var buck = contents.GetComponent<HoraceBuckEffect>();
-            if (buck != null && hayBale != null)
+            var sr = contents.GetComponent<SpriteRenderer>();
+            if (sr != null && hayBale != null)
             {
-                // Single non-directional sprite — same sprite in both slots, matches HoraceBuckEffect's
-                // existing "no sprite for this direction, leave whatever's already there" null-safety.
-                var so = new SerializedObject(buck);
-                so.FindProperty("leftSprite").objectReferenceValue = hayBale;
-                so.FindProperty("rightSprite").objectReferenceValue = hayBale;
+                sr.sprite = hayBale;
+                sr.color = Color.white;
+            }
+            var effect = contents.GetComponent<ThrownProjectileEffect>();
+            if (effect != null && hayBaleDamaged != null)
+            {
+                var so = new SerializedObject(effect);
+                so.FindProperty("impactSprite").objectReferenceValue = hayBaleDamaged;
                 so.ApplyModifiedPropertiesWithoutUndo();
             }
             PrefabUtility.SaveAsPrefabAsset(contents, path);

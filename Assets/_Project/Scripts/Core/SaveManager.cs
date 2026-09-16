@@ -548,10 +548,23 @@ namespace FarmFuryArcade.Core
 
         /// <summary>Pass an empty/null cosmeticId to unequip. Does not itself validate ownership —
         /// callers (ShopController/ChooseCharacterScreen) should only ever offer owned cosmetics as
-        /// equip options.</summary>
+        /// equip options.
+        ///
+        /// Equipping a Skin (a Machine Cosmetic, currently the only Skin-type items that exist)
+        /// auto-clears that same character's own Hat slot (2026-09-16, per direct feedback) — a
+        /// machine skin redraws the character into a vehicle, so a hat sitting on top of that art
+        /// would render wrong/floating with nothing underneath it to sit on. Trail is deliberately
+        /// left alone: it's a separate, global equip slot (see SetEquippedTrail) and a trail effect
+        /// behind a vehicle still reads fine, per the same feedback ("this should not be the same
+        /// case for trails").</summary>
         public void SetEquippedCosmetic(CosmeticType type, CharacterType character, string cosmeticId)
         {
             PlayerPrefs.SetString(EquippedKeyPrefix(type) + character, cosmeticId ?? string.Empty);
+
+            if (type == CosmeticType.Skin && !string.IsNullOrEmpty(cosmeticId))
+            {
+                PlayerPrefs.SetString(EquippedKeyPrefix(CosmeticType.Hat) + character, string.Empty);
+            }
         }
 
         public string GetEquippedTrail()
@@ -637,6 +650,13 @@ namespace FarmFuryArcade.Core
             else
             {
                 PlayerPrefs.SetString(EquippedKeyPrefix(type) + character, cosmeticId);
+                // Same Skin-clears-Hat rule SetEquippedCosmetic enforces for the real equip path —
+                // this static testing helper bypasses that method entirely, so it needs its own copy
+                // (2026-09-16) or a debug-equipped machine could still show a hat floating over it.
+                if (type == CosmeticType.Skin)
+                {
+                    PlayerPrefs.SetString(EquippedKeyPrefix(CosmeticType.Hat) + character, string.Empty);
+                }
             }
             PlayerPrefs.Save();
         }

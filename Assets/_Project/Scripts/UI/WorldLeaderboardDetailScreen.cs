@@ -41,6 +41,13 @@ namespace FarmFuryArcade.UI
         [SerializeField] private TextMeshProUGUI twoStarCountText;
         [SerializeField] private TextMeshProUGUI threeStarCountText;
 
+        /// <summary>Coin row (2026-09-16), added below the 3 star-count rows per direct mockup —
+        /// the player's own current running coin balance, not a per-world leaderboard stat, so it
+        /// reads straight from SaveManager rather than LeaderboardManager and is set before that
+        /// component's own null-guard below (see Refresh) so it still shows even in the unlikely
+        /// case LeaderboardManager.Instance is null.</summary>
+        [SerializeField] private TextMeshProUGUI coinBalanceText;
+
         [SerializeField] private Button closeButton;
 
         private void Awake()
@@ -63,6 +70,11 @@ namespace FarmFuryArcade.UI
             if (headerImage != null && worldBannerSprites != null && world >= 0 && world < worldBannerSprites.Length)
             {
                 headerImage.sprite = worldBannerSprites[world];
+            }
+
+            if (coinBalanceText != null)
+            {
+                coinBalanceText.text = (SaveManager.Instance != null ? SaveManager.Instance.CoinBalance : 0).ToString("N0");
             }
 
             var leaderboard = LeaderboardManager.Instance;

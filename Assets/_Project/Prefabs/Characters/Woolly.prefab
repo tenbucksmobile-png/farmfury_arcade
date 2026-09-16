@@ -18,7 +18,6 @@ GameObject:
   - component: {fileID: 2062705600773932312}
   - component: {fileID: 4867600579351467795}
   - component: {fileID: 7897418634667172553}
-  - component: {fileID: 7183449801856065095}
   m_Layer: 0
   m_Name: Woolly
   m_TagString: Untagged
@@ -245,19 +244,7 @@ MonoBehaviour:
   totalCooldown: 10
   clonePrefab: {fileID: 5761818219777844241, guid: 20a896908e20e5f42b38ec387500f17f, type: 3}
   eggPrefab: {fileID: 2812154423310372149, guid: 08a462d497966fe4a85dc333b199d924, type: 3}
---- !u!114 &7183449801856065095
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1806944986480309093}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: f0fc97e9f5dd5c14d9d68c79b7c2b805, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::FarmFuryArcade.Gameplay.CharacterCosmeticRenderer
---- !u!213 &1303113859542994594
+--- !u!213 &5799932746256681584
 Sprite:
   serializedVersion: 2
   m_ObjectHideFlags: 0
@@ -278,12 +265,12 @@ Sprite:
   m_Extrude: 0
   m_PackingTag: 
   m_RenderDataKey:
-    d3e39bcc2b179364281d609fd249142e: 1303113859542994594
+    d3e39bcc2b179364281d609fd249142e: 5799932746256681584
   m_AtlasTags: []
   m_SpriteAtlas: {fileID: 0}
   m_RD:
     serializedVersion: 4
-    texture: {fileID: 9059473894027783193}
+    texture: {fileID: 6935867997314274360}
     alphaTexture: {fileID: 0}
     secondaryTextures: []
     m_SubMeshes:
@@ -379,7 +366,7 @@ Sprite:
     downscaleMultiplier: 1
   m_AtlasRD:
     serializedVersion: 4
-    texture: {fileID: 9059473894027783193}
+    texture: {fileID: 6935867997314274360}
     alphaTexture: {fileID: 0}
     secondaryTextures: []
     m_SubMeshes:
@@ -477,7 +464,7 @@ Sprite:
   m_Bones: []
   m_ScriptableObjects: []
   m_SpriteID: 
---- !u!28 &9059473894027783193
+--- !u!28 &6935867997314274360
 Texture2D:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}

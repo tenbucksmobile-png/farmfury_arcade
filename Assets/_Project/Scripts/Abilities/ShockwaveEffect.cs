@@ -15,6 +15,16 @@ namespace FarmFuryArcade.Abilities
         [SerializeField] private float duration = 0.4f;
         [SerializeField] private float maxScale = 4f;
 
+        /// <summary>Machine Cosmetics (2026-09-16) — lets a themed reskin (Bessie's Milk Splash)
+        /// render smaller/larger than the shared real kill-radius diameter Configure() passes in,
+        /// with zero gameplay effect: this component has no collider of its own, GroundSlamAbility's
+        /// own grid-distance sweep is what actually defeats robots, so the sprite's on-screen size
+        /// is purely cosmetic. Defaults to 1 (exact match) — only MachineWiringBuilder's
+        /// MilkSplashShockwave.prefab currently overrides this (set to 0.55, since Milk1.png's
+        /// jagged splash shape read visibly larger than the plain placeholder circle at the same
+        /// bounding-box diameter).</summary>
+        [SerializeField] private float visualScaleMultiplier = 1f;
+
         private SpriteRenderer _spriteRenderer;
         private float _elapsed;
 
@@ -39,7 +49,7 @@ namespace FarmFuryArcade.Abilities
             _elapsed += Time.deltaTime;
             float p = Mathf.Clamp01(_elapsed / duration);
 
-            transform.localScale = Vector3.one * Mathf.Lerp(0.2f, maxScale, p);
+            transform.localScale = Vector3.one * Mathf.Lerp(0.2f, maxScale * visualScaleMultiplier, p);
             Color c = _spriteRenderer.color;
             c.a = 1f - p;
             _spriteRenderer.color = c;
