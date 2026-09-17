@@ -1061,6 +1061,73 @@ targeted to children" toggle (`Project Settings > Services`, must be Yes, not th
 `SetMetaData("is_deviceid_optout", "true")` **before** `LevelPlay.Init()` — both are required,
 LevelPlay's SDK-level metadata doesn't inherit from the dashboard-level toggle automatically.
 
+**Android AdMob manifest fix (2026-09-17)** — `Assets/Plugins/Android/AndroidManifest.xml` (new
+file) declares the `com.google.android.gms.ads.APPLICATION_ID` meta-data tag Google Mobile Ads
+requires at process start — the exact Android equivalent of `IOSPostProcessBuild.cs`'s
+`GADApplicationIdentifier` fix (see "Unity Cloud Build" below), same crash-on-launch class, this
+time deliberately deferred since 2026-09-14 (see the now-resolved `android_admob_manifest_gap`
+memory) until Android's first real build was actually imminent — no way to verify a manifest merge
+succeeds without a real build running. Value is Android's own distinct AdMob App ID
+(`ca-app-pub-1264425755955045~5627051526`, confirmed via the AdMob console — different from iOS's
+own `ca-app-pub-1264425755955045~9222731930`). Picked up via `useCustomMainManifest: 1` in
+`ProjectSettings.asset` (was `0`, silently ignoring the file if it existed at all).
+
+**Android's custom Gradle templates were also silently disabled the whole time (found and fixed
+2026-09-17).** `Assets/Plugins/Android/mainTemplate.gradle`/`settingsTemplate.gradle`/
+`gradleTemplate.properties` already had the Android Resolver's correctly-populated AdMob mediation
+dependencies baked in (admob-adapter, ads-mobile-sdk, the maven.google.com repo, AndroidX/Jetifier
+flags) — but `ProjectSettings.asset`'s `useCustomMainGradleTemplate`/`useCustomGradleSettingsTemplate`/
+`useCustomGradlePropertiesTemplate` were all `0`, meaning Unity generated its own default Gradle
+build with NONE of that mediation content in it, regardless of how correctly those template files
+were populated. All three flipped to `1`. **If a future Android build behaves as though an
+Assets/Plugins/Android template file doesn't exist at all, check these toggles first** — the file
+being present and correctly populated is not sufficient on its own.
+
+**Real, load-bearing dashboard finding (2026-09-17): both platforms' LevelPlay app entries had
+ZERO ad units configured**, contradicting this section's own long-standing "fully configured"
+claim, which was never actually re-verified against the live dashboard until this session. Walked
+through, live, with the user: created 3 ad units per platform (Rewarded/Interstitial/Banner,
+named `{Format}_Android`/`{Format}_iOS` to match `AdManager`'s existing config — those values
+turned out to already be correct, see below), added AdMob as a network (Google's "Bidder
+auto-setup" — sign in with the same Google account as your AdMob console, toggle on, it links
+automatically, no manual ID-pasting needed) and Unity Ads as a second network (needs a LevelPlay
+service-account Key ID/Secret Key pair, generated under cloud.unity.com → org settings → Service
+Accounts → create one → generate a key — optional/secondary, skip if it blocks progress since AdMob
+is the primary network), then — the actual missing step on both platforms — opening each network
+from the app's **Instances** page and explicitly enabling/adding an instance per ad format (Google
+and UnityAds both showed 0 checkmarks under Rewarded/Interstitial/Banner even after being added as
+networks; only the legacy, already-sunset "ironSource" network was ever actually active). Each
+AdMob instance needs that format's real AdMob ad unit ID (from apps.admob.com, a separate app
+entry per platform even under one account); Unity Ads instances used its standard default
+Placement IDs (`banner`/`video`/`rewardedVideo`) since this project's Unity Ads Game ID had never
+been provisioned before (confirmed empty in `ProjectSettings/UnityConnectSettings.asset`
+`m_IosGameId`/`m_AndroidGameId` prior to this session).
+
+**`AdManager`'s existing `Rewarded_Android`/`Interstitial_iOS`/etc. config values turned out to
+already be correct** — briefly suspected wrong (a LevelPlay "Placements" dashboard page showed IDs
+that looked like they used a period separator, `Rewarded.Android`; changed the scene to match,
+then reverted immediately once directly corrected — the real separator is an underscore, matching
+what was already wired). **If this exact confusion resurfaces, trust the underscore form already
+in `AdManager` and re-verify by zooming into the dashboard's own small grey ID text before
+assuming it needs to change** — it's easy to misread at normal screenshot resolution.
+
+**Also found: the app's "Store availability" was set to "Not live yet"** on the legacy
+platform.ironsrc.com dashboard (a separate, older app registration from the one described above —
+both exist for this app; the numeric-App-Key one is the one actually wired into the game). Can't
+be flipped to "Live app" until a real App Store listing exists (it validates the App Store URL,
+which 404s pre-release) — left as "Not live yet," which is accurate for now; use LevelPlay's
+`enableTestSuite`/Development Build path (see "Both platforms are fully configured" below) to test
+ad creatives in the meantime rather than waiting on this.
+
+**Even after all of the above, a live device test hit `LevelPlay Error 2080: "Init Fail - Unable
+to retrieve configurations from the ironSource server. Response contains errors."`** on iOS,
+immediately after finishing the dashboard changes above. Most likely a propagation delay (dashboard
+network/instance changes can take up to 15–30 minutes to reach the live config servers) rather
+than a real remaining gap — not yet re-tested after waiting. If it persists after a genuine wait,
+re-check every network shows a clean Active status with no warning icon (the Unity Ads service-
+account setup hit its own credential error mid-session and may not have landed cleanly) before
+assuming a new root cause.
+
 **`AdManager`** (parallel to `AudioManager` — one singleton on `GameManagers`, owns all SDK
 interaction so gameplay code never touches `Unity.Services.LevelPlay` directly) wraps:
 - **Rewarded ads** (`LevelPlayRewardedAd`) — load/show/auto-reload (reloads immediately in
@@ -1857,6 +1924,19 @@ Hats)`, which unconditionally loops over all 8 `CharacterType`s regardless of ha
 availability. **If a cosmetic silently "isn't rendering" with zero console error, check this first**
 — verify `CharacterCosmeticRenderer` is actually present on the relevant prefab before suspecting
 the `CosmeticData` asset or the rendering code itself.
+
+**Recurred 2026-09-17, found via a real iPhone playtest** ("when a cosmetic is purchased it doesn't
+want to render on Percy or Woolly so far — it only is working on Clucky and Bessie"). Checked all 8
+prefabs directly: `CharacterCosmeticRenderer` was present on Cluck/Bessie/Horace only, missing again
+from Percy/Woolly/Ducky/Gerald/Billy — almost certainly a `Phase4ProjectBuilder.BuildAll` rerun
+(likely during the Horseshoe Throw/Machine Cosmetics rework session, which happened to re-touch
+Cluck/Bessie/Horace's prefabs directly via `MachineWiringBuilder`, incidentally preserving/re-adding
+the component on just those 3). Same fix, same tool (`Wire Cosmetic Art (Universal Hats)`) — re-ran
+it, confirmed all 8 prefabs have the component again before committing. **This is now a recurring
+regression class specifically tied to `Phase4ProjectBuilder.BuildAll`** — after any future run of
+that tool, re-verify `CharacterCosmeticRenderer` is present on all 8 character prefabs (a one-line
+`grep -c CharacterCosmeticRenderer` per prefab is enough) before assuming cosmetics still work,
+rather than waiting for another playtest report to catch it.
 - `TileMapRenderer` doesn't yet consume `CosmeticData.themeWallSprite`/`themeGroundSprite`/
   `themeBackdropSprite` — MazeTheme equip state would persist in `SaveManager` but nothing reads it
   at render time yet, moot until MazeTheme assets exist anyway.
