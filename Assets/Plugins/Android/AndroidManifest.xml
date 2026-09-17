@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Android-side equivalent of the iOS GADApplicationIdentifier fix
+  (Assets/_Project/Scripts/Editor/IOSPostProcessBuild.cs). Google Mobile Ads' SDK verifies this
+  meta-data exists in the manifest at process start and throws/crashes if it's missing - the exact
+  same crash-on-launch class that hit the iOS build before that fix landed (2026-09-14).
+
+  This file is Unity's "library manifest" overlay for Assets/Plugins/Android - Unity's Gradle
+  export merges it into the generated AndroidManifest.xml automatically. Kept deliberately minimal
+  (just the one meta-data tag) so there's as little surface area as possible for a merge conflict
+  against whatever Unity/the Android Resolver generates on top of it.
+
+  Android has its own distinct AdMob App ID (confirmed 2026-09-17, via the AdMob console) -
+  ca-app-pub-1264425755955045~5627051526 - separate from iOS's own
+  ca-app-pub-1264425755955045~9222731930 wired into Info.plist by IOSPostProcessBuild.cs.
+-->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <application>
+        <meta-data
+            android:name="com.google.android.gms.ads.APPLICATION_ID"
+            android:value="ca-app-pub-1264425755955045~5627051526" />
+    </application>
+</manifest>
