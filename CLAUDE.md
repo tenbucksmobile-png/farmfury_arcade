@@ -656,7 +656,7 @@ ability:
 | Percy | BounceRoll | Rolls 3 tiles forward (9 if buffed) in his current facing direction, instantly defeating any robot touched; stops early at a wall | 10s |
 | Woolly | TripleClone | Spawns 2 AI clones (`WoollyClone`) that wander/collect crops for 10s | 10s |
 | Ducky | SkipShot | Teleports across an adjacent unused water tile pair — once per pair per maze | 10s (this is the real gate now too — see the note below on why it went from a 2s debounce to matching everyone else) |
-| Horace | HorseshoeThrow | Launches a horseshoe 2 tiles (4 if buffed) in his current facing direction, spinning, instantly defeating the first robot it touches — both vanish together on impact, unlike Percy's roll it does NOT carry on to a second target; stops early at a wall (reworked 2026-09-16 from RearKickAbility's "yank the nearest enemy within 3 tiles" — see below; distance/speed re-tuned the same day, see that ability's own doc comment) | 10s |
+| Horace | HorseshoeThrow | Launches a horseshoe 3 tiles (6 if buffed) in his current facing direction, spinning, instantly defeating the first robot it touches — both vanish together on impact, unlike Percy's roll it does NOT carry on to a second target; stops early at a wall (reworked 2026-09-16 from RearKickAbility's "yank the nearest enemy within 3 tiles" — see below; distance/speed re-tuned the same day, and again 2026-09-17 to fix an invisible-throw bug — see that ability's own doc comment) | 10s |
 | Gerald | PuffUp | Pulsates between normal size and 2x scale for 3s, instantly defeats any robot touched throughout the pulse, half speed, can't use warp tunnels | 10s |
 | Billy | HeadbuttThrough | Speeds up and charges 3 tiles forward in his current facing direction, instantly defeating any robot touched (reworked 2026-08-21 from a wall-destroy ability — see below) | 10s |
 
@@ -862,7 +862,7 @@ subclass already used, so no subclass code needed to change.
 | Earthquake Roll | Bessie → Percy | Percy's next Bounce Roll travels 9 tiles instead of 3 |
 | Skip Shatter | Ducky → Woolly | Ducky's next SkipShot spawns 2 wool clones at the destination |
 | Double Slam | Bessie → Bessie (2nd+ activation via swap) | Ground Slam radius doubles to 4 tiles |
-| Crossfire | Billy → Horace | His thrown horseshoe/hay bale travels twice as far (4 tiles instead of 2) |
+| Crossfire | Billy → Horace | His thrown horseshoe/hay bale travels twice as far (6 tiles instead of 3) |
 | Iron Stampede | Bessie → Gerald | Puff Up also destroys walls Gerald is adjacent to |
 | Kick and Roll | Horace → Percy | Same buff as Earthquake Roll (9-tile roll, identical effect per GDD) |
 | Full Fury | 5+ distinct characters used this maze | Immediate: every robot stunned 5s (not a "next use" buff) |
@@ -2408,16 +2408,36 @@ Content carries a `GridLayoutGroup` + `ContentSizeFitter` so it auto-sizes to ho
 items there actually are (0 up to all 7) and scrolls if that's more than the visible ~445px-tall
 region shows at once, rather than a fixed box sized for "however many rows might exist."
 
-**Empty state added (2026-09-14)** — when the player owns nothing at all, the (visually empty)
-tile grid is replaced with two banners side by side, centred: `Hats&Caps.png` and `Trails.png`
-(the same art `CosmeticsChooserScreen` uses), each opening its respective real purchase page
-(`hatsPurchaseScreen`/`trailsPurchaseScreen`, both new `LockerScreen` fields) directly. Sized to
-500 wide each (real aspect preserved via `CosmeticsBannerAspect`), centred on the same region the
-tile grid occupies. `CosmeticPurchaseScreen` gained a public `OnClosed` event (fired from
-`OnDisable`) so `LockerScreen` can `Refresh()` itself the instant either purchase screen closes —
-without this, a purchase made from the empty-state banners would leave them showing even after the
-player owns something, since the two screens layer on top of Locker rather than replacing it and
-nothing else would trigger a re-check.
+**Empty state added (2026-09-14), then made a PERMANENT category banner row (2026-09-17)** —
+originally, when the player owned nothing at all, the (visually empty) tile grid was replaced with
+two banners side by side (`Hats&Caps.png`/`Trails.png`, the same art `CosmeticsChooserScreen` uses),
+each opening its respective real purchase page directly, and hidden again
+(`emptyStateRoot.SetActive(_tiles.Count == 0)`) the instant the player owned a single item. Per
+direct feedback that the row should stay visible, it's no longer an empty state at all: three
+banners now (`machine.png` added alongside Hats/Trails, matching `CosmeticsChooserScreen`'s own
+three categories), always shown, in their own bottom-aligned `CategoryBanners` container.
+`LockerScreen`'s fields were renamed to match (`categoryBannerRoot`/`hatsBannerButton`/
+`trailsBannerButton`/`machinesBannerButton`, plus a third `machinesPurchaseScreen` reference), and
+`Refresh()` now sets the row active unconditionally rather than toggling it on the owned-tile count
+(kept as an explicit `SetActive(true)` rather than dropped entirely, so a scene saved by an older
+build self-corrects on first `Refresh`).
+
+**Overlap is prevented structurally, not by eyeballing.** The banner row owns a fixed bottom band
+and the tile scroll region is sized to stop short of it, so an owned tile can never render under a
+banner regardless of how many are shown. Derived top-down in `Phase5ProjectBuilder` (1920x1080
+reference canvas, D = distance from the screen's top edge): close button top edge D=850 → 20px
+margin → row bottom D=830 (`LockerBannerRowBottomD`) → row top D=830−height
+(`LockerBannerRowTopD`) → 20px margin → tile scroll bottom → tile scroll top D=385. Banner width
+dropped 500 → 330 (`LockerBannerWidth`, real aspect preserved via `CosmeticsBannerAspect`) both to
+fit three across (330×3 + 30×2 = 1050, inside the tile band's own 1200 width) and to keep the row
+short enough (~131 tall) that the remaining tile-scroll height still clears a full 280-tall tile
+row — `tileScrollHeight` is now computed from `LockerBannerRowTopD` rather than being a hardcoded
+445.
+
+`CosmeticPurchaseScreen`'s public `OnClosed` event (fired from `OnDisable`) is now subscribed for
+all three purchase screens, so an item bought from any banner shows up as a real equippable tile
+immediately on return — the screens layer on top of Locker rather than replacing it, so nothing
+else would trigger a re-check.
 
 (`Scripts/Data/MazeType.cs`, `Scripts/Utilities/UnlockProgression.cs`, `Scripts/Core/IAPManager.cs`/`SaveManager.cs`/`GameManager.cs`, `Scripts/UI/LevelSelectController.cs`/`SettingsPanel.cs`)
 
@@ -4989,6 +5009,38 @@ front of him, so a wall-blocked throw still degrades gracefully rather than spaw
 wall) — `tiles` (2 base / 4 buffed) is still the total reach in front of him, the projectile just
 appears instantly at the first of those tiles instead of animating its way there, then visibly
 travels the remaining tiles from there.
+
+**Real bug found and fixed (2026-09-17): the spawn-one-tile-ahead fix above silently ate half the
+visible throw.** Reported as "they don't seem to be throwing the horseshoe/haybale ahead slowly,
+and if it is I cannot see it." Root cause: with `ThrowTilesBase = 2`, `hopsFromSpawn` (`tiles - 1`,
+since the first tile is now an instant unanimated spawn-jump per the fix above) was only **1** —
+the only visible movement was a single 0.4s hop across one tile, reading as a near-instant flick
+rather than a thrown object. Bumped `ThrowTilesBase` 2→**3** and `ThrowTilesBuffed` 4→**6**
+(keeping Crossfire's "doubles the distance" rule intact), per direct request for "three tiles
+ahead" — this also restores a real 2-hop (0.8s) animated flight at the base distance. Character
+Story's Horace bio and the Crossfire combo blurb were updated to match (and to drop "kick"
+language from Horace's own bio per feedback it should read as a throw now, while the Crossfire
+combo blurb specifically kept "horseshoe kick" per a separate follow-up request).
+
+**`Combo_KicknRoll.png` was a real, measurable art defect — fixed directly on the file (2026-09-17),
+not via code.** Reported as "slightly faded against the rest" on the Character Story Combos tab.
+Confirmed by inspecting the PNG's own alpha channel: it peaked at 217/255 (~85% opacity) across the
+*entire* image, while `Combo_CrossFire.png`/`Combo_DoubleSlam.png` both reach full 255 — a global
+opacity cap baked into the export, not a rendering issue (nothing in `BuildComboRow`/
+`CharacterStoryScreen` tints icons per-entry). Fixed by linearly stretching the alpha channel back
+to the full 0–255 range (0 stays fully transparent, the old 217 ceiling now maps to 255) — no code
+or rebuild needed, Unity just reimports the texture. If another combo/UI icon is ever reported as
+"looks washed out/faded" next to its siblings, check the source PNG's own alpha max first before
+suspecting a rendering bug — this is now a confirmed real cause, not just a hypothesis.
+
+**Trail icon sizing (Ember/Confetti/Bubbles Trail rows, Character Story's Cosmetics tab) —
+investigated 2026-09-17, no code bug found.** Reported as two of the three rendering noticeably
+smaller than their siblings. Measured all three source files directly: all are ~500×500 and
+85–100% full-bleed (no unusual transparent padding), and `BuildCosmeticRow`'s icon box width is
+already computed from each icon's own real aspect with no per-entry special-casing — under the
+current code, three square 500×500 sources render at the identical size. Most likely explanation:
+the live scene predates this aspect-based sizing fix (see `BuildCosmeticRow`'s own doc comment,
+dated 2026-09-16) — re-run **Phase 5 > Build All** and re-check before assuming a residual bug.
 
 **Gerald and Billy now have real art too, completing all 8 characters.** Gerald gets a real
 2-frame Left walk cycle (`Gerald_left.png` → `Gerald_left1.png`) and a single dedicated Right frame

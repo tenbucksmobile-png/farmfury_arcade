@@ -105,17 +105,24 @@ namespace FarmFuryArcade.UI
         [SerializeField] private Button closeButton;
         [SerializeField] private CosmeticPurchaseScreen purchaseScreen;
 
-        /// <summary>Shown instead of an empty tile grid when the player owns nothing yet (2026-09-14)
-        /// — two banners (Hats&Caps.png / Trails.png, same art CosmeticsChooserScreen uses) side by
-        /// side, tapping either opens that category's real purchase screen directly. Distinct from
-        /// the dormant "You may like" suggestionRoot above — that's a single-item upsell nudge shown
-        /// alongside owned tiles; this is the whole-screen empty state shown only when there are no
-        /// owned tiles to browse at all.</summary>
-        [SerializeField] private GameObject emptyStateRoot;
-        [SerializeField] private Button emptyStateHatsButton;
-        [SerializeField] private Button emptyStateTrailsButton;
+        /// <summary>The three category banners (Hats&Caps.png / Trails.png / machine.png, the same
+        /// art CosmeticsChooserScreen uses) in a row along the bottom of this screen, each opening
+        /// that category's real purchase page directly.
+        ///
+        /// ALWAYS VISIBLE (2026-09-17, per direct feedback) — this used to be an empty-state-only
+        /// row, hidden the moment the player owned a single item (SetActive(_tiles.Count == 0)),
+        /// which meant the one shortcut into the purchase pages disappeared exactly when a player
+        /// was most likely to want more. It now lives in its own bottom-aligned band that the tile
+        /// scroll region is sized to stop short of, so it can never overlap an owned tile no matter
+        /// how many are shown. Distinct from the dormant "You may like" suggestionRoot above —
+        /// that's a single-item randomised upsell nudge; this is fixed, permanent navigation.</summary>
+        [SerializeField] private GameObject categoryBannerRoot;
+        [SerializeField] private Button hatsBannerButton;
+        [SerializeField] private Button trailsBannerButton;
+        [SerializeField] private Button machinesBannerButton;
         [SerializeField] private CosmeticPurchaseScreen hatsPurchaseScreen;
         [SerializeField] private CosmeticPurchaseScreen trailsPurchaseScreen;
+        [SerializeField] private CosmeticPurchaseScreen machinesPurchaseScreen;
 
         /// <summary>Real wood-frame-with-parchment art (PurchaseCardFrame.png, 500x500, square) —
         /// replaces the earlier flat PlaceholderSprite border+background composition. Every tile
@@ -155,19 +162,23 @@ namespace FarmFuryArcade.UI
             {
                 suggestionButton.onClick.AddListener(OpenPurchaseScreen);
             }
-            if (emptyStateHatsButton != null)
+            if (hatsBannerButton != null)
             {
-                emptyStateHatsButton.onClick.AddListener(() => hatsPurchaseScreen?.Show());
+                hatsBannerButton.onClick.AddListener(() => hatsPurchaseScreen?.Show());
             }
-            if (emptyStateTrailsButton != null)
+            if (trailsBannerButton != null)
             {
-                emptyStateTrailsButton.onClick.AddListener(() => trailsPurchaseScreen?.Show());
+                trailsBannerButton.onClick.AddListener(() => trailsPurchaseScreen?.Show());
+            }
+            if (machinesBannerButton != null)
+            {
+                machinesBannerButton.onClick.AddListener(() => machinesPurchaseScreen?.Show());
             }
 
-            // Refresh the instant either purchase screen closes, so a purchase made from the
-            // empty-state banners (or the equally-reachable Hats/Trails pages themselves) replaces
-            // the empty state with the new tile immediately on return — never leaves the "buy me"
-            // banners showing for an item the player just bought.
+            // Refresh the instant any of the three purchase screens closes, so an item bought from
+            // one of the banners below (or from the equally-reachable category pages themselves)
+            // shows up as a real, equippable tile immediately on return rather than only after the
+            // Locker is closed and reopened.
             if (hatsPurchaseScreen != null)
             {
                 hatsPurchaseScreen.OnClosed += Refresh;
@@ -175,6 +186,10 @@ namespace FarmFuryArcade.UI
             if (trailsPurchaseScreen != null)
             {
                 trailsPurchaseScreen.OnClosed += Refresh;
+            }
+            if (machinesPurchaseScreen != null)
+            {
+                machinesPurchaseScreen.OnClosed += Refresh;
             }
         }
 
@@ -234,9 +249,13 @@ namespace FarmFuryArcade.UI
                 }
             }
 
-            if (emptyStateRoot != null)
+            // The category banner row is permanent (see categoryBannerRoot's own doc comment) —
+            // deliberately NOT toggled on _tiles.Count here any more. Kept as an unconditional
+            // SetActive(true) rather than removed entirely so a saved scene left with the row
+            // disabled by an older build still self-corrects on the first Refresh.
+            if (categoryBannerRoot != null)
             {
-                emptyStateRoot.SetActive(_tiles.Count == 0);
+                categoryBannerRoot.SetActive(true);
             }
 
             RefreshSuggestion();

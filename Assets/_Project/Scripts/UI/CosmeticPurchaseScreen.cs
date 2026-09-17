@@ -62,10 +62,19 @@ namespace FarmFuryArcade.UI
 
         /// <summary>Dims an already-owned item's own icon so it visually matches its
         /// non-interactable state, alongside the green ownedBadgeSprite checkmark. Softened three
-        /// times now, each per direct feedback the fade made the icon too hard to recognize: grey
-        /// multiply tint (0.55) -> 50% alpha -> 70% alpha -> this, a bare 10% alpha reduction (0.9
-        /// remaining opacity) — per direct feedback the checkmark badge alone is already sufficient
-        /// "you own this" signal, so the icon itself only needs a light touch, not a real fade.</summary>
+        /// times already, each per direct feedback the fade made the icon too hard to recognize:
+        /// grey multiply tint (0.55) -> 50% alpha -> 70% alpha -> a bare 10% alpha reduction (0.9
+        /// remaining opacity) -- but a 2026-09-17 screenshot still showed owned items rendering
+        /// heavily dark/greyed-out despite that 0.9 value. Real cause, not another alpha guess:
+        /// setting icon.color here was never the whole story -- Button/Selectable's own ColorTint
+        /// transition (the default on every Button) applies ColorBlock.disabledColor to its
+        /// targetGraphic (which IS this icon Image -- CreateIconButton builds the Image and Button
+        /// on the same GameObject, so Unity auto-assigns targetGraphic to it) the instant
+        /// interactable is set to false, and Unity's own default disabledColor is a hard ~50% grey
+        /// -- overriding whatever this script had just set on icon.color. RefreshOwnedBadges below
+        /// now also overrides each button's own ColorBlock.disabledColor to match this exact tint,
+        /// so Unity's built-in transition applies the SAME light dim this constant specifies rather
+        /// than fighting it.</summary>
         private static readonly Color OwnedIconTint = new Color(1f, 1f, 1f, 0.9f);
 
         /// <summary>"Purchase Complete!" banner (2026-09-13) — real commissioned art
@@ -262,6 +271,14 @@ namespace FarmFuryArcade.UI
                 if (state.button != null)
                 {
                     state.button.interactable = !owned;
+                    // See OwnedIconTint's own doc comment -- Selectable applies its own
+                    // ColorBlock.disabledColor to the icon the instant interactable goes false,
+                    // which otherwise silently overrides the lighter tint set below. Overriding it
+                    // here means Unity's own transition renders exactly the dim this screen wants,
+                    // whichever code path actually triggers it.
+                    var colors = state.button.colors;
+                    colors.disabledColor = OwnedIconTint;
+                    state.button.colors = colors;
                 }
                 if (state.icon != null)
                 {

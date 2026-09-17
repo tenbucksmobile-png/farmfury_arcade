@@ -34,12 +34,22 @@ namespace FarmFuryArcade.Abilities
         // Distance/speed re-tuned 2026-09-16, per direct feedback: the throw was both too far (5
         // tiles, hard to track) and way too fast (0.1s/tile — nearly instant) to actually read as
         // "a horseshoe/hay bale is being thrown." Cut to 2 tiles (4 with Crossfire, still double)
-        // and slowed to 0.4s/tile (a 2-tile throw now takes 0.8s total, clearly visible) — applies
-        // to both the horseshoe and the Hay Baler skin's hay bale, since they share this same
-        // Execute()/Launch() call. Same session, second pass: the spawn point moved from Horace's
-        // own tile to one tile ahead of him — see Execute()'s own doc comment on `oneAhead` below.
-        private const int ThrowTilesBase = 2;
-        private const int ThrowTilesBuffed = 4;
+        // and slowed to 0.4s/tile — applies to both the horseshoe and the Hay Baler skin's hay
+        // bale, since they share this same Execute()/Launch() call. Same session, second pass:
+        // the spawn point moved from Horace's own tile to one tile ahead of him — see Execute()'s
+        // own doc comment on `oneAhead` below.
+        //
+        // Real bug found and fixed (2026-09-17, reported as "doesn't seem to be throwing it ahead
+        // slowly, and if it is I cannot see it"): that spawn-one-tile-ahead change silently ate
+        // HALF the animated throw at the base distance — with ThrowTilesBase=2, `hopsFromSpawn`
+        // (tiles - 1, since the first tile is an instant unanimated spawn-jump) was only 1, so the
+        // only visible movement was a single 0.4s hop across one tile. That reads as a near-instant
+        // flick, not a thrown object arcing forward, exactly matching the report. Bumped to 3 base
+        // tiles (6 buffed, keeping Crossfire's "doubles the distance" rule) per direct request —
+        // this leaves 2 real animated hops (0.8s of visible travel) at the base distance instead of
+        // 1, on top of literally being the "three tiles ahead" that was asked for.
+        private const int ThrowTilesBase = 3;
+        private const int ThrowTilesBuffed = 6;
         private const float SecondsPerTile = 0.4f;
 
         [SerializeField] private GameObject horseshoePrefab;

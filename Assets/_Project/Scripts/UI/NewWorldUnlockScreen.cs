@@ -12,9 +12,12 @@ namespace FarmFuryArcade.UI
     /// overlay layered on LevelComplete" convention as NewCharacterUnlockScreen, but for worlds
     /// instead of characters, and tap-gated rather than timer-dismissed. The world's own badge
     /// sprite (LevelSelectController.worldSignSprites — already bakes in the world's name/art, same
-    /// as a character's selectCardArt) bursts in with an overshoot pop, then pulses
-    /// (enlarges/shrinks) a couple of times to read as a celebratory beat rather than a static
-    /// reveal.
+    /// as a character's selectCardArt) bursts in with an overshoot pop, then pulses continuously
+    /// (enlarges/shrinks on a steady sine wave) for as long as it's shown — through the "Tap to
+    /// continue" hint fading in and the wait for the actual tap — so it reads as a genuinely
+    /// "alive" celebratory badge rather than a static reveal that briefly wiggles then goes still.
+    /// (2026-09-17, per direct feedback: the original version only pulsed for a couple of cycles
+    /// right after the burst-in, then settled and sat motionless while waiting for the tap.)
     ///
     /// Originally auto-advanced on a fixed hold timer, same as NewCharacterUnlockScreen — but
     /// playtesting found the whole burst+pulse+hold beat (~2s) read as "nothing happened, it was
@@ -45,19 +48,22 @@ namespace FarmFuryArcade.UI
         [Tooltip("Seconds the initial overshoot pop-in takes.")]
         [SerializeField] private float burstInSeconds = 0.4f;
 
-        [Tooltip("Total seconds spent pulsing (enlarging/shrinking) after the burst-in.")]
-        [SerializeField] private float pulseDurationSeconds = 1.2f;
-
-        [Tooltip("How many full enlarge-then-shrink cycles happen during pulseDurationSeconds.")]
-        [SerializeField] private int pulseCycleCount = 2;
+        [Tooltip("Seconds one full enlarge-then-shrink pulse cycle takes, once continuous " +
+            "pulsing starts (after the burst-in).")]
+        [SerializeField] private float pulseCycleSeconds = 1.4f;
 
         [Tooltip("Peak scale offset during a pulse, e.g. 0.12 = swells to 112% and shrinks to 88%.")]
-        [SerializeField] private float pulseAmplitude = 0.12f;
+        [SerializeField] private float pulseAmplitude = 0.1f;
 
-        [Tooltip("Seconds the \"Tap to continue\" hint takes to fade in once the pulse settles.")]
+        [Tooltip("Seconds after the burst-in before the \"Tap to continue\" hint starts fading in " +
+            "- the badge keeps pulsing underneath this pause.")]
+        [SerializeField] private float pulseSettleSeconds = 0.6f;
+
+        [Tooltip("Seconds the \"Tap to continue\" hint takes to fade in.")]
         [SerializeField] private float hintFadeInSeconds = 0.4f;
 
         private Coroutine _routine;
+        private Coroutine _pulseRoutine;
         private bool _tapped;
 
         private void Awake()
@@ -101,6 +107,11 @@ namespace FarmFuryArcade.UI
             }
 
             _tapped = false;
+            if (_pulseRoutine != null)
+            {
+                StopCoroutine(_pulseRoutine);
+                _pulseRoutine = null;
+            }
             if (tapButton != null)
             {
                 tapButton.interactable = false;
@@ -133,15 +144,18 @@ namespace FarmFuryArcade.UI
 
         private IEnumerator BurstPulseThenWaitForTap(Action onComplete)
         {
+            RectTransform rect = null;
+            Vector3 baseScale = Vector3.one;
+
             if (worldBadgeImage != null)
             {
-                var rect = worldBadgeImage.rectTransform;
+                rect = worldBadgeImage.rectTransform;
                 var canvasGroup = worldBadgeImage.GetComponent<CanvasGroup>();
                 if (canvasGroup == null)
                 {
                     canvasGroup = worldBadgeImage.gameObject.AddComponent<CanvasGroup>();
                 }
-                Vector3 baseScale = rect.localScale;
+                baseScale = rect.localScale;
 
                 rect.localScale = Vector3.zero;
                 canvasGroup.alpha = 0f;
@@ -158,19 +172,18 @@ namespace FarmFuryArcade.UI
                 rect.localScale = baseScale;
                 canvasGroup.alpha = 1f;
 
-                t = 0f;
-                while (t < pulseDurationSeconds)
-                {
-                    t += Time.unscaledDeltaTime;
-                    float wave = Mathf.Sin(t / pulseDurationSeconds * pulseCycleCount * Mathf.PI * 2f);
-                    rect.localScale = baseScale * (1f + wave * pulseAmplitude);
-                    yield return null;
-                }
-                rect.localScale = baseScale;
+                // Continuous pulsate - keeps running for as long as the badge is on screen (through
+                // the settle pause below, the hint fading in, and the wait for the actual tap)
+                // instead of stopping after a couple of cycles. Stopped explicitly once tapped, below.
+                _pulseRoutine = StartCoroutine(PulseLoop(rect, baseScale));
             }
 
-            // Only start accepting taps once the pulse has visibly settled — the button was
-            // non-interactable up to this point so a tap thrown during the burst/pulse (impatient
+            // Small pause after the burst so the celebratory pop reads clearly before the hint
+            // appears - the badge keeps pulsing underneath this wait, it doesn't go still for it.
+            yield return new WaitForSecondsRealtime(pulseSettleSeconds);
+
+            // Only start accepting taps once the burst/settle pause is done - the button was
+            // non-interactable up to this point so a tap thrown during the burst (impatient
             // mashing, or the same tap that dismissed a preceding character-unlock card) can't
             // instantly skip past the celebration before the player has even seen the badge.
             if (tapButton != null)
@@ -194,9 +207,34 @@ namespace FarmFuryArcade.UI
 
             yield return new WaitUntil(() => _tapped);
 
+            if (_pulseRoutine != null)
+            {
+                StopCoroutine(_pulseRoutine);
+                _pulseRoutine = null;
+            }
+            if (rect != null)
+            {
+                rect.localScale = baseScale;
+            }
+
             _routine = null;
             gameObject.SetActive(false);
             onComplete?.Invoke();
+        }
+
+        /// <summary>Runs indefinitely (stopped explicitly by the caller once the player taps, or by
+        /// Show() re-invoking mid-cycle) - a steady sine-wave scale pulse, same "pulse" convention
+        /// GameplayHUD's ability-ready flash already uses elsewhere in this project.</summary>
+        private IEnumerator PulseLoop(RectTransform rect, Vector3 baseScale)
+        {
+            float t = 0f;
+            while (true)
+            {
+                t += Time.unscaledDeltaTime;
+                float wave = Mathf.Sin(t / pulseCycleSeconds * Mathf.PI * 2f);
+                rect.localScale = baseScale * (1f + wave * pulseAmplitude);
+                yield return null;
+            }
         }
     }
 }

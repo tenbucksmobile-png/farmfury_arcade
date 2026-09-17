@@ -162,7 +162,7 @@ namespace FarmFuryArcade.UI
             ("Double Slam", "Swap to Bessie, then swap to Bessie again (2nd time this maze).",
                 "Her Ground Slam radius doubles to 4 tiles!"),
             ("Crossfire", "Swap Billy → Horace.",
-                "Horace's Rear Kick sends robots flying twice as far — 8 tiles!"),
+                "Horace's next horseshoe kick (or hay bale) flies twice as far — 6 tiles!"),
             ("Iron Stampede", "Swap Bessie → Gerald.",
                 "Gerald's Puff Up smashes through nearby walls too!"),
             ("Kick and Roll", "Swap Horace → Percy.",
@@ -211,9 +211,9 @@ namespace FarmFuryArcade.UI
             { CharacterType.Ducky, "No fence, wall, or robot patrol has ever stopped Ducky — she just goes " +
                 "around them. Paddle into one water tile, pop out the other side of the maze in an " +
                 "instant, and slip past trouble the Harvest Robots never see coming." },
-            { CharacterType.Horace, "Horace doesn't run from a fight — he ends them. One well-aimed kick " +
-                "sends the nearest robot flying clear across the maze, and it doesn't get back up. " +
-                "Farmhands three fields over say they can still hear the clang." },
+            { CharacterType.Horace, "Horace doesn't run from a fight — he throws it. A spinning horseshoe " +
+                "sails clean across the maze, and any robot in its path doesn't get back up. Farmhands " +
+                "three fields over say they can still hear the clang." },
             { CharacterType.Gerald, "Gerald's temper is legendary, and when he puffs up, the whole farm " +
                 "knows it. He swells in furious pulses, and every robot dumb enough to get close during " +
                 "the display doesn't get a second chance." },

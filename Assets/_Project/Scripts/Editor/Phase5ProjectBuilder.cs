@@ -106,7 +106,8 @@ namespace FarmFuryArcade.EditorTools
             // doc comment.
             var lockerScreen = BuildLockerScreen(canvas.transform,
                 cosmeticsHats.GetComponent<CosmeticPurchaseScreen>(),
-                cosmeticsTrails.GetComponent<CosmeticPurchaseScreen>());
+                cosmeticsTrails.GetComponent<CosmeticPurchaseScreen>(),
+                cosmeticsMachines.GetComponent<CosmeticPurchaseScreen>());
             // World Purchase - a whole new 25-level world ($3.99), not a cosmetic, so it's a
             // sibling to Cosmetics on the Shop screen rather than living under the Cosmetics screen.
             // Built to a real design mockup (WorldPurchaseBackground.png, a single baked composite
@@ -3158,19 +3159,29 @@ namespace FarmFuryArcade.EditorTools
         /// (see its own removal note below) comes back. LockerScreen only ever builds a tile for an
         /// item the player actually OWNS — an unowned cosmetic gets no tile here at all right now
         /// (the suggestion banner that used to mention it elsewhere is temporarily removed).</summary>
-        /// <summary>Empty-state row size/position for BuildLockerScreen (2026-09-14) — two of the
-        /// same Hats&Caps.png/Trails.png banners CosmeticsChooserScreen uses (619x246, aspect from
-        /// CosmeticsBannerAspect), side by side instead of stacked, since this screen has less
-        /// vertical room to spare than a dedicated chooser page. Sized to comfortably fit within the
-        /// tile-scroll region's own 1200-wide band (500*2 + 40 gap = 1040, well clear of the edges)
-        /// and vertically centred on that same region (D=385..830, midpoint ~607) so it visually
-        /// replaces the empty tile grid rather than sitting in a different part of the screen.</summary>
-        private const float LockerEmptyStateBannerWidth = 500f;
-        private const float LockerEmptyStateBannerHeight = LockerEmptyStateBannerWidth / CosmeticsBannerAspect;
-        private const float LockerEmptyStateGap = 40f;
-        private const float LockerEmptyStateRegionCenterD = 607f;
+        /// <summary>Category banner row size/position for BuildLockerScreen — the three
+        /// Hats&amp;Caps.png/Trails.png/machine.png banners CosmeticsChooserScreen uses (619x246,
+        /// aspect from CosmeticsBannerAspect), side by side rather than stacked since this screen
+        /// has far less vertical room to spare than a dedicated chooser page.
+        ///
+        /// Reworked 2026-09-17 (per direct feedback) from a two-banner, empty-state-ONLY row into a
+        /// permanent three-banner row in its own bottom-aligned band: the row used to vanish the
+        /// instant the player owned a single cosmetic, taking the only in-maze shortcut to the
+        /// purchase pages with it. Every number below is derived top-down so the row can never
+        /// overlap an owned tile (1920x1080 reference canvas, D = distance from the screen's top
+        /// edge): close button top edge D=850 (160 tall, 70 bottom inset) -> 20px margin -> row
+        /// bottom D=830 -> row top D=830-height -> 20px margin -> tile scroll bottom -> tile scroll
+        /// top D=385 (its own 20px gap below the header's D=365 bottom edge). Banner width dropped
+        /// 500 -> 330 to fit three across (330*3 + 30*2 = 1050, inside the tile band's own 1200
+        /// width) AND to keep the row short enough (~131 tall) that the tile scroll region above it
+        /// still clears a full 280-tall tile row.</summary>
+        private const float LockerBannerWidth = 330f;
+        private const float LockerBannerHeight = LockerBannerWidth / CosmeticsBannerAspect;
+        private const float LockerBannerGap = 30f;
+        private const float LockerBannerRowBottomD = 830f;
+        private const float LockerBannerRowTopD = LockerBannerRowBottomD - LockerBannerHeight;
 
-        private static GameObject BuildLockerScreen(Transform canvasTransform, CosmeticPurchaseScreen hatsScreen, CosmeticPurchaseScreen trailsScreen)
+        private static GameObject BuildLockerScreen(Transform canvasTransform, CosmeticPurchaseScreen hatsScreen, CosmeticPurchaseScreen trailsScreen, CosmeticPurchaseScreen machinesScreen)
         {
             var root = CreatePanel("LockerScreen", canvasTransform, Color.black);
             root.GetComponent<Image>().sprite = LoadUiSprite("Bg_LevelSelect.png");
@@ -3226,8 +3237,14 @@ namespace FarmFuryArcade.EditorTools
             // visible height of 830-385=445 (up from 290). Cell size stays 260 (spacing 20, padding
             // 10 top/bottom, row height 280) — the extra room just means more of a multi-row grid
             // is visible before scrolling kicks in, not a cell-size change.
+            //
+            // Shortened 2026-09-17: the permanent category banner row below (see LockerBannerWidth's
+            // own doc comment) now owns the bottom band, so this region stops 20px above the row's
+            // own top edge instead of running all the way down to the close button. The remaining
+            // height still clears a full tile row (cell 260 + 10/10 padding = 280) with margin, so
+            // the first row of owned tiles is never clipped — anything beyond it scrolls as before.
             const float tileScrollTopD = 385f;
-            const float tileScrollHeight = 445f;
+            const float tileScrollHeight = LockerBannerRowTopD - 20f - tileScrollTopD;
             var tileScrollGO = new GameObject("TileScroll", typeof(RectTransform), typeof(ScrollRect));
             tileScrollGO.transform.SetParent(root.transform, false);
             AnchorTopCenter((RectTransform)tileScrollGO.transform, new Vector2(1200f, tileScrollHeight), new Vector2(0f, -tileScrollTopD));
@@ -3265,28 +3282,39 @@ namespace FarmFuryArcade.EditorTools
             tileScrollRect.movementType = ScrollRect.MovementType.Clamped;
             tileScrollRect.scrollSensitivity = 20f;
 
-            // Empty state (2026-09-14) — shown instead of the (visually-empty) tile grid when the
-            // player owns nothing yet. Two banners side by side, centred on the same region the
-            // tile grid occupies, each opening its own real purchase page directly.
-            var emptyStateRoot = new GameObject("EmptyState", typeof(RectTransform));
-            emptyStateRoot.transform.SetParent(root.transform, false);
-            StretchFull((RectTransform)emptyStateRoot.transform);
+            // Category banner row — PERMANENT (2026-09-17), not an empty state any more. Three
+            // banners evenly spaced in their own bottom-aligned container, each opening its own real
+            // purchase page directly. Parented to a dedicated CategoryBanners RectTransform sized to
+            // exactly the row's own band (not a StretchFull overlay across the whole screen, which
+            // is what the old empty-state version used) so its footprint is explicit and provably
+            // disjoint from the tile scroll region above it.
+            var bannerRoot = new GameObject("CategoryBanners", typeof(RectTransform));
+            bannerRoot.transform.SetParent(root.transform, false);
+            AnchorTopCenter((RectTransform)bannerRoot.transform,
+                new Vector2(3f * LockerBannerWidth + 2f * LockerBannerGap, LockerBannerHeight),
+                new Vector2(0f, -LockerBannerRowTopD));
 
-            const float halfGap = LockerEmptyStateGap / 2f;
-            const float halfWidth = LockerEmptyStateBannerWidth / 2f;
-            float rowTopOffset = -(LockerEmptyStateRegionCenterD - LockerEmptyStateBannerHeight / 2f);
+            const float bannerStep = LockerBannerWidth + LockerBannerGap;
+            void PlaceBanner(Button banner, float x)
+            {
+                var rt = (RectTransform)banner.transform;
+                rt.anchorMin = rt.anchorMax = new Vector2(0.5f, 0.5f);
+                rt.pivot = new Vector2(0.5f, 0.5f);
+                rt.sizeDelta = new Vector2(LockerBannerWidth, LockerBannerHeight);
+                rt.anchoredPosition = new Vector2(x, 0f);
+            }
 
-            var emptyHatsButton = CreateIconButton("EmptyStateHatsButton", emptyStateRoot.transform,
-                LoadCosmeticsSprite("Hats&Caps.png"), LockerEmptyStateBannerWidth);
-            AnchorTopCenter((RectTransform)emptyHatsButton.transform,
-                new Vector2(LockerEmptyStateBannerWidth, LockerEmptyStateBannerHeight),
-                new Vector2(-(halfWidth + halfGap), rowTopOffset));
+            var hatsBannerButton = CreateIconButton("HatsBannerButton", bannerRoot.transform,
+                LoadCosmeticsSprite("Hats&Caps.png"), LockerBannerWidth);
+            PlaceBanner(hatsBannerButton, -bannerStep);
 
-            var emptyTrailsButton = CreateIconButton("EmptyStateTrailsButton", emptyStateRoot.transform,
-                LoadCosmeticsSprite("Trails.png"), LockerEmptyStateBannerWidth);
-            AnchorTopCenter((RectTransform)emptyTrailsButton.transform,
-                new Vector2(LockerEmptyStateBannerWidth, LockerEmptyStateBannerHeight),
-                new Vector2(halfWidth + halfGap, rowTopOffset));
+            var trailsBannerButton = CreateIconButton("TrailsBannerButton", bannerRoot.transform,
+                LoadCosmeticsSprite("Trails.png"), LockerBannerWidth);
+            PlaceBanner(trailsBannerButton, 0f);
+
+            var machinesBannerButton = CreateIconButton("MachinesBannerButton", bannerRoot.transform,
+                LoadCosmeticsSprite("machine.png"), LockerBannerWidth);
+            PlaceBanner(machinesBannerButton, bannerStep);
 
             var closeButton = CreateRoundBackButton(root.transform, bottomRight: true);
             closeButton.GetComponent<Image>().sprite = LoadUiSprite("Btn_back.png");
@@ -3303,11 +3331,13 @@ namespace FarmFuryArcade.EditorTools
                 // TileContentInset for the pixel-measured interior this content is inset to match.
                 ("tileFrameSprite", LoadCosmeticsSprite("PurchaseCardFrame.png")),
                 ("equippedBadgeSprite", LoadCosmeticsSprite("EquippedBadge_Icon.png")),
-                ("emptyStateRoot", emptyStateRoot),
-                ("emptyStateHatsButton", emptyHatsButton),
-                ("emptyStateTrailsButton", emptyTrailsButton),
+                ("categoryBannerRoot", bannerRoot),
+                ("hatsBannerButton", hatsBannerButton),
+                ("trailsBannerButton", trailsBannerButton),
+                ("machinesBannerButton", machinesBannerButton),
                 ("hatsPurchaseScreen", hatsScreen),
-                ("trailsPurchaseScreen", trailsScreen));
+                ("trailsPurchaseScreen", trailsScreen),
+                ("machinesPurchaseScreen", machinesScreen));
 
             return root;
         }
@@ -3622,23 +3652,27 @@ namespace FarmFuryArcade.EditorTools
             worldUnlockBannerImage.raycastTarget = false;
             AnchorTopCenter((RectTransform)worldUnlockBannerGO.transform, new Vector2(900f, 260f), new Vector2(0f, -60f));
 
-            // Shrunk 2026-09-11 (850x850 -> 600x600) per a direct screenshot showing it overlapping
-            // the screen's own edges/safe-area guide on a real device aspect — 850 (44% of the
-            // 1920-wide reference canvas) left far too little margin once CanvasScaler's actual
-            // match-width-or-height blend narrowed the effective canvas width below 1920 on a
-            // device aspect narrower than the reference 16:9. 600 leaves real breathing room on
-            // both sides even in that case.
-            var worldBadge = CreateImage("WorldBadge", worldUnlockRoot.transform, new Color(1f, 0.84f, 0f), 600f, 600f);
+            // Shrunk again 2026-09-17 (600x600 -> 420x420), per a direct screenshot showing the
+            // badge overlapping WorldUnlockedBanner above it: the banner occupies canvas-space
+            // y=[220,480] (AnchorTopCenter, offset (0,-60), height 260, in this 1920x1080
+            // reference canvas measured from the vertical centre), and at 600x600 anchored at
+            // y-fraction 0.55 the badge's own top edge (y=354) landed 134 units INSIDE that band.
+            // Re-centred in the real free space between the banner's bottom edge (y=220) and
+            // TapHint's own top edge (y=-330, from its AnchorBottomCenter offset) instead of
+            // guessing a new anchor fraction — midpoint y=-55 with a 420 diameter leaves a genuine
+            // 65-unit gap on both sides (banner: 220-(-55+210)=65; hint: (-55-210)-(-330)=65), not
+            // just "smaller so it probably doesn't touch."
+            var worldBadge = CreateImage("WorldBadge", worldUnlockRoot.transform, new Color(1f, 0.84f, 0f), 420f, 420f);
             var worldBadgeRect = (RectTransform)worldBadge.transform;
-            worldBadgeRect.anchorMin = worldBadgeRect.anchorMax = new Vector2(0.5f, 0.55f);
+            worldBadgeRect.anchorMin = worldBadgeRect.anchorMax = new Vector2(0.5f, 0.5f);
             // CreateImage's width/height args only set a LayoutElement's preferredWidth/Height,
             // which worldUnlockRoot (a plain CreatePanel, no LayoutGroup) never reads — sizeDelta
             // must be set explicitly or the rect silently stays at Unity's default 100x100
             // regardless of what was passed in. This is why the badge rendered tiny even after its
             // burst-in/pulse animation "finished" — the animation itself was correct, it was just
             // animating up to a 100x100 target instead of the intended size.
-            worldBadgeRect.sizeDelta = new Vector2(600f, 600f);
-            worldBadgeRect.anchoredPosition = Vector2.zero;
+            worldBadgeRect.sizeDelta = new Vector2(420f, 420f);
+            worldBadgeRect.anchoredPosition = new Vector2(0f, -55f);
             worldBadge.preserveAspect = true;
             // Badge itself shouldn't swallow the tap before it reaches the root Button underneath.
             worldBadge.raycastTarget = false;
