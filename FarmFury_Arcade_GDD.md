@@ -351,7 +351,7 @@ The original design's coin-pack pricing included a 1,500-coin/$9.99 tier and pri
 
 **Architecture.** Single-scene architecture — every level is data (ScriptableObjects), swapped in place rather than loaded via separate Unity scenes. All game data (levels, characters, robots, cosmetics) loads via `Resources.LoadAll` at startup.
 
-**Data Storage — a genuine gap versus the original plan.** There is currently no backend of any kind. All player progress, coin balance, unlock state, settings, and purchase records live in local PlayerPrefs only. The original design specified a Supabase-backed cloud sync plus Firebase Analytics; neither exists. This means: no cross-device progress restore beyond platform purchase-restore, and no analytics or attribution data of any kind is currently being collected.
+**Data Storage — a genuine gap versus the original plan.** There is currently no backend of any kind. All player progress, coin balance, unlock state, settings, and purchase records live in local PlayerPrefs only. The original design specified a Supabase-backed cloud sync; that still doesn't exist, so there's no cross-device progress restore beyond platform purchase-restore. Analytics (the original design specified Firebase Analytics; Unity Gaming Services Analytics was used instead — see below) is now wired in code as of 2026-09-18, but no real data has been verified flowing yet — see the Analytics status note in Section 13.
 
 **Platform Support.** iOS (iPhone only for v1) and Android. Orientation is landscape only. Minimum iOS version confirmed at 15.0 — a deliberate choice: iOS 26 accounts for roughly 70% of active iPhones and iOS 18 another ~18%, with every version below iOS 18 collectively in the low single digits. iPad support is switched off for v1 (target device set to iPhone only): the fixed-corner HUD was never tested against iPad's Split View or Stage Manager, and no iPad hardware exists in the current dev environment to test against.
 
@@ -368,6 +368,7 @@ The original design's coin-pack pricing included a 1,500-coin/$9.99 tier and pri
 | UI Assembly | Built programmatically via a suite of custom Unity Editor tools, not hand-composed in an external design tool |
 | Ad Mediation | Unity Ads Mediation (LevelPlay), mediating AdMob + Unity Ads |
 | In-App Purchases | Unity IAP (com.unity.purchasing 5.4.2), the newer async UnityIAPServices/StoreController API |
+| Analytics | Unity Gaming Services Analytics (com.unity.services.analytics 6.3.0) — wired 2026-09-18, not yet verified end-to-end on a real device |
 | Version Control | Git / GitHub |
 
 ---
@@ -383,13 +384,13 @@ The original design's coin-pack pricing included a 1,500-coin/$9.99 tier and pri
 - All 22 IAP products registered in App Store Connect; purchases tested and confirmed working end-to-end on the iOS TestFlight build
 
 **In Progress:**
-- Ad network live/approval status on iOS — currently failing to initialise (`Error 2080`) during dashboard configuration; not yet confirmed live
+- Ad network live/approval status on iOS — LevelPlay init consistently fails (`Error 2080`) even after every individually-checkable network/instance-level dashboard setting (ironSource, AdMob, Unity Ads) was confirmed correctly configured. Both the iOS and Android apps show "Store Availability: Not live yet" (requires a real public App Store listing, which doesn't exist yet — only a TestFlight build), currently the strongest remaining lead but not confirmed as the actual mechanism. Escalated to LevelPlay/ironSource support as the next step.
 - Android: a build exists and is under active testing, but not yet confirmed working the way the iOS TestFlight build is; Android has had no purchase test yet
 - Google Play Console: app entry created, but the 22 IAP products, signing keystore, an internal-testing build, and license testers still need to be set up
 - Android-side ad network setup
+- Analytics: Unity Gaming Services Analytics is now wired in code (level/purchase/ad events), but the custom events still need to be registered in the Unity Analytics Event Manager dashboard before any real data will appear, and nothing has been verified flowing end-to-end on a device yet.
 
 **Not Started:**
-- Any analytics or attribution instrumentation
 - The Post-Launch Roadmap items in Section 14
 
 **Known Content Gaps:**
@@ -428,7 +429,7 @@ Grounded in the corrected mechanics and monetisation model above. Anywhere real 
 
 **ASO.** Title/subtitle copy should lead with the actual differentiators (farm-animal cast, ability-driven maze-chase) rather than generic "arcade" or "maze" terms. Keyword selection and competitor analysis need real ASO tooling — none estimated here.
 
-**Launch Channels & UA.** The built monetisation backbone is rewarded-ad-mediation revenue, pairing naturally with a rewarded-video-first UA strategy. Cross-promotion becomes a $0 channel once a sibling title such as Farm Fury: Rush has a real install base. Hard blocker: with no analytics or attribution SDK installed, there is currently no way to measure install source, funnel conversion, or ROAS — treat analytics/attribution instrumentation as launch-blocking, not a marketing nice-to-have.
+**Launch Channels & UA.** The built monetisation backbone is rewarded-ad-mediation revenue, pairing naturally with a rewarded-video-first UA strategy. Cross-promotion becomes a $0 channel once a sibling title such as Farm Fury: Rush has a real install base. An analytics SDK (Unity Gaming Services Analytics) is now wired in code, but nothing has been verified flowing yet and there's still no dedicated attribution/MMP SDK (Adjust, AppsFlyer, etc.) for real install-source/ROAS tracking — until both are confirmed working end to end, there's no real way to measure install source, funnel conversion, or ROAS. Treat this as launch-blocking, not a marketing nice-to-have, until verified.
 
 **Launch Timeline (dependency-ordered, not date-anchored):**
 1. Get the ad network live and approved on iOS (currently blocked on `Error 2080`); finish Android IAP/ad platform registration and produce/purchase-test a real Android device build
@@ -461,7 +462,7 @@ Aspirational planning targets carried over from the original design pass, not va
 | Risk | Mitigation |
 |---|---|
 | Feeling too similar to Pac-Man (IP concern) | Farm Fury visual identity, unique character abilities, and the combo system distinguish the game meaningfully. The developer has reassessed this directly and determined the game does not infringe — no formal legal/trademark review is being pursued. Not a legal opinion this document can substantiate; a real review remains available if circumstances change (e.g. a cease-and-desist, a platform IP complaint). |
-| No analytics or attribution exists | Newly identified in this pass, not in the original design. Treat as launch-blocking — every KPI in Section 16 and every UA decision in Section 15 depends on this being fixed first. |
+| No analytics or attribution verified working yet | Unity Gaming Services Analytics is now wired in code (2026-09-18), but events still need dashboard registration and nothing has been confirmed flowing on a real device. No dedicated attribution/MMP SDK exists at all. Treat as launch-blocking until verified — every KPI in Section 16 and every UA decision in Section 15 depends on this. |
 | Android platform readiness | IAP and ad-network registration for Android are both still in progress; iOS purchases are confirmed working on a real device, but Android has had no purchase test yet. Ad network live status is also not yet confirmed on either platform. |
 | Character balance issues | The original design's mitigation referenced live tuning via a Supabase config — no backend exists, so tuning currently requires a client update. Extensive playtesting before each release is the realistic mitigation. |
 | Cosmetic art/rendering uncertainty | Under active reconsideration — hat/skin rendering and per-character positioning have proven fiddly to tune without live visual verification during development. |
@@ -491,3 +492,4 @@ Aspirational planning targets carried over from the original design pass, not va
 - v2.3 (2026-08-29) — Noted Stage 3 of the audit's fix sequence (Xcode/iOS-SDK toolchain gate) in Section 13.
 - v2.4 (2026-09-18) — Full codebase alignment audit (9 sections checked against source directly, not against prior doc text). Corrected: Horace's ability (renamed "Rear Kick" → "Horseshoe Throw," a thrown projectile, not a knockback — and the Crossfire combo effect that goes with it); the power pellet table's implied Sunflower frequency (auto-promoted to Golden Wheat every time — Sunflower can never actually roll); Wheat Field's level range (76–99 → 76–100, a real off-by-one that silently dropped a real, playable level from the doc); World Purchase's entry point (Settings → Shop hub); the Gameplay HUD's bottom-right button stack (added the undocumented Locker button); Main Menu's button count (2 → 3, added Exit); the Cosmetics entry screen (2 categories → 3, added Machines); the SFX table (6 events → 15, added robot-defeated/combo/7-of-8-characters' ability cues); the full cosmetics roster and pricing (2 categories/7 items/$3.99-flat → 3 categories/14 items/$1.99 hats+trails, $3.99 machines); the IAP product count and table (15 → 22 products, corrected pricing); ad mediation network (AdMob-only → AdMob + Unity Ads) and its live-approval status (confirmed **not live yet** on iOS, `Error 2080`); the parental-gate status (now built and wired, no longer an open gap); device-build and purchase-testing status (a real iOS TestFlight build exists and purchases are confirmed working end to end; Android remains in progress). Where store/dashboard status couldn't be verified from code, it was asked directly rather than assumed.
   - 2026-09-18 addendum: the Pac-Man IP-risk mitigation in Sections 15 and 17 was updated — the developer reassessed the risk directly and determined the game does not infringe; no formal legal/trademark review is being pursued. Noted as a business decision, not a legal opinion this document substantiates.
+  - 2026-09-18 addendum: analytics instrumentation (Unity Gaming Services Analytics) was added in code — Sections 12, 13, 15, and 17 updated to move this from "Not Started"/"doesn't exist" to "wired in code, not yet verified flowing." Also updated the live Error 2080 ad-network investigation status in Section 13 (Store Availability "Not live yet" on both apps is the current leading suspect, escalated to LevelPlay support).
