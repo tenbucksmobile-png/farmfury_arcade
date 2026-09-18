@@ -104,7 +104,26 @@ namespace FarmFuryArcade.UI
         {
             if (IAPManager.Instance == null)
             {
+                Debug.LogWarning("[ShopController] Remove Ads tapped but IAPManager.Instance is null " +
+                    "— can't purchase.");
                 return;
+            }
+
+            // Diagnostic only, not a hard block — the store connection can still resolve after this
+            // (Start() connects asynchronously), so a tap right at launch shouldn't be refused
+            // outright. But if a real device report ever says "tapping Remove Ads does nothing," this
+            // is the first thing to check in the Console: IAPManager.HandleStoreConnected/
+            // HandleProductsFetched never firing usually means the platform's IAP agreement (App
+            // Store Connect's Paid Applications Agreement / Tax & Banking, or the Play Console
+            // equivalent) isn't active yet — the store silently never returns any products, and
+            // PurchaseProduct's own string-id fallback then fails against the live store with
+            // whatever reason HandleRemoveAdsPurchaseFailed below now actually logs.
+            if (!IAPManager.Instance.IsInitialized)
+            {
+                Debug.LogWarning("[ShopController] Remove Ads tapped before IAPManager finished " +
+                    "connecting to the store (IsInitialized is false) — the purchase attempt below " +
+                    "may fail silently from the store's side. If this keeps happening, check the " +
+                    "platform's IAP agreement/banking setup, not this code.");
             }
 
             if (ParentalGateController.Instance != null)
@@ -133,8 +152,17 @@ namespace FarmFuryArcade.UI
 
         private void HandleRemoveAdsPurchaseFailed(string productId, string reason)
         {
-            // No status text on this icon row (see CoinPurchaseScreen for purchase feedback text) —
-            // a failed Remove Ads tap just leaves the icon exactly as it was, tappable again.
+            if (productId != IAPManager.RemoveAdsProductId)
+            {
+                return;
+            }
+
+            // Real gap found and fixed (2026-09-18): this used to do nothing at all on a failure —
+            // no log, no UI change — which reads to a player as "I tapped it and nothing happened."
+            // Still no status text on this icon row (see CoinPurchaseScreen for purchase feedback
+            // text) — the icon just stays tappable again, same as before — but a failure is now at
+            // least diagnosable from the Console instead of silent.
+            Debug.LogWarning($"[ShopController] Remove Ads purchase failed: {reason}");
         }
 
         /// <summary>Disables the Remove Ads icon (and dims it) once SaveManager.AdsRemoved is

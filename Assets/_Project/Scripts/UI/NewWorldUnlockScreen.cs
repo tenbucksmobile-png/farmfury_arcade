@@ -93,9 +93,18 @@ namespace FarmFuryArcade.UI
             {
                 if (worldBackdropSprite != null)
                 {
+                    // Real bug found and fixed (2026-09-18): "the background artwork... does not
+                    // appear as rendered." This used to reuse backgroundImage.color's existing RGB
+                    // (r,g,b) and only touch alpha — but that colour was built as (0,0,0,0) (fully
+                    // transparent BLACK, see Phase5ProjectBuilder's worldUnlockBackgroundGO setup),
+                    // so every call here kept the RGB at black and only ever raised alpha. A UI
+                    // Image renders as sprite-pixels * color, so an RGB of (0,0,0) tints the sprite
+                    // to solid black regardless of alpha — the real backdrop art was never visible,
+                    // just an increasingly-opaque black rectangle. Fixed by tinting white (full RGB)
+                    // and only alpha controlling the fade, so the sprite's own real colours show
+                    // through at BackgroundAlpha as intended.
                     backgroundImage.sprite = worldBackdropSprite;
-                    var c = backgroundImage.color;
-                    backgroundImage.color = new Color(c.r, c.g, c.b, BackgroundAlpha);
+                    backgroundImage.color = new Color(1f, 1f, 1f, BackgroundAlpha);
                 }
                 else
                 {

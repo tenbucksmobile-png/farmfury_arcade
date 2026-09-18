@@ -41,8 +41,8 @@ namespace FarmFuryArcade.Abilities
         /// different mechanisms with no ordering guarantee between them).</summary>
         public bool IsActive { get; private set; }
 
-        private Vector2Int _lingeringOrigin;
-        private float _lingeringRadius;
+        private Vector3 _lingeringOriginWorld;
+        private float _lingeringRadiusWorldUnits;
 
         protected override void Execute()
         {
@@ -50,9 +50,13 @@ namespace FarmFuryArcade.Abilities
 
             bool doubled = ComboSystem.Instance != null && ComboSystem.Instance.ConsumeDoubleSlamRadius();
             float radius = doubled ? ComboRadiusTiles : BaseRadiusTiles;
-            Vector2Int origin = Movement.CurrentGridPosition;
+            // Cast from Bessie's own continuous position (transform.position), not her quantized
+            // CurrentGridPosition — see DefeatRobotsInRadius's own doc comment for why the whole
+            // sweep now works in continuous world space instead of grid cells.
+            Vector3 originWorld = transform.position;
+            float radiusWorldUnits = radius * TileMapRenderer.CellSize;
 
-            DefeatRobotsInRadius(origin, radius);
+            DefeatRobotsInRadius(originWorld, radiusWorldUnits);
 
             bool milkTankerSkinEquipped = SaveManager.Instance != null &&
                 SaveManager.Instance.GetEquippedCosmetic(CosmeticType.Skin, CharacterType.Bessie) == IAPManager.MachineTruckBessieProductId;
@@ -69,8 +73,8 @@ namespace FarmFuryArcade.Abilities
 
             CameraShake.Instance?.Shake(shakeDuration, shakeMagnitude);
 
-            _lingeringOrigin = origin;
-            _lingeringRadius = radius;
+            _lingeringOriginWorld = originWorld;
+            _lingeringRadiusWorldUnits = radiusWorldUnits;
             StartCoroutine(LingeringKillzone());
         }
 
@@ -103,30 +107,36 @@ namespace FarmFuryArcade.Abilities
         {
             if (IsActive)
             {
-                DefeatRobotsInRadius(_lingeringOrigin, _lingeringRadius, verbose: false);
+                DefeatRobotsInRadius(_lingeringOriginWorld, _lingeringRadiusWorldUnits, verbose: false);
             }
         }
 
-        // TEMP diagnostic (remove once the "Ground Slam does nothing" report is root-caused) —
-        // verbose=true (the initial cast only, not the per-frame lingering-zone re-checks, which
-        // would otherwise flood the console for 3s every cast) logs every robot's grid
-        // position/distance/state, so a failing case shows exactly where the chain breaks: no
-        // robots found at all vs. found-but-out-of-radius vs. in-radius-but-ForceDefeat no-op'd
-        // because it was already Defeated.
-        private static void DefeatRobotsInRadius(Vector2Int origin, float radius, bool verbose = true)
+        /// <summary>Real bug found and fixed (2026-09-18): "robots move straight through, sometimes
+        /// are not affected." This used to compare grid CELLS (Vector2Int.Distance against
+        /// robot.CurrentGridPosition) — but RobotBase.CurrentGridPosition only updates once a robot
+        /// fully ARRIVES at a new cell (see RobotBase.UpdateMovement), not continuously while it's
+        /// travelling between cells. A robot could visually cross all the way through the shockwave's
+        /// circle — which is drawn in continuous world space, sized to this exact radius (see
+        /// Execute's diameterWorldUnits) — for up to a full tile's worth of travel time while its
+        /// CurrentGridPosition still read the OLD, out-of-radius cell, letting it slip through
+        /// untouched or only register right at the tail end of its pass. Fixed by comparing continuous
+        /// world positions (robot.transform.position vs. the shockwave's own origin) against the
+        /// radius in world units instead of tile counts — a robot is now defeated the instant it
+        /// actually touches the visual shockwave, matching what the player sees on screen.</summary>
+        private static void DefeatRobotsInRadius(Vector3 originWorld, float radiusWorldUnits, bool verbose = true)
         {
             var allRobots = FindObjectsByType<RobotBase>(FindObjectsSortMode.None);
             if (verbose)
             {
-                Debug.Log($"[GroundSlamAbility] origin={origin} radius={radius} robotsInScene={allRobots.Length}");
+                Debug.Log($"[GroundSlamAbility] origin={originWorld} radiusWorldUnits={radiusWorldUnits} robotsInScene={allRobots.Length}");
             }
             foreach (var robot in allRobots)
             {
-                float dist = Vector2Int.Distance(origin, robot.CurrentGridPosition);
-                bool inRadius = dist <= radius;
+                float dist = Vector2.Distance(originWorld, robot.transform.position);
+                bool inRadius = dist <= radiusWorldUnits;
                 if (verbose)
                 {
-                    Debug.Log($"[GroundSlamAbility]  - {robot.name}: gridPos={robot.CurrentGridPosition} dist={dist:F2} inRadius={inRadius} stateBefore={robot.CurrentState}");
+                    Debug.Log($"[GroundSlamAbility]  - {robot.name}: worldPos={robot.transform.position} dist={dist:F2} inRadius={inRadius} stateBefore={robot.CurrentState}");
                 }
                 if (inRadius)
                 {

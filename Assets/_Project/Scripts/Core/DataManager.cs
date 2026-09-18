@@ -142,6 +142,14 @@ namespace FarmFuryArcade.Core
             return _characters.Values.OrderBy(c => (int)c.characterType);
         }
 
+        /// <summary>Ordered by RobotType's declaration order (Harvester, Scout, Patrol, Drifter,
+        /// Heavy, Drone) rather than Resources.LoadAll's arbitrary asset-loading order — same
+        /// reasoning as GetAllCharacterData. Used by CharacterStoryScreen's Robots tab.</summary>
+        public IEnumerable<RobotData> GetAllRobotData()
+        {
+            return _robots.Values.OrderBy(r => (int)r.robotType);
+        }
+
         /// <summary>Ordered by levelNumber — LevelSelectController iterates this rather than
         /// assuming a fixed level count (only a couple of LevelData assets exist so far; the
         /// GDD's 100-level roadmap is a content-authoring task, not something this method

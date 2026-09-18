@@ -268,6 +268,24 @@ namespace FarmFuryArcade.UI
             RefreshTimerText();
             RefreshCoinBalanceText();
             UpdatePowerPelletUI();
+            RotateSkipCooldownCoinBadge();
+        }
+
+        /// <summary>Continuous spin while the "pay coins to skip cooldown" badge is shown (2026-09-18,
+        /// per direct feedback) — draws the eye toward it as an interactive coin rather than a static
+        /// icon. Unscaled so it keeps spinning while Paused, same convention ReadyFlashRoutine's own
+        /// pulse uses; rotating a circular sprite's RectTransform doesn't change its raycast bounds in
+        /// any way that matters here, so this doesn't affect tap detection.</summary>
+        private const float SkipCoinBadgeRotationDegreesPerSecond = 90f;
+
+        private void RotateSkipCooldownCoinBadge()
+        {
+            if (skipCooldownCoinButton == null || !skipCooldownCoinButton.gameObject.activeSelf)
+            {
+                return;
+            }
+
+            skipCooldownCoinButton.transform.Rotate(0f, 0f, -SkipCoinBadgeRotationDegreesPerSecond * Time.unscaledDeltaTime);
         }
 
         private void HandleStateChanged(GameState newState)

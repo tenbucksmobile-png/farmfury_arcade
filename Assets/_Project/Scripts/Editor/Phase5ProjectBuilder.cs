@@ -1216,7 +1216,9 @@ namespace FarmFuryArcade.EditorTools
             // on the badge is caught by IT, not the ability button underneath — tapping anywhere
             // else on the icon still just tries a normal activation (no-op while on cooldown, same
             // as Space), tapping the coin badge specifically pays to skip the wait instead.
-            const float skipCoinBadgeSize = abilityButtonSize * 0.4f;
+            // Enlarged 0.4x -> 0.55x per direct feedback (2026-09-18) — it also spins continuously
+            // while shown (GameplayHUD.Update) to draw the eye as "tappable," not just static.
+            const float skipCoinBadgeSize = abilityButtonSize * 0.55f;
             var skipCooldownCoinButton = CreateIconButton("SkipCooldownCoinBadge", portraitButton.transform,
                 LoadUiSprite("Coin_UI.png"), skipCoinBadgeSize);
             var skipCoinBadgeRect = (RectTransform)skipCooldownCoinButton.transform;
@@ -1881,6 +1883,11 @@ namespace FarmFuryArcade.EditorTools
             var combosTabButton = CreateButton("CombosTabButton", tabBar.transform, "Combos", TabInactiveColor, 28f, tabBarHeight, out var combosTabLabel);
             var charactersTabButton = CreateButton("CharactersTabButton", tabBar.transform, "Characters", TabInactiveColor, 28f, tabBarHeight, out var charactersTabLabel);
             var cosmeticsTabButton = CreateButton("CosmeticsTabButton", tabBar.transform, "Cosmetics", TabInactiveColor, 28f, tabBarHeight, out var cosmeticsTabLabel);
+            // Robots tab (2026-09-18) — appended after Cosmetics rather than renumbered in among the
+            // existing 5, so every earlier tab's index (and any existing wiring referencing it)
+            // stays unchanged. A literal duplicate of CharactersTabButton's own pill, per direct
+            // feedback ("duplicate the character pill").
+            var robotsTabButton = CreateButton("RobotsTabButton", tabBar.transform, "Robots", TabInactiveColor, 28f, tabBarHeight, out var robotsTabLabel);
 
             // Font sizing fix (2026-09-16, per direct feedback: "on a mobile device the writing is
             // very small" for these 5 tab pills) — CreateButton's fixed 28pt was small relative to
@@ -1909,6 +1916,7 @@ namespace FarmFuryArcade.EditorTools
                          (storyTabButton, storyTabLabel), (howToPlayTabButton, howToPlayTabLabel),
                          (combosTabButton, combosTabLabel),
                          (charactersTabButton, charactersTabLabel), (cosmeticsTabButton, cosmeticsTabLabel),
+                         (robotsTabButton, robotsTabLabel),
                      })
             {
                 var tabImage = tabButton.GetComponent<Image>();
@@ -1993,6 +2001,7 @@ namespace FarmFuryArcade.EditorTools
             var combosScrollView = BuildTabScrollView("CombosScrollView", out var combosContainer);
             var charactersScrollView = BuildTabScrollView("CharactersScrollView", out var charactersContainer);
             var cosmeticsScrollView = BuildTabScrollView("CosmeticsScrollView", out var cosmeticsContainer);
+            var robotsScrollView = BuildTabScrollView("RobotsScrollView", out var robotsContainer);
 
             var closeButton = CreateRoundBackButton(root.transform);
             closeButton.GetComponent<Image>().sprite = LoadUiSprite("Btn_back.png");
@@ -2001,6 +2010,7 @@ namespace FarmFuryArcade.EditorTools
             SetRefs(story,
                 ("charactersContainer", charactersContainer),
                 ("cosmeticsContainer", cosmeticsContainer),
+                ("robotsContainer", robotsContainer),
                 ("cardPrefab", characterSelectCardPrefab),
                 ("closeButton", closeButton),
                 ("introText", introText),
@@ -2012,7 +2022,8 @@ namespace FarmFuryArcade.EditorTools
                 ("howToPlayTabButton", howToPlayTabButton), ("howToPlayTabContent", howToPlayScrollView),
                 ("combosTabButton", combosTabButton), ("combosTabContent", combosScrollView),
                 ("charactersTabButton", charactersTabButton), ("charactersTabContent", charactersScrollView),
-                ("cosmeticsTabButton", cosmeticsTabButton), ("cosmeticsTabContent", cosmeticsScrollView));
+                ("cosmeticsTabButton", cosmeticsTabButton), ("cosmeticsTabContent", cosmeticsScrollView),
+                ("robotsTabButton", robotsTabButton), ("robotsTabContent", robotsScrollView));
 
             // How to Play icons — one per GameplayTopics entry, same order (Coins/Scoring & Stars/
             // Power Crops & Robot Chains). Reuses existing art rather than commissioning anything

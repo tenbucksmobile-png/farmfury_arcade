@@ -8,8 +8,14 @@ using FarmFuryArcade.Utilities;
 
 namespace FarmFuryArcade.UI
 {
-    /// <summary>Character Story overlay — 5 tabs (Story / How to Play / Combos / Characters /
-    /// Cosmetics), each its own independent ScrollRect, switched via SelectTab. Rebuilt 2026-09-09
+    /// <summary>Character Story overlay — 6 tabs (Story / How to Play / Combos / Characters /
+    /// Cosmetics / Robots), each its own independent ScrollRect, switched via SelectTab. Robots
+    /// tab added 2026-09-18, per direct feedback ("add the robots into the character page as a
+    /// separate pill — duplicate the character pill and make it specifically explaining the
+    /// different robots"): a literal duplicate of the Characters tab's row layout (BuildRow),
+    /// just for RobotData instead of CharacterData — see BuildRobotRow's own doc comment for what
+    /// differs (robots have no CharacterSelectCard-style prefab, so it uses a plain portrait
+    /// image + an explicit title line instead). Rebuilt 2026-09-09
     /// (per direct feedback) from one long continuous scrollable list holding everything at once,
     /// which read as "a very long scrolling list" once the How to Play section (GameplayTopics —
     /// coins, scoring/stars, power crops/chains, abilities/combos) was added on top of the
@@ -59,6 +65,7 @@ namespace FarmFuryArcade.UI
         [SerializeField] private Transform howToPlayContainer;
         [SerializeField] private Transform combosContainer;
         [SerializeField] private Transform cosmeticsContainer;
+        [SerializeField] private Transform robotsContainer;
         [SerializeField] private GameObject cardPrefab;
         [SerializeField] private Button closeButton;
         [SerializeField] private TextMeshProUGUI introText;
@@ -83,6 +90,8 @@ namespace FarmFuryArcade.UI
         [SerializeField] private GameObject charactersTabContent;
         [SerializeField] private Button cosmeticsTabButton;
         [SerializeField] private GameObject cosmeticsTabContent;
+        [SerializeField] private Button robotsTabButton;
+        [SerializeField] private GameObject robotsTabContent;
 
         // Same warm-gold-active / brown-inactive tint convention used throughout this project for
         // on/off feedback with no dedicated per-state art (LockedTint, InactiveTabTint, etc.) —
@@ -222,6 +231,25 @@ namespace FarmFuryArcade.UI
                 "sent packing on contact." },
         };
 
+        // Robots tab (2026-09-18) — one blurb per RobotType, written from each robot's real AI
+        // behaviour (see CLAUDE.md's own "Per-robot targeting" table / RobotAI.cs) in the same
+        // kid-facing tone CharacterStories uses, not the internal Blinky/Pinky/Inky/Clyde naming.
+        private static readonly Dictionary<RobotType, string> RobotStories = new Dictionary<RobotType, string>
+        {
+            { RobotType.Harvester, "The most straightforward hunter in the field — Harvester beelines " +
+                "straight for you no matter which way you turn. Simple, but relentless." },
+            { RobotType.Scout, "Scout doesn't chase where you ARE — it races to cut you off a few tiles " +
+                "ahead of where you're headed. Change direction often to keep it guessing." },
+            { RobotType.Patrol, "Patrol never hunts alone. It watches where Harvester is and swings around " +
+                "to pinch you from the other side — lose the Harvester, and Patrol loses its plan." },
+            { RobotType.Drifter, "Drifter keeps its distance... until it doesn't. Get too close and it comes " +
+                "right for you; chase it off and it'll retreat back to its own corner." },
+            { RobotType.Heavy, "Slow but built tough — Heavy shrugs off a single power-crop hit and needs " +
+                "two to finally go down. What it lacks in speed, it makes up for in stubbornness." },
+            { RobotType.Drone, "Rules don't apply to Drone. It phases straight through interior walls in a " +
+                "beeline for you — though the outer fence still stops it cold." },
+        };
+
         private bool _populated;
 
         private void Awake()
@@ -250,6 +278,10 @@ namespace FarmFuryArcade.UI
             {
                 cosmeticsTabButton.onClick.AddListener(() => SelectTab(4));
             }
+            if (robotsTabButton != null)
+            {
+                robotsTabButton.onClick.AddListener(() => SelectTab(5));
+            }
         }
 
         private void OnEnable()
@@ -258,7 +290,7 @@ namespace FarmFuryArcade.UI
             SelectTab(0);
         }
 
-        /// <summary>Shows exactly one of the 5 tab content ScrollRects and tints the tab buttons to
+        /// <summary>Shows exactly one of the 6 tab content ScrollRects and tints the tab buttons to
         /// match, same "gold = active, brown = inactive" convention as everywhere else in this
         /// project uses tint-only on/off feedback (no dedicated per-tab art exists).</summary>
         private void SelectTab(int index)
@@ -268,12 +300,14 @@ namespace FarmFuryArcade.UI
             if (combosTabContent != null) combosTabContent.SetActive(index == 2);
             if (charactersTabContent != null) charactersTabContent.SetActive(index == 3);
             if (cosmeticsTabContent != null) cosmeticsTabContent.SetActive(index == 4);
+            if (robotsTabContent != null) robotsTabContent.SetActive(index == 5);
 
             SetTabButtonActive(storyTabButton, index == 0);
             SetTabButtonActive(howToPlayTabButton, index == 1);
             SetTabButtonActive(combosTabButton, index == 2);
             SetTabButtonActive(charactersTabButton, index == 3);
             SetTabButtonActive(cosmeticsTabButton, index == 4);
+            SetTabButtonActive(robotsTabButton, index == 5);
         }
 
         private static void SetTabButtonActive(Button button, bool active)
@@ -362,6 +396,24 @@ namespace FarmFuryArcade.UI
                 foreach (var data in DataManager.Instance.GetAllCharacterData())
                 {
                     BuildRow(data);
+                }
+            }
+
+            if (robotsContainer != null && DataManager.Instance != null)
+            {
+                // Same left-padding fix as charactersContainer above, scoped to this tab's own
+                // container instance only.
+                if (robotsContainer.TryGetComponent<VerticalLayoutGroup>(out var robotsLayout))
+                {
+                    robotsLayout.childAlignment = TextAnchor.UpperLeft;
+                    var padding = robotsLayout.padding;
+                    padding.left = (int)RowLeftPadding;
+                    robotsLayout.padding = padding;
+                }
+
+                foreach (var data in DataManager.Instance.GetAllRobotData())
+                {
+                    BuildRobotRow(data);
                 }
             }
 
@@ -823,6 +875,102 @@ namespace FarmFuryArcade.UI
             tmp.fontSizeMin = 14f;
             tmp.fontSizeMax = 46f;
             tmp.overflowMode = TextOverflowModes.Truncate;
+        }
+
+        /// <summary>One Robots row — a literal duplicate of BuildRow's icon-left/story-right
+        /// silhouette for RobotData instead of CharacterData, per direct feedback ("duplicate the
+        /// character pill and make it specifically explaining the different robots"). Robots have
+        /// no CharacterSelectCard-equivalent prefab (that card bakes a name/frame into its own art),
+        /// so this uses a plain square Image showing RobotData.portraitSprite — the same front-facing
+        /// art RobotVisual shows in-maze — plus an explicit title line, rather than reusing
+        /// cardPrefab. Falls back to a placeholder circle for Heavy, whose art was deleted from the
+        /// project (see CLAUDE.md's "Art status" section) — same "missing art degrades to a
+        /// placeholder, not an error" convention every other row builder on this screen uses.</summary>
+        private void BuildRobotRow(RobotData data)
+        {
+            const float iconSize = 300f;
+
+            var rowGO = new GameObject($"RobotRow_{data.robotType}", typeof(RectTransform), typeof(Image));
+            rowGO.transform.SetParent(robotsContainer, false);
+            var rowRect = (RectTransform)rowGO.transform;
+            rowRect.sizeDelta = new Vector2(RowWidth, RowHeight);
+            rowGO.GetComponent<Image>().sprite = PlaceholderSprite.Get(RowBorderColor);
+
+            var backgroundGO = new GameObject("RowBackground", typeof(RectTransform), typeof(Image));
+            backgroundGO.transform.SetParent(rowGO.transform, false);
+            var backgroundRect = (RectTransform)backgroundGO.transform;
+            backgroundRect.anchorMin = Vector2.zero;
+            backgroundRect.anchorMax = Vector2.one;
+            backgroundRect.offsetMin = new Vector2(RowBorderThickness, RowBorderThickness);
+            backgroundRect.offsetMax = new Vector2(-RowBorderThickness, -RowBorderThickness);
+            backgroundGO.GetComponent<Image>().sprite = PlaceholderSprite.Get(RowBackgroundColor);
+
+            var contentGO = new GameObject("RowContent", typeof(RectTransform));
+            contentGO.transform.SetParent(backgroundGO.transform, false);
+            var contentRect = (RectTransform)contentGO.transform;
+            contentRect.anchorMin = Vector2.zero;
+            contentRect.anchorMax = Vector2.one;
+            contentRect.offsetMin = Vector2.zero;
+            contentRect.offsetMax = Vector2.zero;
+
+            var hlg = contentGO.AddComponent<HorizontalLayoutGroup>();
+            hlg.childAlignment = TextAnchor.MiddleLeft;
+            hlg.spacing = RowSpacing;
+            hlg.padding = new RectOffset(20, 20, 10, 10);
+            hlg.childControlWidth = false;
+            hlg.childControlHeight = false;
+            hlg.childForceExpandWidth = false;
+            hlg.childForceExpandHeight = false;
+
+            var iconGO = new GameObject("Icon", typeof(RectTransform), typeof(Image));
+            iconGO.transform.SetParent(contentGO.transform, false);
+            ((RectTransform)iconGO.transform).sizeDelta = new Vector2(iconSize, iconSize);
+            var iconImage = iconGO.GetComponent<Image>();
+            iconImage.preserveAspect = true;
+            iconImage.sprite = data.portraitSprite != null
+                ? data.portraitSprite
+                : PlaceholderSprite.GetCircle(new Color(0.55f, 0.18f, 0.18f));
+
+            float innerWidth = RowWidth - RowBorderThickness * 2f - 60f - RowSpacing - iconSize - 60f;
+
+            var textColumnGO = new GameObject("TextColumn", typeof(RectTransform));
+            textColumnGO.transform.SetParent(contentGO.transform, false);
+            ((RectTransform)textColumnGO.transform).sizeDelta = new Vector2(innerWidth, RowHeight - 40f);
+            var vlg = textColumnGO.AddComponent<VerticalLayoutGroup>();
+            vlg.childAlignment = TextAnchor.MiddleLeft;
+            vlg.spacing = 12f;
+            vlg.childControlWidth = false;
+            vlg.childControlHeight = false;
+            vlg.childForceExpandWidth = false;
+            vlg.childForceExpandHeight = false;
+
+            var titleGO = new GameObject("Title", typeof(RectTransform));
+            titleGO.transform.SetParent(textColumnGO.transform, false);
+            ((RectTransform)titleGO.transform).sizeDelta = new Vector2(innerWidth, 46f);
+            var titleTmp = titleGO.AddComponent<TextMeshProUGUI>();
+            titleTmp.text = string.IsNullOrEmpty(data.displayName) ? data.robotType.ToString() : data.displayName;
+            titleTmp.font = TMP_Settings.defaultFontAsset;
+            titleTmp.fontSize = 34f;
+            titleTmp.fontStyle = FontStyles.Bold;
+            titleTmp.color = new Color(0.35f, 0.18f, 0.05f);
+            titleTmp.alignment = TextAlignmentOptions.MidlineLeft;
+
+            var bodyGO = new GameObject("Body", typeof(RectTransform));
+            bodyGO.transform.SetParent(textColumnGO.transform, false);
+            ((RectTransform)bodyGO.transform).sizeDelta = new Vector2(innerWidth, RowHeight - 40f - 46f - 12f);
+            var bodyTmp = bodyGO.AddComponent<TextMeshProUGUI>();
+            bodyTmp.text = RobotStories.TryGetValue(data.robotType, out var story) ? story : string.Empty;
+            bodyTmp.font = TMP_Settings.defaultFontAsset;
+            bodyTmp.fontSize = 26f;
+            bodyTmp.alignment = TextAlignmentOptions.TopLeft;
+            bodyTmp.color = Color.black;
+            bodyTmp.enableWordWrapping = true;
+            // Shrink-to-fit so a robot's blurb can never spill past its own bordered card, same
+            // convention every other row builder on this screen uses.
+            bodyTmp.enableAutoSizing = true;
+            bodyTmp.fontSizeMin = 14f;
+            bodyTmp.fontSizeMax = 40f;
+            bodyTmp.overflowMode = TextOverflowModes.Truncate;
         }
     }
 }
