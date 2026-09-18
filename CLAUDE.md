@@ -6,9 +6,11 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 A Pac-Man-style maze arcade game set in the Farm Fury universe. Farm animals navigate
 farm-themed mazes at night, collecting crops while evading (or chasing) Harvest Robots. See
-`FarmFury_Arcade_GDD_v2.docx` (kept alongside this project at `C:\Users\Personel\Desktop\`, not in
-this repo) for the full game design document — this file only covers what's needed to work in the
-Unity project itself. **v2 (2026-08-26) supersedes v1** — v1 (2026-07-26) had drifted significantly
+`FarmFury_Arcade_GDD.md` (repo root — a Markdown conversion of `FarmFury_Arcade_GDD_v2.docx`,
+currently v2.4) for the full game design document — this file only covers what's needed to work in
+the Unity project itself. The original `.docx` is kept alongside this project at
+`C:\Users\Personel\Desktop\`, not in this repo; the in-repo `.md` is the one to read and edit going
+forward. **v2 (2026-08-26) supersedes v1** — v1 (2026-07-26) had drifted significantly
 from the shipped build (wrong maze dimensions, wrong ability cooldowns/effects, wrong coin economy,
 cosmetics pricing, HUD layout, tech stack, and was missing the 3 purchase-gated worlds and their
 monetisation entirely); v2 was rewritten section-by-section against actual current behaviour, added
@@ -16,7 +18,28 @@ a Post-Launch Roadmap (never-built items, explicitly not implied as coming soon)
 Plan section, and notes the original Farm Fury project (physics-destruction, separate repo,
 `farmfury.git`, own CLAUDE.md at `Desktop/FarmFury/`) as shelved. Don't confuse that project's own
 GDD (`FarmFury_GDD_v2.docx`, describing a launcher/physics game) with this project's
-`FarmFury_Arcade_GDD_v2.docx` — same "v2" suffix, unrelated documents.
+`FarmFury_Arcade_GDD_v2.docx`/`FarmFury_Arcade_GDD.md` — same "v2" suffix, unrelated documents.
+**v2.4 (2026-09-18)** was a full codebase-alignment audit that found real drift (a renamed/reworked
+ability, a level-range off-by-one, an undocumented cosmetics category, a stale IAP product count,
+among others) — see that document's own Version History for the full list. **Keep it in sync going
+forward** — see the rule immediately below.
+
+## Keeping the GDD in sync
+
+`FarmFury_Arcade_GDD.md` drifted from the shipped build between v2.0 and v2.4 specifically because
+changes landed in code without a matching doc update — the v2.4 audit had to re-derive 9 sections
+from scratch against source files rather than trusting the existing text. Don't let that happen
+again: **whenever a change touches a system the GDD documents — a character/ability's effect or
+numbers, a robot's behaviour, a combo, monetisation (IAP products/prices/coin costs), level
+structure/counts, a UI screen's layout/navigation, or the tech stack — update the corresponding GDD
+section in the same commit**, and append a one-line entry to the GDD's own Document Version History
+describing what changed and why, in the same terse, factual style as the existing v2.0–v2.4 entries
+(no marketing language, explicit "not built yet" honesty, no filled-in gaps). A version bump isn't
+required for every edit — only bump the version number (and the header line) when a batch of changes
+is substantial enough to warrant one; small corrections can just add a dated bullet to the current
+version's own history entry, matching how v2.1–v2.3 were used for smaller sync passes. If you're
+unsure whether a change is GDD-relevant, err on the side of a one-line update — a stale line is
+exactly what caused the v2.4 audit to be necessary.
 
 ## Stack
 
