@@ -134,6 +134,7 @@ namespace FarmFuryArcade.Core
 
             CurrentLevel = level;
             _cropsRemaining = level.totalCropsRequired;
+            AnalyticsManager.Instance?.LogLevelStart(levelIndex, level.levelName, isDailyChallenge);
             ScoreManager.Instance.ResetMazeScore();
             DeathCountThisMaze = 0;
             // Audit finding F2.4: every traced retry path already resolves ReviveDecisionPending
@@ -459,6 +460,7 @@ namespace FarmFuryArcade.Core
                 LastLevelResult = ComputeLevelResult(elapsed);
 
                 int levelNumber = CurrentLevel.levelNumber;
+                AnalyticsManager.Instance?.LogLevelComplete(levelNumber, LastLevelResult.stars, LastLevelResult.totalScore, elapsed);
 
                 SaveManager.Instance.AddCoins(LastLevelResult.coinsEarned);
                 SaveManager.Instance.SetLevelStars(levelNumber, LastLevelResult.stars);
@@ -485,6 +487,10 @@ namespace FarmFuryArcade.Core
             else
             {
                 LastLevelResult = new LevelResult { elapsedSeconds = elapsed };
+                if (CurrentLevel != null)
+                {
+                    AnalyticsManager.Instance?.LogLevelFailed(CurrentLevel.levelNumber, elapsed);
+                }
             }
         }
 

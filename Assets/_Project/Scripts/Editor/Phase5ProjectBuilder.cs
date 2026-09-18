@@ -409,6 +409,10 @@ namespace FarmFuryArcade.EditorTools
             // until that manual store-side setup happens (same "infrastructure ready, real config
             // later" convention AdManager already established).
             if (managersGO.GetComponent<IAPManager>() == null) managersGO.AddComponent<IAPManager>();
+            // Analytics (2026-09-18): connects to Unity Gaming Services and starts data collection
+            // on Start() — see AnalyticsManager's own class doc comment for the COPPA/consent
+            // reasoning and the "custom events must be registered on the dashboard first" gotcha.
+            if (managersGO.GetComponent<AnalyticsManager>() == null) managersGO.AddComponent<AnalyticsManager>();
         }
 
         /// <summary>AudioManager's musicSourceA/musicSourceB/sfxPool were never actually assigned

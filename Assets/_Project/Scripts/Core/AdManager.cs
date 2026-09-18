@@ -241,6 +241,12 @@ namespace FarmFuryArcade.Core
                 {
                     StopCoroutine(timeoutRoutine);
                 }
+                // Only a confirmed-granted reward counts as a real ad exposure — a closed-early/
+                // failed ad shouldn't inflate ad_shown counts.
+                if (result)
+                {
+                    AnalyticsManager.Instance?.LogAdShown("rewarded", placementName);
+                }
                 onResult?.Invoke(result);
             }
 
@@ -353,7 +359,13 @@ namespace FarmFuryArcade.Core
                 onReady?.Invoke();
             }
 
-            void HandleClosed(LevelPlayAdInfo info) => Resolve();
+            void HandleClosed(LevelPlayAdInfo info)
+            {
+                // Only OnAdClosed (not OnAdDisplayFailed) means it actually showed — matches
+                // ShowRewardedAd's own "only a confirmed exposure counts" convention above.
+                AnalyticsManager.Instance?.LogAdShown("interstitial", "between_levels");
+                Resolve();
+            }
             void HandleDisplayFailed(LevelPlayAdInfo info, LevelPlayAdError error) => Resolve();
 
             _interstitialAd.OnAdClosed += HandleClosed;

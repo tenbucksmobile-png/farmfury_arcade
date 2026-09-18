@@ -396,6 +396,7 @@ namespace FarmFuryArcade.Core
             }
 
             _storeController.ConfirmPurchase(order);
+            AnalyticsManager.Instance?.LogPurchase(productId, GetPriceString(productId));
             OnPurchaseSucceeded?.Invoke(productId);
         }
 
