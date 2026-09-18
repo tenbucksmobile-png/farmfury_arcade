@@ -747,6 +747,22 @@ the actual sweep out of the coroutine (which now only tracks `IsActive`'s timing
 `LateUpdate()` runs in the same frame, so the sweep now always sees each robot's fully current
 position for that frame.
 
+**Real bug found and fixed (2026-09-18): "robots move straight through [Ground Slam], sometimes
+are not effected" — a distinct bug from the 2026-09-15 one above, in the sweep's own distance
+check rather than its timing.** `DefeatRobotsInRadius` compared grid *cells*
+(`Vector2Int.Distance` against `robot.CurrentGridPosition`) — but `RobotBase.CurrentGridPosition`
+only updates once a robot fully *arrives* at a new cell (see `RobotBase.UpdateMovement`), not
+continuously while it's travelling between cells. A robot could visually cross all the way through
+the shockwave's circle — drawn in continuous world space, sized to the ability's real radius — for
+up to a full tile's worth of travel time while its `CurrentGridPosition` still read the OLD,
+out-of-radius cell, letting it slip through untouched or only register right at the tail end of its
+pass. Fixed by comparing continuous world positions (`robot.transform.position` vs. the shockwave's
+own origin, both captured from `transform.position` at cast time rather than a grid cell) against
+the radius in world units instead of tile counts — a robot is now defeated the instant it actually
+touches the visual shockwave, matching what the player sees on screen. Applies to both the initial
+cast sweep and the `LateUpdate` lingering-zone sweep (and to the Milk Tanker cosmetic reskin, which
+shares the same kill logic — only the sprite differs).
+
 **Real bug found and fixed (2026-09-15): "the [Horace] rear kick doesn't seem to be effective."**
 `RearKickAbility.FindNearestRobotWithinManhattan` searched every `RobotBase` in the scene with no
 state filter — a Defeated robot's GameObject is never destroyed (`RobotBase.Disappear` only
@@ -978,6 +994,14 @@ Two coin-spend features exist:
   `HandleSkipCooldownClicked()` unchanged; tapping the ability icon anywhere else still just
   attempts a normal activation (a no-op while on cooldown, same as Space).
 
+  **Enlarged and given a continuous spin (2026-09-18)**, per direct feedback — `skipCoinBadgeSize`
+  went from `abilityButtonSize * 0.4` to `* 0.55` (`Phase5ProjectBuilder.BuildGameplayHUD`), and
+  `GameplayHUD.Update()` gained `RotateSkipCooldownCoinBadge()`, rotating the badge's `transform` at
+  a flat 90°/sec (`Time.unscaledDeltaTime`, so it keeps spinning through Pause) whenever it's
+  actually visible — draws the eye toward it as a tappable coin rather than a static icon. Rotating
+  a circular sprite's `RectTransform` doesn't meaningfully change its raycast bounds, so this has no
+  effect on tap detection.
+
 Both spends go through the existing `SaveManager.SpendCoins`/`AddCoins` — no new economy plumbing,
 just two new call sites.
 
@@ -1127,6 +1151,23 @@ than a real remaining gap — not yet re-tested after waiting. If it persists af
 re-check every network shows a clean Active status with no warning icon (the Unity Ads service-
 account setup hit its own credential error mid-session and may not have landed cleanly) before
 assuming a new root cause.
+
+**Error 2080 CONFIRMED STILL OCCURRING as of 2026-09-18, disproving the propagation-delay
+theory** (a real device screenshot, well over 24h after the dashboard changes above, still showed
+it). Ruled out as a code cause the same day: `Game.unity`'s `androidAppKey`/`iosAppKey` were
+grepped directly and confirmed byte-for-byte unchanged from the dashboard-verified values —
+nothing in that session's own `Phase5ProjectBuilder.BuildAll` reruns (unrelated UI work) touched
+`AdManager`'s serialized fields (`AddManagers` only adds the component if missing, never
+recreates/resets an existing one). Walking the live dashboard with the user found the real gap this
+time: the Instances overview page showed **ironSource** (the legacy, deprecated direct network)
+with active instances for all 3 formats, but **Google (AdMob)** and **UnityAds** both showed zero
+enabled instances — only the deprecated network was actually live. Drilling into AdMob's own
+network page showed 3 instances (`Banner_iOS`/`Interstitial_iOS`/`Rewarded_iOS`) already configured
+with real Ad Unit IDs and "Active"-looking status icons, but the page had an unsaved **Save/Cancel**
+bar still showing at the bottom — the configuration had never actually been committed. This class of
+bug (a form that LOOKS configured/active but was never saved) is worth checking first on any future
+"LevelPlay won't init" report before assuming a new root cause — see [[ads_not_firing_investigation]]
+for the full session-by-session history.
 
 **`AdManager`** (parallel to `AudioManager` — one singleton on `GameManagers`, owns all SDK
 interaction so gameplay code never touches `Unity.Services.LevelPlay` directly) wraps:
@@ -3155,6 +3196,17 @@ Veg Patch's own scenery despite the scene's own serialized `mazeArtSets` data ha
 NOT fire on a repro, the cause is somewhere in `Image` rendering rather than data resolution and
 needs a different investigation.
 
+**That "somewhere in `Image` rendering" cause was found and fixed 2026-09-18.**
+`NewWorldUnlockScreen`'s `backgroundImage.color` was built as `(0,0,0,0)` — fully transparent
+BLACK, not white (see `Phase5ProjectBuilder`'s `worldUnlockBackgroundGO` setup) — and `Show()` used
+to reuse that existing color's RGB and only touch alpha (`new Color(c.r, c.g, c.b, BackgroundAlpha)`).
+Since a UI `Image` renders as `sprite pixels * color`, an RGB of `(0,0,0)` tints ANY assigned sprite
+to solid black regardless of alpha — so the real backdrop art was never visible, just an
+increasingly-opaque black rectangle, which is why data resolution (the warning above) was always
+clean while the screenshot still showed a plain black background. Fixed by tinting white
+(`new Color(1f, 1f, 1f, BackgroundAlpha)`) so the sprite's own real colours show through at
+`BackgroundAlpha` as intended, with only alpha controlling the fade.
+
 **`ChooseCharacterScreen`** (real uGUI, `Scripts/UI/ChooseCharacterScreen.cs` +
 `CharacterSelectCard.cs`) replaced the Phase 4 `CharacterSwapUI` `OnGUI` panel. Not a
 `SceneTransitionManager` screen — like Pause/Settings, it's an overlay shown/hidden directly
@@ -3359,18 +3411,32 @@ that read as oversized against every other tab — walked back per direct feedba
 fixed 220-tall row with the art enlarged only within its own left column (300 wide, up from the
 original 130/190 square), "very much like the character cards."
 
-`CharacterStoryScreen` now has 5 independent `ScrollRect`s (Story/How to Play/Combos/Characters/
-Cosmetics — in that tab-bar order, index 0-4), each built by its own `BuildTabScrollView` local
-function in `Phase5ProjectBuilder.BuildCharacterStoryPlaceholder`, sharing the same footprint and
-toggled via `SetActive` by `CharacterStoryScreen.SelectTab`. A `TabBar` (`CreateHorizontalGroup`,
+`CharacterStoryScreen` now has 6 independent `ScrollRect`s (Story/How to Play/Combos/Characters/
+Cosmetics/Robots — in that tab-bar order, index 0-5), each built by its own `BuildTabScrollView`
+local function in `Phase5ProjectBuilder.BuildCharacterStoryPlaceholder`, sharing the same footprint
+and toggled via `SetActive` by `CharacterStoryScreen.SelectTab`. A `TabBar` (`CreateHorizontalGroup`,
 one `CreateButton` per tab — its `HorizontalLayoutGroup` auto-divides the fixed-width bar across
-however many buttons it holds, so adding the 4th/5th tab needed no width retuning) sits above them;
+however many buttons it holds, so adding a 6th tab needed no width retuning) sits above them;
 tab buttons tint gold (active) / brown (inactive) — same on/off tint-only convention as `LockedTint`
 elsewhere, no dedicated tab art yet. Defaults to the Story tab on every `OnEnable`. `BuildRow`/
-`BuildInfoRow`/`BuildComboRow`/`BuildCosmeticRow` each take an explicit parent `Transform` instead
-of targeting one shared list. Running **Phase 5 > Build All** is required to pick up any tab-count/
-layout change here (a genuine layout/hierarchy change, not just script logic) — re-run **Wire
-Uploaded Art** afterward if you use it.
+`BuildInfoRow`/`BuildComboRow`/`BuildCosmeticRow`/`BuildRobotRow` each take an explicit parent
+`Transform` instead of targeting one shared list. Running **Phase 5 > Build All** is required to
+pick up any tab-count/layout change here (a genuine layout/hierarchy change, not just script logic)
+— re-run **Wire Uploaded Art** afterward if you use it.
+
+**Robots tab added (2026-09-18)**, per direct feedback ("add the robots into the character page as
+a separate pill — duplicate the character pill and make it specifically explaining the different
+robots"). `BuildRobotRow` is a literal duplicate of the Characters tab's `BuildRow` layout
+(icon-left/story-right, same bordered-card composition) for `RobotData` instead of `CharacterData`
+— robots have no `CharacterSelectCard`-equivalent prefab (that card bakes a name/frame into its own
+art), so this uses a plain square `Image` showing `RobotData.portraitSprite` (the same front-facing
+art `RobotVisual` shows in-maze) plus an explicit title line, falling back to a placeholder circle
+for Heavy (whose art was deleted from the project — see "Art status" below). Blurbs
+(`CharacterStoryScreen.RobotStories`, keyed by `RobotType`) are written from each robot's real AI
+behaviour (see "Per-robot targeting" under Robot AI below) in the same kid-facing tone
+`CharacterStories` uses, not the internal Blinky/Pinky/Inky/Clyde naming. `DataManager` gained
+`GetAllRobotData()` (ordered by `RobotType`'s declaration order, same convention as
+`GetAllCharacterData()`) to back it.
 
 **Several other Settings-family screens got sizing/position fixes (2026-08-21), all per direct
 screenshot review, no new mockup:**
@@ -3562,6 +3628,21 @@ owned/dim `RefreshRemoveAdsButtonState` logic that used to live on `SettingsPane
 (`Cosmetics_Icon.png`, new — opens `CosmeticsHubScreen`, replacing the old large `Btn_Cosmetics.png`
 banner button). The 4 coin-pack icons and that Cosmetics banner button that used to live directly
 on this screen are gone — see `CoinPurchaseScreen` below for where the coin packs went.
+
+**Real gap found and fixed (2026-09-18): a failed Remove Ads purchase gave zero feedback** —
+`ShopController.HandleRemoveAdsPurchaseFailed` used to do nothing at all on `IAPManager.
+OnPurchaseFailed` (no log, no UI change), which reads to a player exactly like "I tapped it and
+nothing happened." Investigated end-to-end (`ShopController` → `ParentalGateController` →
+`IAPManager.PurchaseProduct` → grant → `SaveManager.AdsRemoved`) — no code bug found anywhere in
+the chain, wiring/gating/grant logic are all correct. Added `Debug.LogWarning` calls instead: one
+when `HandleRemoveAdsTapped` fires before `IAPManager.IsInitialized` (store hasn't finished
+connecting yet — usually means the platform's IAP agreement/banking isn't active, see the note
+below), and one logging the actual failure `reason` string in `HandleRemoveAdsPurchaseFailed`. Still
+no status text on this icon row (see `CoinPurchaseScreen` for purchase feedback text) — the icon
+just stays tappable again — but a failure is now at least diagnosable from the Console. If Remove
+Ads still can't be purchased with a clean Console, the most likely cause is store-side: App Store
+Connect's Paid Applications Agreement / Tax & Banking not fully active (or the Play Console
+equivalent), which silently blocks all IAP fetch/purchase with no in-app error surfaced.
 
 **`CoinPurchaseScreen`** (new) — the actual coin-pack IAP surface, extracted wholesale from the old
 `ShopController`: `ShopBanner.png` header, the 4 coin-pack plaques (100/500/5000/15000, unchanged),
