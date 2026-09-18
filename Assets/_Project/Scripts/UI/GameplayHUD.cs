@@ -269,36 +269,45 @@ namespace FarmFuryArcade.UI
             RefreshTimerText();
             RefreshCoinBalanceText();
             UpdatePowerPelletUI();
-            RotateSkipCooldownCoinBadge();
+            FlipSkipCooldownCoinBadge();
         }
 
-        /// <summary>Continuous spin while the "pay coins to skip cooldown" badge is shown (2026-09-18,
-        /// per direct feedback) — draws the eye toward it as an interactive coin rather than a static
-        /// icon. Unscaled so it keeps spinning while Paused, same convention ReadyFlashRoutine's own
-        /// pulse uses.
+        /// <summary>Continuous coin-flip while the "pay coins to skip cooldown" badge is shown
+        /// (2026-09-18, per direct feedback) — draws the eye toward it as an interactive coin rather
+        /// than a static icon. Unscaled so it keeps animating while Paused, same convention
+        /// ReadyFlashRoutine's own pulse uses.
         ///
-        /// Spins skipCooldownCoinIcon (a centred-pivot child), NOT skipCooldownCoinButton's own
-        /// transform — real bug found and fixed 2026-09-18, per direct feedback ("I meant that it
-        /// rotates on its own axis, not in a circle"). skipCooldownCoinButton's RectTransform has a
-        /// (1,1) pivot (its own top-right corner), needed so it pokes out correctly from the ability
-        /// icon's corner via anchoredPosition — but RectTransform rotation always happens around its
-        /// own pivot, so rotating THAT transform swung the whole badge in an arc around that
-        /// off-centre corner instead of spinning it in place like a coin. skipCooldownCoinIcon is a
-        /// child with a centred (0.5,0.5) pivot built specifically to fix this (see
-        /// Phase5ProjectBuilder.BuildGameplayHUD) — rotating it spins the coin visually in place
-        /// while the outer button's own position/raycast area is completely unaffected.
-        ///
-        /// Slowed 90->55 deg/sec per direct feedback ("not too fast") — one full spin every ~6.5s.</summary>
-        private const float SkipCoinBadgeRotationDegreesPerSecond = 55f;
+        /// Real bug found and fixed 2026-09-18 (second pass): the first version used
+        /// RectTransform.Rotate on the Z axis, which spins a flat 2D sprite like a wheel/clock hand
+        /// — reads as "rotating around and around," not a coin flip. Per direct feedback ("the coin
+        /// should spin from side to side, not rotate around and around"), this is now a classic 2D
+        /// coin-flip fake instead: oscillate localScale.x through zero (1 -> 0 -> -1 -> 0 -> 1),
+        /// leaving Y/Z scale untouched. Passing through 0 makes the coin appear to go edge-on then
+        /// flip to its mirrored face, exactly like a real coin flipping on its vertical axis, with no
+        /// circular motion at all. Still animates skipCooldownCoinIcon (the centred-pivot child, not
+        /// skipCooldownCoinButton's own off-centre-pivot transform — see that field's own doc
+        /// comment) so the flip happens around the coin's own centre.</summary>
+        private const float SkipCoinBadgeFlipCyclesPerSecond = 0.35f; // one full flip-and-back every ~2.9s
 
-        private void RotateSkipCooldownCoinBadge()
+        private Vector3 _skipCoinBadgeBaseScale = Vector3.one;
+        private bool _skipCoinBadgeBaseScaleCaptured;
+
+        private void FlipSkipCooldownCoinBadge()
         {
             if (skipCooldownCoinButton == null || !skipCooldownCoinButton.gameObject.activeSelf || skipCooldownCoinIcon == null)
             {
                 return;
             }
 
-            skipCooldownCoinIcon.Rotate(0f, 0f, -SkipCoinBadgeRotationDegreesPerSecond * Time.unscaledDeltaTime);
+            if (!_skipCoinBadgeBaseScaleCaptured)
+            {
+                _skipCoinBadgeBaseScale = skipCooldownCoinIcon.localScale;
+                _skipCoinBadgeBaseScaleCaptured = true;
+            }
+
+            float flip = Mathf.Cos(Time.unscaledTime * SkipCoinBadgeFlipCyclesPerSecond * Mathf.PI * 2f);
+            skipCooldownCoinIcon.localRotation = Quaternion.identity;
+            skipCooldownCoinIcon.localScale = new Vector3(_skipCoinBadgeBaseScale.x * flip, _skipCoinBadgeBaseScale.y, _skipCoinBadgeBaseScale.z);
         }
 
         private void HandleStateChanged(GameState newState)
