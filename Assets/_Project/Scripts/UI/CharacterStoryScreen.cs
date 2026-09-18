@@ -413,6 +413,14 @@ namespace FarmFuryArcade.UI
 
                 foreach (var data in DataManager.Instance.GetAllRobotData())
                 {
+                    // Heavy is defined in data but excluded from every level's spawn curve (its
+                    // art was removed from the project — see CLAUDE.md's "Art status") — a player
+                    // will never actually encounter one in a real maze, so it shouldn't appear in
+                    // this "meet the robots" list either (2026-09-18, per direct feedback).
+                    if (data.robotType == RobotType.Heavy)
+                    {
+                        continue;
+                    }
                     BuildRobotRow(data);
                 }
             }

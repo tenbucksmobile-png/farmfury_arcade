@@ -57,6 +57,7 @@ namespace FarmFuryArcade.UI
         [SerializeField] private GameObject levelFailedScreen;
         [SerializeField] private RevivePromptController revivePrompt;
         [SerializeField] private Button skipCooldownCoinButton;
+        [SerializeField] private RectTransform skipCooldownCoinIcon;
         [SerializeField] private Button watchAdSkipCooldownButton;
 
         /// <summary>Monetisation: coin cost of the "skip cooldown" coin badge overlaid on the
@@ -274,18 +275,30 @@ namespace FarmFuryArcade.UI
         /// <summary>Continuous spin while the "pay coins to skip cooldown" badge is shown (2026-09-18,
         /// per direct feedback) — draws the eye toward it as an interactive coin rather than a static
         /// icon. Unscaled so it keeps spinning while Paused, same convention ReadyFlashRoutine's own
-        /// pulse uses; rotating a circular sprite's RectTransform doesn't change its raycast bounds in
-        /// any way that matters here, so this doesn't affect tap detection.</summary>
-        private const float SkipCoinBadgeRotationDegreesPerSecond = 90f;
+        /// pulse uses.
+        ///
+        /// Spins skipCooldownCoinIcon (a centred-pivot child), NOT skipCooldownCoinButton's own
+        /// transform — real bug found and fixed 2026-09-18, per direct feedback ("I meant that it
+        /// rotates on its own axis, not in a circle"). skipCooldownCoinButton's RectTransform has a
+        /// (1,1) pivot (its own top-right corner), needed so it pokes out correctly from the ability
+        /// icon's corner via anchoredPosition — but RectTransform rotation always happens around its
+        /// own pivot, so rotating THAT transform swung the whole badge in an arc around that
+        /// off-centre corner instead of spinning it in place like a coin. skipCooldownCoinIcon is a
+        /// child with a centred (0.5,0.5) pivot built specifically to fix this (see
+        /// Phase5ProjectBuilder.BuildGameplayHUD) — rotating it spins the coin visually in place
+        /// while the outer button's own position/raycast area is completely unaffected.
+        ///
+        /// Slowed 90->55 deg/sec per direct feedback ("not too fast") — one full spin every ~6.5s.</summary>
+        private const float SkipCoinBadgeRotationDegreesPerSecond = 55f;
 
         private void RotateSkipCooldownCoinBadge()
         {
-            if (skipCooldownCoinButton == null || !skipCooldownCoinButton.gameObject.activeSelf)
+            if (skipCooldownCoinButton == null || !skipCooldownCoinButton.gameObject.activeSelf || skipCooldownCoinIcon == null)
             {
                 return;
             }
 
-            skipCooldownCoinButton.transform.Rotate(0f, 0f, -SkipCoinBadgeRotationDegreesPerSecond * Time.unscaledDeltaTime);
+            skipCooldownCoinIcon.Rotate(0f, 0f, -SkipCoinBadgeRotationDegreesPerSecond * Time.unscaledDeltaTime);
         }
 
         private void HandleStateChanged(GameState newState)

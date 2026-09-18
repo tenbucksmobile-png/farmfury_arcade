@@ -1218,13 +1218,39 @@ namespace FarmFuryArcade.EditorTools
             // as Space), tapping the coin badge specifically pays to skip the wait instead.
             // Enlarged 0.4x -> 0.55x per direct feedback (2026-09-18) — it also spins continuously
             // while shown (GameplayHUD.Update) to draw the eye as "tappable," not just static.
+            //
+            // Spins a CHILD icon, not this root Button's own RectTransform (2026-09-18 fix, real
+            // bug) — this root's pivot is (1,1) (its own top-right corner), needed so
+            // anchoredPosition (10,10) pokes it out from the ability icon's corner correctly.
+            // RectTransform rotation always happens around its own pivot, so rotating THIS
+            // RectTransform swung the whole badge in an arc around that off-centre corner ("rotates
+            // in circles," per direct feedback) instead of spinning in place like a coin. The root
+            // stays a plain transparent raycast target (same "invisible root, art on a child"
+            // convention `portraitButton`/`PortraitArt` already use above) sized/positioned via its
+            // own pivot as before; a child `Icon` with a centred (0.5,0.5) pivot carries the actual
+            // sprite and is what `GameplayHUD.RotateSkipCooldownCoinBadge` now spins.
             const float skipCoinBadgeSize = abilityButtonSize * 0.55f;
             var skipCooldownCoinButton = CreateIconButton("SkipCooldownCoinBadge", portraitButton.transform,
-                LoadUiSprite("Coin_UI.png"), skipCoinBadgeSize);
+                null, skipCoinBadgeSize);
             var skipCoinBadgeRect = (RectTransform)skipCooldownCoinButton.transform;
             skipCoinBadgeRect.anchorMin = skipCoinBadgeRect.anchorMax = new Vector2(1f, 1f);
             skipCoinBadgeRect.pivot = new Vector2(1f, 1f);
             skipCoinBadgeRect.anchoredPosition = new Vector2(10f, 10f);
+            skipCooldownCoinButton.GetComponent<Image>().color = Color.clear;
+
+            var skipCoinBadgeIconGO = new GameObject("Icon", typeof(RectTransform), typeof(Image));
+            skipCoinBadgeIconGO.transform.SetParent(skipCooldownCoinButton.transform, false);
+            var skipCoinBadgeIconRect = (RectTransform)skipCoinBadgeIconGO.transform;
+            skipCoinBadgeIconRect.anchorMin = Vector2.zero;
+            skipCoinBadgeIconRect.anchorMax = Vector2.one;
+            skipCoinBadgeIconRect.pivot = new Vector2(0.5f, 0.5f);
+            skipCoinBadgeIconRect.offsetMin = Vector2.zero;
+            skipCoinBadgeIconRect.offsetMax = Vector2.zero;
+            var skipCoinBadgeIconImage = skipCoinBadgeIconGO.GetComponent<Image>();
+            skipCoinBadgeIconImage.sprite = LoadUiSprite("Coin_UI.png");
+            skipCoinBadgeIconImage.preserveAspect = true;
+            skipCoinBadgeIconImage.raycastTarget = false;
+
             skipCooldownCoinButton.gameObject.SetActive(false);
 
             // Swap Character button (2026-08-27) — moved here from Pause (see GameplayHUD's own doc
@@ -1501,6 +1527,7 @@ namespace FarmFuryArcade.EditorTools
             so.FindProperty("chainCounterText").objectReferenceValue = chainText;
             so.FindProperty("revivePrompt").objectReferenceValue = revivePrompt;
             so.FindProperty("skipCooldownCoinButton").objectReferenceValue = skipCooldownCoinButton;
+            so.FindProperty("skipCooldownCoinIcon").objectReferenceValue = skipCoinBadgeIconRect;
             so.FindProperty("watchAdSkipCooldownButton").objectReferenceValue = watchAdSkipCooldownButton;
             so.ApplyModifiedPropertiesWithoutUndo();
 
