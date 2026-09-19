@@ -1090,6 +1090,12 @@ layout a long balance still wrapped, so `CoinBalanceText` now has `enableWordWra
 shrink-to-fit auto-sizing (24pt–64pt) + `TextOverflowModes.Truncate` — guarantees a single line that
 shrinks rather than wraps, regardless of digit count.
 
+### Analytics (Unity Gaming Services) (`Scripts/Core/AnalyticsManager.cs`)
+
+`AnalyticsManager` (parallel singleton to `AdManager`/`IAPManager`/`AudioManager`, on `GameManagers`) wraps `com.unity.services.analytics` 6.3.0. Five custom events, each wired at a real call site: `level_start` (`GameManager.LoadLevel`: `level_index`, `level_name`, `is_daily_challenge`), `level_complete` (`GameManager.EndLevel(true)`: `level_index`, `stars`, `score`, `elapsed_seconds`), `level_failed` (`EndLevel(false)`: `level_index`, `elapsed_seconds`), `purchase` (`IAPManager.HandlePurchasePendingInner`: `product_id`, `price`), `ad_shown` (`AdManager` rewarded/interstitial success paths only, never a skipped/failed attempt: `placement_type`, `placement_name`). Uses `StartDataCollection()` deliberately, not `EndUserConsent.SetConsentState()` (its precompiled type's signature couldn't be verified; only a soft `[Obsolete]` warning). Every player is treated as child-directed, same UGS project-level toggle as LevelPlay; not separately confirmed for Analytics.
+
+**Dashboard registration is done (2026-09-19)** — all 5 events + parameters exist in Unity Cloud > Analytics > Event Manager. Gotchas if re-registering (e.g. a new environment): parameters can't be created from the Parameters tab, only via an event's "+ Assign Parameter > Create New Parameter"; tick "Enable event" before Confirm; "Copy event to other environments" avoids redoing per-environment. **Event/parameter names in code and dashboard must match exactly** — a rename in `AnalyticsManager.cs` silently drops data. **Not yet verified flowing on a real device** (Android test planned first); check the Events list for Valid Events counts (can lag up to ~1h).
+
 ### Ad mediation (LevelPlay + AdMob) (`Scripts/Core/AdManager.cs`)
 
 Unity's **Ads Mediation (LevelPlay)** package (`com.unity.services.levelplay`) is installed,
