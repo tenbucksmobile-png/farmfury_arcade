@@ -1508,8 +1508,8 @@ that real art (wired in `ArtWiringBuilder.WireMonetisationArt`) instead of the t
 **App identifiers (set 2026-08-23):** `com.farmfury.arcade` for both iOS Bundle Identifier and
 Android Package Name (`ProjectSettings.asset` → `applicationIdentifier` → `iPhone`/`Android`), under
 the `Tenbucks_Mobile` developer account. Chosen over a company-name-based ID
-(`com.tenbucksmobile.farmfuryarcade`) since the franchise's own domain (`www.farmfury.games` —
-corrected 2026-09-08; earlier notes in this file said `farmfury.com`, which was wrong) will
+(`com.tenbucksmobile.farmfuryarcade`) since the franchise's own domain (`www.farmfurygames.com` — the domain actually purchased,
+confirmed 2026-09-15 and live 2026-09-20; earlier notes said `farmfury.com`, then `farmfury.games`, both wrong) will
 eventually host this game plus two siblings (Rush, and the main Farm Fury title) — this pattern
 gives them clean sibling IDs (`com.farmfury.rush`, `com.farmfury.main`) later. **The Android Package
 Name is permanent once published to Google Play — there is no changing it after the first upload**,
@@ -1628,7 +1628,7 @@ per direct feedback.
 **Store-side setup status (updated 2026-08-25):** all 12 products (the original 5 + 7 cosmetic IAPs
 added since — see "Cosmetics Store UI" below) are now **registered in App Store Connect** for iOS
 (bundle ID `com.farmfury.arcade`, under the `Tenbucks_Mobile` team, app name `FarmFury_Arcade`,
-domain `www.farmfury.games` will eventually host all 3 Farm Fury titles). **Google Play Console / Android
+domain `www.farmfurygames.com` will eventually host all 3 Farm Fury titles). **Google Play Console / Android
 registration is in progress** — the app itself is already created in Play Console
 (`com.farmfury.arcade`), but the 12 products, signing keystore, internal-testing build, and license
 testers still need to be set up there the same way they were for iOS; follow the same product
@@ -1661,7 +1661,7 @@ not a code change — no action needed here unless Android ad unit IDs need upda
 
 FarmFury franchise merchandise (T-shirts, towels, cups, posters) — a distinct revenue stream from
 everything else in this section, added 2026-09-08. **Fulfillment and checkout live entirely on the
-external `www.farmfury.games` website** — there is no in-app storefront, no cart, no payment
+external `www.farmfurygames.com` website** — there is no in-app storefront, no cart, no payment
 handling in this project, and this is deliberate: physical goods are exempt from Apple/Google's
 in-app-purchase requirement (Apple Guideline 3.1.3), so this is NOT registered as an IAP product and
 does not touch `IAPManager.cs` at all. Keeping it structurally separate from the real-money IAP
@@ -1685,13 +1685,14 @@ it doesn't live there anymore. **It previously lived on Level Select's world-sel
 removed from Main Menu after a gameplay screenshot showed it sitting awkwardly in front of
 `landing.png`'s baked-in character art.
 
-Tapping it calls `Application.OpenURL("https://www.farmfury.games/merch")` (system browser, not an
+Tapping it calls `Application.OpenURL("https://www.farmfurygames.com/")` (system browser, not an
 in-app WebView — same hand-off pattern `LegalScreen.cs` uses for Privacy Policy/Terms), gated behind
 the existing `ParentalGateController` arithmetic gate first — same convention every real-money
 purchase surface in this project already uses, since this app already treats every player as
 child-directed and a merch link is a real external checkout even though nothing is charged in-app.
-**Update `MerchBannerController.MerchUrl`** once the real page path on `farmfury.games` is
-confirmed — it's a placeholder guess as of this writing.
+**Update `MerchBannerController.MerchUrl`** once a real store page exists on `farmfurygames.com` —
+the site (live 2026-09-20) has no `/merch` path (its Shop is an in-page stage, not a URL), so the
+constant points at the home page rather than a 404.
 
 ### Cosmetics system (`Scripts/Data/CosmeticData.cs`, `CosmeticType.cs`, `Scripts/Gameplay/CharacterCosmeticRenderer.cs`, `Scripts/Editor/CosmeticWiringBuilder.cs`)
 
@@ -3747,10 +3748,12 @@ visual gaps both line up with the rest of the family — same "box aspect must m
 convention documented throughout this file (see the `LogoImage`/Coin Balance Chip entries above).
 
 **`LegalScreen`** (new) — Settings' Policies icon opens this: a Privacy Policy button that opens the
-published draft policy page via `Application.OpenURL` (this project has no in-app web view — see
-the `privacy-policy-link` memory for the URL and its "pending legal review" caveat), and a Terms of
-Use button left non-interactable/"Coming Soon" until that copy actually exists (same placeholder
-convention Character Story used before it had real content).
+policy page via `Application.OpenURL` (this project has no in-app web view), and a Terms of Use
+button that does the same. **Both point at studio-owned pages as of 2026-09-20**:
+`https://www.farmfurygames.com/privacy/` and `https://www.farmfurygames.com/terms/`, replacing the
+private claude.ai artifact links (an iOS-audit P0). Both pages still carry "Draft — pending legal
+review". See "Website & legal pages (farmfurygames.com)" for how they are hosted and what is still
+unverified. The same Privacy Policy URL must be entered in App Store Connect and Play Console.
 
 **Real art landed for this screen (2026-09-09).** Header swapped from a plain "Legal" TMP text
 title to the real `Legal.png` wood-sign banner via `CreateHeaderSign` — its 666×375 aspect (~1.776)
@@ -5656,6 +5659,57 @@ not a project bug) — if the log already shows the expected `PASS`/`FAIL` lines
 doesn't exit within a minute or so, it's safe to kill (`taskkill /F /IM Unity.exe /T` on Windows)
 and reopen the project normally to confirm nothing was corrupted.
 
+## Website & legal pages (farmfurygames.com)
+
+Live 2026-09-20 on **domains.co.za cPanel hosting** (domain and hosting are both there; the domain's
+DNS already pointed at the hosting server, so no DNS changes were needed). Everything is static files
+in `public_html` (also reachable as `www`):
+
+```
+public_html/
+  index.html  styles.css  ds-bundle.js       the home page (a "site-build" export from Claude Design)
+  assets/{brand,characters,combos,props,video}/...
+  privacy/index.html                          Privacy Policy  -> https://www.farmfurygames.com/privacy/
+  terms/index.html                            Terms of Use    -> https://www.farmfurygames.com/terms/
+```
+
+The two policy pages are plain hand-written HTML (system fonts, no external requests — deliberately no
+Google Fonts, since loading it sends visitors' IPs to Google on a children's privacy page). Their
+source is only `Desktop\farmfurygames-policies\` and the server; **they are not in this repo**. Edit
+them in cPanel File Manager (right-click > Edit) or re-upload; there is no build step.
+
+**Gotchas hit getting the site up (each cost a round trip):**
+- The server serves only a file named exactly `index.html`. The design export first arrived as
+  `farm-fury-website-standalone.html`, which 404'd at the root until renamed.
+- That "standalone" export contains scripts and fonts but NOT images/video: it rendered a blue page
+  with broken-image icons until the real `site-build` folder (index.html + `assets/`) was uploaded.
+  The page asks for `assets/brand/*.png`, `assets/video/cluck-celebration.mp4` etc. as relative paths,
+  so the `assets` folder must sit beside `index.html`.
+- A `.zip` uploaded through File Manager is NOT unpacked, and once got renamed to `index.html`
+  (a `PK` file served as the home page). Upload the zip under its own name, then use **Extract**.
+- `Cache-Control: max-age=86400` — after editing a file, hard-refresh (Ctrl+F5) before deciding it
+  didn't change.
+- The home page compiles JSX in the browser with Babel loaded from `unpkg.com` (the export's own
+  README says so): slow, and it depends on that CDN. Pre-building would remove both.
+- The footer links were `href="#"` in the export; they are now `/privacy/`, `/terms/` and
+  `mailto:support@farmfurygames.com`, edited directly in `index.html` (the `SiteFooter` component).
+
+**Verify a deploy without a browser:** request each URL (expect 200; a directory URL without a trailing
+slash redirects to the slash form) and compare sizes — a wrong file is usually obvious from its size or
+first bytes (a `PK` header = a zip; a 37-byte body = a URL pasted into the file instead of HTML).
+Headless Edge can screenshot the live site: `msedge --headless=new --screenshot=out.png <url>`.
+
+**Still open:**
+- The mailboxes named on the site and in the policies (`privacy@`, `legal@`, `support@` at
+  `farmfurygames.com`) must actually exist (cPanel > Email Accounts / Forwarders).
+- Governing law is set (Terms §13: Republic of South Africa); no court/venue/arbitration clause exists.
+- Privacy Policy §06 (Analytics) describes Unity Analytics and its 5 events. The statements about what
+  Unity collects and that events are "not used to target ads" are unverified, and the child-directed
+  setting for Analytics was never confirmed (see "Analytics" above) — needs review before submission.
+- Company name: the site footer says "tenbucks-mobile (Pty) Ltd"; the policies say "Tenbucks Mobile".
+  Use the registered legal name in both.
+- App Store Connect / Play Console fields (Privacy Policy URL, Support URL, Marketing URL) must match.
+
 ## Android device testing (local build, USB + adb)
 
 No Cloud Build exists for Android; builds are made in the Editor. Verified working 2026-09-20 on an
@@ -5719,6 +5773,15 @@ solely because the build number was stale — do not repeat this. Whenever the u
 about to rebuild/retrigger a Cloud Build (or asks you to review a just-finished build log), bump
 this number as the FIRST action, before doing anything else — do not wait to be asked specifically
 to bump it, and do not just recommend bumping it after reading a failed log.
+
+**Current state (2026-09-20):** `buildNumber.iPhone` is **5**, committed. History: 5 was first bumped
+for an ad-testing Cloud Build, reverted to 4 once because "5 was never actually built", then set to 5
+again once 4 had been used for the cosmetic-render test build (`e3dddf3`). Nothing in git or these notes
+shows a build actually uploaded at 5, but Apple's and Unity Cloud's records are not visible from this
+repo — **check TestFlight / Cloud Build history before triggering; if 5 was already uploaded, bump to 6.**
+The first iOS rebuild after 2026-09-20 also carries: the corrected LevelPlay app key and real Ad Unit
+IDs (see "Ad mediation"), and the policy links now pointing at `farmfurygames.com`. Cloud Build pulls
+from `main` on GitHub, so commit and push first or those changes will not be in the build.
 
 Set up 2026-08-28/29 so a real device archive/TestFlight build doesn't require owning a Mac (the
 user has an active Apple Developer Program membership but no Mac). Fully configured as of

@@ -4,7 +4,7 @@ using UnityEngine.UI;
 namespace FarmFuryArcade.UI
 {
     /// <summary>Main Menu's "Visit Our Store" banner (2026-09-08) — a promotional link-out to the
-    /// FarmFury franchise's real-goods merchandise store on www.farmfury.games. Fulfillment/checkout
+    /// FarmFury franchise's real-goods merchandise store on www.farmfurygames.com. Fulfillment/checkout
     /// live entirely on that website; this app never touches payment, so this is deliberately NOT an
     /// IAP product and NOT registered in IAPManager — physical goods are exempt from Apple/Google's
     /// in-app purchase requirement (Apple Guideline 3.1.3), same accepted pattern as any app linking
@@ -23,8 +23,10 @@ namespace FarmFuryArcade.UI
     {
         [SerializeField] private Button merchButton;
 
-        // Update this if the real merch page ends up at a different path once it's live.
-        private const string MerchUrl = "https://www.farmfury.games/merch";
+        // The site (farmfurygames.com, live 2026-09-20) has no /merch page yet — its Shop is an
+        // in-page stage, not a URL — so this points at the home page rather than a 404. Change to
+        // the real store path once one exists.
+        private const string MerchUrl = "https://www.farmfurygames.com/";
 
         private void Awake()
         {

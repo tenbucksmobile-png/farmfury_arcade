@@ -18,12 +18,12 @@ namespace FarmFuryArcade.UI
         [SerializeField] private Button termsOfUseButton;
         [SerializeField] private Button closeButton;
 
-        // Draft policy pages, grounded in this project's actual AdManager/IAPManager/SaveManager
-        // data handling and purchase flows — see the privacy-policy-link memory. Both marked
-        // "Draft — pending legal review" on their own pages; swap these URLs if either page is
-        // ever moved instead of republished to the same one.
-        private const string PrivacyPolicyUrl = "https://claude.ai/code/artifact/3cf566fc-e324-4c7a-a552-81391e24aa5d";
-        private const string TermsOfUseUrl = "https://claude.ai/code/artifact/ada226cb-625c-4875-8969-e34f71355f9d";
+        // Studio-owned hosting (2026-09-20): plain static pages in public_html on farmfurygames.com,
+        // replacing the private claude.ai artifact links. Both still marked "Draft — pending legal
+        // review" on their own pages. The same Privacy Policy URL is what App Store Connect and
+        // Play Console's Privacy Policy field must hold — keep all three in sync.
+        private const string PrivacyPolicyUrl = "https://www.farmfurygames.com/privacy/";
+        private const string TermsOfUseUrl = "https://www.farmfurygames.com/terms/";
 
         private void Awake()
         {
