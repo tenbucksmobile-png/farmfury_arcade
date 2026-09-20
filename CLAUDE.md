@@ -5659,6 +5659,62 @@ not a project bug) — if the log already shows the expected `PASS`/`FAIL` lines
 doesn't exit within a minute or so, it's safe to kill (`taskkill /F /IM Unity.exe /T` on Windows)
 and reopen the project normally to confirm nothing was corrupted.
 
+## iOS submission prep and Cloud Build blocker (2026-09-20)
+
+**Build blocker.** Starting the "FarmFury Arcade iOS" target in Unity Build Automation is refused:
+"Something went wrong when submitting your build(s) - FarmFury Arcade iOS: build error, failed to
+execute build", with a note that "During your Unity DevOps free trial, building is limited to Windows and
+macOS STANDARD machines ... please upgrade to DevOps". Facts established:
+- The target is already on a Standard machine, and the account's usage page shows **100% of the free trial
+  used**. The Standard-vs-Premium note is not the cause.
+- A valid card is on file and Administration > Billing & cost > Cost and usage shows **$0.98** of Build
+  Automation spend for September 2026, so billing itself is connected. What is missing is an
+  entitlement (paid plan / pay-as-you-go enabled), not a card.
+- Unity's sources (support article 34748492914964, "Understanding New Unity DevOps charges (from Mar 1,
+  2026)", and a Unity Discussions thread) say: **100 free Mac (Standard) minutes per month, renewing each
+  month**; overage for macOS Standard is **$0.07 per build minute**; the free plan "locks you out" once
+  exceeded. One search summary says pay-as-you-go must be enabled through a checkout flow, which is
+  probably not the same as merely adding a payment method (unconfirmed).
+- **Unverified for this account:** the dashboard says "free trial", not "free plan", so its terms may differ,
+  and a $210 DevOps-subscription figure was mentioned but not confirmed. The Usage allowance page (same
+  Administration menu) should show the real reset date. The user is researching this outside the session.
+
+**Ways out:** (1) enable pay-as-you-go / ask Unity Support; (2) wait for the monthly reset; (3) have the
+Editor build the **Xcode project on Windows** (`PlaybackEngines/iOSSupport` is installed; `IOSPostProcessBuild`
+still runs) and archive/sign/upload on a rented cloud Mac - the Editor cannot produce a signed IPA on
+Windows because that step needs Xcode; (4) GitHub Actions with a macOS runner (needs a Unity licence and
+the signing files as secrets). Switching the Editor's platform to iOS makes Unity re-save `Game.unity` and
+several prefabs - do not commit that churn.
+
+**State of `main` for the next iOS build (commit `63721b9` or later):** corrected LevelPlay iOS app key
+and Ad Unit IDs, policy links on `farmfurygames.com`, `buildNumber.iPhone` = 5 (see the note in "Unity Cloud
+Build"), iOS build profile `m_Development: 0`. The Cloud Build target's own Development Build option must
+also be off: `enableTestSuite`/`autoLaunchTestSuite` are true in the scene and only compiled out of
+non-development builds, so a development build would pop LevelPlay's Test Suite at launch during review.
+
+**App Store Connect version page - values and open decisions:**
+- Privacy Policy URL `https://www.farmfurygames.com/privacy/`; Support and Marketing URL
+  `https://www.farmfurygames.com/` (create `support@farmfurygames.com` first); bundle ID
+  `com.farmfury.arcade`; copyright must use the registered company name (still unconfirmed).
+- Keywords (94 of 100 chars; the app name is already indexed, so it is not repeated):
+  `maze,robots,animals,pellet,puzzle,retro,chase,crops,cartoon,family,casual,collect,cute,harvest`
+- Landscape screenshot sizes (verify against the upload box, Apple changes them): 6.9" 2868x1320 or
+  2796x1290; 6.5" 2688x1242 or 2778x1284. One set is enough. An iPhone 11 capture (1792x828) has the same
+  aspect ratio as 2688x1242 and can be resized to it. Show real gameplay, not just menus. Android
+  captures (1612x720) are unusable.
+- **Open decision - Kids Category or not.** As understood, Apple's Kids rules bar third-party ads and
+  third-party analytics and require a parental gate before any link out of the app or purchase. The app
+  has LevelPlay ads and Unity Analytics, and Settings > Policies opens the browser without a gate
+  (purchases and the merch link are gated). Verify against Apple's current guideline text before choosing.
+- App Privacy labels must be cross-checked against the ad/analytics SDKs' own privacy manifests.
+- IAP: products must be attached to the first version and Ready to Submit. Code defines 22; an older
+  note said 18 were registered in App Store Connect - confirm none are missing.
+- Description, review notes and age-rating answers were drafted in conversation, not saved in the repo.
+  Review notes state: no sign-in; Shop = Settings > Shop with Cash/Worlds/Ads/Cosmetics; Restore
+  Purchases on the Cash screen; parental gate before purchases and the merch link; child-directed ads via
+  LevelPlay; ad fill may be limited pre-launch (AdMob shows "Limited ad serving, Add store").
+- After approval: click Add store in AdMob for both apps and set LevelPlay's Store availability to live.
+
 ## Website & legal pages (farmfurygames.com)
 
 Live 2026-09-20 on **domains.co.za cPanel hosting** (domain and hosting are both there; the domain's
