@@ -1371,6 +1371,9 @@ namespace FarmFuryArcade.EditorTools
             // from dpadSpacing every pass has preserved (insetY-spacing=70): 110+70=180.
             const float dpadButtonSize = 140f;
             const float dpadSpacing = 110f;
+            // Shared by iOS and Android. The Android test phone (1612x720) clips the Left button at
+            // this value, but iOS is correct, so the Android nudge is applied at runtime instead —
+            // see DirectionalPadController.AndroidShiftRight.
             const float dpadInsetX = 70f;
             const float dpadInsetY = 180f;
             Vector2 dpadCenter = new Vector2(dpadInsetX, dpadInsetY);

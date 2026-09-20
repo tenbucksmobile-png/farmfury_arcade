@@ -1125,6 +1125,20 @@ succeeds without a real build running. Value is Android's own distinct AdMob App
 own `ca-app-pub-1264425755955045~9222731930`). Picked up via `useCustomMainManifest: 1` in
 `ProjectSettings.asset` (was `0`, silently ignoring the file if it existed at all).
 
+**CORRECTION (2026-09-20): that manifest shipped with no launcher activity, so the APK installed but
+could not be opened.** `useCustomMainManifest: 1` makes `Assets/Plugins/Android/AndroidManifest.xml`
+REPLACE Unity's generated manifest (it is not a merged overlay, despite what this file's old header
+comment claimed). The 2026-09-17 version contained only the AdMob meta-data tag, so nothing declared
+a `MAIN`/`LAUNCHER` activity: `adb install` succeeded, but `adb shell monkey -p com.farmfury.arcade
+-c android.intent.category.LAUNCHER 1` reported "No activities found to run" and
+`cmd package resolve-activity` returned "No activity found". Found on the first real Android install
+of the local build. Fixed by basing the file on Unity's own template
+(`<Unity>/Editor/Data/PlaybackEngines/AndroidPlayer/Apk/UnityManifest.xml`) with the AdMob tag added.
+Only the `UnityPlayerGameActivity` block is kept because `androidApplicationEntry: 2` is GameActivity
+(the template says to keep only the block matching Application Entry). **If Application Entry is ever
+switched to Activity, swap in the `UnityPlayerActivity` block instead** - declaring the wrong one
+reproduces this exact "installs but won't launch" symptom.
+
 **Android's custom Gradle templates were also silently disabled the whole time (found and fixed
 2026-09-17).** `Assets/Plugins/Android/mainTemplate.gradle`/`settingsTemplate.gradle`/
 `gradleTemplate.properties` already had the Android Resolver's correctly-populated AdMob mediation
@@ -1163,6 +1177,46 @@ then reverted immediately once directly corrected — the real separator is an u
 what was already wired). **If this exact confusion resurfaces, trust the underscore form already
 in `AdManager` and re-verify by zooming into the dashboard's own small grey ID text before
 assuming it needs to change** — it's easy to misread at normal screenshot resolution.
+
+**CORRECTION (2026-09-20, found on an Android device): the paragraph above was wrong for the ad unit
+IDs, and it hid the real cause of the earlier "ads never fire" reports.** `Rewarded_Android`,
+`Interstitial_Android`, `Banner_Android` (and the iOS equivalents) are the ad unit NAMES shown in the
+LevelPlay dashboard, not IDs. The SDK's `LevelPlayRewardedAd`/`InterstitialAd`/`BannerAd`
+constructors need the real **Ad Unit ID** - a 16-character lowercase alphanumeric string shown
+under each ad unit's name in **Setup > Ad units** (copy icon next to it). Passing the name fails with
+`LevelPlayAdError: 626, Invalid ad unit id`. The 2026-09-14 suspicion that these looked like
+placeholders was right; the 2026-09-17 "already correct" conclusion was a mix-up between a name
+and an ID. Values now in `Game.unity`:
+
+| | App Key | Rewarded | Interstitial | Banner |
+|---|---|---|---|---|
+| Android | `27a4d0de5` | `to4jdxfmxjycdnfv` | `4q8wtohlyb0jf4oo` | `z21kopbcwhbr6eyo` |
+| iOS | `28316642d` | `f3ljt71likohmw18` | `u3uls6qosvk2ta12` | `swx89u0ra6b318b9` |
+
+**The app keys were also wrong.** The scene held `androidAppKey: 800356804` / `iosAppKey: 800356807`
+(numeric keys from the older ironSource-era registration); the current LevelPlay dashboard lists the
+apps as `27a4d0de5` (Android) and `28316642d` (iOS). On Android the wrong key produced `LevelPlay
+Error 2110, "HTTP Error - Code: 400, Message: Bad Request"` (the init request reaches the server and
+is rejected); with the right key, init succeeds (`[AdManager] LevelPlay initialized.`). **The
+2026-09-18 conclusion further down - that Error 2080 on iOS is "confirmed a dashboard- or
+account-side issue, not fixable by editing this project's code" - should be treated as unproven:**
+iOS was sending the same kind of wrong key. The iOS key/IDs were corrected in code but iOS has NOT
+been rebuilt or retested, so whether this also resolves 2080 is unknown.
+
+`SceneCleanupBuilder.WireAdManagerConfig` holds these values (it hardcodes all eight); run
+**Farm Fury Arcade > Wire AdManager Config** after editing it, save the scene, and rebuild - the
+scene does not update by itself. **Where to read them:** LevelPlay dashboard > Apps (App Key under
+the app name, with a platform icon) and Setup > Ad units (Ad Unit ID under each unit's name).
+
+**Status after the fixes (Android, 2026-09-20):** init OK, all three ad units accepted, but every
+load returns `LevelPlayAdError: 509, Mediation No fill` and no ad has been shown. The Google Mobile
+Ads SDK is present and starting (`GoogleMobileAds: GMA(BG)` in logcat), so the AdMob adapter is built
+in. logcat gives no per-network reason. Untested candidates: the apps are "Temp"/"Not live yet" and
+AdMob may not serve an unpublished app; all traffic is COPPA-flagged, which removes most demand;
+newly created ad units can take time to fill. To get a real per-network reason, `AdManager` now opens
+LevelPlay's Test Suite after init in Development Builds/Editor only (`autoLaunchTestSuite`, gated by
+`EnableTestSuite`, which is hard-false in a release build) - screenshot it to read each network's
+status. That auto-launch has not been exercised on a device yet.
 
 **Also found: the app's "Store availability" was set to "Not live yet"** on the legacy
 platform.ironsrc.com dashboard (a separate, older app registration from the one described above —
@@ -4974,6 +5028,20 @@ values from the GDD's color palette where one exists (e.g. walls = Wall Brown `#
     confirmed correct this round. `dpadInsetY` kept at the same relative clearance from
     `dpadSpacing` every pass has preserved (`insetY-spacing=70`): 110+70=180.
 
+  - **Android-only nudge (2026-09-20).** On the Android test phone (Honor, 1612x720 landscape) the
+    shared layout clipped the Left button: `dpadInsetX` 70 minus `dpadSpacing` 110 puts its left
+    edge at -40 canvas units. The iOS layout is correct as-is, so the shared `dpadInsetX` stays 70
+    and the offset is applied at runtime under `#if UNITY_ANDROID`:
+    `DirectionalPadController.ApplyAndroidShift` (shift = `AndroidShiftRight`, 55) is called from
+    `DirectionalPadController.Awake` for the four D-pad buttons and from `GameplayHUD.Awake` for
+    Pause (Pause is positioned relative to the Up button, so it moves with the pad). No
+    `Phase5ProjectBuilder.BuildAll` needed. **Overlap with the maze was checked by calculation only,
+    not on a device** (the screenshot came out black): the maze's left edge is ~352px (tile =
+    0.105 x 720 = 75.6px, 12 tiles, centred), the Right button's right edge is
+    (70+55+110+140) x 0.748 canvas scale = ~280px, plus up to a 64px notch inset on the left if the
+    phone's cutout is on that side (=344px, ~8px clear). 55 was chosen over 70, which left ~4px in
+    that worst case. Re-check on a real screenshot; lower `AndroidShiftRight` if it touches the board.
+
   - **Real bug found the same session, in `DirectionalPadController.cs` — distinct from the
     keyboard-sync bug above (that one made the D-pad never move the character at all; this is the
     opposite, a direction getting stuck ON).** Reported live: Percy kept moving right with nothing
@@ -5587,6 +5655,35 @@ The play-mode run occasionally hangs *after* logging all results (something in E
 not a project bug) — if the log already shows the expected `PASS`/`FAIL` lines and the process
 doesn't exit within a minute or so, it's safe to kill (`taskkill /F /IM Unity.exe /T` on Windows)
 and reopen the project normally to confirm nothing was corrupted.
+
+## Android device testing (local build, USB + adb)
+
+No Cloud Build exists for Android; builds are made in the Editor. Verified working 2026-09-20 on an
+Honor phone (Android 14, 720x1612 portrait-native, 64px top notch), gameplay confirmed.
+
+1. Phone: enable Developer options > USB debugging, USB in File-transfer mode, accept the RSA prompt.
+2. `adb` ships with Unity:
+   `& "C:\Program Files\Unity\Hub\Editor\6000.5.0f1\Editor\Data\PlaybackEngines\AndroidPlayer\SDK\platform-tools\adb.exe" devices`
+   (PowerShell needs the quotes and the `&`). Expect `<serial>  device`; `unauthorized` = accept the
+   phone prompt.
+3. Build: Build Profiles > Android, Development Build on (needed for the ad Test Suite), Build App
+   Bundle OFF (an `.aab` will not install directly), IL2CPP + ARM64. First IL2CPP build ~20 min.
+4. Install/launch: `adb install -r <file>.apk`, then
+   `adb shell monkey -p com.farmfury.arcade -c android.intent.category.LAUNCHER 1`.
+   `INSTALL_FAILED_UPDATE_INCOMPATIBLE` = `adb uninstall com.farmfury.arcade` first.
+5. Logs: `adb logcat -c`, relaunch, then `adb logcat -d`, filtered (`Select-String`) on
+   `LevelPlaySDK`, `AdManager`, or `Unity`. Filter to the app with `--pid` set to the output of
+   `adb shell pidof com.farmfury.arcade`; unfiltered logcat is mostly OEM noise.
+
+**Known build flake:** one build failed inside `il2cpp.exe` with `System.AccessViolationException`
+in `Mono.Cecil.Cil.CodeReader` (during C++ conversion, before any manifest step). It was not caused
+by a project change; retrying the same build succeeded. If it recurs, use Clean Build, or delete
+`Library/Bee/artifacts/Android` with Unity closed.
+
+Symptom index (each was hit and fixed): installs but "No activities found" = manifest lacks the
+launcher activity; `Error 2110 ... 400 Bad Request` = wrong App Key; `Error 626 Invalid ad unit id`
+= a name was supplied instead of the Ad Unit ID; `509 Mediation No fill` = init and IDs are fine,
+the networks returned nothing.
 
 ## Android multi-window — deliberately deferred, not fixed (cross-platform audit finding C3.8)
 

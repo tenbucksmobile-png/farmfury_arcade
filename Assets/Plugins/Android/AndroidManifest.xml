@@ -1,21 +1,34 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-  Android-side equivalent of the iOS GADApplicationIdentifier fix
-  (Assets/_Project/Scripts/Editor/IOSPostProcessBuild.cs). Google Mobile Ads' SDK verifies this
-  meta-data exists in the manifest at process start and throws/crashes if it's missing - the exact
-  same crash-on-launch class that hit the iOS build before that fix landed (2026-09-14).
+  Custom main manifest (ProjectSettings useCustomMainManifest = 1). Based on Unity 6000.5.0f1's own
+  template (Editor/Data/PlaybackEngines/AndroidPlayer/Apk/UnityManifest.xml). Because this file
+  REPLACES Unity's generated manifest, it must carry the launcher activity itself - an earlier
+  version had only the AdMob meta-data tag, so the APK installed with no launcher activity and
+  could not be opened (found 2026-09-20 on the first real device install).
 
-  This file is Unity's "library manifest" overlay for Assets/Plugins/Android - Unity's Gradle
-  export merges it into the generated AndroidManifest.xml automatically. Kept deliberately minimal
-  (just the one meta-data tag) so there's as little surface area as possible for a merge conflict
-  against whatever Unity/the Android Resolver generates on top of it.
+  Only the GameActivity block is kept because ProjectSettings androidApplicationEntry = 2
+  (GameActivity). If Application Entry is ever switched to Activity, swap this for the
+  com.unity3d.player.UnityPlayerActivity block from the template instead.
 
-  Android has its own distinct AdMob App ID (confirmed 2026-09-17, via the AdMob console) -
-  ca-app-pub-1264425755955045~5627051526 - separate from iOS's own
-  ca-app-pub-1264425755955045~9222731930 wired into Info.plist by IOSPostProcessBuild.cs.
+  The AdMob APPLICATION_ID meta-data is the Android equivalent of the iOS GADApplicationIdentifier
+  fix (Assets/_Project/Scripts/Editor/IOSPostProcessBuild.cs): Google Mobile Ads throws at process
+  start if it is missing. Android's own AdMob App ID (confirmed 2026-09-17 via the AdMob console)
+  is separate from iOS's ca-app-pub-1264425755955045~9222731930.
 -->
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
     <application>
+        <activity android:name="com.unity3d.player.UnityPlayerGameActivity"
+                  android:theme="@style/BaseUnityGameActivityTheme">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+            <meta-data android:name="unityplayer.UnityActivity" android:value="true" />
+            <meta-data android:name="android.app.lib_name" android:value="game" />
+        </activity>
+
         <meta-data
             android:name="com.google.android.gms.ads.APPLICATION_ID"
             android:value="ca-app-pub-1264425755955045~5627051526" />

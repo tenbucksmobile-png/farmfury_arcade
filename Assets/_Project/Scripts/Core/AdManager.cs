@@ -40,6 +40,11 @@ namespace FarmFuryArcade.Core
                  "freely for QA; it can no longer ship enabled by accident.")]
         [SerializeField] private bool enableTestSuite = true;
 
+        [Tooltip("When enableTestSuite is active (Editor/Development Build only), also open " +
+                 "LevelPlay's Test Suite screen automatically once init succeeds, to see each ad " +
+                 "network's real load status. Untick to stop it popping up on every launch.")]
+        [SerializeField] private bool autoLaunchTestSuite = true;
+
         [Tooltip("Levels between forced interstitials, per the GDD's 5-8 range.")]
         [SerializeField] private int interstitialLevelInterval = 6;
 
@@ -135,6 +140,15 @@ namespace FarmFuryArcade.Core
             CreateRewardedAd();
             CreateInterstitialAd();
             CreateBannerAd();
+
+            // QA diagnostic (Development Builds/Editor only — EnableTestSuite is hard-false in a
+            // release build): a persistent "509 Mediation No fill" gives no per-network reason in
+            // logcat, but LevelPlay's own Test Suite screen shows each network's real status/error.
+            if (EnableTestSuite && autoLaunchTestSuite)
+            {
+                try { LevelPlay.LaunchTestSuite(); }
+                catch (System.Exception e) { Debug.LogWarning($"[AdManager] LaunchTestSuite failed: {e.Message}"); }
+            }
         }
 
         private void HandleInitFailed(LevelPlayInitError error)

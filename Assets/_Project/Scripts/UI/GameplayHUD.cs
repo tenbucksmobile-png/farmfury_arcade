@@ -110,6 +110,8 @@ namespace FarmFuryArcade.UI
         private void Awake()
         {
             pauseButton.onClick.AddListener(OpenPauseMenu);
+            // Pause is laid out relative to the D-pad's Up button, so it shifts with the pad.
+            DirectionalPadController.ApplyAndroidShift((RectTransform)pauseButton.transform);
             // The portrait doubles as the on-screen ability button (Space has no touch
             // equivalent) — wired here, not in the editor-script builder, since a listener added
             // directly from editor-script code doesn't survive a scene save/reload.

@@ -45,14 +45,16 @@ namespace FarmFuryArcade.EditorTools
             }
 
             var so = new SerializedObject(adManager);
-            SetIfNotEmpty(so, "androidAppKey", "800356804");
-            SetIfNotEmpty(so, "androidRewardedAdUnitId", "Rewarded_Android");
-            SetIfNotEmpty(so, "androidInterstitialAdUnitId", "Interstitial_Android");
-            SetIfNotEmpty(so, "androidBannerAdUnitId", "Banner_Android");
-            SetIfNotEmpty(so, "iosAppKey", "800356807");
-            SetIfNotEmpty(so, "iosRewardedAdUnitId", "Rewarded_iOS");
-            SetIfNotEmpty(so, "iosInterstitialAdUnitId", "Interstitial_iOS");
-            SetIfNotEmpty(so, "iosBannerAdUnitId", "Banner_iOS");
+            SetIfNotEmpty(so, "androidAppKey", "27a4d0de5");
+            // These are LevelPlay's real Ad Unit IDs (dashboard > Ad units), NOT the ad unit names.
+            // The SDK rejects names like "Rewarded_Android" with error 626 "Invalid ad unit id".
+            SetIfNotEmpty(so, "androidRewardedAdUnitId", "to4jdxfmxjycdnfv");
+            SetIfNotEmpty(so, "androidInterstitialAdUnitId", "4q8wtohlyb0jf4oo");
+            SetIfNotEmpty(so, "androidBannerAdUnitId", "z21kopbcwhbr6eyo");
+            SetIfNotEmpty(so, "iosAppKey", "28316642d");
+            SetIfNotEmpty(so, "iosRewardedAdUnitId", "f3ljt71likohmw18");
+            SetIfNotEmpty(so, "iosInterstitialAdUnitId", "u3uls6qosvk2ta12");
+            SetIfNotEmpty(so, "iosBannerAdUnitId", "swx89u0ra6b318b9");
             so.ApplyModifiedPropertiesWithoutUndo();
 
             EditorUtility.SetDirty(adManager);

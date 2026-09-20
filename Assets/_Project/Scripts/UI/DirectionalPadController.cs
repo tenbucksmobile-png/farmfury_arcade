@@ -41,10 +41,38 @@ namespace FarmFuryArcade.UI
         [SerializeField] private Button leftButton;
         [SerializeField] private Button rightButton;
 
+        /// <summary>Android-only horizontal nudge (canvas units) applied to the D-pad and Pause
+        /// button at startup. On the 1612x720 Android test phone the shared layout (built for the
+        /// iPhone) left the Left button's left edge ~40 units off-screen; the iOS layout is correct
+        /// as-is, so this is applied at runtime under UNITY_ANDROID instead of changing the shared
+        /// values baked into the scene by Phase5ProjectBuilder. 55 (not more) because the maze's
+        /// left edge sits at ~352px on that phone and the Right button's right edge is
+        /// (70+55+110+140)*0.748 = ~280px, plus up to a 64px notch inset on the left in the worst
+        /// case (=344px, ~8px clear). Computed, not yet checked on a device screenshot.</summary>
+        public const float AndroidShiftRight = 55f;
+
+        /// <summary>Shifts a bottom-left-anchored HUD element right on Android; no-op elsewhere.
+        /// Called once per element from its owner's Awake (a component's Awake runs once, so the
+        /// shift can't accumulate).</summary>
+        public static void ApplyAndroidShift(RectTransform rect)
+        {
+#if UNITY_ANDROID
+            if (rect != null)
+            {
+                rect.anchoredPosition += new Vector2(AndroidShiftRight, 0f);
+            }
+#endif
+        }
+
         private readonly HashSet<Direction> _heldDirections = new HashSet<Direction>();
 
         private void Awake()
         {
+            ApplyAndroidShift(upButton != null ? (RectTransform)upButton.transform : null);
+            ApplyAndroidShift(downButton != null ? (RectTransform)downButton.transform : null);
+            ApplyAndroidShift(leftButton != null ? (RectTransform)leftButton.transform : null);
+            ApplyAndroidShift(rightButton != null ? (RectTransform)rightButton.transform : null);
+
             WirePressRelease(upButton, Direction.Up);
             WirePressRelease(downButton, Direction.Down);
             WirePressRelease(leftButton, Direction.Left);
