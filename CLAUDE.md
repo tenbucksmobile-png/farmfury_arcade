@@ -5821,6 +5821,22 @@ policy forbids collecting the advertising ID from children. Play Console > App c
 answered **No**. The first AAB was built BEFORE this edit, so any build uploaded earlier still carries the
 permissions; rebuild and re-verify the merged manifest in Play Console's bundle details.
 
+**Second AAB, version code 2 (built 2026-09-21).** `AndroidBundleVersionCode` 2, `bundleVersion` 1.0, committed.
+The output file was again saved as `FarmFury-1.0-vc1.aab` (overwrote v1, 104 MB); the filename is only a label,
+Play reads the code from inside the bundle. Verified locally: signed by the upload key (SHA-256 `F4:47:66:44...1C:41`),
+and the merged `base/manifest/AndroidManifest.xml` contains no `AD_ID` or `ADSERVICES` strings (remaining permissions:
+network state, internet, wake lock, foreground/job service, DUMP, READ_BASIC_PHONE_STATE, all SDK-merged). The version
+code cannot be read from the binary manifest here; confirm it on upload in Play Console. Uncommitted on purpose:
+the keystore path/alias and `androidUseCustomKeystore` lines in `ProjectSettings.asset` (machine-specific),
+`useCustomProguardFile: 1` (not confirmed as intentional; `proguard-user.txt` exists), the Android build profile
+(deployment target/build type) and Game.unity/prefab churn from platform switches. Do not commit those blindly.
+
+**Launch (2026-09-21).** All Play Console forms, listing, IAP testing and mailboxes were confirmed complete by the
+user, who chose to promote to Production. Ads are switched live only AFTER approval: AdMob "Add store" for the Android
+app, then LevelPlay Store availability = live; allow 24-48 h for fill. A first review of a child-directed app can be
+slow, and each ad SDK must be Families-certified. Not yet recorded here: review outcome, rollout percentage, and
+whether ads fill after the store is linked.
+
 **Play Console status.** Organisation account (the ~12-tester/14-day closed-test rule for new personal accounts
 does not apply). App `com.farmfury.arcade` exists; the AAB went to Internal testing; all 22 in-app products were
 created from `IAPManager` (IDs, one purchase option each, prices in `IAPManager.FallbackPrices`: `remove_ads`
