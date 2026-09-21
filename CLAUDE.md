@@ -5795,6 +5795,68 @@ launcher activity; `Error 2110 ... 400 Bad Request` = wrong App Key; `Error 626 
 = a name was supplied instead of the Ad Unit ID; `509 Mediation No fill` = init and IDs are fine,
 the networks returned nothing.
 
+## Android release: signing, Play Console, ad dashboards (2026-09-21)
+
+**Upload keystore.** Created 2026-09-21 with Unity's Keystore Manager and kept OUTSIDE the repo:
+`C:\Users\Personel\Desktop\Sprites_Arcade\Keystore\user.keystore`, alias `farmfury-upload` (PKCS12, RSA 2048,
+valid to 2076, SHA-256 `F4:47:66:44:AD:47:1E:B6:E6:6E:61:5C:19:12:76:D2:67:7A:60:15:7F:2C:3A:48:6E:6D:A1:1B:19:8C:1C:41`).
+It is the Play App Signing *upload* key (Google holds the real signing key; a lost upload key can be reset via
+Google). The password is the user's alone - never write it here, never commit the keystore. A `Key.docx` was
+sitting beside the keystore and may contain the password; the user was told to move it to a password manager.
+Do not reuse `fizzog-release.jks` (a different app). Unity stores the keystore path and alias in
+`ProjectSettings.asset` (`AndroidKeystoreName`, `AndroidKeyaliasName`, `androidUseCustomKeystore: 1`) but not the
+password; that path is machine-specific, so those lines are left uncommitted and the passwords are re-entered in
+Player Settings each session.
+
+**Release AAB.** Build Profiles > Android: Build App Bundle ON, Development Build OFF (the LevelPlay Test Suite
+auto-launches in Development Builds), IL2CPP + ARM64, target SDK 36, min 26. `AndroidBundleVersionCode` must
+increase for every upload to Play. First build (`FarmFury-1.0-vc1.aab`, 104 MB, arm64 only) was checked with
+`keytool -printcert -jarfile`: signed by the upload key above. A raw AAB cannot be installed on a phone (use
+`bundletool` or install from the Play internal-testing link); a sideloaded APK cannot make purchases.
+
+**Advertising ID removed (child-directed app).** `Assets/Plugins/Android/AndroidManifest.xml` now strips
+`AD_ID`, `ACCESS_ADSERVICES_AD_ID`, `ACCESS_ADSERVICES_ATTRIBUTION` and `ACCESS_ADSERVICES_TOPICS` with
+`tools:node="remove"` - the Google Mobile Ads / LevelPlay SDKs merge them in otherwise, and Google's Families
+policy forbids collecting the advertising ID from children. Play Console > App content > Advertising ID is
+answered **No**. The first AAB was built BEFORE this edit, so any build uploaded earlier still carries the
+permissions; rebuild and re-verify the merged manifest in Play Console's bundle details.
+
+**Play Console status.** Organisation account (the ~12-tester/14-day closed-test rule for new personal accounts
+does not apply). App `com.farmfury.arcade` exists; the AAB went to Internal testing; all 22 in-app products were
+created from `IAPManager` (IDs, one purchase option each, prices in `IAPManager.FallbackPrices`: `remove_ads`
+$4.99; `coins_100/500/5000/15000` $0.99/$3.99/$9.99/$19.99 as consumables; 5 hats and 6 trails $1.99; 3 worlds
+and 3 machines $3.99, all non-consumable). Products must be Active, licence testers added, and purchases tested
+from a Play-installed build. Still to do before production: App content forms (target audience including
+children, ads = yes, content rating, data safety), store listing (text, 512 icon, 1024x500 feature graphic, >=2
+screenshots), then a production release. Listing drafts (title `Farm Fury: Arcade`, short + full description) and
+per-product names/descriptions were written in conversation, not saved in the repo.
+
+**Data safety vs the live privacy policy (v0.3).** Compared 2026-09-21; the policy was deliberately left
+unedited. Known gaps to fix in the policy when convenient: (1) it says analytics are not tied to anyone but
+Unity Analytics assigns an anonymous installation ID; (2) IP address / approximate location seen by ad and
+analytics services is not mentioned; (3) the Purchase analytics event sends product ID and price, so declare
+Purchase history as collected (analytics), not "Google Play handles it"; (4) crash/diagnostic data is not
+mentioned; (5) no explicit deletion-request sentence (email `privacy@farmfurygames.com`); (6) the page still
+says "Draft - pending legal review". Check each ad SDK's own data-safety disclosure before answering "shared".
+Declaring the audience as 13+ was considered and rejected: Play judges the actual content and the GDD targets
+8-45, so the app stays child-inclusive (Families policy, Families-certified ad SDKs only).
+
+**Ad dashboards verified (2026-09-21).** LevelPlay Android app `FarmFury_Arcade`: three active ad units
+(`Banner_Android` `z21kopbcwhbr6eyo`, `Interstitial_Android` `4q8wtohlyb0jf4oo`, `Rewarded_Android`
+`to4jdxfmxjycdnfv`), each with 2 networks and 1 mediation group, matching `Game.unity`. Instances: Google
+(AdMob, bidding, app ID `ca-app-pub-1264425755955045~5627051526`) and ironSource (bidding) are active for all
+three formats; Unity Ads is not set up. AdMob's three Android ad units are `.../4094738734` (banner),
+`.../5824889897` (interstitial), `.../5993933367` (rewarded) and are entered in the AdMob instances.
+Nothing is misconfigured, yet the internal-testing build showed no ads: expected causes are the AdMob app having
+no store linked ("Limited ad serving"), child-directed traffic removing most demand, and LevelPlay's Store
+availability still "Not live yet". Plan: publish, get approval, then AdMob "Add store" for Android and set
+LevelPlay Store availability to live. If ads still do not fill after 24-48 h, build a Development APK and read
+the LevelPlay Test Suite for a per-network reason. The legacy Unity "Placements" page (app keys 800356804/
+800356807) is the old registration and is ignored by the game.
+
+**iOS** is unchanged: still blocked on Unity DevOps free build minutes; bump `buildNumber.iPhone` before the
+next Cloud Build.
+
 ## Android multi-window — deliberately deferred, not fixed (cross-platform audit finding C3.8)
 
 No `Assets/Plugins/Android/AndroidManifest.xml` exists in this project — Unity generates the
