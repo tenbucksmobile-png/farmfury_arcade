@@ -5934,7 +5934,10 @@ Step 1 is built; video building, captions and posting are not.
   unlock card held 2.5 s with the game audio continuing; the card is taken 3.3 s after the marker,
   measured once). Each segment is rendered separately and joined with the concat filter; every input
   needs `setsar=1` first because zoompan output has a near-1 pixel aspect that concat rejects. About
-  2 minutes for all five from one session. Frames checked from the first render (opener, Level Complete,
+  2 minutes for all five from one session.
+  **Wording rule:** marketing text is for kids and families - robots are "zapped" (the game's own How to
+  Play wording), never killed or eaten. `make_shorts.py`'s `check_wording()`/`AVOID_WORDS` refuses a
+  headline containing those words; route any AI-written captions through it too. Frames checked from the first render (opener, Level Complete,
   held Percy card, mix); the full videos were not watched.
 
 ## Android multi-window — deliberately deferred, not fixed (cross-platform audit finding C3.8)

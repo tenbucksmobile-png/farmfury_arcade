@@ -71,6 +71,21 @@ AUDIO_OUT = ["-c:a", "aac", "-b:a", "160k", "-ar", "48000", "-ac", "2"]
 # ---------------------------------------------------------------------------------------------
 # Headlines and the text overlay
 
+# Child-friendly wording: the game is marketed to kids and families. Robots get zapped, bonked,
+# busted or powered down (the game's own How to Play text says "zap"); never killed or eaten.
+# check_wording() refuses any headline containing these, including AI-written ones later.
+AVOID_WORDS = {"kill", "kills", "killed", "killing", "eat", "eats", "eaten", "eating", "die", "dies",
+               "died", "dead", "death", "murder", "destroy", "destroyed", "blood", "gun", "shoot", "shot"}
+
+
+def check_wording(text):
+    words = {w.strip(".,!?:;'\"").lower() for w in text.split()}
+    bad = sorted(words & AVOID_WORDS)
+    if bad:
+        raise ValueError(f"Headline uses words we don't use in kids' marketing: {bad} in {text!r}")
+    return text
+
+
 def hook_text(moments):
     """Headline, picked from the most exciting moment in the list."""
     by_type = {m["type"]: m for m in moments}
@@ -82,11 +97,11 @@ def hook_text(moments):
         return f"COMBO: {by_type['combo'].get('name', '').replace('_', ' ').upper()}!"
     if "full_chain" in by_type:
         robots = int(by_type["full_chain"].get("robots", 2))
-        return f"1 PELLET. {robots} ROBOTS. GONE." if robots >= 3 else "EAT ALL THE ROBOTS!"
+        return f"1 PELLET. {robots} ROBOTS. ZAPPED!" if robots >= 3 else "ZAP EVERY ROBOT!"
     if "near_miss" in by_type:
         return "THAT WAS WAY TOO CLOSE..."
     if sum(1 for m in moments if m["type"] == "robot_defeated") >= 2:
-        return "THE ROBOTS HAD NO CHANCE"
+        return "THOSE ROBOTS GOT OUTSMARTED"
     if "level_complete" in by_type:
         return "FARM SAVED. NEXT LEVEL!"
     return "FARM ANIMALS vs HARVEST ROBOTS"
@@ -114,6 +129,7 @@ def fit_font(draw, text, box, max_size=120, min_size=56):
 
 
 def build_overlay(hook, path):
+    check_wording(hook)
     overlay = Image.new("RGBA", (W, H), (0, 0, 0, 0))
     draw = ImageDraw.Draw(overlay)
 
