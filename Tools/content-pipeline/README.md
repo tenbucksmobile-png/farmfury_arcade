@@ -8,14 +8,21 @@ vertical shorts. Captions and scheduling come next.
 python make_shorts.py                   # newest session
 python make_shorts.py sessions/<id> --count 5 --include-deaths
 ```
-Writes to `sessions/<id>/shorts/` (the folder is rebuilt each run), all 1080x1920,
+Writes to `sessions/<id>/shorts/` (files are overwritten by name), all 1080x1920,
 30fps, loudness-normalised, each opening with the Farm Fury poster (1.5s, Theme music):
 - `mix_01.mp4` - highlight mix: the best 3 moments, strongest first (~25s)
 - `short_01.mp4`... - one moment each, lengthened to 12-18s (mostly extra lead-in)
+- `ability_<name>.mp4` - one per animal special move seen in the session
+  (Cluck's Egg Drop, Bessie's Ground Slam, ...)
+- `power_crop.mp4` - a power crop sending the robots running
+- `combo_<name>.mp4` - any combo triggered
+- `mix_02_whole_game.mp4` - one of each: collecting/dodging, power crop, special move, combo
 - `unlock_<character>.mp4` - the level finishing, then the unlock card frozen for
   2.5s (the card appears ~3.3s after the unlock marker; tune `UNLOCK_CARD_DELAY_SECONDS`)
 
-Clips with a death are skipped unless `--include-deaths`. Headlines come from each
+The dodge-and-collect shorts (`mix_01`, `short_NN`) are the main message; the
+ability/power/combo shorts show the rest of the game. Clips with a death are
+skipped unless `--include-deaths`. Headlines come from each
 clip's best moment (`hook_text`). Layout: headline at the top, the centre of the
 game screen (the maze) in the middle, logo + "FREE ON GOOGLE PLAY" above the area
 TikTok/Shorts cover with their own buttons, blurred gameplay behind.

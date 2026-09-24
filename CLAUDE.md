@@ -5943,6 +5943,10 @@ Step 1 is built; video building, captions and posting are not.
   A near miss only counts if no death follows within 2 s and no ability/robot defeat happens within 1.5 s
   - all three near misses on the first recording were Bessie's Ground Slam, not dodges. Decimal commas
   from pre-fix dev builds (`1,39`) are converted in `parse_markers.py`.
+  The user also wants the rest of the game shown alongside (2026-09-24): `ability_<name>` (first clean
+  use of each animal's special move; `ABILITY_NAMES` maps the logged class name to character + move -
+  Ducky's "Skip Shot" is marketed as "Water Skip" because "shot" is on `AVOID_WORDS`), `power_crop`,
+  `combo_<name>`, and `mix_02_whole_game` (one of each). The shorts folder is no longer wiped between runs.
   Tooling gotcha: in this Bash tool, ``-style backslash sequences inside a heredoc were turned into
   control characters () when writing Python; build such strings with chr(92) or use the Edit tool. Frames checked from the first render (opener, Level Complete,
   held Percy card, mix); the full videos were not watched.

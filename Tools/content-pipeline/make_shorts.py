@@ -22,7 +22,6 @@ Usage:
 
 import argparse
 import json
-import shutil
 import subprocess
 import sys
 import tempfile
@@ -100,6 +99,27 @@ HEADLINES = {
     "world_unlock": ["A NEW WORLD JUST OPENED UP!"],
     "default": ["DODGE THE ROBOTS. SAVE THE CROPS.", "FARM ANIMALS vs HARVEST ROBOTS"],
 }
+# Each animal's special ability, for the "show the whole game" shorts. Keyed by the ability class name
+# the game logs in its [Highlight] ability marker.
+ABILITY_NAMES = {
+    "EggDropAbility": ("CLUCK", "EGG DROP"),
+    "GroundSlamAbility": ("BESSIE", "GROUND SLAM"),
+    "BounceRollAbility": ("PERCY", "BOUNCE ROLL"),
+    "TripleCloneAbility": ("WOOLLY", "TRIPLE CLONE"),
+    "SkipShotAbility": ("DUCKY", "WATER SKIP"),   # in-game name "Skip Shot"; "shot" is on AVOID_WORDS
+    "HorseshoeThrowAbility": ("HORACE", "HORSESHOE THROW"),
+    "PuffUpAbility": ("GERALD", "PUFF UP"),
+    "HeadbuttThroughAbility": ("BILLY", "HEADBUTT CHARGE"),
+}
+ABILITY_HEADLINES = ["{character}'S {ability}!", "EVERY ANIMAL HAS A SPECIAL MOVE: {ability}!",
+                     "MEET {character}: {ability}!"]
+
+
+def ability_hook(ability_class, variant=0):
+    character, ability = ABILITY_NAMES.get(ability_class, ("", "SPECIAL MOVE"))
+    return ABILITY_HEADLINES[variant % len(ABILITY_HEADLINES)].format(character=character, ability=ability)
+
+
 # Which moment a headline is about, in priority order.
 HEADLINE_PRIORITY = ["character_unlock", "world_unlock", "combo", "near_miss", "level_complete",
                      "power_pellet", "full_chain"]
@@ -357,9 +377,16 @@ def main():
     ffmpeg = find_ffmpeg()
     video_len = video_duration(ffmpeg, video)
     out_dir = session_dir / "shorts"
-    if out_dir.exists():
-        shutil.rmtree(out_dir)
-    out_dir.mkdir()
+    out_dir.mkdir(exist_ok=True)  # files are overwritten by name; nothing else in the folder is removed
+    deaths = [m["t"] for m in markers if m["type"] == "player_death"]
+
+    def window(t, pre, post):
+        """A single-moment window around t, lengthened to the single-short length, or None if the
+        player dies inside it (unless --include-deaths)."""
+        start, end = lengthen(max(0.0, t - pre), min(video_len, t + post), SINGLE_MIN_SECONDS, video_len)
+        if not args.include_deaths and any(start <= d <= end for d in deaths):
+            return None
+        return start, end
 
     with tempfile.TemporaryDirectory() as tmp:
         b = Builder(ffmpeg, video, out_dir, Path(tmp))
@@ -392,6 +419,58 @@ def main():
             parts = [b.opener(hook), b.gameplay(hook, start, card_t), b.hold(hook, card_t, UNLOCK_HOLD_SECONDS)]
             name = m.get("character") or f"world{m.get('world', '')}"
             b.finish(f"unlock_{name.lower()}", parts, {"hook": hook, "clip": [start, card_t], "hold_at": card_t})
+
+        # --- The rest of the game: special abilities, power crops, combos -----------------------
+        # These sit alongside the dodge-and-collect shorts above, which stay the main message.
+        extras = []   # (kind, hook, start, end) - reused for the "whole game" mix below
+
+        seen_abilities = set()
+        for m in (x for x in markers if x["type"] == "ability"):
+            name = m.get("ability", "")
+            if name in seen_abilities:
+                continue
+            w = window(m["t"], 2.0, 5.0)
+            if w is None:
+                continue
+            seen_abilities.add(name)
+            extras.append(("ability", ability_hook(name, len(seen_abilities) - 1), *w, name))
+
+        power = [m for m in markers if m["type"] in ("full_chain", "power_pellet")]
+        power.sort(key=lambda m: (m["type"] != "full_chain", -int(m.get("robots", 0))))
+        for m in power:
+            w = window(m["t"], 4.0, 4.0)
+            if w is not None:
+                extras.append(("power", hook_text([m], variant=1), *w, "power_crop"))
+                break
+
+        for i, m in enumerate(x for x in markers if x["type"] == "combo"):
+            w = window(m["t"], 4.0, 5.0)
+            if w is not None:
+                extras.append(("combo", hook_text([m]), *w, m.get("name", str(i)).lower()))
+
+        if extras:
+            print("The rest of the game:")
+        for kind, hook, start, end, tag in extras:
+            name = f"{kind}_{tag.replace('Ability', '').lower()}" if kind != "power" else "power_crop"
+            b.finish(name, [b.opener(hook), b.gameplay(hook, start, end)], {"hook": hook, "clip": [start, end]})
+
+        # A mix showing one of each side of the game: collecting/dodging, power crop, a special move.
+        whole = []
+        if gameplay_clips:
+            c = gameplay_clips[0]
+            s0, e0 = trim_for_mix(c)
+            whole.append((hook_text(c["moments"]), s0, e0))
+        for kind in ("power", "ability", "combo"):
+            pick = next((x for x in extras if x[0] == kind), None)
+            if pick:
+                _, hook, start, end, _ = pick
+                mid = (start + end) / 2
+                half = MIX_SEGMENT_MAX_SECONDS / 2
+                whole.append((hook, max(start, mid - half), min(end, mid + half)))
+        if len(whole) >= 2:
+            print("Whole-game mix:")
+            parts = [b.opener(whole[0][0])] + [b.gameplay(h, st, en) for h, st, en in whole]
+            b.finish("mix_02_whole_game", parts, {"hook": whole[0][0], "clips": [[st, en] for _, st, en in whole]})
 
     print(f"Shorts written to {out_dir}")
 
