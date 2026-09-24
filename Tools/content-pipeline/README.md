@@ -1,5 +1,19 @@
 # Farm Fury Arcade - shorts content pipeline
 
+Steps built so far: 1) record + find highlights, 2) turn the best clips into
+vertical shorts. Captions and scheduling come next.
+
+## Step 2: make vertical shorts
+```
+python make_shorts.py                   # newest session, top 3 clips (skips clips with a death)
+python make_shorts.py sessions/<id> --count 5 --include-deaths
+```
+Writes `sessions/<id>/shorts/short_01.mp4` (1080x1920, 30fps, loudness-normalised)
+plus a `.json` with the clip times and headline. Layout: headline at the top
+(picked from the clip's best moment, see `hook_text`), the centre of the game
+screen (the maze) in the middle, logo + "FREE ON GOOGLE PLAY" above the area
+TikTok/Shorts cover with their own buttons. Blurred gameplay fills the background.
+
 Step 1 of the TikTok / YouTube Shorts pipeline: record gameplay from the Android
 phone and find the moments worth cutting into clips. Later steps (vertical
 video, captions, scheduling) will read the `clips.json` this step writes.

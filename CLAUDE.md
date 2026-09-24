@@ -5922,8 +5922,12 @@ Step 1 is built; video building, captions and posting are not.
   about -2.1 s. `full_chain` is now scored by robot count, since 2-robot levels make it routine.
 - **Decimal commas.** The phone's locale wrote `seconds=33,6`; `HighlightMarkers.Mark` now takes a
   `FormattableString` and formats with `FormattableString.Invariant`. Not compiled yet (Unity was open).
-- Recordings contain the "Development Build" watermark (bottom-right); the video step will need to crop or
-  cover it.
+- **Step 2 (`make_shorts.py`, 2026-09-24):** renders the top clips (deaths skipped by default) to
+  1080x1920 shorts: a centre crop of the landscape frame (1.3 x height, which holds the maze and cuts off
+  the D-pad/HUD and the "Development Build" watermark), blurred background, a Pillow-drawn overlay
+  (Bangers.ttf headline from `hook_text`, Logo.png + "FREE ON GOOGLE PLAY"), `loudnorm` to -14 LUFS,
+  0.4 s fades. Checked by extracting a frame from the first real render; ~8 s per clip. Headlines are
+  templates; AI-written captions are the next step. Only Google Play is named, since iOS isn't live.
 
 ## Android multi-window — deliberately deferred, not fixed (cross-platform audit finding C3.8)
 
