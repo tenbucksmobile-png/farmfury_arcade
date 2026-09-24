@@ -5841,6 +5841,8 @@ the keystore path/alias and `androidUseCustomKeystore` lines in `ProjectSettings
 `useCustomProguardFile: 1` (not confirmed as intentional; `proguard-user.txt` exists), the Android build profile
 (deployment target/build type) and Game.unity/prefab churn from platform switches. Do not commit those blindly.
 
+**First update, version code 3 (2026-09-24).** Production was already submitted, so the next release is an update: `AndroidBundleVersionCode` 3 (committed alone; `bundleVersion` left at 1.0 because iOS shares it). It carries the Level Complete unlock-screen fix and the dev-only analytics logging, which is compiled out of this release build. Upload it as a new production release. If the first release is still in review, it's unconfirmed whether a new release is queued behind it or replaces it and restarts review; checking the Publishing overview before uploading will show which. Test analytics with a separate Development Build APK, not this AAB.
+
 **Launch (2026-09-21).** All Play Console forms, listing, IAP testing and mailboxes were confirmed complete by the
 user, who chose to promote to Production. Ads are switched live only AFTER approval: AdMob "Add store" for the Android
 app, then LevelPlay Store availability = live; allow 24-48 h for fill. A first review of a child-directed app can be
