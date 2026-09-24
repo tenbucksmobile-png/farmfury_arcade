@@ -125,6 +125,7 @@ namespace FarmFuryArcade.Gameplay
         {
             IsRespawning = true;
             bool hasRespawnLeft = GameManager.Instance == null || GameManager.Instance.NotifyPlayerDeath();
+            HighlightMarkers.Mark("player_death", $"deaths={(GameManager.Instance != null ? GameManager.Instance.DeathCountThisMaze : 0)}");
             AudioManager.Instance?.PlayAnimalDeathSfx();
             _movement.enabled = false;
             _movement.QueueInputDirection(Direction.None);

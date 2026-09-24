@@ -77,6 +77,7 @@ namespace FarmFuryArcade.Core
             if (!IsPowerActive)
             {
                 IsPowerActive = true;
+                HighlightMarkers.Mark("power_pellet", $"seconds={duration:F1}");
                 OnPowerStateChanged?.Invoke(true);
                 AudioManager.Instance?.PlayEatRobotMusic();
             }

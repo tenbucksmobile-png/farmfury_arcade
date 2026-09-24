@@ -141,6 +141,7 @@ namespace FarmFuryArcade.Core
             _combosTriggeredThisMaze.Add(comboName);
             SaveManager.Instance?.IncrementTotalCombosTriggered();
             Debug.Log($"[ComboSystem] Combo triggered: {comboName}");
+            HighlightMarkers.Mark("combo", $"name={comboName.Replace(' ', '_')}");
             OnComboTriggered?.Invoke(comboName);
         }
 

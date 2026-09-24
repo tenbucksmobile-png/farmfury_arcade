@@ -110,6 +110,7 @@ namespace FarmFuryArcade.Core
         {
             if (CurrentState == GameState.Playing && GetElapsedSeconds() >= LevelTimeLimitSeconds)
             {
+                HighlightMarkers.Mark("level_failed", $"level={(CurrentLevel != null ? CurrentLevel.levelNumber : -1)} reason=timeout");
                 EndLevel(false);
             }
         }
@@ -135,6 +136,7 @@ namespace FarmFuryArcade.Core
             CurrentLevel = level;
             _cropsRemaining = level.totalCropsRequired;
             AnalyticsManager.Instance?.LogLevelStart(levelIndex, level.levelName, isDailyChallenge);
+            HighlightMarkers.Mark("level_start", $"level={levelIndex} world={level.mazeType} daily={isDailyChallenge}");
             ScoreManager.Instance.ResetMazeScore();
             DeathCountThisMaze = 0;
             // Audit finding F2.4: every traced retry path already resolves ReviveDecisionPending
@@ -261,6 +263,7 @@ namespace FarmFuryArcade.Core
 
             ReviveDecisionPending = false;
             Time.timeScale = 1f;
+            HighlightMarkers.Mark("level_failed", $"level={(CurrentLevel != null ? CurrentLevel.levelNumber : -1)} reason=out_of_lives");
             EndLevel(false);
         }
 
@@ -308,6 +311,7 @@ namespace FarmFuryArcade.Core
         {
             DeathCountThisMaze = MaxRespawns;
             _wasRevived = true;
+            HighlightMarkers.Mark("revive");
             ReviveDecisionPending = false;
             Time.timeScale = 1f;
         }
@@ -461,6 +465,7 @@ namespace FarmFuryArcade.Core
 
                 int levelNumber = CurrentLevel.levelNumber;
                 AnalyticsManager.Instance?.LogLevelComplete(levelNumber, LastLevelResult.stars, LastLevelResult.totalScore, elapsed);
+                HighlightMarkers.Mark("level_complete", $"level={levelNumber} stars={LastLevelResult.stars} score={LastLevelResult.totalScore} seconds={elapsed:F1} deaths={DeathCountThisMaze}");
 
                 SaveManager.Instance.AddCoins(LastLevelResult.coinsEarned);
                 SaveManager.Instance.SetLevelStars(levelNumber, LastLevelResult.stars);
@@ -477,6 +482,7 @@ namespace FarmFuryArcade.Core
                 if (JustUnlockedWorldIndex.HasValue)
                 {
                     SaveManager.Instance.SetWorldUnlockSeen(JustUnlockedWorldIndex.Value);
+                    HighlightMarkers.Mark("world_unlock", $"world={JustUnlockedWorldIndex.Value}");
                     SaveManager.Instance.SaveProgress();
                 }
 

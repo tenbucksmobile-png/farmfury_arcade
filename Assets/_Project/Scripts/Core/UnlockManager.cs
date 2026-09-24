@@ -45,6 +45,7 @@ namespace FarmFuryArcade.Core
 
                 SaveManager.Instance.UnlockCharacter(character.characterType);
                 _lastUnlockedBatch.Add(character.characterType);
+                HighlightMarkers.Mark("character_unlock", $"character={character.characterType}");
                 Debug.Log($"[UnlockManager] Unlocked {character.characterType} after {mazesCompleted} mazes completed.");
                 OnCharacterUnlocked?.Invoke(character.characterType);
             }

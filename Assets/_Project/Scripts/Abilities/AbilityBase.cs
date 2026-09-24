@@ -107,6 +107,7 @@ namespace FarmFuryArcade.Abilities
             }
 
             Execute();
+            HighlightMarkers.Mark("ability", $"ability={GetType().Name}");
             CooldownRemaining = totalCooldown;
             OnCooldownChanged?.Invoke(CooldownRemaining, totalCooldown);
             return true;

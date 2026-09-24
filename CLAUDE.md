@@ -5885,6 +5885,46 @@ the LevelPlay Test Suite for a per-network reason. The legacy Unity "Placements"
 **iOS** is unchanged: still blocked on Unity DevOps free build minutes; bump `buildNumber.iPhone` before the
 next Cloud Build.
 
+## Shorts content pipeline (Tools/content-pipeline)
+
+Started 2026-09-24: record gameplay from the Android phone and cut it into TikTok / YouTube Shorts.
+Step 1 is built; video building, captions and posting are not.
+- **Highlight markers.** `Core/HighlightMarkers.cs` - `HighlightMarkers.Mark(type, details)` logs
+  `[Highlight] type=... ms=<phone unix ms> key=value` lines. It is `[Conditional]` on `DEVELOPMENT_BUILD`/
+  `UNITY_EDITOR`, so the calls (and their argument evaluation) are compiled out of release builds.
+  Called from GameManager (level start/complete/failed with reason, revive, world unlock), PlayerHealth
+  (death), UnlockManager, ComboSystem, PowerPelletManager, AbilityBase.TryActivate, RobotBase.
+  TransitionToDefeated and ChaseScoreManager (full chain). A dev-only `HighlightNearMissWatcher`,
+  created at runtime by `[RuntimeInitializeOnLoadMethod]` (nothing added to Game.unity), marks a hostile
+  robot within 1.4 tiles of the player.
+- **Scripts.** `record_session.py` records with scrcpy (portable 4.1 copy in the gitignored `bin/` next to a
+  portable ffmpeg, because winget isn't available on this PC; `--no-window`, `--record` to .mkv, which survives an abrupt
+  stop) plus `adb logcat -v epoch Unity:V *:S`, and measures the phone-PC clock offset;
+  `parse_markers.py` writes `markers.json` and ranked `clips.json`. Sessions go to the gitignored
+  `sessions/` folder. See the folder's README.
+- **Honor phone silences app logs.** The test phone has `persist.log.tag=S`, which drops every log tag
+  not explicitly allowed, including `Unity` - so no Unity lines (markers, `[AnalyticsManager]`, etc.)
+  appear in logcat at all. `adb shell setprop log.tag.Unity V` fixes it until the next reboot;
+  `record_session.py` sets it at the start of every session. The first recording (2026-09-24) produced a
+  video but an empty log because of this. This may also explain earlier "no log output" confusion when
+  checking analytics/ads on this phone: run the setprop first.
+- **Rotation corrupts seeking.** The first real recording started with the phone upright, so the .mkv
+  held 134 portrait frames (720x1600) and then landscape (1600x720). Any seek (`ffmpeg -ss`) decoded to
+  grey garbage; only a decode from the start worked. `record_session.py` now opens the game first, records
+  with `--capture-orientation=@` (lock to the starting orientation) and `--video-codec-options=
+  i-frame-interval:int=1`, and then runs `normalize_video.py`, which re-encodes `raw.mkv` from the start
+  to `video.mp4` (fixed landscape size, keyframe every second, ~8x realtime). The orientation lock and
+  keyframe option are untested on a device; the re-encode was tested on the rotated session.
+- **Verified 2026-09-24 on the Honor phone (session 20260924-170129):** 50 markers over 5 min; frames
+  pulled at marker times matched (Level Complete screen ~0.5s after `level_complete`, pellet bar + "800"
+  at `full_chain`, the New Character (Percy) screen after `character_unlock` - which also confirms the
+  Level Complete unlock-screen fix on a device). Timing is within about a second. Clock offset phone-PC was
+  about -2.1 s. `full_chain` is now scored by robot count, since 2-robot levels make it routine.
+- **Decimal commas.** The phone's locale wrote `seconds=33,6`; `HighlightMarkers.Mark` now takes a
+  `FormattableString` and formats with `FormattableString.Invariant`. Not compiled yet (Unity was open).
+- Recordings contain the "Development Build" watermark (bottom-right); the video step will need to crop or
+  cover it.
+
 ## Android multi-window — deliberately deferred, not fixed (cross-platform audit finding C3.8)
 
 No `Assets/Plugins/Android/AndroidManifest.xml` exists in this project — Unity generates the

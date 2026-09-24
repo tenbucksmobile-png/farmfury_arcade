@@ -35,6 +35,7 @@ namespace FarmFuryArcade.Core
 
             if (ChainCount == TotalRobotsThisMaze)
             {
+                HighlightMarkers.Mark("full_chain", $"robots={ChainCount}");
                 ScoreManager.Instance.AddRobotPoints(FullChainBonus);
             }
         }
