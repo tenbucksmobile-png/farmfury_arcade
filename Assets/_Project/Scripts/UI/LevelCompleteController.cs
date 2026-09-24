@@ -77,6 +77,16 @@ namespace FarmFuryArcade.UI
             {
                 StopCoroutine(_celebrationRoutine);
             }
+            // Real bug found and fixed (2026-09-24, Android playtest): "the transition between
+            // worlds" and "the character unlock page" never appeared — new characters just showed
+            // up on Choose Character. Both overlays are shown from this coroutine ~2s after this
+            // screen opens (star reveal + score count-up + delay), but Play was tappable from the
+            // first frame. Tapping it swaps this screen out, which stops the coroutine before it
+            // reaches either overlay — while the unlocks themselves were already saved in
+            // GameManager.EndLevel (character unlocked, world marked as seen), so the celebration
+            // was lost for good. Play now stays disabled until the sequence (including any unlock
+            // overlay) has finished.
+            playButton.interactable = false;
             _celebrationRoutine = StartCoroutine(CelebrationSequence());
         }
 
@@ -138,6 +148,7 @@ namespace FarmFuryArcade.UI
                 worldUnlockScreen.Show(badge, backdrop, () => SceneTransitionManager.Instance.ShowOnly(levelSelectScreen));
             }
 
+            playButton.interactable = true;
             _celebrationRoutine = null;
         }
 

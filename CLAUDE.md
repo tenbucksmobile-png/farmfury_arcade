@@ -1096,6 +1096,8 @@ shrinks rather than wraps, regardless of digit count.
 
 **Dashboard registration is done (2026-09-19)** — all 5 events + parameters exist in Unity Cloud > Analytics > Event Manager. Gotchas if re-registering (e.g. a new environment): parameters can't be created from the Parameters tab, only via an event's "+ Assign Parameter > Create New Parameter"; tick "Enable event" before Confirm; "Copy event to other environments" avoids redoing per-environment. **Event/parameter names in code and dashboard must match exactly** — a rename in `AnalyticsManager.cs` silently drops data. **Not yet verified flowing on a real device** (Android test planned first); check the Events list for Valid Events counts (can lag up to ~1h).
 
+**Dev-build visibility (2026-09-24).** In Development Builds and the Editor only (`#if DEVELOPMENT_BUILD || UNITY_EDITOR`), `AnalyticsManager` logs `[AnalyticsManager] Initialized. userId=... sessionId=...`, `RECORDED <event>: { key=value (Type), ... }` for each event, and `DROPPED <event> (not initialized)` if an event arrives before async init finishes or after init failed. It also calls `AnalyticsService.Instance.Flush()` after each event so testers don't wait on the SDK's 60s upload timer. Release builds are unchanged. Filter with `adb logcat -d | Select-String AnalyticsManager`. Audit the same day found no consent/parental-gate code in the init path; `StartDataCollection()` throws only if the Developer Data (`EndUserConsent`) flow is active, which would show up as the existing `Unity Gaming Services init failed` warning. Pause > Quit does not fire `level_failed` (abandoned runs aren't tracked).
+
 ### Ad mediation (LevelPlay + AdMob) (`Scripts/Core/AdManager.cs`)
 
 Unity's **Ads Mediation (LevelPlay)** package (`com.unity.services.levelplay`) is installed,
@@ -3290,6 +3292,14 @@ increasingly-opaque black rectangle, which is why data resolution (the warning a
 clean while the screenshot still showed a plain black background. Fixed by tinting white
 (`new Color(1f, 1f, 1f, BackgroundAlpha)`) so the sprite's own real colours show through at
 `BackgroundAlpha` as intended, with only alpha controlling the fade.
+
+**Real bug found and fixed (2026-09-24, Android playtest): the New Character and New World unlock
+screens never appeared.** Both are shown from `LevelCompleteController.CelebrationSequence` roughly 2s
+after Level Complete opens, but Play was tappable immediately; tapping it swapped the screen out and
+stopped the coroutine before either overlay showed. The unlocks themselves are saved earlier, in
+`GameManager.EndLevel` (character unlocked, world marked seen), so the celebration was lost for good
+and characters simply appeared on Choose Character. Play is now `interactable = false` from `OnEnable`
+until the sequence ends. Not yet confirmed on a device.
 
 **`ChooseCharacterScreen`** (real uGUI, `Scripts/UI/ChooseCharacterScreen.cs` +
 `CharacterSelectCard.cs`) replaced the Phase 4 `CharacterSwapUI` `OnGUI` panel. Not a

@@ -59,6 +59,10 @@ namespace FarmFuryArcade.Core
                 await UnityServices.InitializeAsync();
                 AnalyticsService.Instance.StartDataCollection();
                 IsInitialized = true;
+#if DEVELOPMENT_BUILD || UNITY_EDITOR
+                Debug.Log($"[AnalyticsManager] Initialized. userId={AnalyticsService.Instance.GetAnalyticsUserID()} " +
+                    $"sessionId={AnalyticsService.Instance.SessionID}");
+#endif
             }
             catch (Exception e)
             {
@@ -74,6 +78,12 @@ namespace FarmFuryArcade.Core
         {
             if (!IsInitialized)
             {
+#if DEVELOPMENT_BUILD || UNITY_EDITOR
+                // An event recorded before Start()'s async init finishes (or after init failed) is
+                // dropped. Logged in dev builds so a missing event can be told apart from one that
+                // was sent but rejected by the dashboard.
+                Debug.LogWarning($"[AnalyticsManager] DROPPED {eventName} (not initialized): {FormatParameters(parameters)}");
+#endif
                 return;
             }
 
@@ -94,12 +104,33 @@ namespace FarmFuryArcade.Core
                     }
                 }
                 AnalyticsService.Instance.RecordEvent(customEvent);
+#if DEVELOPMENT_BUILD || UNITY_EDITOR
+                Debug.Log($"[AnalyticsManager] RECORDED {eventName}: {FormatParameters(parameters)}");
+                // The SDK uploads on a 60s timer (AnalyticsContainer.k_AutoFlushPeriod in 6.3.0).
+                // Flushing after every event in dev builds only, so a test session doesn't have to
+                // wait on that timer before events can reach the Event Browser.
+                AnalyticsService.Instance.Flush();
+#endif
             }
             catch (Exception e)
             {
                 Debug.LogWarning($"[AnalyticsManager] RecordEvent({eventName}) failed: {e.Message}");
             }
         }
+
+#if DEVELOPMENT_BUILD || UNITY_EDITOR
+        private static string FormatParameters((string key, object value)[] parameters)
+        {
+            var parts = new string[parameters.Length];
+            for (int i = 0; i < parameters.Length; i++)
+            {
+                var value = parameters[i].value;
+                string typeName = value == null ? "null" : value.GetType().Name;
+                parts[i] = $"{parameters[i].key}={value} ({typeName})";
+            }
+            return "{ " + string.Join(", ", parts) + " }";
+        }
+#endif
 
         /// <summary>GameManager.LoadLevel — fires for every level start, including Daily
         /// Challenge attempts (isDailyChallenge is its own parameter so those are distinguishable
