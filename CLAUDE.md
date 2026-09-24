@@ -5926,8 +5926,16 @@ Step 1 is built; video building, captions and posting are not.
   1080x1920 shorts: a centre crop of the landscape frame (1.3 x height, which holds the maze and cuts off
   the D-pad/HUD and the "Development Build" watermark), blurred background, a Pillow-drawn overlay
   (Bangers.ttf headline from `hook_text`, Logo.png + "FREE ON GOOGLE PLAY"), `loudnorm` to -14 LUFS,
-  0.4 s fades. Checked by extracting a frame from the first real render; ~8 s per clip. Headlines are
-  templates; AI-written captions are the next step. Only Google Play is named, since iOS isn't live.
+  0.4 s fades. Headlines are templates; AI-written captions are the next step. Only Google Play is
+  named, since iOS isn't live.
+  Reworked the same day: every short opens with `landing.png` (1.5 s, slow zoom, Theme.mp3), and three
+  kinds are made - `mix_01` (best 3 non-unlock clips, strongest first, each cut to 8.5 s, ~25 s total),
+  `short_NN` (one clip lengthened to 12-18 s) and `unlock_<name>` (8 s lead-in, then a still of the
+  unlock card held 2.5 s with the game audio continuing; the card is taken 3.3 s after the marker,
+  measured once). Each segment is rendered separately and joined with the concat filter; every input
+  needs `setsar=1` first because zoompan output has a near-1 pixel aspect that concat rejects. About
+  2 minutes for all five from one session. Frames checked from the first render (opener, Level Complete,
+  held Percy card, mix); the full videos were not watched.
 
 ## Android multi-window — deliberately deferred, not fixed (cross-platform audit finding C3.8)
 

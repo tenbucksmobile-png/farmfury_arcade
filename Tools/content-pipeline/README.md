@@ -5,18 +5,20 @@ vertical shorts. Captions and scheduling come next.
 
 ## Step 2: make vertical shorts
 ```
-python make_shorts.py                   # newest session, top 3 clips (skips clips with a death)
+python make_shorts.py                   # newest session
 python make_shorts.py sessions/<id> --count 5 --include-deaths
 ```
-Writes `sessions/<id>/shorts/short_01.mp4` (1080x1920, 30fps, loudness-normalised)
-plus a `.json` with the clip times and headline. Layout: headline at the top
-(picked from the clip's best moment, see `hook_text`), the centre of the game
-screen (the maze) in the middle, logo + "FREE ON GOOGLE PLAY" above the area
-TikTok/Shorts cover with their own buttons. Blurred gameplay fills the background.
+Writes to `sessions/<id>/shorts/` (the folder is rebuilt each run), all 1080x1920,
+30fps, loudness-normalised, each opening with the Farm Fury poster (1.5s, Theme music):
+- `mix_01.mp4` - highlight mix: the best 3 moments, strongest first (~25s)
+- `short_01.mp4`... - one moment each, lengthened to 12-18s (mostly extra lead-in)
+- `unlock_<character>.mp4` - the level finishing, then the unlock card frozen for
+  2.5s (the card appears ~3.3s after the unlock marker; tune `UNLOCK_CARD_DELAY_SECONDS`)
 
-Step 1 of the TikTok / YouTube Shorts pipeline: record gameplay from the Android
-phone and find the moments worth cutting into clips. Later steps (vertical
-video, captions, scheduling) will read the `clips.json` this step writes.
+Clips with a death are skipped unless `--include-deaths`. Headlines come from each
+clip's best moment (`hook_text`). Layout: headline at the top, the centre of the
+game screen (the maze) in the middle, logo + "FREE ON GOOGLE PLAY" above the area
+TikTok/Shorts cover with their own buttons, blurred gameplay behind.
 
 ## One-time setup
 1. Portable copies of scrcpy 4.1 and ffmpeg live in `bin/` (gitignored, not in the
