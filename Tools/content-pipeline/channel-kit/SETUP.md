@@ -79,9 +79,10 @@ TikTok is 13+ only and has no equivalent setting; aim the TikTok videos at teens
    account as a **test user**.
 4. Credentials > Create credentials > OAuth client ID > **Desktop app** > download the JSON.
 5. Save it as `Tools/content-pipeline/channel-kit/client_secret.json` (it's gitignored; never commit it).
-Uploads through the API stay **private** until Google audits the app (form: "YouTube API Services -
-Audit and Quota Extension"). Until then, videos can be uploaded private automatically and made
-public in YouTube Studio with one click, or scheduled there directly.
+Uploads through the API are **locked as private** until Google audits the app (form: "YouTube API
+Services - Audit and Quota Extension"); YouTube says such videos can't simply be switched to public.
+Until the audit passes, upload and schedule the shorts in YouTube Studio itself (Create > Upload >
+Visibility > Schedule), which is free and allows scheduling weeks ahead.
 
 **TikTok:**
 1. developers.tiktok.com > log in with the TikTok account > Manage apps > Connect an app.
