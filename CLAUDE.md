@@ -5888,7 +5888,13 @@ next Cloud Build.
 ## Shorts content pipeline (Tools/content-pipeline)
 
 Started 2026-09-24: record gameplay from the Android phone and cut it into TikTok / YouTube Shorts.
-Step 1 is built; video building, captions and posting are not.
+**Status (end of 2026-09-24):** recording, highlight detection and short rendering are built and used on
+one real session. Captions/descriptions (step 3), a posting queue and API uploading are not built.
+The user is creating the TikTok and YouTube accounts from `channel-kit/SETUP.md` (profile picture,
+banner, bios, UTM store links, "made for kids" decision, YouTube Data API / TikTok developer app steps)
+but **will only activate posting once the apps are live**. Don't build or run uploads before then unless
+asked. API uploads on both platforms stay private (YouTube: locked) until each platform audits the app.
+Next when resumed: the handles, then step 3 (captions through `check_wording`) and a weekly queue.
 - **Highlight markers.** `Core/HighlightMarkers.cs` - `HighlightMarkers.Mark(type, details)` logs
   `[Highlight] type=... ms=<phone unix ms> key=value` lines. It is `[Conditional]` on `DEVELOPMENT_BUILD`/
   `UNITY_EDITOR`, so the calls (and their argument evaluation) are compiled out of release builds.
