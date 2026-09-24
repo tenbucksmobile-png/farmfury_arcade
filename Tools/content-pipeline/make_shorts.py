@@ -86,25 +86,34 @@ def check_wording(text):
     return text
 
 
-def hook_text(moments):
-    """Headline, picked from the most exciting moment in the list."""
+# Several headlines per kind of moment, so shorts made from one session don't repeat. The game is
+# about dodging the robots and collecting every crop; lead with that, not with chasing robots.
+HEADLINES = {
+    "near_miss": ["DODGE! THAT ROBOT WAS SO CLOSE!", "HOW DID I DODGE THAT?!", "ONE TILE AWAY FROM TROUBLE",
+                  "THE ROBOTS ALMOST HAD ME...", "SLIPPED PAST THE HARVEST ROBOTS!"],
+    "level_complete": ["EVERY LAST CROP COLLECTED!", "FARM SAVED! NEXT LEVEL!", "CROPS SAFE. ROBOTS DODGED.",
+                       "CLEARED THE WHOLE FIELD!", "NOT ONE CROP LEFT FOR THE ROBOTS"],
+    "power_pellet": ["GRAB THE POWER CROP!", "POWER CROP = ROBOTS ON THE RUN!", "NOW THE ROBOTS RUN FROM ME!"],
+    "full_chain": ["POWER CROP = ROBOTS ON THE RUN!", "THE ROBOTS SCATTERED!", "SENT THE ROBOTS PACKING!"],
+    "combo": ["COMBO: {name}!"],
+    "character_unlock": ["NEW CHARACTER UNLOCKED: {character}!"],
+    "world_unlock": ["A NEW WORLD JUST OPENED UP!"],
+    "default": ["DODGE THE ROBOTS. SAVE THE CROPS.", "FARM ANIMALS vs HARVEST ROBOTS"],
+}
+# Which moment a headline is about, in priority order.
+HEADLINE_PRIORITY = ["character_unlock", "world_unlock", "combo", "near_miss", "level_complete",
+                     "power_pellet", "full_chain"]
+
+
+def hook_text(moments, variant=0):
+    """Headline for the most important moment in the list; variant picks among the options."""
     by_type = {m["type"]: m for m in moments}
-    if "character_unlock" in by_type:
-        return f"NEW CHARACTER UNLOCKED: {by_type['character_unlock'].get('character', '').upper()}!"
-    if "world_unlock" in by_type:
-        return "A NEW WORLD JUST OPENED UP!"
-    if "combo" in by_type:
-        return f"COMBO: {by_type['combo'].get('name', '').replace('_', ' ').upper()}!"
-    if "full_chain" in by_type:
-        robots = int(by_type["full_chain"].get("robots", 2))
-        return f"1 PELLET. {robots} ROBOTS. ZAPPED!" if robots >= 3 else "ZAP EVERY ROBOT!"
-    if "near_miss" in by_type:
-        return "THAT WAS WAY TOO CLOSE..."
-    if sum(1 for m in moments if m["type"] == "robot_defeated") >= 2:
-        return "THOSE ROBOTS GOT OUTSMARTED"
-    if "level_complete" in by_type:
-        return "FARM SAVED. NEXT LEVEL!"
-    return "FARM ANIMALS vs HARVEST ROBOTS"
+    kind = next((k for k in HEADLINE_PRIORITY if k in by_type), "default")
+    options = HEADLINES[kind]
+    marker = by_type.get(kind, {})
+    return options[variant % len(options)].format(
+        name=marker.get("name", "").replace("_", " ").upper(),
+        character=marker.get("character", "").upper())
 
 
 def fit_font(draw, text, box, max_size=120, min_size=56):
@@ -360,14 +369,14 @@ def main():
             print("Highlight mix:")
             first_hook = hook_text(mix[0]["moments"])
             parts = [b.opener(first_hook)]
-            for clip in mix:
+            for j, clip in enumerate(mix):
                 start, end = trim_for_mix(clip)
-                parts.append(b.gameplay(hook_text(clip["moments"]), start, end))
+                parts.append(b.gameplay(hook_text(clip["moments"], variant=j), start, end))
             b.finish("mix_01", parts, {"hook": first_hook, "clips": [[c["start"], c["end"]] for c in mix]})
 
         print("Single moments:")
         for i, clip in enumerate(gameplay_clips[: args.count], 1):
-            hook = hook_text(clip["moments"])
+            hook = hook_text(clip["moments"], variant=i)
             start, end = lengthen(clip["start"], clip["end"], SINGLE_MIN_SECONDS, video_len)
             end = min(end, start + SINGLE_MAX_SECONDS)
             parts = [b.opener(hook), b.gameplay(hook, start, end)]

@@ -5935,9 +5935,16 @@ Step 1 is built; video building, captions and posting are not.
   measured once). Each segment is rendered separately and joined with the concat filter; every input
   needs `setsar=1` first because zoompan output has a near-1 pixel aspect that concat rejects. About
   2 minutes for all five from one session.
-  **Wording rule:** marketing text is for kids and families - robots are "zapped" (the game's own How to
-  Play wording), never killed or eaten. `make_shorts.py`'s `check_wording()`/`AVOID_WORDS` refuses a
-  headline containing those words; route any AI-written captions through it too. Frames checked from the first render (opener, Level Complete,
+  **Messaging rule (user, 2026-09-24):** the shorts sell dodging the robots and collecting every crop,
+  not chasing robots; robots are never killed or eaten (and "zap" was also rejected as the focus). Kids
+  and families audience. `make_shorts.py`'s `check_wording()`/`AVOID_WORDS` refuses a
+  headline containing those words; route any AI-written captions through it too.
+  Ranking follows the same idea: `near_miss` and `level_complete` weigh most, `robot_defeated` least.
+  A near miss only counts if no death follows within 2 s and no ability/robot defeat happens within 1.5 s
+  - all three near misses on the first recording were Bessie's Ground Slam, not dodges. Decimal commas
+  from pre-fix dev builds (`1,39`) are converted in `parse_markers.py`.
+  Tooling gotcha: in this Bash tool, ``-style backslash sequences inside a heredoc were turned into
+  control characters () when writing Python; build such strings with chr(92) or use the Edit tool. Frames checked from the first render (opener, Level Complete,
   held Percy card, mix); the full videos were not watched.
 
 ## Android multi-window — deliberately deferred, not fixed (cross-platform audit finding C3.8)

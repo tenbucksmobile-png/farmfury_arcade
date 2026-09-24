@@ -23,21 +23,23 @@ DETAIL = re.compile(r"(\w+)=(\S+)")
 # How interesting each moment is, and how much video to keep before/after it (seconds).
 # Tune these after watching a few sessions.
 WEIGHTS = {
-    "full_chain":       (10, 5.0, 3.0),
-    "combo":            (8, 4.0, 4.0),
+    # The game is about dodging robots and collecting every crop, so those moments rank highest.
+    "near_miss":        (9, 4.0, 3.0),
+    "level_complete":   (8, 6.0, 3.0),
     "world_unlock":     (7, 1.0, 5.0),
     "character_unlock": (6, 1.0, 5.0),
-    "near_miss":        (5, 3.0, 2.0),
-    "level_complete":   (4, 5.0, 3.0),
-    "robot_defeated":   (3, 3.0, 2.0),
+    "combo":            (6, 4.0, 4.0),
+    "power_pellet":     (5, 2.0, 4.0),
+    "full_chain":       (3, 5.0, 3.0),
     "revive":           (2, 2.0, 3.0),
-    "power_pellet":     (2, 1.0, 3.0),
+    "robot_defeated":   (1, 3.0, 2.0),
     "ability":          (1, 1.0, 3.0),
 }
 # Context only: never the reason for a clip.
 CONTEXT_TYPES = {"level_start", "level_failed", "player_death"}
 
 NEAR_MISS_SURVIVE_SECONDS = 2.0   # a near miss followed by a death this soon wasn't a near miss
+NEAR_MISS_RESOLVED_SECONDS = 1.5  # ...nor one where an ability/robot defeat happened this close
 MAX_CLIP_SECONDS = 25.0
 MIN_CLIP_SECONDS = 6.0
 DEATH_PENALTY = 4                 # clips showing a death rank lower (still kept, sometimes they're funny)
@@ -57,31 +59,40 @@ def load_markers(session_dir):
         t = (phone_ms - offset_ms - start_pc_ms) / 1000.0
         if t < 0:
             continue  # happened before the recording started
-        markers.append({"t": round(t, 2), "type": kind, **dict(DETAIL.findall(rest))})
+        # Builds made before the invariant-culture fix wrote decimals with the phone's locale ("1,39").
+        details = {k: re.sub(r"^(-?\d+),(\d+)$", r"\1.\2", v) for k, v in DETAIL.findall(rest)}
+        markers.append({"t": round(t, 2), "type": kind, **details})
     markers.sort(key=lambda m: m["t"])
     return markers
 
 
 def drop_failed_near_misses(markers):
+    """A near miss only counts as a dodge if the player got away cleanly: no death shortly after,
+    and no ability used / robot beaten around it (on the first recording, every "near miss" was
+    Bessie's Ground Slam taking the robot out, which isn't a dodge)."""
     deaths = [m["t"] for m in markers if m["type"] == "player_death"]
+    resolved = [m["t"] for m in markers if m["type"] in ("ability", "robot_defeated")]
     kept = []
     for m in markers:
-        if m["type"] == "near_miss" and any(0 <= d - m["t"] <= NEAR_MISS_SURVIVE_SECONDS for d in deaths):
-            continue
+        if m["type"] == "near_miss":
+            if any(0 <= d - m["t"] <= NEAR_MISS_SURVIVE_SECONDS for d in deaths):
+                continue
+            if any(abs(r - m["t"]) <= NEAR_MISS_RESOLVED_SECONDS for r in resolved):
+                continue
         kept.append(m)
     return kept
 
 
 def score(marker):
     weight = WEIGHTS[marker["type"]][0]
-    if marker["type"] == "robot_defeated" and int(marker.get("chain", 0)) >= 2:
-        weight += 2
-    if marker["type"] == "full_chain":
-        # Early levels have only 2 robots, so a 2-robot full chain is routine; 4+ is the real prize.
-        robots = int(marker.get("robots", 2))
-        weight = {2: 5, 3: 8}.get(robots, 10 if robots >= 4 else 4)
+    if marker["type"] == "near_miss":
+        # The closer the robot got, the better the dodge.
+        cells = float(marker.get("cells", 1.4))
+        weight += 3 if cells < 1.0 else (1 if cells < 1.2 else 0)
     if marker["type"] == "level_complete":
         weight += int(marker.get("stars", 0))
+        if marker.get("deaths") == "0":
+            weight += 2   # cleared the farm without getting caught
     return weight
 
 
