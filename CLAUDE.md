@@ -5766,8 +5766,9 @@ first bytes (a `PK` header = a zip; a 37-byte body = a URL pasted into the file 
 Headless Edge can screenshot the live site: `msedge --headless=new --screenshot=out.png <url>`.
 
 **Still open:**
-- The mailboxes named on the site and in the policies (`privacy@`, `legal@`, `support@` at
-  `farmfurygames.com`) must actually exist (cPanel > Email Accounts / Forwarders).
+- Since 2026-09-25 the site and both policies name one address only, `support@farmfurygames.com`
+  (was `privacy@` in the Privacy Policy, `legal@` in the Terms). That mailbox must actually exist
+  (cPanel > Email Accounts / Forwarders).
 - Governing law is set (Terms §13: Republic of South Africa); no court/venue/arbitration clause exists.
 - Privacy Policy §06 (Analytics) describes Unity Analytics and its 5 events. The statements about what
   Unity collects and that events are "not used to target ads" are unverified, and the child-directed
@@ -5864,7 +5865,7 @@ unedited. Known gaps to fix in the policy when convenient: (1) it says analytics
 Unity Analytics assigns an anonymous installation ID; (2) IP address / approximate location seen by ad and
 analytics services is not mentioned; (3) the Purchase analytics event sends product ID and price, so declare
 Purchase history as collected (analytics), not "Google Play handles it"; (4) crash/diagnostic data is not
-mentioned; (5) no explicit deletion-request sentence (email `privacy@farmfurygames.com`); (6) the page still
+mentioned; (5) no explicit deletion-request sentence (email `support@farmfurygames.com`); (6) the page still
 says "Draft - pending legal review". Check each ad SDK's own data-safety disclosure before answering "shared".
 Declaring the audience as 13+ was considered and rejected: Play judges the actual content and the GDD targets
 8-45, so the app stays child-inclusive (Families policy, Families-certified ad SDKs only).
