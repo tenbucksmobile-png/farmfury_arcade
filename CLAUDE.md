@@ -5780,8 +5780,8 @@ Source: `Desktop\farmfurygames-policies\{privacy,terms}\index.html`. "Draft" chi
 - Privacy Policy §06 (Analytics) describes Unity Analytics and its 5 events. The statements about what
   Unity collects and that events are "not used to target ads" are unverified, and the child-directed
   setting for Analytics was never confirmed (see "Analytics" above) — needs review before submission.
-- Company name: the site footer says "tenbucks-mobile (Pty) Ltd"; the policies say "Tenbucks Mobile".
-  Use the registered legal name in both.
+- Company name: registered legal name is **Tenbucks Mobile (PTY) Ltd** (confirmed 2026-09-28); the v1.0
+  policies use it. The home page footer still says "tenbucks-mobile (Pty) Ltd" (in `index.html`'s `SiteFooter`).
 - App Store Connect / Play Console fields (Privacy Policy URL, Support URL, Marketing URL) must match.
 
 ## Android device testing (local build, USB + adb)
