@@ -5765,6 +5765,13 @@ slash redirects to the slash form) and compare sizes — a wrong file is usually
 first bytes (a `PK` header = a zip; a 37-byte body = a URL pasted into the file instead of HTML).
 Headless Edge can screenshot the live site: `msedge --headless=new --screenshot=out.png <url>`.
 
+**Franchise-wide rewrite (2026-09-28, v1.0, prepared; upload by the user).** Both pages now cover every
+Farm Fury game (Farm Fury: Arcade, Farm Fury, Farm Fury: Stampede, future titles) plus the website: general
+sections apply to all games, and a "Game-by-game details" section lists each game's services/events (Arcade
+filled in; the other two marked "Not yet released" - fill in before each launches). Also closes the v0.3 gaps
+(installation ID, IP/approx location, purchase event, diagnostics, deletion requests, website server logs).
+Source: `Desktop\farmfurygames-policies\{privacy,terms}\index.html`. "Draft" chip changed to "Pending legal review".
+
 **Still open:**
 - Since 2026-09-25 the site and both policies name one address only, `support@farmfurygames.com`
   (was `privacy@` in the Privacy Policy, `legal@` in the Terms). That mailbox must actually exist
