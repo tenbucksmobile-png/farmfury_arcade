@@ -5757,8 +5757,10 @@ them in cPanel File Manager (right-click > Edit) or re-upload; there is no build
   didn't change.
 - The home page compiles JSX in the browser with Babel loaded from `unpkg.com` (the export's own
   README says so): slow, and it depends on that CDN. Pre-building would remove both.
-- The footer links were `href="#"` in the export; they are now `/privacy/`, `/terms/` and
-  `mailto:support@farmfurygames.com`, edited directly in `index.html` (the `SiteFooter` component).
+- The footer links are `href="#"` in the export. A note here used to say they had been fixed, but on
+  2026-09-28 the live `index.html` still had `href="#"` for Privacy Policy/Terms of Use/Support (a later
+  re-upload of the export probably overwrote the fix). The user is redoing the footer in Claude Design
+  (brief below); re-check the live links after every site upload.
 
 **Verify a deploy without a browser:** request each URL (expect 200; a directory URL without a trailing
 slash redirects to the slash form) and compare sizes — a wrong file is usually obvious from its size or
@@ -5770,7 +5772,28 @@ Farm Fury game (Farm Fury: Arcade, Farm Fury, Farm Fury: Stampede, future titles
 sections apply to all games, and a "Game-by-game details" section lists each game's services/events (Arcade
 filled in; the other two marked "Not yet released" - fill in before each launches). Also closes the v0.3 gaps
 (installation ID, IP/approx location, purchase event, diagnostics, deletion requests, website server logs).
-Source: `Desktop\farmfurygames-policies\{privacy,terms}\index.html`. "Draft" chip changed to "Pending legal review".
+Source: `Desktop\farmfurygames-policies\{privacy,terms}\index.html` (the user may since have moved it under
+`Desktop\farmfurygames-website\`). "Draft" chip changed to "Pending legal review". Not confirmed as uploaded.
+
+**app-ads.txt (live 2026-09-28).** `public_html/app-ads.txt` holds one line:
+`google.com, pub-1264425755955045, DIRECT, f08c47fec0942fa0` (the snippet AdMob gave). It is served as
+text/plain on `farmfurygames.com`, `www.` and http, and returns 200 for Googlebot/AdsBot/Mediapartners user
+agents; there is no robots.txt. The Play listing's developer website is `https://farmfurygames.com`, which
+matches. LevelPlay's own app-ads.txt lines (ironSource and partners) are NOT added yet - copy them from the
+LevelPlay dashboard and append below the Google line; don't guess them.
+
+**Google Play badge + QR (2026-09-28, not yet on the site).** Files in
+`Desktop\farmfurygames-website\farmfurygames-playstore\`: Google's official `google-play-badge.png`,
+`farmfury-arcade-qr.svg`/`.png` (decoded with OpenCV and confirmed to open
+`...details?id=com.farmfury.arcade&referrer=utm_source%3Dfarmfurygames.com%26utm_medium%3Dqr`), a printable
+`farmfury-arcade-scan-card.png`, `snippet.html`, and an `index.html` with a hand-edited footer that was
+compiled without errors but never visually checked (don't upload it). The footer is being redone in Claude
+Design with this brief: badge linking to `...&referrer=utm_source%3Dfarmfurygames.com%26utm_medium%3Dwebsite`,
+QR + "Scan to download", images in `assets/store/`, legal links fixed, copyright "© Tenbucks Mobile (PTY) Ltd.
+All rights reserved." plus the Google Play trademark line Google's badge rules require.
+Headless-rendering gotcha: served locally, the page renders blank because Babel-standalone's runtime compile
+doesn't finish within the headless budget; pre-compiling each `text/babel` script with Node + `@babel/standalone`
+(each wrapped in an IIFE, since separate scripts all declare `const { Button }`) makes it mount.
 
 **Still open:**
 - Since 2026-09-25 the site and both policies name one address only, `support@farmfurygames.com`
@@ -5781,7 +5804,9 @@ Source: `Desktop\farmfurygames-policies\{privacy,terms}\index.html`. "Draft" chi
   Unity collects and that events are "not used to target ads" are unverified, and the child-directed
   setting for Analytics was never confirmed (see "Analytics" above) — needs review before submission.
 - Company name: registered legal name is **Tenbucks Mobile (PTY) Ltd** (confirmed 2026-09-28); the v1.0
-  policies use it. The home page footer still says "tenbucks-mobile (Pty) Ltd" (in `index.html`'s `SiteFooter`).
+  policies use it. The home page footer still says "tenbucks-mobile (Pty) Ltd" (in `index.html`'s `SiteFooter`)
+  until the Claude Design footer is uploaded.
+- Play Data safety should declare Purchase history as collected (analytics), to match the v1.0 policy.
 - App Store Connect / Play Console fields (Privacy Policy URL, Support URL, Marketing URL) must match.
 
 ## Android device testing (local build, USB + adb)
@@ -5856,6 +5881,15 @@ user, who chose to promote to Production. Ads are switched live only AFTER appro
 app, then LevelPlay Store availability = live; allow 24-48 h for fill. A first review of a child-directed app can be
 slow, and each ad SDK must be Families-certified. Not yet recorded here: review outcome, rollout percentage, and
 whether ads fill after the store is linked.
+
+**Live on Google Play (confirmed 2026-09-28)** - the public listing shows Install, "Contains ads", "In-app
+purchases", category Arcade (plus Family). Ad switches the same day:
+- LevelPlay Android app: Store availability set to Live (category "Arcade: Other Arcade"); dashboard shows 3
+  active ad units. ironSource bidding can fill without AdMob.
+- AdMob Android app: store linked (Google Play, `com.farmfury.arcade`); App verification "Not verified" and
+  Approval status "Requires review" pending the app-ads.txt crawl (see the website section). Next: Verify app,
+  then request review. Expect limited AdMob fill until approved.
+- If there are no ads 24-48 h after AdMob approval, build a Development APK and read the LevelPlay Test Suite.
 
 **Play Console status.** Organisation account (the ~12-tester/14-day closed-test rule for new personal accounts
 does not apply). App `com.farmfury.arcade` exists; the AAB went to Internal testing; all 22 in-app products were
