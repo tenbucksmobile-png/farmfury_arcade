@@ -5930,13 +5930,23 @@ next Cloud Build.
 ## Shorts content pipeline (Tools/content-pipeline)
 
 Started 2026-09-24: record gameplay from the Android phone and cut it into TikTok / YouTube Shorts.
-**Status (end of 2026-09-24):** recording, highlight detection and short rendering are built and used on
-one real session. Captions/descriptions (step 3), a posting queue and API uploading are not built.
-The user is creating the TikTok and YouTube accounts from `channel-kit/SETUP.md` (profile picture,
-banner, bios, UTM store links, "made for kids" decision, YouTube Data API / TikTok developer app steps)
-but **will only activate posting once the apps are live**. Don't build or run uploads before then unless
-asked. API uploads on both platforms stay private (YouTube: locked) until each platform audits the app.
-Next when resumed: the handles, then step 3 (captions through `check_wording`) and a weekly queue.
+**Status (end of 2026-09-30):** recording, highlight detection, rendering and step 3 are built.
+TikTok account **@farmfurygames** exists and is a Business account (approved 2026-09-30); YouTube handle
+not confirmed. **Posting route chosen: manual scheduling in TikTok Studio** (tiktok.com > Upload >
+Schedule, up to 10 days ahead), not API uploads - a scheduler-service API and an own TikTok developer app
+were offered and declined, so don't build an uploader unless asked. Target 2-3 posts a day.
+- **Step 3, `plan_posts.py`.** Writes a caption + hashtags per rendered short (templates per kind, run
+  through `check_wording`; CTA "free on Google Play, link in bio"), orders them so dodge-and-collect
+  shorts (`mix_*`, `short_*`) alternate with ability/power/unlock/combo ones, assigns them to daily slots
+  (default 2/day at 07:30 and 18:30; `--per-day 3`, `--times`, `--start`, `--dry-run`), and writes
+  `plans/<start>.html` (time, file, caption with a Copy button) plus `ledger.json` so a short is never
+  planned twice. Both outputs are gitignored. One 5-minute session gives ~9 shorts, so 2-a-day needs
+  about two short recording sessions a week.
+- **First sheet:** `plans/2026-10-01.html`, 9 posts, 1 Oct 07:30 to 5 Oct 07:30. Whether they were
+  scheduled in TikTok Studio, and whether the headline/CTA overlay sits clear of TikTok's own buttons on
+  the first live post, are not yet confirmed.
+- Weekly loop: record -> `make_shorts.py` -> `plan_posts.py --start <first empty day>` -> schedule in
+  TikTok Studio with "Disclose post content > Your brand" on.
 - **Highlight markers.** `Core/HighlightMarkers.cs` - `HighlightMarkers.Mark(type, details)` logs
   `[Highlight] type=... ms=<phone unix ms> key=value` lines. It is `[Conditional]` on `DEVELOPMENT_BUILD`/
   `UNITY_EDITOR`, so the calls (and their argument evaluation) are compiled out of release builds.

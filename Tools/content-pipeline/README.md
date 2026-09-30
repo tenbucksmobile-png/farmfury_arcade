@@ -27,6 +27,17 @@ clip's best moment (`hook_text`). Layout: headline at the top, the centre of the
 game screen (the maze) in the middle, logo + "FREE ON GOOGLE PLAY" above the area
 TikTok/Shorts cover with their own buttons, blurred gameplay behind.
 
+## Step 3: captions and a posting plan
+```
+python plan_posts.py                      # 7 days from tomorrow, 2 a day (07:30, 18:30)
+python plan_posts.py --per-day 3 --days 5 --dry-run
+```
+Writes a caption per short (kid-safe wording checked with `check_wording`), alternates
+dodge-and-collect shorts with ability/power/unlock/combo ones, and writes
+`plans/<start>.html` (time, video file, caption with a Copy button) for scheduling in
+TikTok Studio (up to 10 days ahead). `ledger.json` stops a short being planned twice;
+both are gitignored. TikTok account: @farmfurygames.
+
 ## One-time setup
 1. Portable copies of scrcpy 4.1 and ffmpeg live in `bin/` (gitignored, not in the
    repo). The scripts find them there, nothing to install. On a new PC, unzip
