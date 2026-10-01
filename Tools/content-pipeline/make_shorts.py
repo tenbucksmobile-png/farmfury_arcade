@@ -47,7 +47,11 @@ PICTURE_CENTER_Y = 960
 HOOK_BOX = (60, 190, W - 60, 520)      # left, top, right, bottom
 CTA_TOP = 1420
 
-OPENER_SECONDS = 1.5
+OPENER_SECONDS = 2.0
+ENDCARD_SECONDS = 3.0
+INTRO_LOGO_SIZE = 760
+INTRO_FADE_SECONDS = 0.5
+WEBSITE = "FARMFURYGAMES.COM"
 SINGLE_MIN_SECONDS = 12.0
 SINGLE_MAX_SECONDS = 18.0
 SINGLE_LEAD_SHARE = 0.6                # extra length goes 60% before the moment, 40% after
@@ -58,6 +62,13 @@ MIX_SEGMENT_MAX_SECONDS = 8.5
 UNLOCK_CARD_DELAY_SECONDS = 3.3
 UNLOCK_LEAD_SECONDS = 8.0
 UNLOCK_HOLD_SECONDS = 2.5
+# Character swap: the marker fires when the pick is made; the Choose Character screen is open ~4.5s before it.
+SWAP_LEAD_SECONDS = 5.5
+SWAP_AFTER_SECONDS = 7.0
+SWAP_MIX_LEAD_SECONDS = 2.5               # in the swap mix: the last of the card pick...
+SWAP_MIX_AFTER_SECONDS = 3.0              # ...then the new animal in the maze
+SWAP_HEADLINES = ["SWAP TO {character}!", "PICK YOUR ANIMAL: {character}!", "TAG IN {character}!"]
+SWAP_MIX_HEADLINE = "8 FARM ANIMALS. SWAP ANY TIME!"
 
 TEXT_FILL = (255, 255, 255)
 ACCENT_FILL = (255, 214, 64)
@@ -185,6 +196,25 @@ def build_overlay(hook, path):
     overlay.save(path)
 
 
+def _centered_text(draw, text, font, y, fill, stroke):
+    x = (W - draw.textlength(text, font=font)) / 2
+    draw.text((x, y), text, font=font, fill=fill, stroke_width=stroke, stroke_fill=STROKE_FILL)
+
+
+def build_endcard_overlay(path):
+    """End card: big logo, where to get the game, and the website."""
+    overlay = Image.new("RGBA", (W, H), (0, 0, 0, 0))
+    draw = ImageDraw.Draw(overlay)
+    logo_size = 420
+    logo = Image.open(LOGO).convert("RGBA").resize((logo_size, logo_size), Image.LANCZOS)
+    overlay.alpha_composite(logo, ((W - logo_size) // 2, 330))
+    _centered_text(draw, "PLAY FREE NOW!", ImageFont.truetype(str(FONT), 120), 820, TEXT_FILL, 8)
+    _centered_text(draw, "GET IT ON GOOGLE PLAY", ImageFont.truetype(str(FONT), 92), 990, ACCENT_FILL, 7)
+    _centered_text(draw, "SEARCH \"FARM FURY ARCADE\"", ImageFont.truetype(str(FONT), 64), 1110, TEXT_FILL, 5)
+    _centered_text(draw, WEBSITE, ImageFont.truetype(str(FONT), 84), 1250, ACCENT_FILL, 7)
+    overlay.save(path)
+
+
 # ---------------------------------------------------------------------------------------------
 # Rendering. Every segment is rendered to the same format, then segments are joined.
 
@@ -229,6 +259,30 @@ def render_segment(ffmpeg, out, duration, overlay, visual, audio):
         f"{pic}[1:v]overlay=0:0,setsar=1,format=yuv420p[v];"
         "[2:a]aformat=sample_rates=48000:channel_layouts=stereo,apad[a]"
     )
+    cmd = [ffmpeg, "-v", "error", "-y", *inputs, "-filter_complex", filters,
+           "-map", "[v]", "-map", "[a]", "-t", f"{duration:.2f}", *VIDEO_OUT, *AUDIO_OUT, str(out)]
+    if subprocess.run(cmd).returncode != 0:
+        raise RuntimeError(f"ffmpeg failed rendering {out.name}")
+
+
+def render_card(ffmpeg, out, duration, overlay, music_start, logo_fade=False):
+    """A full-screen card on the blurred, darkened poster with Theme music. logo_fade: the logo
+    fades in, grows slightly, and fades out (the intro). overlay: a PNG laid on top (the end card)."""
+    inputs = ["-loop", "1", "-framerate", str(FPS), "-t", f"{duration:.2f}", "-i", str(POSTER),
+              "-loop", "1", "-framerate", str(FPS), "-t", f"{duration:.2f}",
+              "-i", str(LOGO if logo_fade else overlay),
+              "-ss", f"{music_start:.2f}", "-t", f"{duration:.2f}", "-i", str(THEME_MUSIC)]
+    bg = (f"[0:v]setsar=1,scale={W}:{H}:force_original_aspect_ratio=increase,crop={W}:{H},"
+          f"boxblur=30:2,eq=brightness=-0.3,fps={FPS}[bg];")
+    if logo_fade:
+        f = INTRO_FADE_SECONDS
+        size = INTRO_LOGO_SIZE
+        fg = (f"[1:v]format=rgba,scale='{size}*(0.9+0.1*t/{duration})':-1:eval=frame,"
+              f"fade=t=in:st=0:d={f}:alpha=1,fade=t=out:st={duration - f:.2f}:d={f}:alpha=1[fg];"
+              f"[bg][fg]overlay=(W-w)/2:(H-h)/2:eval=frame,setsar=1,format=yuv420p[v];")
+    else:
+        fg = "[bg][1:v]overlay=0:0,setsar=1,format=yuv420p[v];"
+    filters = bg + fg + "[2:a]aformat=sample_rates=48000:channel_layouts=stereo,apad[a]"
     cmd = [ffmpeg, "-v", "error", "-y", *inputs, "-filter_complex", filters,
            "-map", "[v]", "-map", "[a]", "-t", f"{duration:.2f}", *VIDEO_OUT, *AUDIO_OUT, str(out)]
     if subprocess.run(cmd).returncode != 0:
@@ -315,10 +369,17 @@ class Builder:
         return path
 
     def opener(self, hook):
+        """Quick intro: the Farm Fury logo fading in and out over a blurred poster."""
         out = self._temp(".mp4")
-        render_segment(self.ffmpeg, out, OPENER_SECONDS, self.overlay(hook),
-                       ("image", POSTER, "poster"), ("file", THEME_MUSIC, 0.0))
+        render_card(self.ffmpeg, out, OPENER_SECONDS, None, music_start=0.0, logo_fade=True)
         return out, OPENER_SECONDS
+
+    def endcard(self):
+        overlay = self._temp(".png")
+        build_endcard_overlay(overlay)
+        out = self._temp(".mp4")
+        render_card(self.ffmpeg, out, ENDCARD_SECONDS, overlay, music_start=8.0)
+        return out, ENDCARD_SECONDS
 
     def gameplay(self, hook, start, end):
         out = self._temp(".mp4")
@@ -337,7 +398,7 @@ class Builder:
 
     def finish(self, name, parts, info):
         out = self.out_dir / f"{name}.mp4"
-        total = join_segments(self.ffmpeg, parts, out)
+        total = join_segments(self.ffmpeg, parts + [self.endcard()], out)
         info = dict(info, file=out.name, seconds=round(total, 1))
         (self.out_dir / f"{name}.json").write_text(json.dumps(info, indent=2), encoding="utf-8")
         print(f"  {out.name}  {total:.1f}s  \"{info['hook']}\"")
@@ -471,6 +532,31 @@ def main():
             print("Whole-game mix:")
             parts = [b.opener(whole[0][0])] + [b.gameplay(h, st, en) for h, st, en in whole]
             b.finish("mix_02_whole_game", parts, {"hook": whole[0][0], "clips": [[st, en] for _, st, en in whole]})
+
+        # --- Character swaps: the Choose Character screen, then the new animal in the maze -------
+        # From character_swap markers; sessions recorded before that marker existed can list them in
+        # swaps.json as [{"t": <seconds when the pick lands>, "character": "Percy"}, ...].
+        swaps = [{"t": m["t"], "character": m.get("to", "")} for m in markers if m["type"] == "character_swap"]
+        swaps_file = session_dir / "swaps.json"
+        if not swaps and swaps_file.exists():
+            swaps = json.loads(swaps_file.read_text(encoding="utf-8"))
+        if swaps:
+            print("Character swaps:")
+        for i, sw in enumerate(swaps):
+            hook = SWAP_HEADLINES[i % len(SWAP_HEADLINES)].format(character=sw["character"].upper())
+            start = max(0.0, sw["t"] - SWAP_LEAD_SECONDS)
+            end = min(video_len, sw["t"] + SWAP_AFTER_SECONDS)
+            b.finish(f"swap_{sw['character'].lower()}", [b.opener(hook), b.gameplay(hook, start, end)],
+                     {"hook": hook, "clip": [start, end]})
+        if len(swaps) >= 3:
+            parts = [b.opener(SWAP_MIX_HEADLINE)]
+            spans = []
+            for sw in swaps[:5]:
+                start = max(0.0, sw["t"] - SWAP_MIX_LEAD_SECONDS)
+                end = min(video_len, sw["t"] + SWAP_MIX_AFTER_SECONDS)
+                parts.append(b.gameplay(f"SWAP TO {sw['character'].upper()}!", start, end))
+                spans.append([start, end])
+            b.finish("mix_03_swaps", parts, {"hook": SWAP_MIX_HEADLINE, "clips": spans})
 
     print(f"Shorts written to {out_dir}")
 

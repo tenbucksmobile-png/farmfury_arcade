@@ -5762,6 +5762,22 @@ them in cPanel File Manager (right-click > Edit) or re-upload; there is no build
   re-upload of the export probably overwrote the fix). The user is redoing the footer in Claude Design
   (brief below); re-check the live links after every site upload.
 
+- **2026-10-01: the whole site lost its artwork and both policy pages 404'd.** The 28 Sep zip was
+  extracted into `public_html/farmfurygames - website/` and only the loose files (index.html, styles.css,
+  ds-bundle.js) were moved up; `assets/`, `privacy/`, `terms/` stayed in the subfolder (the zip was also
+  left downloadable). The user moved them up the same day; all 22 assets and both policy pages
+  then returned 200. After any upload, check `/privacy/`, `/terms/` and an `assets/` file, not just `/`.
+  Footer links now resolve (`privacy/index.html`, `terms/index.html`). Open: at phone width (412px) the
+  header's Shop button and the hero's right arrow are cut off the right edge.
+
+- **2026-10-01: images converted to WebP** (live and verified): page artwork went from 15.7 MB of PNGs
+  (two 2720x1536 backdrops alone were 4.4 + 3.4 MB) to 0.9 MB. 18 images over 40 KB were saved as
+  `.webp` (quality 82, backdrops resized to 1920 wide) and `index.html`'s references changed to match;
+  the QR and Play badge stay PNG. The old `.png` files are still on the server, unused (safe to delete).
+  A new Claude Design export will reference `.png` again - redo the conversion (it was a one-off script,
+  not saved) or ask Claude Design to export WebP. Remaining load cost: in-browser Babel + React dev builds
+  (~0.9 MB JS plus compile time).
+
 **Verify a deploy without a browser:** request each URL (expect 200; a directory URL without a trailing
 slash redirects to the slash form) and compare sizes — a wrong file is usually obvious from its size or
 first bytes (a `PK` header = a zip; a 37-byte body = a URL pasted into the file instead of HTML).
@@ -6005,6 +6021,11 @@ were offered and declined, so don't build an uploader unless asked. Target 2-3 p
   use of each animal's special move; `ABILITY_NAMES` maps the logged class name to character + move -
   Ducky's "Skip Shot" is marketed as "Water Skip" because "shot" is on `AVOID_WORDS`), `power_crop`,
   `combo_<name>`, and `mix_02_whole_game` (one of each). The shorts folder is no longer wiped between runs.
+  2026-10-01: every short now opens with a 2s logo fade-in/out intro and ends with a 3s end card
+  (Google Play + farmfurygames.com). Added `swap_<character>` and `mix_03_swaps` shorts, driven by a new
+  `character_swap` marker in `CharacterManager.SwapCharacter` (not compiled or in a device build yet) or,
+  for older sessions, a hand-written `swaps.json` (session 20261001-150832's times were found by matching
+  frames against the Choose Character screen).
   Tooling gotcha: in this Bash tool, ``-style backslash sequences inside a heredoc were turned into
   control characters () when writing Python; build such strings with chr(92) or use the Edit tool. Frames checked from the first render (opener, Level Complete,
   held Percy card, mix); the full videos were not watched.

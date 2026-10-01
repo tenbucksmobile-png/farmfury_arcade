@@ -9,7 +9,9 @@ python make_shorts.py                   # newest session
 python make_shorts.py sessions/<id> --count 5 --include-deaths
 ```
 Writes to `sessions/<id>/shorts/` (files are overwritten by name), all 1080x1920,
-30fps, loudness-normalised, each opening with the Farm Fury poster (1.5s, Theme music):
+30fps, loudness-normalised. Every short opens with a 2s intro (the Farm Fury logo fading
+in and out over the blurred poster, Theme music) and ends with a 3s end card (logo,
+"PLAY FREE NOW!", "GET IT ON GOOGLE PLAY", search "Farm Fury Arcade", FARMFURYGAMES.COM):
 - `mix_01.mp4` - highlight mix: the best 3 moments, strongest first (~25s)
 - `short_01.mp4`... - one moment each, lengthened to 12-18s (mostly extra lead-in)
 - `ability_<name>.mp4` - one per animal special move seen in the session
@@ -17,6 +19,8 @@ Writes to `sessions/<id>/shorts/` (files are overwritten by name), all 1080x1920
 - `power_crop.mp4` - a power crop sending the robots running
 - `combo_<name>.mp4` - any combo triggered
 - `mix_02_whole_game.mp4` - one of each: collecting/dodging, power crop, special move, combo
+- `swap_<character>.mp4` - the Choose Character screen, then the new animal in the maze
+- `mix_03_swaps.mp4` - up to 5 swaps back to back
 - `unlock_<character>.mp4` - the level finishing, then the unlock card frozen for
   2.5s (the card appears ~3.3s after the unlock marker; tune `UNLOCK_CARD_DELAY_SECONDS`)
 
@@ -67,7 +71,9 @@ Re-run the ranking at any time (e.g. after changing the weights):
 
 ## Markers the game writes
 `level_start`, `level_complete`, `level_failed` (reason timeout / out_of_lives),
-`player_death`, `revive`, `power_pellet`, `robot_defeated` (robot, chain,
+`player_death`, `revive`, `power_pellet`, `character_swap` (from, to; added 2026-10-01,
+needs a new Development Build - for older sessions put the swap times in
+`sessions/<id>/swaps.json` as `[{"t": 61.0, "character": "Percy"}, ...]`), `robot_defeated` (robot, chain,
 power), `full_chain`, `combo`, `ability`, `near_miss` (hostile robot within 1.4
 tiles), `character_unlock`, `world_unlock`. Source:
 `Assets/_Project/Scripts/Core/HighlightMarkers.cs`.

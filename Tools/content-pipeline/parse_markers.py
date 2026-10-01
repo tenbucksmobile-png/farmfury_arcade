@@ -36,7 +36,7 @@ WEIGHTS = {
     "ability":          (1, 1.0, 3.0),
 }
 # Context only: never the reason for a clip.
-CONTEXT_TYPES = {"level_start", "level_failed", "player_death"}
+CONTEXT_TYPES = {"level_start", "level_failed", "player_death", "character_swap"}  # swaps get their own shorts
 
 NEAR_MISS_SURVIVE_SECONDS = 2.0   # a near miss followed by a death this soon wasn't a near miss
 NEAR_MISS_RESOLVED_SECONDS = 1.5  # ...nor one where an ability/robot defeat happened this close

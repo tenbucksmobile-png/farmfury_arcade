@@ -71,6 +71,7 @@ namespace FarmFuryArcade.Core
 
             OnCharacterChanged?.Invoke(previous, newType);
             ComboSystem.Instance?.RegisterCharacterSwap(previous, newType);
+            HighlightMarkers.Mark("character_swap", $"from={previous} to={newType}");
             return true;
         }
 

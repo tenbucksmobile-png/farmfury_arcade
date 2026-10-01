@@ -58,6 +58,14 @@ CAPTIONS = {
     "combo": [
         "Swap animals in the right order and you get a combo 🔁 {hook}",
     ],
+    "swap": [
+        "Swap animals any time mid-run 🔁 In comes {character}! Who's your favourite?",
+        "Pick your animal: {character} tags in 🐾 Every animal has its own special move.",
+        "Feeling stuck? Swap to {character} and try a new way through the maze 🔁",
+    ],
+    "swap_mix": [
+        "8 farm animals and you can swap between them any time 🐔🐄🐷🐑🦆 Who would you pick first?",
+    ],
     "unlock": [
         "New friend on the farm! {character} just joined the team 🎉 Who should we unlock next?",
         "Unlocked {character}! Every animal plays differently 🐷🐑🦆",
@@ -72,6 +80,7 @@ HASHTAGS_EXTRA = {
     "power": ["#retrogaming", "#mazegame", "#indiegame"],
     "combo": ["#indiegame", "#gaming", "#androidgames"],
     "unlock": ["#cuteanimals", "#indiegame", "#androidgames"],
+    "swap": ["#cuteanimals", "#indiegame", "#mazegame"],
 }
 
 ABILITIES = {
@@ -83,6 +92,8 @@ ABILITIES = {
 
 
 def kind_of(name):
+    if name.startswith("swap_") or name.endswith("_swaps"):
+        return "swap"
     if name.startswith(("mix_", "short_")):
         return "main"
     for prefix in ("ability", "power", "combo", "unlock"):
@@ -100,9 +111,10 @@ def write_caption(short_id, name, info):
     kind = kind_of(name)
     tail = name.split("_", 1)[1] if "_" in name else ""
     character, ability = ABILITIES.get(tail, ("", ""))
-    if kind == "unlock":
+    if kind in ("unlock", "swap"):
         character = tail.capitalize()
-    body = pick(CAPTIONS[kind], short_id).format(
+    templates = CAPTIONS["swap_mix"] if name.endswith("_swaps") else CAPTIONS[kind]
+    body = pick(templates, short_id).format(
         hook=info.get("hook", "").capitalize(), character=character or "this animal",
         ability=ability or "special move")
     tags = HASHTAGS_BASE + HASHTAGS_EXTRA[kind]
@@ -136,7 +148,7 @@ def order(shorts):
     for s in shorts:
         by_kind.setdefault(s["kind"], []).append(s)
     main = by_kind.pop("main", [])
-    others = [by_kind[k] for k in ("ability", "power", "unlock", "combo") if k in by_kind]
+    others = [by_kind[k] for k in ("swap", "ability", "power", "unlock", "combo") if k in by_kind]
     rest = []
     while any(others):
         for queue in others:
@@ -190,6 +202,9 @@ def main():
     parser.add_argument("--days", type=int, default=7)
     parser.add_argument("--per-day", type=int, default=2)
     parser.add_argument("--times", default=",".join(DEFAULT_TIMES), help="comma-separated HH:MM slots")
+    parser.add_argument("--session", help="only plan shorts from this session id (e.g. 20260924-170129)")
+    parser.add_argument("--replan", action="store_true",
+                        help="forget earlier plans for --session's shorts (e.g. they were never scheduled)")
     parser.add_argument("--dry-run", action="store_true")
     args = parser.parse_args()
 
@@ -201,9 +216,19 @@ def main():
     times = times[:args.per_day]
 
     ledger = load_ledger()
-    shorts = order(find_unplanned(ledger))
+    if args.replan:
+        if not args.session:
+            sys.exit("--replan needs --session")
+        ledger["planned"] = {k: v for k, v in ledger["planned"].items() if not k.startswith(args.session + "/")}
+    shorts = find_unplanned(ledger)
+    if args.session:
+        shorts = [s for s in shorts if s["id"].startswith(args.session + "/")]
+    shorts = order(shorts)
+    # Slots already past (or within 20 minutes, too soon to schedule) are skipped.
+    soon = dt.datetime.now() + dt.timedelta(minutes=20)
     slots = [(dt.date.fromisoformat(args.start) + dt.timedelta(days=d), t)
              for d in range(args.days) for t in times]
+    slots = [(day, t) for day, t in slots if dt.datetime.combine(day, dt.time.fromisoformat(t)) > soon]
     plan = [dict(s, day=day.isoformat(), time=t) for s, (day, t) in zip(shorts, slots)]
 
     for p in plan:
