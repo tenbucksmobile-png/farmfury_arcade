@@ -6026,6 +6026,14 @@ were offered and declined, so don't build an uploader unless asked. Target 2-3 p
   `character_swap` marker in `CharacterManager.SwapCharacter` (not compiled or in a device build yet) or,
   for older sessions, a hand-written `swaps.json` (session 20261001-150832's times were found by matching
   frames against the Choose Character screen).
+  2026-10-06: `make_animated_shorts.py` turns Kling AI character clips (square, silent, opening on ~1 s of the
+  reference sprite on black) into shorts with the same intro/headline/CTA/end card, game music underneath
+  (`CLIPS` list: file, black `skip`, headline, music track, caption). The music is one track laid over the
+  whole joined short (`replace_music`: 0.5 s fade in, 3 s fade out over the end card), not per segment -
+  per-segment music restarted at each cut and sounded broken. All four use Theme.mp3 (user's choice;
+  Wheatfield.mp3 also has a near-silent break at 11.5 s). Output goes to
+  `sessions/kling-20261006/shorts/animated_*`; `plan_posts.py` has an `animated` kind and uses each
+  short's own `caption_body`. First 4 (Cluck x2, Bessie x2) planned for Oct 15-16, sheet `plans/2026-10-15.html`.
   Tooling gotcha: in this Bash tool, ``-style backslash sequences inside a heredoc were turned into
   control characters () when writing Python; build such strings with chr(92) or use the Edit tool. Frames checked from the first render (opener, Level Complete,
   held Percy card, mix); the full videos were not watched.

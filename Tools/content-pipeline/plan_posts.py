@@ -81,6 +81,7 @@ HASHTAGS_EXTRA = {
     "combo": ["#indiegame", "#gaming", "#androidgames"],
     "unlock": ["#cuteanimals", "#indiegame", "#androidgames"],
     "swap": ["#cuteanimals", "#indiegame", "#mazegame"],
+    "animated": ["#cuteanimals", "#animation", "#indiegame"],
 }
 
 ABILITIES = {
@@ -96,7 +97,7 @@ def kind_of(name):
         return "swap"
     if name.startswith(("mix_", "short_")):
         return "main"
-    for prefix in ("ability", "power", "combo", "unlock"):
+    for prefix in ("animated", "ability", "power", "combo", "unlock"):
         if name.startswith(prefix):
             return prefix
     return "main"
@@ -113,10 +114,13 @@ def write_caption(short_id, name, info):
     character, ability = ABILITIES.get(tail, ("", ""))
     if kind in ("unlock", "swap"):
         character = tail.capitalize()
-    templates = CAPTIONS["swap_mix"] if name.endswith("_swaps") else CAPTIONS[kind]
-    body = pick(templates, short_id).format(
-        hook=info.get("hook", "").capitalize(), character=character or "this animal",
-        ability=ability or "special move")
+    if info.get("caption_body"):   # animated (Kling) shorts carry their own caption
+        body = info["caption_body"]
+    else:
+        templates = CAPTIONS["swap_mix"] if name.endswith("_swaps") else CAPTIONS[kind]
+        body = pick(templates, short_id).format(
+            hook=info.get("hook", "").capitalize(), character=character or "this animal",
+            ability=ability or "special move")
     tags = HASHTAGS_BASE + HASHTAGS_EXTRA[kind]
     caption = f"{body}\n\n{CTA}\n\n{' '.join(tags)}"
     check_wording(caption.replace("#", " "))
@@ -148,7 +152,7 @@ def order(shorts):
     for s in shorts:
         by_kind.setdefault(s["kind"], []).append(s)
     main = by_kind.pop("main", [])
-    others = [by_kind[k] for k in ("swap", "ability", "power", "unlock", "combo") if k in by_kind]
+    others = [by_kind[k] for k in ("animated", "swap", "ability", "power", "unlock", "combo") if k in by_kind]
     rest = []
     while any(others):
         for queue in others:
