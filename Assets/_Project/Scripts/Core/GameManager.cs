@@ -337,7 +337,17 @@ namespace FarmFuryArcade.Core
         /// in progress.</summary>
         private void OnApplicationPause(bool paused)
         {
-            if (paused && CurrentState == GameState.Playing)
+            if (paused)
+            {
+                PauseFromBackground();
+            }
+        }
+
+        /// <summary>Web demo: the body of OnApplicationPause(true), public so the YouTube
+        /// Playables onPause callback (PlatformBootstrap) can use the same path.</summary>
+        public void PauseFromBackground()
+        {
+            if (CurrentState == GameState.Playing)
             {
                 PauseGame();
                 // Time.timeScale = 0f (set inside PauseGame) only stops movement/animation —

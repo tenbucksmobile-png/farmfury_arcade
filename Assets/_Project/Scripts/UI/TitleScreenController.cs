@@ -24,6 +24,13 @@ namespace FarmFuryArcade.UI
             }
         }
 
+        private void Start()
+        {
+            // Web demo: the title screen is the first interactive moment, so this is where YouTube
+            // Playables is told the game is ready (it removes its loading spinner). No-op elsewhere.
+            Platform.ReportGameReady();
+        }
+
         private void OnEnable()
         {
             // Same track Main Menu itself starts on OnEnable — the title screen hands off to Main

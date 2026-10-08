@@ -67,22 +67,22 @@ namespace FarmFuryArcade.Core
 
         public void SaveProgress()
         {
-            PlayerPrefs.SetInt(HighestLevelKey, HighestLevelReached);
+            PlatformPrefs.SetInt(HighestLevelKey, HighestLevelReached);
             SetProtectedInt(CoinBalanceKey, CoinBalance);
-            PlayerPrefs.Save();
+            PlatformPrefs.Save();
         }
 
         public void LoadProgress()
         {
-            HighestLevelReached = PlayerPrefs.GetInt(HighestLevelKey, 0);
+            HighestLevelReached = PlatformPrefs.GetInt(HighestLevelKey, 0);
             CoinBalance = GetProtectedInt(CoinBalanceKey, 0);
 
             // Starter characters are unlocked by default.
-            if (!PlayerPrefs.HasKey(CharacterUnlockedKeyPrefix + CharacterType.Cluck))
+            if (!PlatformPrefs.HasKey(CharacterUnlockedKeyPrefix + CharacterType.Cluck))
             {
                 UnlockCharacter(CharacterType.Cluck);
             }
-            if (!PlayerPrefs.HasKey(CharacterUnlockedKeyPrefix + CharacterType.Bessie))
+            if (!PlatformPrefs.HasKey(CharacterUnlockedKeyPrefix + CharacterType.Bessie))
             {
                 UnlockCharacter(CharacterType.Bessie);
             }
@@ -91,14 +91,14 @@ namespace FarmFuryArcade.Core
             // brand-new install or a pre-existing save from before this marker existed — either
             // way it's already in CurrentSaveSchemaVersion's shape today, so this just starts
             // tracking it, not a migration trigger.
-            int savedSchemaVersion = PlayerPrefs.GetInt(SaveSchemaVersionKey, CurrentSaveSchemaVersion);
+            int savedSchemaVersion = PlatformPrefs.GetInt(SaveSchemaVersionKey, CurrentSaveSchemaVersion);
             if (savedSchemaVersion != CurrentSaveSchemaVersion)
             {
                 // No migrations exist yet — this branch is where a future one would run, keyed off
                 // savedSchemaVersion, before the marker below advances it.
                 Debug.LogWarning($"[SaveManager] Save schema version {savedSchemaVersion} does not match current {CurrentSaveSchemaVersion} — no migration defined yet, data may be read using the current shape as a best effort.");
             }
-            PlayerPrefs.SetInt(SaveSchemaVersionKey, CurrentSaveSchemaVersion);
+            PlatformPrefs.SetInt(SaveSchemaVersionKey, CurrentSaveSchemaVersion);
 
             RepairEquippedCosmeticOwnership();
         }
@@ -168,22 +168,22 @@ namespace FarmFuryArcade.Core
 
         private static void SetProtectedInt(string key, int value)
         {
-            PlayerPrefs.SetInt(key, value);
-            PlayerPrefs.SetInt(key + "_chk", ComputeChecksum(key, value));
+            PlatformPrefs.SetInt(key, value);
+            PlatformPrefs.SetInt(key + "_chk", ComputeChecksum(key, value));
         }
 
         private static int GetProtectedInt(string key, int defaultValue)
         {
-            int value = PlayerPrefs.GetInt(key, defaultValue);
+            int value = PlatformPrefs.GetInt(key, defaultValue);
             string checksumKey = key + "_chk";
-            if (!PlayerPrefs.HasKey(checksumKey))
+            if (!PlatformPrefs.HasKey(checksumKey))
             {
                 SetProtectedInt(key, value);
                 return value;
             }
 
             int expected = ComputeChecksum(key, value);
-            int stored = PlayerPrefs.GetInt(checksumKey, expected);
+            int stored = PlatformPrefs.GetInt(checksumKey, expected);
             if (stored != expected)
             {
                 Debug.LogWarning($"[SaveManager] Integrity check failed for '{key}' — value looks tampered or corrupted, resetting to default.");
@@ -238,7 +238,7 @@ namespace FarmFuryArcade.Core
         private void PersistCoinBalance()
         {
             SetProtectedInt(CoinBalanceKey, CoinBalance);
-            PlayerPrefs.Save();
+            PlatformPrefs.Save();
         }
 
         /// <summary>Testing-only helper (2026-09-13) so the coin-purchase flow — the "Use Coins?"
@@ -258,12 +258,12 @@ namespace FarmFuryArcade.Core
 
             int current = GetProtectedInt(CoinBalanceKey, 0);
             SetProtectedInt(CoinBalanceKey, current + amount);
-            PlayerPrefs.Save();
+            PlatformPrefs.Save();
         }
 
         public int GetLevelStars(int levelIndex)
         {
-            return PlayerPrefs.GetInt(LevelStarsKeyPrefix + levelIndex, 0);
+            return PlatformPrefs.GetInt(LevelStarsKeyPrefix + levelIndex, 0);
         }
 
         public void SetLevelStars(int levelIndex, int stars)
@@ -271,7 +271,7 @@ namespace FarmFuryArcade.Core
             int existing = GetLevelStars(levelIndex);
             if (stars > existing)
             {
-                PlayerPrefs.SetInt(LevelStarsKeyPrefix + levelIndex, stars);
+                PlatformPrefs.SetInt(LevelStarsKeyPrefix + levelIndex, stars);
             }
         }
 
@@ -290,12 +290,12 @@ namespace FarmFuryArcade.Core
 
         public bool IsCharacterUnlocked(CharacterType type)
         {
-            return PlayerPrefs.GetInt(CharacterUnlockedKeyPrefix + type, 0) == 1;
+            return PlatformPrefs.GetInt(CharacterUnlockedKeyPrefix + type, 0) == 1;
         }
 
         public void UnlockCharacter(CharacterType type)
         {
-            PlayerPrefs.SetInt(CharacterUnlockedKeyPrefix + type, 1);
+            PlatformPrefs.SetInt(CharacterUnlockedKeyPrefix + type, 1);
         }
 
         /// <summary>Whether NewWorldUnlockScreen's celebration has already played for this world
@@ -307,19 +307,19 @@ namespace FarmFuryArcade.Core
         /// IsCharacterUnlocked/UnlockCharacter.</summary>
         public bool HasSeenWorldUnlock(int world)
         {
-            return PlayerPrefs.GetInt(WorldUnlockSeenKeyPrefix + world, 0) == 1;
+            return PlatformPrefs.GetInt(WorldUnlockSeenKeyPrefix + world, 0) == 1;
         }
 
         public void SetWorldUnlockSeen(int world)
         {
-            PlayerPrefs.SetInt(WorldUnlockSeenKeyPrefix + world, 1);
+            PlatformPrefs.SetInt(WorldUnlockSeenKeyPrefix + world, 1);
         }
 
         // ---- Leaderboard (local, Phase 5 — LeaderboardManager) --------------------------------
 
         public int GetLevelBestScore(int levelIndex)
         {
-            return PlayerPrefs.GetInt(LevelBestScoreKeyPrefix + levelIndex, 0);
+            return PlatformPrefs.GetInt(LevelBestScoreKeyPrefix + levelIndex, 0);
         }
 
         public void SetLevelBestScore(int levelIndex, int score)
@@ -341,8 +341,8 @@ namespace FarmFuryArcade.Core
         {
             if (score > GetLevelBestScore(levelIndex))
             {
-                PlayerPrefs.SetInt(LevelBestScoreKeyPrefix + levelIndex, score);
-                PlayerPrefs.SetInt(LevelBestScoreCharacterKeyPrefix + levelIndex, (int)character);
+                PlatformPrefs.SetInt(LevelBestScoreKeyPrefix + levelIndex, score);
+                PlatformPrefs.SetInt(LevelBestScoreCharacterKeyPrefix + levelIndex, (int)character);
             }
         }
 
@@ -350,7 +350,7 @@ namespace FarmFuryArcade.Core
         /// shown in that state — callers only display this alongside a real best score).</summary>
         public CharacterType GetLevelBestScoreCharacter(int levelIndex)
         {
-            return (CharacterType)PlayerPrefs.GetInt(LevelBestScoreCharacterKeyPrefix + levelIndex, (int)CharacterType.Cluck);
+            return (CharacterType)PlatformPrefs.GetInt(LevelBestScoreCharacterKeyPrefix + levelIndex, (int)CharacterType.Cluck);
         }
 
         /// <summary>Real bug found and fixed (2026-09-12): Leaderboards' "Total Lifetime Score"
@@ -360,26 +360,26 @@ namespace FarmFuryArcade.Core
         /// startup, so it reset to 0 every time the app restarted. Reported as "high score is not
         /// accumulating - it doesn't seem to be wired to the game." ScoreManager now loads this value
         /// once in Start() (after every Awake has run, so SaveManager.Instance is guaranteed non-null
-        /// by then) and re-persists it here on every AddPoints call — PlayerPrefs.SetInt alone is
-        /// cheap (no forced disk flush, unlike PlayerPrefs.Save()), so writing on every point gained
+        /// by then) and re-persists it here on every AddPoints call — PlatformPrefs.SetInt alone is
+        /// cheap (no forced disk flush, unlike PlatformPrefs.Save()), so writing on every point gained
         /// is not a performance concern, and it means the total survives even a run abandoned via
         /// Pause > Quit (which never calls GameManager.EndLevel at all) rather than only a level
         /// completed or failed through the normal flow.</summary>
         public int GetTotalLifetimeScore()
         {
-            return PlayerPrefs.GetInt(TotalLifetimeScoreKey, 0);
+            return PlatformPrefs.GetInt(TotalLifetimeScoreKey, 0);
         }
 
         public void SetTotalLifetimeScore(int score)
         {
-            PlayerPrefs.SetInt(TotalLifetimeScoreKey, score);
+            PlatformPrefs.SetInt(TotalLifetimeScoreKey, score);
         }
 
         /// <summary>0 means "no time recorded yet" — always check GetLevelBestTime(i) <= 0 before
         /// treating a new time as not-a-best.</summary>
         public float GetLevelBestTime(int levelIndex)
         {
-            return PlayerPrefs.GetFloat(LevelBestTimeKeyPrefix + levelIndex, 0f);
+            return PlatformPrefs.GetFloat(LevelBestTimeKeyPrefix + levelIndex, 0f);
         }
 
         public void SetLevelBestTime(int levelIndex, float seconds)
@@ -387,32 +387,32 @@ namespace FarmFuryArcade.Core
             float existing = GetLevelBestTime(levelIndex);
             if (existing <= 0f || seconds < existing)
             {
-                PlayerPrefs.SetFloat(LevelBestTimeKeyPrefix + levelIndex, seconds);
+                PlatformPrefs.SetFloat(LevelBestTimeKeyPrefix + levelIndex, seconds);
             }
         }
 
         public int GetTotalCombosTriggered()
         {
-            return PlayerPrefs.GetInt(TotalCombosTriggeredKey, 0);
+            return PlatformPrefs.GetInt(TotalCombosTriggeredKey, 0);
         }
 
         public void IncrementTotalCombosTriggered()
         {
-            PlayerPrefs.SetInt(TotalCombosTriggeredKey, GetTotalCombosTriggered() + 1);
+            PlatformPrefs.SetInt(TotalCombosTriggeredKey, GetTotalCombosTriggered() + 1);
         }
 
         // ---- Settings (SettingsPanel) ----------------------------------------------------------
 
         public bool MusicOn
         {
-            get => PlayerPrefs.GetInt(MusicOnKey, 1) == 1;
-            set => PlayerPrefs.SetInt(MusicOnKey, value ? 1 : 0);
+            get => PlatformPrefs.GetInt(MusicOnKey, 1) == 1;
+            set => PlatformPrefs.SetInt(MusicOnKey, value ? 1 : 0);
         }
 
         public bool SfxOn
         {
-            get => PlayerPrefs.GetInt(SfxOnKey, 1) == 1;
-            set => PlayerPrefs.SetInt(SfxOnKey, value ? 1 : 0);
+            get => PlatformPrefs.GetInt(SfxOnKey, 1) == 1;
+            set => PlatformPrefs.SetInt(SfxOnKey, value ? 1 : 0);
         }
 
         // Default (before the player ever touches the Settings slider) is deliberately soft/
@@ -420,32 +420,32 @@ namespace FarmFuryArcade.Core
         // behind gameplay, not compete with it.
         public float MusicVolume
         {
-            get => PlayerPrefs.GetFloat(MusicVolumeKey, 0.5f);
-            set => PlayerPrefs.SetFloat(MusicVolumeKey, Mathf.Clamp01(value));
+            get => PlatformPrefs.GetFloat(MusicVolumeKey, 0.5f);
+            set => PlatformPrefs.SetFloat(MusicVolumeKey, Mathf.Clamp01(value));
         }
 
         public float SfxVolume
         {
-            get => PlayerPrefs.GetFloat(SfxVolumeKey, 1f);
-            set => PlayerPrefs.SetFloat(SfxVolumeKey, Mathf.Clamp01(value));
+            get => PlatformPrefs.GetFloat(SfxVolumeKey, 1f);
+            set => PlatformPrefs.SetFloat(SfxVolumeKey, Mathf.Clamp01(value));
         }
 
         public bool VibrationOn
         {
-            get => PlayerPrefs.GetInt(VibrationOnKey, 1) == 1;
-            set => PlayerPrefs.SetInt(VibrationOnKey, value ? 1 : 0);
+            get => PlatformPrefs.GetInt(VibrationOnKey, 1) == 1;
+            set => PlatformPrefs.SetInt(VibrationOnKey, value ? 1 : 0);
         }
 
         public string Language
         {
-            get => PlayerPrefs.GetString(LanguageKey, "English");
-            set => PlayerPrefs.SetString(LanguageKey, value);
+            get => PlatformPrefs.GetString(LanguageKey, "English");
+            set => PlatformPrefs.SetString(LanguageKey, value);
         }
 
         public bool LeftHanded
         {
-            get => PlayerPrefs.GetInt(LeftHandedKey, 0) == 1;
-            set => PlayerPrefs.SetInt(LeftHandedKey, value ? 1 : 0);
+            get => PlatformPrefs.GetInt(LeftHandedKey, 0) == 1;
+            set => PlatformPrefs.SetInt(LeftHandedKey, value ? 1 : 0);
         }
 
         // ---- Monetisation (AdManager, future IAPManager) ---------------------------------------
@@ -463,11 +463,11 @@ namespace FarmFuryArcade.Core
         /// the next forced interstitial fires (every interstitialLevelInterval levels, per the
         /// GDD's 5-8 range) — a property/setter pair rather than a plain public property since the
         /// "increment vs. reset to 0" logic lives in AdManager, this is just the persisted value.</summary>
-        public int LevelsSinceLastInterstitial => PlayerPrefs.GetInt(LevelsSinceLastInterstitialKey, 0);
+        public int LevelsSinceLastInterstitial => PlatformPrefs.GetInt(LevelsSinceLastInterstitialKey, 0);
 
         public void SetLevelsSinceLastInterstitial(int count)
         {
-            PlayerPrefs.SetInt(LevelsSinceLastInterstitialKey, count);
+            PlatformPrefs.SetInt(LevelsSinceLastInterstitialKey, count);
         }
 
         // ---- Daily Challenge --------------------------------------------------------------------
@@ -475,12 +475,12 @@ namespace FarmFuryArcade.Core
         /// <summary>"" if never completed. Compare against DailyChallengeManager.TodayDateKey.</summary>
         public string GetDailyChallengeCompletedDate()
         {
-            return PlayerPrefs.GetString(DailyChallengeCompletedDateKey, string.Empty);
+            return PlatformPrefs.GetString(DailyChallengeCompletedDateKey, string.Empty);
         }
 
         public void SetDailyChallengeCompletedDate(string dateKey)
         {
-            PlayerPrefs.SetString(DailyChallengeCompletedDateKey, dateKey);
+            PlatformPrefs.SetString(DailyChallengeCompletedDateKey, dateKey);
         }
 
         // ---- Cosmetics (Monetisation Build Plan Phase 4) ---------------------------------------
@@ -516,8 +516,8 @@ namespace FarmFuryArcade.Core
             {
                 return;
             }
-            PlayerPrefs.DeleteKey(CosmeticOwnedKeyPrefix + cosmeticId);
-            PlayerPrefs.DeleteKey(CosmeticOwnedKeyPrefix + cosmeticId + "_chk");
+            PlatformPrefs.DeleteKey(CosmeticOwnedKeyPrefix + cosmeticId);
+            PlatformPrefs.DeleteKey(CosmeticOwnedKeyPrefix + cosmeticId + "_chk");
         }
 
         /// <summary>Spends coins and grants ownership in one call — mirrors SpendCoins' bool-return
@@ -543,7 +543,7 @@ namespace FarmFuryArcade.Core
         /// GetEquippedTrail for that.</summary>
         public string GetEquippedCosmetic(CosmeticType type, CharacterType character)
         {
-            return PlayerPrefs.GetString(EquippedKeyPrefix(type) + character, string.Empty);
+            return PlatformPrefs.GetString(EquippedKeyPrefix(type) + character, string.Empty);
         }
 
         /// <summary>Pass an empty/null cosmeticId to unequip. Does not itself validate ownership —
@@ -559,22 +559,22 @@ namespace FarmFuryArcade.Core
         /// case for trails").</summary>
         public void SetEquippedCosmetic(CosmeticType type, CharacterType character, string cosmeticId)
         {
-            PlayerPrefs.SetString(EquippedKeyPrefix(type) + character, cosmeticId ?? string.Empty);
+            PlatformPrefs.SetString(EquippedKeyPrefix(type) + character, cosmeticId ?? string.Empty);
 
             if (type == CosmeticType.Skin && !string.IsNullOrEmpty(cosmeticId))
             {
-                PlayerPrefs.SetString(EquippedKeyPrefix(CosmeticType.Hat) + character, string.Empty);
+                PlatformPrefs.SetString(EquippedKeyPrefix(CosmeticType.Hat) + character, string.Empty);
             }
         }
 
         public string GetEquippedTrail()
         {
-            return PlayerPrefs.GetString(EquippedTrailKeyPrefix + "global", string.Empty);
+            return PlatformPrefs.GetString(EquippedTrailKeyPrefix + "global", string.Empty);
         }
 
         public void SetEquippedTrail(string cosmeticId)
         {
-            PlayerPrefs.SetString(EquippedTrailKeyPrefix + "global", cosmeticId ?? string.Empty);
+            PlatformPrefs.SetString(EquippedTrailKeyPrefix + "global", cosmeticId ?? string.Empty);
         }
 
         /// <summary>Has this purchased world (World Purchase IAP — see IAPManager.
@@ -588,7 +588,7 @@ namespace FarmFuryArcade.Core
         public void SetWorldPurchased(MazeType world)
         {
             SetProtectedBool(WorldPurchasedKeyPrefix + world, true);
-            PlayerPrefs.Save();
+            PlatformPrefs.Save();
         }
 
         /// <summary>Testing-only helper (2026-09-13), same Edit-mode/Play-mode-safe shape as
@@ -604,7 +604,7 @@ namespace FarmFuryArcade.Core
             }
 
             SetProtectedBool(WorldPurchasedKeyPrefix + world, true);
-            PlayerPrefs.Save();
+            PlatformPrefs.Save();
         }
 
         private static string EquippedKeyPrefix(CosmeticType type)
@@ -619,7 +619,7 @@ namespace FarmFuryArcade.Core
         /// exists to do it the real way. Do not call this from gameplay code.
         ///
         /// Real bug found and fixed 2026-09-11: this used to write ownership via a raw
-        /// PlayerPrefs.SetInt, bypassing SetProtectedInt's checksum write. IsCosmeticOwned reads
+        /// PlatformPrefs.SetInt, bypassing SetProtectedInt's checksum write. IsCosmeticOwned reads
         /// through the checksum-protected path (GetProtectedBool -&gt; GetProtectedInt) — if
         /// anything had EVER queried IsCosmeticOwned(cosmeticId) for this item while it was still
         /// unowned (CosmeticPurchaseScreen's owned-badge refresh and LockerScreen's own tile filter
@@ -645,20 +645,20 @@ namespace FarmFuryArcade.Core
                 // Trail is character-agnostic (global), unlike Hat/Skin — see GetEquippedTrail/
                 // SetEquippedTrail. EquippedKeyPrefix only distinguishes Skin vs Hat, so routing
                 // Trail through it would silently write to the Hat slot instead.
-                PlayerPrefs.SetString(EquippedTrailKeyPrefix + "global", cosmeticId);
+                PlatformPrefs.SetString(EquippedTrailKeyPrefix + "global", cosmeticId);
             }
             else
             {
-                PlayerPrefs.SetString(EquippedKeyPrefix(type) + character, cosmeticId);
+                PlatformPrefs.SetString(EquippedKeyPrefix(type) + character, cosmeticId);
                 // Same Skin-clears-Hat rule SetEquippedCosmetic enforces for the real equip path —
                 // this static testing helper bypasses that method entirely, so it needs its own copy
                 // (2026-09-16) or a debug-equipped machine could still show a hat floating over it.
                 if (type == CosmeticType.Skin)
                 {
-                    PlayerPrefs.SetString(EquippedKeyPrefix(CosmeticType.Hat) + character, string.Empty);
+                    PlatformPrefs.SetString(EquippedKeyPrefix(CosmeticType.Hat) + character, string.Empty);
                 }
             }
-            PlayerPrefs.Save();
+            PlatformPrefs.Save();
         }
 
         // ---- Reset ------------------------------------------------------------------------------
@@ -685,30 +685,30 @@ namespace FarmFuryArcade.Core
         /// SaveManager instance to update) can call this directly instead of ResetAllProgress.</summary>
         public static void ResetAllProgressKeys()
         {
-            PlayerPrefs.DeleteKey(HighestLevelKey);
-            PlayerPrefs.DeleteKey(CoinBalanceKey);
-            PlayerPrefs.DeleteKey(CoinBalanceKey + "_chk"); // C5.2's companion checksum — see note below
-            PlayerPrefs.DeleteKey(AdsRemovedKey);
-            PlayerPrefs.DeleteKey(AdsRemovedKey + "_chk");
-            PlayerPrefs.DeleteKey(TotalCombosTriggeredKey);
-            PlayerPrefs.DeleteKey(TotalLifetimeScoreKey);
-            PlayerPrefs.DeleteKey(DailyChallengeCompletedDateKey);
+            PlatformPrefs.DeleteKey(HighestLevelKey);
+            PlatformPrefs.DeleteKey(CoinBalanceKey);
+            PlatformPrefs.DeleteKey(CoinBalanceKey + "_chk"); // C5.2's companion checksum — see note below
+            PlatformPrefs.DeleteKey(AdsRemovedKey);
+            PlatformPrefs.DeleteKey(AdsRemovedKey + "_chk");
+            PlatformPrefs.DeleteKey(TotalCombosTriggeredKey);
+            PlatformPrefs.DeleteKey(TotalLifetimeScoreKey);
+            PlatformPrefs.DeleteKey(DailyChallengeCompletedDateKey);
 
             foreach (CharacterType type in System.Enum.GetValues(typeof(CharacterType)))
             {
-                PlayerPrefs.DeleteKey(CharacterUnlockedKeyPrefix + type);
-                PlayerPrefs.DeleteKey(EquippedHatKeyPrefix + type);
-                PlayerPrefs.DeleteKey(EquippedSkinKeyPrefix + type);
+                PlatformPrefs.DeleteKey(CharacterUnlockedKeyPrefix + type);
+                PlatformPrefs.DeleteKey(EquippedHatKeyPrefix + type);
+                PlatformPrefs.DeleteKey(EquippedSkinKeyPrefix + type);
             }
-            PlayerPrefs.DeleteKey(EquippedTrailKeyPrefix + "global");
+            PlatformPrefs.DeleteKey(EquippedTrailKeyPrefix + "global");
             foreach (MazeType world in System.Enum.GetValues(typeof(MazeType)))
             {
                 // C5.2's companion checksum must be deleted alongside the value it protects —
                 // otherwise a reset value (0/false) would fail its own integrity check against the
                 // stale checksum for whatever value was there before the reset, logging a
                 // false-positive "tampered" warning immediately after a legitimate reset.
-                PlayerPrefs.DeleteKey(WorldPurchasedKeyPrefix + world);
-                PlayerPrefs.DeleteKey(WorldPurchasedKeyPrefix + world + "_chk");
+                PlatformPrefs.DeleteKey(WorldPurchasedKeyPrefix + world);
+                PlatformPrefs.DeleteKey(WorldPurchasedKeyPrefix + world + "_chk");
             }
             // NOTE: cosmetic OWNERSHIP keys (CosmeticOwnedKeyPrefix + cosmeticId) are NOT swept
             // here — cosmeticId is an arbitrary string with no enumerable range like CharacterType/
@@ -721,18 +721,18 @@ namespace FarmFuryArcade.Core
             int maxWorldsForReset = Mathf.CeilToInt(MaxLevelsForReset / (float)UnlockProgression.LevelsPerWorld);
             for (int world = 0; world < maxWorldsForReset; world++)
             {
-                PlayerPrefs.DeleteKey(WorldUnlockSeenKeyPrefix + world);
+                PlatformPrefs.DeleteKey(WorldUnlockSeenKeyPrefix + world);
             }
 
             for (int i = 0; i < MaxLevelsForReset; i++)
             {
-                PlayerPrefs.DeleteKey(LevelStarsKeyPrefix + i);
-                PlayerPrefs.DeleteKey(LevelBestScoreKeyPrefix + i);
-                PlayerPrefs.DeleteKey(LevelBestScoreCharacterKeyPrefix + i);
-                PlayerPrefs.DeleteKey(LevelBestTimeKeyPrefix + i);
+                PlatformPrefs.DeleteKey(LevelStarsKeyPrefix + i);
+                PlatformPrefs.DeleteKey(LevelBestScoreKeyPrefix + i);
+                PlatformPrefs.DeleteKey(LevelBestScoreCharacterKeyPrefix + i);
+                PlatformPrefs.DeleteKey(LevelBestTimeKeyPrefix + i);
             }
 
-            PlayerPrefs.Save();
+            PlatformPrefs.Save();
         }
     }
 }
