@@ -5789,7 +5789,7 @@ sections apply to all games, and a "Game-by-game details" section lists each gam
 filled in; the other two marked "Not yet released" - fill in before each launches). Also closes the v0.3 gaps
 (installation ID, IP/approx location, purchase event, diagnostics, deletion requests, website server logs).
 Source: `Desktop\farmfurygames-policies\{privacy,terms}\index.html` (the user may since have moved it under
-`Desktop\farmfurygames-website\`). "Draft" chip changed to "Pending legal review". Not confirmed as uploaded.
+`Desktop\FarmFury_Technical\farmfurygames-website\`). "Draft" chip changed to "Pending legal review". Not confirmed as uploaded.
 
 **app-ads.txt (live 2026-09-28).** `public_html/app-ads.txt` holds one line:
 `google.com, pub-1264425755955045, DIRECT, f08c47fec0942fa0` (the snippet AdMob gave). It is served as
@@ -5799,7 +5799,7 @@ matches. LevelPlay's own app-ads.txt lines (ironSource and partners) are NOT add
 LevelPlay dashboard and append below the Google line; don't guess them.
 
 **Google Play badge + QR (2026-09-28, not yet on the site).** Files in
-`Desktop\farmfurygames-website\farmfurygames-playstore\`: Google's official `google-play-badge.png`,
+`Desktop\FarmFury_Technical\farmfurygames-website\farmfurygames-playstore\`: Google's official `google-play-badge.png`,
 `farmfury-arcade-qr.svg`/`.png` (decoded with OpenCV and confirmed to open
 `...details?id=com.farmfury.arcade&referrer=utm_source%3Dfarmfurygames.com%26utm_medium%3Dqr`), a printable
 `farmfury-arcade-scan-card.png`, `snippet.html`, and an `index.html` with a hand-edited footer that was
@@ -5812,7 +5812,7 @@ doesn't finish within the headless budget; pre-compiling each `text/babel` scrip
 (each wrapped in an IIFE, since separate scripts all declare `const { Button }`) makes it mount.
 
 **Play buttons and /play/ (2026-10-08).** The home page's "Play" buttons only switched the page's own
-stage (`onNav("play")`). A patched `index.html` (`Desktop\farmfurygames-website\play-button-patch\`)
+stage (`onNav("play")`). A patched `index.html` (`Desktop\FarmFury_Technical\farmfurygames-website\play-button-patch\`)
 makes the header Play (3 copies), "Play Farm Fury Arcade", "Play free" and the footer Play link go to
 `/play/` (`window.location.href`), uploaded by the user. `play-button-patch\play\index.html` is the
 temporary `/play/` page that forwards to `game/` (the web demo, see "Web demo" section). **A new Claude
@@ -6056,7 +6056,7 @@ were offered and declined, so don't build an uploader unless asked. Target 2-3 p
 ## Web demo: YouTube Playables + farmfurygames.com/play (branch `web-demo`, 2026-10-08)
 
 A free, Corn Field-only (levels 1-25) build of the game used as marketing. It lives in a **separate git
-worktree, `Desktop\FarmFury_Arcade_Web`, on branch `web-demo`** - never merged into `main`; a main-game
+worktree, `Desktop\FarmFury_Technical\FarmFury_Arcade_Web`, on branch `web-demo`** - never merged into `main`; a main-game
 fix is brought over with `git cherry-pick`. **Read `WEB_DEMO_PLAN.md` in that folder first** - it has the
 YouTube rule findings, the phase plan and progress. In short:
 - Removed there: ads/IAP/analytics (code + packages), every shop/cosmetics/locker/legal/merch/leaderboard
@@ -6133,7 +6133,7 @@ ability icon (both fixed, see above), and **build 7** (`e8a09cb`, also adds the 
 icon) was the one submitted. **Apple ID 6804415300**; App Store link
 `https://apps.apple.com/app/id6804415300` (404 until released). App Store badge (official SVG from
 developer.apple.com + 1197x400 PNG), QR code and scan card are in
-`Desktop\farmfurygames-website\appstore-badge-qr\` (`make_appstore_qr.py <AppleID> [campaign]` checks the
+`Desktop\FarmFury_Technical\farmfurygames-website\appstore-badge-qr\` (`make_appstore_qr.py <AppleID> [campaign]` checks the
 QR decodes) - not to be published until the app is live. App Store product page **Header**
 (3840x1646) and **Search Results** (3840x2560) creative assets were made with
 `Tools/store-assets/make_appstore_assets.py` into `Desktop\FarmFury_Technical\AppStore_CreativeAssets`.
