@@ -37,6 +37,20 @@ Still to do in Phase 0 (user): submit the Playables interest form; decide the ki
 Daily Challenge removed; Leaderboards removed; Character Story kept (Cosmetics tab removed);
 coins + coin Revive + coin Skip kept; combos kept.
 
+## Progress
+
+- 2026-10-08: Phase 1 done (worktree, Web platform). Phase 2 done in 3 commits: 2a code/screens,
+  2b packages/SDK folders, 2c content (levels 26-175, cosmetics data, machine prefabs, Character
+  Story Cosmetics tab) + scene trimmed to Corn Field art/music. Not yet play-tested in the Editor.
+
+## Working rules for this branch
+
+- After any UI change run **Farm Fury Arcade > Web Demo > Rebuild UI + Trim** (= Phase 5 builder,
+  Wire Uploaded Art, then trim). Never run Phase2/Phase3 BuildAll here - they recreate all 175
+  levels and every world's art set.
+- Size is driven by references (scene + Resources), not by files on disk. Unreferenced art for other
+  worlds is left in place for now.
+
 ## Phases
 
 1. **Setup** - worktree (done), switch platform to Web, add `FF_YOUTUBE`/`FF_WEBSITE` build profiles.

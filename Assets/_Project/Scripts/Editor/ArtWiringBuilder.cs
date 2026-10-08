@@ -520,10 +520,7 @@ namespace FarmFuryArcade.EditorTools
             WireHarvester();
             WireCropsAndPellets();
             WireMazeTiles();
-            WireOrchardAndWheat();
-            WireFrostbiteGarden();
-            WireGoldenSunset();
-            WireHarvestMoon();
+            // Web demo: Corn Field only - the other worlds' art isn't wired (see WebDemoBuilder).
             WireGameplayBackdrop();
             WireBackgrounds();
             WireLevelCompleteStars();
@@ -2068,7 +2065,6 @@ namespace FarmFuryArcade.EditorTools
             // Also under SafeArea now — see the DPad/Pause path fix above for why this matters.
             SetImageSprite(canvasTransform, "GameplayScreen/SafeArea/RevivePromptOverlay/PanelArt", Load(RevivePromptPanel));
             SetImageSprite(canvasTransform, "GameplayScreen/SafeArea/RevivePromptOverlay/PanelArt/Content/ReviveButton", Load(BtnRevive));
-            SetImageSprite(canvasTransform, "GameplayScreen/SafeArea/RevivePromptOverlay/PanelArt/Content/WatchAdButton", Load(BtnWatchAd));
             SetImageSprite(canvasTransform, "GameplayScreen/SafeArea/RevivePromptOverlay/PanelArt/Content/DeclineButton", Load(BtnDecline));
 
             // GameplayScreen/CharacterPortrait/SkipCooldownCoinBadge (2026-08-28 rework, replacing
@@ -2082,7 +2078,6 @@ namespace FarmFuryArcade.EditorTools
             // box (Phase5ProjectBuilder.BuildGameplayHUD's watchAdButtonWidth/Height) is already
             // sized to WatchAd.png's real 512x214 aspect, so SetImageSprite's Sliced stretch renders
             // it uniformly instead of squashing it.
-            SetImageSprite(canvasTransform, "GameplayScreen/SafeArea/WatchAdSkipCooldownButton", Load(BtnWatchAd));
 
             // GameplayScreen/CoinBalanceDisplay/CoinIcon (2026-08-28 rework, replacing the old
             // wood-frame Coin_Balance_Chip.png plaque — see Phase5ProjectBuilder.BuildGameplayHUD's

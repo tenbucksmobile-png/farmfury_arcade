@@ -1637,7 +1637,7 @@ namespace FarmFuryArcade.EditorTools
             // across however many buttons it holds, so adding a 5th here needs no width retuning.
             var combosTabButton = CreateButton("CombosTabButton", tabBar.transform, "Combos", TabInactiveColor, 28f, tabBarHeight, out var combosTabLabel);
             var charactersTabButton = CreateButton("CharactersTabButton", tabBar.transform, "Characters", TabInactiveColor, 28f, tabBarHeight, out var charactersTabLabel);
-            var cosmeticsTabButton = CreateButton("CosmeticsTabButton", tabBar.transform, "Cosmetics", TabInactiveColor, 28f, tabBarHeight, out var cosmeticsTabLabel);
+            // Web demo: no Cosmetics tab (cosmetics are full-game only).
             // Robots tab (2026-09-18) — appended after Cosmetics rather than renumbered in among the
             // existing 5, so every earlier tab's index (and any existing wiring referencing it)
             // stays unchanged. A literal duplicate of CharactersTabButton's own pill, per direct
@@ -1670,7 +1670,7 @@ namespace FarmFuryArcade.EditorTools
                      {
                          (storyTabButton, storyTabLabel), (howToPlayTabButton, howToPlayTabLabel),
                          (combosTabButton, combosTabLabel),
-                         (charactersTabButton, charactersTabLabel), (cosmeticsTabButton, cosmeticsTabLabel),
+                         (charactersTabButton, charactersTabLabel),
                          (robotsTabButton, robotsTabLabel),
                      })
             {
@@ -1755,7 +1755,6 @@ namespace FarmFuryArcade.EditorTools
             var howToPlayScrollView = BuildTabScrollView("HowToPlayScrollView", out var howToPlayContainer);
             var combosScrollView = BuildTabScrollView("CombosScrollView", out var combosContainer);
             var charactersScrollView = BuildTabScrollView("CharactersScrollView", out var charactersContainer);
-            var cosmeticsScrollView = BuildTabScrollView("CosmeticsScrollView", out var cosmeticsContainer);
             var robotsScrollView = BuildTabScrollView("RobotsScrollView", out var robotsContainer);
 
             var closeButton = CreateRoundBackButton(root.transform);
@@ -1764,7 +1763,6 @@ namespace FarmFuryArcade.EditorTools
             var story = root.AddComponent<CharacterStoryScreen>();
             SetRefs(story,
                 ("charactersContainer", charactersContainer),
-                ("cosmeticsContainer", cosmeticsContainer),
                 ("robotsContainer", robotsContainer),
                 ("cardPrefab", characterSelectCardPrefab),
                 ("closeButton", closeButton),
@@ -1777,7 +1775,6 @@ namespace FarmFuryArcade.EditorTools
                 ("howToPlayTabButton", howToPlayTabButton), ("howToPlayTabContent", howToPlayScrollView),
                 ("combosTabButton", combosTabButton), ("combosTabContent", combosScrollView),
                 ("charactersTabButton", charactersTabButton), ("charactersTabContent", charactersScrollView),
-                ("cosmeticsTabButton", cosmeticsTabButton), ("cosmeticsTabContent", cosmeticsScrollView),
                 ("robotsTabButton", robotsTabButton), ("robotsTabContent", robotsScrollView));
 
             // How to Play icons — one per GameplayTopics entry, same order (Coins/Scoring & Stars/
@@ -1823,42 +1820,6 @@ namespace FarmFuryArcade.EditorTools
                 comboIconsProp.GetArrayElementAtIndex(i).objectReferenceValue = comboIcons[i];
             }
 
-            // Cosmetics tab entries — 2026-09-11: swapped from the Shop's price-baked purchase art
-            // (sombrero_price.png etc.) to new plain icon-only art dropped under Sprites/UI/ with no
-            // price baked in, since this tab is informational, not a purchase surface. Blurb text
-            // lives in CharacterStoryScreen itself (CosmeticBlurbs, keyed by this same displayName).
-            var cosmeticEntryData = new (string displayName, Sprite icon)[]
-            {
-                ("Sombrero", LoadUiSprite("Sombrero.png")),
-                ("Baseball Cap", LoadUiSprite("BaseballHat.png")),
-                ("Cowboy Hat", LoadUiSprite("CowboyHat.png")),
-                ("Chef Hat", LoadUiSprite("ChefHat.png")),
-                ("Crown", LoadUiSprite("CrownHat.png")),
-                ("Rainbow Ribbon", LoadUiSprite("Ribbon.png")),
-                ("Sparkle Dust", LoadUiSprite("SparkleDust.png")),
-                ("Corn Husk Trail", LoadUiSprite("CornHusk.png")),
-                ("Ember Trail", LoadUiSprite("Ember.png")),
-                // Confetti / Bubbles (2026-09-11) — note the on-disk filename is lowercase
-                // "bubbles.png", unlike every other icon-only UI sprite here.
-                ("Confetti Trail", LoadUiSprite("Confetti.png")),
-                ("Bubbles Trail", LoadUiSprite("bubbles.png")),
-                // Machine Cosmetics (2026-09-16) — corrected to their real dedicated icon-only art
-                // (CluckyTruck/BessieTruck/HoraceTruck.png, Sprites/UI/ — wood-sign badges, same
-                // style as the World Purchase shields) after an earlier pass wrongly reused the
-                // Shop's price-baked preview art here. Same "plain icon-only art, no price baked in"
-                // convention every other entry on this informational tab already uses.
-                ("Clucky's Tractor", LoadUiSprite("CluckyTruck.png")),
-                ("Bessie's Milk Tanker", LoadUiSprite("BessieTruck.png")),
-                ("Horace's Hay Baler", LoadUiSprite("HoraceTruck.png")),
-            };
-            var cosmeticEntriesProp = iconsSO.FindProperty("cosmeticEntries");
-            cosmeticEntriesProp.arraySize = cosmeticEntryData.Length;
-            for (int i = 0; i < cosmeticEntryData.Length; i++)
-            {
-                var element = cosmeticEntriesProp.GetArrayElementAtIndex(i);
-                element.FindPropertyRelative("displayName").stringValue = cosmeticEntryData[i].displayName;
-                element.FindPropertyRelative("icon").objectReferenceValue = cosmeticEntryData[i].icon;
-            }
             iconsSO.ApplyModifiedPropertiesWithoutUndo();
 
             return root;
