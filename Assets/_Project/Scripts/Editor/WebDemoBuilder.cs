@@ -165,6 +165,125 @@ namespace FarmFuryArcade.EditorTools
             }
             PlayerSettings.productName = "Farm Fury Arcade";
             PlayerSettings.companyName = "Tenbucks Mobile";
+            ApplyWebSizeSettings();
+        }
+
+        // ---- Download size --------------------------------------------------------------------
+
+        /// <summary>Above this source size (longest side, px) a texture is treated as a full-screen
+        /// backdrop and capped at BackdropMaxSize; everything else is capped at SpriteMaxSize.</summary>
+        private const int BackdropThreshold = 1500;
+        private const int BackdropMaxSize = 2048;
+        private const int SpriteMaxSize = 512;
+        /// <summary>Characters, robots and maze pieces are drawn about one tile tall (roughly 75-115 px
+        /// on screen), so 256 px is still ~2x; UI art (signs, banners, buttons) keeps 512.</summary>
+        private const int InWorldSpriteMaxSize = 256;
+
+        private static bool IsInWorldSprite(string path) =>
+            path.Contains("/Sprites/Characters/") || path.Contains("/Sprites/Robots/") || path.Contains("/Sprites/Environment/");
+
+        /// <summary>Music files above this size get stronger web compression and load in the
+        /// background, so they don't hold up the first playable frame.</summary>
+        private const long MusicBytesThreshold = 300 * 1024;
+
+        /// <summary>Web-only size settings (YouTube Playables: each file under 30 MB uncompressed, first
+        /// download under 30 MB, playable within ~5 s). Changes only Web/WebGL platform overrides and
+        /// player settings, never the mobile builds (which live on main). Safe to re-run.
+        ///
+        /// The first website build was 36.4 MB gzipped / ~64 MB uncompressed, 90% textures: sprites
+        /// went in uncompressed (~1 MB per 500x500 sprite). Crunched DXT5 keeps the files small even
+        /// uncompressed (YouTube forbids gzip/Brotli). Note DXT needs width/height in multiples of 4;
+        /// the few sprites that aren't stay uncompressed (Unity's own fallback).</summary>
+        /// <summary>Crunched DXT5 is the smallest download, but DXT only compresses textures whose
+        /// width and height (after the max-size downscale) are multiples of 4 - 87 of our 352 sprites
+        /// aren't (e.g. 531x500), and 2720x1536 backdrops become 2048x1157. Unity silently ships those
+        /// uncompressed (a 2048 backdrop was 9 MB). ASTC has no size rule, so those use ASTC instead.
+        /// Either way the browser decodes on the CPU where the GPU lacks the format (DXT on most phones,
+        /// ASTC on most desktops); download size is what the YouTube limits measure.</summary>
+        private static TextureImporterFormat ChooseWebFormat(int w, int h, int maxSize, bool isBackdrop)
+        {
+            float scale = Mathf.Max(w, h) > maxSize ? (float)maxSize / Mathf.Max(w, h) : 1f;
+            int rw = Mathf.Max(1, Mathf.RoundToInt(w * scale));
+            int rh = Mathf.Max(1, Mathf.RoundToInt(h * scale));
+            if (rw % 4 == 0 && rh % 4 == 0)
+            {
+                return TextureImporterFormat.DXT5Crunched;
+            }
+            return isBackdrop ? TextureImporterFormat.ASTC_8x8 : TextureImporterFormat.ASTC_6x6;
+        }
+
+        [MenuItem("Farm Fury Arcade/Web Demo/Apply Web Size Settings")]
+        public static void ApplyWebSizeSettings()
+        {
+            int textures = 0, audio = 0;
+
+            foreach (var guid in AssetDatabase.FindAssets("t:Texture2D", new[] { "Assets/_Project/Sprites", "Assets/TextMesh Pro" }))
+            {
+                string path = AssetDatabase.GUIDToAssetPath(guid);
+                if (!(AssetImporter.GetAtPath(path) is TextureImporter importer))
+                {
+                    continue;
+                }
+                importer.GetSourceTextureWidthAndHeight(out int w, out int h);
+                bool isBackdrop = Mathf.Max(w, h) > BackdropThreshold;
+                int maxSize = isBackdrop ? BackdropMaxSize : IsInWorldSprite(path) ? InWorldSpriteMaxSize : SpriteMaxSize;
+                var format = ChooseWebFormat(w, h, maxSize, isBackdrop);
+
+                var settings = importer.GetPlatformTextureSettings("WebGL");
+                if (settings.overridden && settings.maxTextureSize == maxSize &&
+                    settings.format == format && settings.compressionQuality == 50)
+                {
+                    continue;
+                }
+                settings.overridden = true;
+                settings.maxTextureSize = maxSize;
+                settings.format = format;
+                settings.crunchedCompression = format == TextureImporterFormat.DXT5Crunched;
+                settings.compressionQuality = 50;
+                importer.SetPlatformTextureSettings(settings);
+                importer.SaveAndReimport();
+                textures++;
+            }
+
+            foreach (var guid in AssetDatabase.FindAssets("t:AudioClip", new[] { "Assets/_Project/Audio" }))
+            {
+                string path = AssetDatabase.GUIDToAssetPath(guid);
+                if (!(AssetImporter.GetAtPath(path) is AudioImporter importer))
+                {
+                    continue;
+                }
+                bool isLong = new FileInfo(path).Length > MusicBytesThreshold;
+                var s = importer.GetOverrideSampleSettings("WebGL");
+                var wanted = s;
+                wanted.compressionFormat = AudioCompressionFormat.AAC;
+                wanted.quality = isLong ? 0.4f : 0.6f;
+                wanted.loadType = isLong ? AudioClipLoadType.CompressedInMemory : AudioClipLoadType.DecompressOnLoad;
+                bool loadInBackground = isLong;
+                if (importer.ContainsSampleSettingsOverride("WebGL") && s.compressionFormat == wanted.compressionFormat &&
+                    Mathf.Approximately(s.quality, wanted.quality) && s.loadType == wanted.loadType &&
+                    importer.loadInBackground == loadInBackground)
+                {
+                    continue;
+                }
+                importer.SetOverrideSampleSettings("WebGL", wanted);
+                importer.loadInBackground = loadInBackground;
+                importer.SaveAndReimport();
+                audio++;
+            }
+
+            var target = NamedBuildTarget.WebGL;
+            // Unity 6 lets any plan hide the Unity splash; it cost 2.7 MB in the first build.
+            PlayerSettings.SplashScreen.show = false;
+            PlayerSettings.SplashScreen.showUnityLogo = false;
+            PlayerSettings.SetManagedStrippingLevel(target, ManagedStrippingLevel.High);
+            PlayerSettings.SetIl2CppCodeGeneration(target, Il2CppCodeGeneration.OptimizeSize);
+            PlayerSettings.stripEngineCode = true;
+            PlayerSettings.WebGL.exceptionSupport = WebGLExceptionSupport.ExplicitlyThrownExceptionsOnly;
+            PlayerSettings.WebGL.nameFilesAsHashes = false;
+
+            AssetDatabase.SaveAssets();
+            Debug.Log($"[WebDemoBuilder] Web size settings applied: {textures} texture(s) and {audio} audio clip(s) updated; " +
+                      "splash off, managed stripping High, IL2CPP optimise for size.");
         }
 
         private static void SetYouTubeDefine(bool on)
