@@ -6073,6 +6073,14 @@ about to rebuild/retrigger a Cloud Build (or asks you to review a just-finished 
 this number as the FIRST action, before doing anything else — do not wait to be asked specifically
 to bump it, and do not just recommend bumping it after reading a failed log.
 
+**2026-10-08: iOS build 5 shipped to TestFlight with missing UI art.** The `Game.unity` committed in
+`1c7b98b` (20 Sept) had been saved after a Phase 5 rebuild without Wire Uploaded Art, so ~30 UI sprite
+references (D-pad, Pause, Level Complete panel, world signs, revive panel, backdrops, Logo) were
+missing. Android was unaffected because it builds from the local folder; Cloud Build uses GitHub's copy.
+Fixed in `c46c21d` (local, fully wired scene committed; build number 6). **Before committing
+`Game.unity`, check it still has its art:** `git show HEAD:Assets/_Project/Scenes/Game.unity | grep -c
+"m_Sprite: {fileID: 21300000"` should be ~184, and run Wire Uploaded Art after every Phase 5 Build All.
+
 **Current state (2026-09-20):** `buildNumber.iPhone` is **5**, committed. History: 5 was first bumped
 for an ad-testing Cloud Build, reverted to 4 once because "5 was never actually built", then set to 5
 again once 4 had been used for the cosmetic-render test build (`e3dddf3`). Nothing in git or these notes
