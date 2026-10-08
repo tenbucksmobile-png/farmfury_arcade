@@ -150,10 +150,12 @@ namespace FarmFuryArcade.EditorTools
         {
             ConfigureCommonWebSettings();
             SetYouTubeDefine(false);
-            PlayerSettings.WebGL.template = "APPLICATION:Default";
+            PlayerSettings.WebGL.template = "PROJECT:FarmFuryEmbed";
             PlayerSettings.WebGL.compressionFormat = WebGLCompressionFormat.Gzip;
             PlayerSettings.WebGL.decompressionFallback = true;
             PlayerSettings.runInBackground = false;
+            // The cPanel host caches for a day; hashed file names make every update load fresh.
+            PlayerSettings.WebGL.nameFilesAsHashes = true;
             Build("Builds/Website");
         }
 
