@@ -635,9 +635,9 @@ namespace FarmFuryArcade.Enemies
             CurrentDirection = Direction.None;
             ChaseScoreManager.Instance?.OnRobotDefeated();
             HighlightMarkers.Mark("robot_defeated",
-                $"robot={(robotData != null ? robotData.robotType.ToString() : "Unknown")} " +
-                $"chain={(ChaseScoreManager.Instance != null ? ChaseScoreManager.Instance.ChainCount : 0)} " +
-                $"power={(PowerPelletManager.Instance != null && PowerPelletManager.Instance.IsPowerActive)}");
+                // One interpolated string, not several joined with '+': '+' produces a plain string,
+                // which doesn't convert to Mark's FormattableString parameter (broke iOS build 10).
+                $"robot={(robotData != null ? robotData.robotType.ToString() : "Unknown")} chain={(ChaseScoreManager.Instance != null ? ChaseScoreManager.Instance.ChainCount : 0)} power={(PowerPelletManager.Instance != null && PowerPelletManager.Instance.IsPowerActive)}");
             // Single funnel for both kill paths (RegisterHit's power-pellet chain-kill and every
             // ForceDefeat ability-triggered instant-kill), so this fires exactly once per robot
             // defeated regardless of which route got it here — see AudioManager.PlayRobotDamageSfx's
