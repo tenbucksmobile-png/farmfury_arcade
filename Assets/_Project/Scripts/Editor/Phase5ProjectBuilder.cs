@@ -76,6 +76,8 @@ namespace FarmFuryArcade.EditorTools
             BuildWorldDividerPrefab(); // kept but unlinked - see that method's own doc comment
             var worldShieldPrefab = BuildWorldShieldPrefab();
             var levelSelect = BuildLevelSelect(canvas.transform, levelTilePrefab, worldShieldPrefab);
+            var fullGamePanel = BuildFullGamePanel(canvas.transform);
+            SetRefs(levelSelect.GetComponent<LevelSelectController>(), ("fullGamePanel", fullGamePanel.GetComponent<FullGamePanel>()));
 
             WireCrossReferences(mainMenu, gameplay, pause, settings,
                 levelComplete, unlockScreen, levelFailed, chooseCharacter, levelSelect, characterStory);
@@ -88,6 +90,7 @@ namespace FarmFuryArcade.EditorTools
             }
             var backButtonHandler = managersGO.AddComponent<AndroidBackButtonHandler>();
             SetRefs(backButtonHandler,
+                ("fullGamePanel", fullGamePanel.GetComponent<FullGamePanel>()),
                 ("settingsPanel", settings.GetComponent<SettingsPanel>()),
                 ("chooseCharacterScreen", chooseCharacter),
                 ("pauseMenuScreen", pause.GetComponent<PauseMenuController>()),
@@ -117,6 +120,7 @@ namespace FarmFuryArcade.EditorTools
             characterStory.SetActive(false);
             chooseCharacter.gameObject.SetActive(false);
             unlockScreen.gameObject.SetActive(false);
+            fullGamePanel.SetActive(false);
 
             EditorSceneManager.SaveScene(EditorSceneManager.GetActiveScene());
             AssetDatabase.SaveAssets();
@@ -2608,11 +2612,11 @@ namespace FarmFuryArcade.EditorTools
             // already close to 340:360.
             cardArt.preserveAspect = false;
 
-            var lockIcon = CreateImage("LockIcon", go.transform, new Color(0f, 0f, 0f, 0.8f), 140f, 60f);
+            var lockIcon = CreateImage("LockIcon", go.transform, new Color(0f, 0f, 0f, 0.8f), 190f, 60f);
             var lockRect = (RectTransform)lockIcon.transform;
             lockRect.anchorMin = lockRect.anchorMax = new Vector2(0.5f, 0.5f);
             lockRect.pivot = new Vector2(0.5f, 0.5f);
-            lockRect.sizeDelta = new Vector2(140f, 60f);
+            lockRect.sizeDelta = new Vector2(190f, 60f); // wide enough for "FULL GAME" (web demo)
             lockRect.anchoredPosition = Vector2.zero;
             var lockLabel = CreateText("LockLabel", lockIcon.transform, "LOCKED", 22f, TextAlignmentOptions.Center, 60f);
             StretchFull((RectTransform)lockLabel.transform);
@@ -2779,6 +2783,113 @@ namespace FarmFuryArcade.EditorTools
             so.ApplyModifiedPropertiesWithoutUndo();
 
             return controller;
+        }
+
+        // ---- Web demo: Full Game panel ----------------------------------------------------------
+
+        /// <summary>Web demo: "this is in the full game" overlay (FullGamePanel). Opened by tapping a
+        /// locked full-game world shield on Level Select, and as "You cleared Corn Field!" after the
+        /// demo's last level. A dimmed full-screen backdrop, a wood plaque card with a header, a row
+        /// of the 6 full-game world shields plus Gerald's and Billy's cards, a short description, and
+        /// either the Google Play badge (website) or a text line (YouTube, which forbids links).</summary>
+        private static GameObject BuildFullGamePanel(Transform canvasTransform)
+        {
+            var root = CreatePanel("FullGamePanel", canvasTransform, Color.black);
+            // Solid colour via a null sprite: a PlaceholderSprite on a scene Image doesn't reliably
+            // survive a save/reload (see ApplyDimmedLandingBackground's doc comment).
+            var rootImage = root.GetComponent<Image>();
+            rootImage.sprite = null;
+            rootImage.color = new Color(0f, 0f, 0f, 0.78f);
+
+            const float cardW = 1320f, cardH = 840f;
+            var card = new GameObject("Card", typeof(RectTransform), typeof(Image));
+            card.transform.SetParent(root.transform, false);
+            var cardRect = (RectTransform)card.transform;
+            cardRect.anchorMin = cardRect.anchorMax = cardRect.pivot = new Vector2(0.5f, 0.5f);
+            cardRect.sizeDelta = new Vector2(cardW, cardH);
+            cardRect.anchoredPosition = new Vector2(0f, 20f);
+            var cardImage = card.GetComponent<Image>();
+            cardImage.sprite = LoadUiSprite("Btn_plaque.png", new Vector4(90f, 70f, 90f, 70f));
+            cardImage.type = Image.Type.Sliced;
+
+            var header = CreateText("Header", card.transform, "MORE TO EXPLORE!", 66f, TextAlignmentOptions.Center, 90f,
+                new Color(1f, 0.83f, 0.3f));
+            header.fontStyle = FontStyles.Bold;
+            header.enableWordWrapping = false;
+            header.enableAutoSizing = true;
+            header.fontSizeMin = 36f;
+            header.fontSizeMax = 66f;
+            AnchorTopCenter((RectTransform)header.transform, new Vector2(cardW - 220f, 100f), new Vector2(0f, -70f));
+
+            // Shields + the two full-game animals in one row.
+            var row = new GameObject("FullGameRow", typeof(RectTransform), typeof(HorizontalLayoutGroup));
+            row.transform.SetParent(card.transform, false);
+            var rowRect = (RectTransform)row.transform;
+            rowRect.anchorMin = rowRect.anchorMax = rowRect.pivot = new Vector2(0.5f, 0.5f);
+            rowRect.sizeDelta = new Vector2(cardW - 160f, 170f);
+            rowRect.anchoredPosition = new Vector2(0f, 95f);
+            var hlg = row.GetComponent<HorizontalLayoutGroup>();
+            hlg.spacing = 14f;
+            hlg.childAlignment = TextAnchor.MiddleCenter;
+            hlg.childControlWidth = hlg.childControlHeight = false;
+            hlg.childForceExpandWidth = hlg.childForceExpandHeight = false;
+
+            void AddRowImage(string name, Sprite sprite, float w, float h)
+            {
+                if (sprite == null)
+                {
+                    Debug.LogWarning($"[Phase5ProjectBuilder] FullGamePanel: missing sprite for {name}.");
+                    return;
+                }
+                var go = new GameObject(name, typeof(RectTransform), typeof(Image));
+                go.transform.SetParent(row.transform, false);
+                ((RectTransform)go.transform).sizeDelta = new Vector2(w, h);
+                var img = go.GetComponent<Image>();
+                img.sprite = sprite;
+                img.preserveAspect = true;
+                img.raycastTarget = false;
+            }
+            AddRowImage("VegetablePatch", LoadUiSprite("VegetablePatchSign.png"), 130f, 150f);
+            AddRowImage("Orchard", LoadUiSprite("OrchardSign.png"), 130f, 150f);
+            AddRowImage("Wheatfield", LoadUiSprite("WheatfieldSign.png"), 130f, 150f);
+            AddRowImage("FrozenGarden", LoadMazeThemeArtSprite("FrozenGarden_shield.png"), 130f, 150f);
+            AddRowImage("GoldenSunset", LoadMazeThemeArtSprite("GoldenSunset_shield.png"), 130f, 150f);
+            AddRowImage("HarvestMoon", LoadMazeThemeArtSprite("HarvestMoon_shield.png"), 130f, 150f);
+            foreach (var who in new[] { "Gerald", "Billy" })
+            {
+                var data = AssetDatabase.LoadAssetAtPath<CharacterData>($"Assets/_Project/ScriptableObjects/Resources/Characters/CharacterData_{who}.asset");
+                AddRowImage(who, data != null ? data.selectCardArt : null, 120f, 150f);
+            }
+
+            var body = CreateText("Body", card.transform, string.Empty, 36f, TextAlignmentOptions.Center, 160f,
+                new Color(1f, 0.96f, 0.86f));
+            body.enableAutoSizing = true;
+            body.fontSizeMin = 24f;
+            body.fontSizeMax = 36f;
+            var bodyRect = (RectTransform)body.transform;
+            bodyRect.anchorMin = bodyRect.anchorMax = bodyRect.pivot = new Vector2(0.5f, 0.5f);
+            bodyRect.sizeDelta = new Vector2(cardW - 260f, 170f);
+            bodyRect.anchoredPosition = new Vector2(0f, -100f);
+
+            // Google Play badge (646x250) - website only; hidden on YouTube by FullGamePanel.Show.
+            const float badgeH = 130f;
+            const float badgeW = badgeH * 646f / 250f;
+            var playButton = CreateIconButton("GooglePlayButton", card.transform, LoadUiSprite("GooglePlayBadge.png"), badgeH);
+            AnchorBottomCenter((RectTransform)playButton.transform, new Vector2(badgeW, badgeH), new Vector2(0f, 75f));
+
+            var noLink = CreateText("NoLinkText", card.transform, string.Empty, 38f, TextAlignmentOptions.Center, 80f,
+                new Color(1f, 0.83f, 0.3f));
+            noLink.fontStyle = FontStyles.Bold;
+            AnchorBottomCenter((RectTransform)noLink.transform, new Vector2(cardW - 260f, 90f), new Vector2(0f, 95f));
+
+            var closeButton = CreateRoundBackButton(root.transform);
+            closeButton.GetComponent<Image>().sprite = LoadUiSprite("Btn_back.png");
+
+            var panel = root.AddComponent<FullGamePanel>();
+            SetRefs(panel,
+                ("headerText", header), ("bodyText", body), ("noLinkText", noLink),
+                ("googlePlayButton", playButton), ("closeButton", closeButton));
+            return root;
         }
 
         // ---- Cross-references (built after every screen exists) -------------------------------

@@ -26,6 +26,7 @@ namespace FarmFuryArcade.UI
     /// reason about than the same listener duplicated across ten screens.</summary>
     public class AndroidBackButtonHandler : MonoBehaviour
     {
+        [SerializeField] private FullGamePanel fullGamePanel;
         [SerializeField] private SettingsPanel settingsPanel;
         [SerializeField] private ChooseCharacterScreen chooseCharacterScreen;
         [SerializeField] private PauseMenuController pauseMenuScreen;
@@ -41,6 +42,7 @@ namespace FarmFuryArcade.UI
 
             // Web demo: also YouTube Playables' "Esc closes modals/dialogs" recommendation.
             // Innermost overlay first; each press closes only the topmost layer.
+            if (CloseIfActive(fullGamePanel)) return;
             if (CloseIfActive(settingsPanel)) return;
 
             if (chooseCharacterScreen != null && chooseCharacterScreen.gameObject.activeSelf)

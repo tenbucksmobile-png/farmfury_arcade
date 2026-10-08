@@ -77,7 +77,7 @@ namespace FarmFuryArcade.UI
 
         /// <summary>Web demo: "available in the full game" panel, opened by tapping one of the
         /// locked full-game world shields. Null-safe until Phase 4 builds it.</summary>
-        [SerializeField] private GameObject fullGamePanel;
+        [SerializeField] private FullGamePanel fullGamePanel;
 
         private const float ScrollTweenSeconds = 0.5f;
         private const float ShieldRevealSeconds = 0.45f;
@@ -156,7 +156,9 @@ namespace FarmFuryArcade.UI
             // opens the purchase screen instead of a grid the player hasn't earned.
             if (UnlockProgression.IsFullGameOnlyWorld(world))
             {
-                ShowFullGamePanel();
+                // Only reachable by finishing the demo's last level (Level Complete's Play queues
+                // the next level's world), so this is the "no more content" moment.
+                ShowFullGamePanel(demoComplete: true);
                 return;
             }
 
@@ -262,7 +264,7 @@ namespace FarmFuryArcade.UI
             // needs to open the purchase screen instead of revealing a grid it hasn't earned yet.
             if (UnlockProgression.IsFullGameOnlyWorld(world))
             {
-                ShowFullGamePanel();
+                ShowFullGamePanel(demoComplete: false);
                 return;
             }
             SelectWorld(world, _shieldObjects[localIndex]);
@@ -277,14 +279,9 @@ namespace FarmFuryArcade.UI
         /// the same level tapped from its own tile in the grid does NOT count as the daily
         /// challenge, since that call goes through OnTilePlayRequested instead, which defaults to
         /// isDailyChallenge: false.</summary>
-        private void ShowFullGamePanel()
+        private void ShowFullGamePanel(bool demoComplete)
         {
-            if (fullGamePanel == null)
-            {
-                return;
-            }
-            fullGamePanel.transform.SetAsLastSibling();
-            fullGamePanel.SetActive(true);
+            fullGamePanel?.Show(demoComplete);
         }
 
         private void PlayDailyChallenge()

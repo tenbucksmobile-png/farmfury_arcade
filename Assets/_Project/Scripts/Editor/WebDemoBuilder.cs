@@ -174,7 +174,7 @@ namespace FarmFuryArcade.EditorTools
 
         /// <summary>Above this source size (longest side, px) a texture is treated as a full-screen
         /// backdrop and capped at BackdropMaxSize; everything else is capped at SpriteMaxSize.</summary>
-        private const int BackdropThreshold = 1500;
+        private const int BackdropThreshold = 1000; // full-screen art (landing poster 1280x720, backdrops) keeps native resolution
         private const int BackdropMaxSize = 2048;
         private const int SpriteMaxSize = 512;
         /// <summary>Characters, robots and maze pieces are drawn about one tile tall (roughly 75-115 px

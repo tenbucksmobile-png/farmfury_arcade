@@ -1,6 +1,7 @@
 using System;
 using UnityEngine;
 using UnityEngine.UI;
+using TMPro;
 using FarmFuryArcade.Data;
 using FarmFuryArcade.Utilities;
 
@@ -35,6 +36,13 @@ namespace FarmFuryArcade.UI
             if (lockIcon != null)
             {
                 lockIcon.SetActive(!unlocked);
+                // Web demo: animals that unlock beyond the demo's last level (Gerald at 30, Billy at
+                // 40) can never be earned here, so say where they are rather than just "LOCKED".
+                var label = lockIcon.GetComponentInChildren<TMP_Text>(true);
+                if (label != null)
+                {
+                    label.text = data.unlockLevel >= UnlockProgression.TotalLevels ? "FULL GAME" : "LOCKED";
+                }
             }
             if (activeHighlight != null)
             {
