@@ -43,6 +43,14 @@ coins + coin Revive + coin Skip kept; combos kept.
   2b packages/SDK folders, 2c content (levels 26-175, cosmetics data, machine prefabs, Character
   Story Cosmetics tab) + scene trimmed to Corn Field art/music. Not yet play-tested in the Editor.
 
+- 2026-10-08: Phase 3 (platform layer + Boot scene) and Phase 6 (size) done. YouTube build: data 14.0 MB
+  raw / 9.7 gzip, wasm 22.8 raw / 7.5 gzip (~17 MB served). Website build 16.9 MB (gzip + fallback,
+  hashed file names, FarmFuryEmbed full-window page meant for an iframe at /play/game/).
+  **Website build LIVE at https://www.farmfurygames.com/play/** (user extracted it into play/ rather than
+  play/game/; asked to move it into play/game/ before uploading the Claude Design wrapper page, and to
+  delete play/farmfury-play-game.zip). Verified: files byte-identical, game boots in headless Edge.
+  Phase 4 (Full Game panel, Demo Complete screen) and Phase 5 (portrait layout for YouTube) not done.
+
 ## Working rules for this branch
 
 - After any UI change run **Farm Fury Arcade > Web Demo > Rebuild UI + Trim** (= Phase 5 builder,
