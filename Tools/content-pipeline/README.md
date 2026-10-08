@@ -39,8 +39,18 @@ python plan_posts.py --per-day 3 --days 5 --dry-run
 Writes a caption per short (kid-safe wording checked with `check_wording`), alternates
 dodge-and-collect shorts with ability/power/unlock/combo ones, and writes
 `plans/<start>.html` (time, video file, caption with a Copy button) for scheduling in
-TikTok Studio (up to 10 days ahead). `ledger.json` stops a short being planned twice;
-both are gitignored. TikTok account: @farmfurygames.
+TikTok Studio (up to 10 days ahead). Each short also gets a **YouTube Shorts title**
+(its on-screen headline + "| Farm Fury: Arcade", max 100 characters; repeats across sessions
+get "(Round 2)" etc.) and **description** (tracked Google Play link with
+`utm_campaign=shorts`, #shorts + hashtags), shown on the same sheet for YouTube Studio
+(Create > Upload > Visibility > Schedule). `ledger.json` stops a short being planned twice;
+both are gitignored. TikTok account: @farmfurygames; YouTube: @farmfurygames (setup in
+`channel-kit/SETUP.md`).
+
+```
+python plan_posts.py --youtube-backlog    # plans/youtube-backlog.html: YouTube text for every rendered short
+```
+Use the backlog sheet to back-fill the YouTube channel with shorts already posted on TikTok.
 
 ## One-time setup
 1. Portable copies of scrcpy 4.1 and ffmpeg live in `bin/` (gitignored, not in the

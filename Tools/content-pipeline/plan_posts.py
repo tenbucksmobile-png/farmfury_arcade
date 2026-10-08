@@ -6,10 +6,16 @@ the shorts out over the next few days, N per day, mixing the kinds so two of the
 run back to back. Dodge-and-collect shorts (mix_*, short_*) are the main message and go first
 in each day.
 
+Each short also gets a YouTube Shorts title (max 100 characters) and description, since YouTube
+needs a title and its description links differ from TikTok's "link in bio".
+
 Output:
-  plans/<first-day>.html   a posting sheet: day, time, video file and caption with a Copy button,
-                           for scheduling in TikTok Studio (tiktok.com > Upload > Schedule, up to
-                           10 days ahead) and YouTube Studio
+  plans/<first-day>.html   a posting sheet: day, time, video file, the TikTok caption, and the
+                           YouTube title + description, each with a Copy button - for scheduling in
+                           TikTok Studio (Upload > Schedule, up to 10 days ahead) and YouTube Studio
+                           (Create > Upload > Visibility > Schedule)
+  plans/youtube-backlog.html  (--youtube-backlog) YouTube text for EVERY rendered short, planned or
+                           not, to back-fill the YouTube channel with videos already on TikTok
   ledger.json              every short already planned, so it is never planned twice
 
 Usage:
@@ -17,12 +23,14 @@ Usage:
     python plan_posts.py --days 5 --per-day 3 --start 2026-10-01
     python plan_posts.py --times 07:30,12:30,18:30
     python plan_posts.py --dry-run                # show the plan, write nothing
+    python plan_posts.py --youtube-backlog        # YouTube text for every short; changes nothing else
 """
 
 import argparse
 import datetime as dt
 import html
 import json
+import string
 import sys
 import zlib
 from pathlib import Path
@@ -73,6 +81,15 @@ CAPTIONS = {
 }
 CTA = "Farm Fury: Arcade is free on Google Play, link in bio."
 
+# YouTube: links in Shorts descriptions often aren't clickable, so the channel page's own link
+# (channel-kit/SETUP.md) is the reliable one; this tracked link is still worth including.
+YOUTUBE_SHORTS_LINK = ("https://play.google.com/store/apps/details?id=com.farmfury.arcade"
+                       "&referrer=utm_source%3Dyoutube%26utm_medium%3Dsocial%26utm_campaign%3Dshorts")
+YOUTUBE_CTA = (f"Farm Fury: Arcade is free on Google Play: {YOUTUBE_SHORTS_LINK}\n"
+               "(If the link isn't tappable, use the one on our channel page.)")
+YOUTUBE_TITLE_SUFFIX = " | Farm Fury: Arcade"
+YOUTUBE_TITLE_MAX = 100
+
 HASHTAGS_BASE = ["#farmfury", "#mobilegame", "#arcadegame"]
 HASHTAGS_EXTRA = {
     "main": ["#mazegame", "#retrogaming", "#androidgames"],
@@ -109,6 +126,7 @@ def pick(options, key):
 
 
 def write_caption(short_id, name, info):
+    """Returns (kind, body, TikTok caption, hashtags)."""
     kind = kind_of(name)
     tail = name.split("_", 1)[1] if "_" in name else ""
     character, ability = ABILITIES.get(tail, ("", ""))
@@ -124,7 +142,60 @@ def write_caption(short_id, name, info):
     tags = HASHTAGS_BASE + HASHTAGS_EXTRA[kind]
     caption = f"{body}\n\n{CTA}\n\n{' '.join(tags)}"
     check_wording(caption.replace("#", " "))
-    return kind, caption
+    return kind, body, caption, tags
+
+
+def write_youtube(info, body, tags):
+    """YouTube Shorts title + description. The title is the short's own on-screen headline in
+    title case plus the game name; the first three hashtags show above the title on YouTube."""
+    hook = info.get("hook") or "Dodge the robots, save the crops!"
+    headline = string.capwords(hook.lower())
+    room = YOUTUBE_TITLE_MAX - len(YOUTUBE_TITLE_SUFFIX)
+    if len(headline) > room:
+        headline = headline[:room - 1].rstrip() + "…"
+    title = headline + YOUTUBE_TITLE_SUFFIX
+    description = f"{body}\n\n{YOUTUBE_CTA}\n\n{' '.join(['#shorts'] + tags)}"
+    check_wording(title)
+    check_wording(description.replace("#", " "))
+    return title, description
+
+
+def dedupe_titles(shorts, taken):
+    """Shorts from different sessions can share a headline. Keep YouTube titles distinct by adding
+    "Round 2", "Round 3"... to repeats, in the order given (oldest first). taken = titles already
+    used (e.g. from the ledger)."""
+    taken = set(taken)
+    for p in shorts:
+        base = p["yt_title"]
+        title, n = base, 1
+        while title in taken:
+            n += 1
+            title = base.replace(YOUTUBE_TITLE_SUFFIX, f" (Round {n}){YOUTUBE_TITLE_SUFFIX}")
+        p["yt_title"] = title
+        taken.add(title)
+    return shorts
+
+
+def all_rendered_shorts():
+    """Every rendered short, oldest session first, with repeat YouTube titles numbered. Numbering
+    over the whole set (not per sheet) keeps a short's title the same on every sheet."""
+    metas = [m for m in HERE.glob("sessions/*/shorts/*.json") if m.with_suffix(".mp4").exists()]
+    metas.sort(key=lambda m: (m.parent.parent.name, m.stem))
+    return dedupe_titles([describe(m) for m in metas], taken=[])
+
+
+def all_youtube_titles():
+    return {p["id"]: p["yt_title"] for p in all_rendered_shorts()}
+
+
+def describe(meta):
+    """Everything about one rendered short (its .json sits next to the .mp4)."""
+    short_id = f"{meta.parent.parent.name}/{meta.stem}"
+    info = json.loads(meta.read_text(encoding="utf-8"))
+    kind, body, caption, tags = write_caption(short_id, meta.stem, info)
+    yt_title, yt_description = write_youtube(info, body, tags)
+    return {"id": short_id, "kind": kind, "video": str(meta.with_suffix(".mp4")), "caption": caption,
+            "yt_title": yt_title, "yt_description": yt_description, "seconds": info.get("seconds")}
 
 
 def load_ledger():
@@ -134,14 +205,10 @@ def load_ledger():
 def find_unplanned(ledger):
     shorts = []
     for meta in sorted(HERE.glob("sessions/*/shorts/*.json")):
-        video = meta.with_suffix(".mp4")
         short_id = f"{meta.parent.parent.name}/{meta.stem}"
-        if not video.exists() or short_id in ledger["planned"]:
+        if not meta.with_suffix(".mp4").exists() or short_id in ledger["planned"]:
             continue
-        info = json.loads(meta.read_text(encoding="utf-8"))
-        kind, caption = write_caption(short_id, meta.stem, info)
-        shorts.append({"id": short_id, "kind": kind, "video": str(video), "caption": caption,
-                       "seconds": info.get("seconds")})
+        shorts.append(describe(meta))
     return shorts
 
 
@@ -168,6 +235,52 @@ def order(shorts):
     return out
 
 
+SHEET_STYLE = """
+body{font-family:system-ui,sans-serif;max-width:760px;margin:24px auto;padding:0 16px;color:#222}
+h2{margin-top:32px;border-bottom:2px solid #e6b800}
+.post{margin:14px 0;padding:12px;border:1px solid #ddd;border-radius:8px}
+.file{font-size:13px;margin:4px 0 8px;word-break:break-all}
+.label{font-size:12px;font-weight:600;color:#666;margin-top:10px;text-transform:uppercase;letter-spacing:.04em}
+textarea,input{width:100%;box-sizing:border-box;font:14px system-ui}
+button{margin-top:6px}
+"""
+
+YOUTUBE_STEPS = """<p><b>YouTube Studio:</b> Create &gt; Upload the same file &gt; paste the title and
+description &gt; Audience: as decided for the channel (made for kids or not) &gt; Visibility &gt; Schedule
+at the same time. No paid-promotion box needed (it's our own game).</p>"""
+
+
+def youtube_block(i, p):
+    return f"""  <div class="label">YouTube title ({len(p['yt_title'])}/100)</div>
+  <input id="t{i}" readonly value="{html.escape(p['yt_title'], quote=True)}">
+  <button onclick="navigator.clipboard.writeText(document.getElementById('t{i}').value)">Copy title</button>
+  <div class="label">YouTube description</div>
+  <textarea id="d{i}" rows="7" readonly>{html.escape(p['yt_description'])}</textarea>
+  <button onclick="navigator.clipboard.writeText(document.getElementById('d{i}').value)">Copy description</button>"""
+
+
+def write_youtube_backlog(shorts, ledger, path):
+    """Every rendered short with its YouTube text, newest session first, noting which were already
+    planned for TikTok (and when) - for back-filling the YouTube channel."""
+    rows = []
+    for i, p in enumerate(shorts):
+        planned = ledger["planned"].get(p["id"])
+        when = f"TikTok: planned {planned['day']} {planned['time']}" if planned else "not planned for TikTok yet"
+        rows.append(f"""
+<div class="post">
+  <div class="meta"><b>{html.escape(p['id'])}</b> &middot; {html.escape(p['kind'])} &middot; {p['seconds']}s &middot; {when}</div>
+  <div class="file"><a href="file:///{html.escape(p['video'].replace(chr(92), '/'))}">{html.escape(p['video'])}</a></div>
+{youtube_block(i, p)}
+</div>""")
+    path.write_text(f"""<!doctype html><meta charset="utf-8"><title>Farm Fury YouTube backlog</title>
+<style>{SHEET_STYLE}</style>
+<h1>YouTube Shorts backlog ({len(shorts)} videos)</h1>
+{YOUTUBE_STEPS}
+<p>Spread these out (1-2 a day) rather than uploading them all at once.</p>
+{''.join(rows)}
+""", encoding="utf-8")
+
+
 def write_sheet(plan, path):
     rows = []
     day = None
@@ -180,21 +293,17 @@ def write_sheet(plan, path):
 <div class="post">
   <div class="meta"><b>{p['time']}</b> &middot; {html.escape(p['kind'])} &middot; {p['seconds']}s</div>
   <div class="file"><a href="file:///{html.escape(p['video'].replace(chr(92), '/'))}">{html.escape(p['video'])}</a></div>
+  <div class="label">TikTok caption</div>
   <textarea id="c{i}" rows="6" readonly>{html.escape(p['caption'])}</textarea>
   <button onclick="navigator.clipboard.writeText(document.getElementById('c{i}').value)">Copy caption</button>
+{youtube_block(i, p)}
 </div>""")
     path.write_text(f"""<!doctype html><meta charset="utf-8"><title>Farm Fury posting plan</title>
-<style>
-body{{font-family:system-ui,sans-serif;max-width:760px;margin:24px auto;padding:0 16px;color:#222}}
-h2{{margin-top:32px;border-bottom:2px solid #e6b800}}
-.post{{margin:14px 0;padding:12px;border:1px solid #ddd;border-radius:8px}}
-.file{{font-size:13px;margin:4px 0 8px;word-break:break-all}}
-textarea{{width:100%;box-sizing:border-box;font:14px system-ui}}
-button{{margin-top:6px}}
-</style>
+<style>{SHEET_STYLE}</style>
 <h1>Farm Fury posting plan ({TIKTOK_HANDLE})</h1>
-<p>Schedule each video in TikTok Studio (Upload &gt; Schedule) at the time shown, paste the caption,
+<p><b>TikTok Studio:</b> schedule each video (Upload &gt; Schedule) at the time shown, paste the caption,
 and switch on <i>Disclose post content &gt; Your brand</i>. Times are this PC's local time.</p>
+{YOUTUBE_STEPS}
 {''.join(rows)}
 """, encoding="utf-8")
 
@@ -210,7 +319,21 @@ def main():
     parser.add_argument("--replan", action="store_true",
                         help="forget earlier plans for --session's shorts (e.g. they were never scheduled)")
     parser.add_argument("--dry-run", action="store_true")
+    parser.add_argument("--youtube-backlog", action="store_true",
+                        help="write plans/youtube-backlog.html for every rendered short and stop")
     args = parser.parse_args()
+
+    if args.youtube_backlog:
+        ledger = load_ledger()
+        shorts = all_rendered_shorts()
+        shorts.reverse()   # newest session first on the sheet
+        PLANS.mkdir(exist_ok=True)
+        out = PLANS / "youtube-backlog.html"
+        write_youtube_backlog(shorts, ledger, out)
+        for p in shorts:
+            print(f"{len(p['yt_title']):>3}  {p['yt_title']}")
+        print(f"\nYouTube backlog: {out}")
+        return
 
     times = [t.strip() for t in args.times.split(",") if t.strip()]
     if args.per_day > len(times):
@@ -228,6 +351,9 @@ def main():
     if args.session:
         shorts = [s for s in shorts if s["id"].startswith(args.session + "/")]
     shorts = order(shorts)
+    titles = all_youtube_titles()
+    for s in shorts:
+        s["yt_title"] = titles.get(s["id"], s["yt_title"])
     # Slots already past (or within 20 minutes, too soon to schedule) are skipped.
     soon = dt.datetime.now() + dt.timedelta(minutes=20)
     slots = [(dt.date.fromisoformat(args.start) + dt.timedelta(days=d), t)
@@ -248,7 +374,8 @@ def main():
     sheet = PLANS / f"{args.start}.html"
     write_sheet(plan, sheet)
     for p in plan:
-        ledger["planned"][p["id"]] = {"day": p["day"], "time": p["time"], "caption": p["caption"]}
+        ledger["planned"][p["id"]] = {"day": p["day"], "time": p["time"], "caption": p["caption"],
+                                      "yt_title": p["yt_title"], "yt_description": p["yt_description"]}
     LEDGER.write_text(json.dumps(ledger, indent=2), encoding="utf-8")
     print(f"\nPosting sheet: {sheet}")
 
