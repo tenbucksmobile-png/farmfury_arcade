@@ -6080,6 +6080,9 @@ missing. Android was unaffected because it builds from the local folder; Cloud B
 Fixed in `c46c21d` (local, fully wired scene committed; build number 6). **Before committing
 `Game.unity`, check it still has its art:** `git show HEAD:Assets/_Project/Scenes/Game.unity | grep -c
 "m_Sprite: {fileID: 21300000"` should be ~184, and run Wire Uploaded Art after every Phase 5 Build All.
+**Always commit `Prefabs/UI/*.prefab` together with `Game.unity`:** Phase 5 embeds placeholder sprites
+inside those prefabs and the scene points at them by ID. Committing only the scene (c46c21d) left the
+iOS ability button as a white box (build 6); fixed in `e8a09cb`.
 
 **Current state (2026-09-20):** `buildNumber.iPhone` is **5**, committed. History: 5 was first bumped
 for an ad-testing Cloud Build, reverted to 4 once because "5 was never actually built", then set to 5
