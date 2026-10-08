@@ -58,22 +58,22 @@ namespace FarmFuryArcade.EditorTools
             WireSkin(CharacterType.Cluck, "MachineTractorClucky", IAPManager.MachineTractorCluckyProductId,
                 front: "Clucky_tractor_front.png", back: "Clucky_tractor_back.png",
                 left: "Cluck_Tractor_left.png", right: "Clucky_tractor_right.png",
-                preview: "Price_Clucky_truck.png");
+                preview: "Price_Clucky_truck.png", abilityIcon: "CluckyTruck.png");
 
             // Full 4-direction art (2026-09-16) — see class doc comment.
             WireSkin(CharacterType.Bessie, "MachineTruckBessie", IAPManager.MachineTruckBessieProductId,
                 front: "Bessie_Truck_front.png", back: "Bessie_Truck_back.png",
                 left: "Bessie_Truck_Left.png", right: "Bessie_Truck_right.png",
-                preview: "Price_Bessie_truck.png");
+                preview: "Price_Bessie_truck.png", abilityIcon: "BessieTruck.png");
 
             WireSkin(CharacterType.Horace, "MachineHayHorace", IAPManager.MachineHayHoraceProductId,
                 front: "Horace_hay_front.png", back: "Horace_hay_back.png",
                 left: "Horace_hay_left.png", right: "Horace_hay_right.png",
-                preview: "Price_Horace_truck.png");
+                preview: "Price_Horace_truck.png", abilityIcon: "HoraceTruck.png");
         }
 
         private static void WireSkin(CharacterType character, string assetNamePrefix, string cosmeticId,
-            string front, string back, string left, string right, string preview)
+            string front, string back, string left, string right, string preview, string abilityIcon)
         {
             Sprite frontSprite = ConfigureAndLoadSprite($"{MachineSpriteFolder}/{front}");
             Sprite backSprite = ConfigureAndLoadSprite($"{MachineSpriteFolder}/{back}");
@@ -108,6 +108,9 @@ namespace FarmFuryArcade.EditorTools
             // cosmetic, independent of whatever Trail (if any) is separately equipped.
             data.spawnsMovementSmoke = true;
             data.previewSprite = previewSprite != null ? previewSprite : frontSprite;
+            // Shown on the Gameplay HUD's ability button while this machine is equipped (the same
+            // wood-sign badge art Character Story's Cosmetics tab uses) - see GameplayHUD.RefreshPortrait.
+            data.abilityIconSprite = AssetDatabase.LoadAssetAtPath<Sprite>($"Assets/_Project/Sprites/UI/{abilityIcon}");
             data.skinFrames = new[]
             {
                 backSprite, backSprite,     // Up0, Up1

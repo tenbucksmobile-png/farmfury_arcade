@@ -152,5 +152,10 @@ namespace FarmFuryArcade.Data
                  "Procedural placeholder (PlaceholderSprite.GetCircle) until dedicated exhaust-" +
                  "smoke art exists — see CharacterCosmeticRenderer.SpawnMachineSmokePuff.")]
         public bool spawnsMovementSmoke;
+
+        [Tooltip("Skin only. Replaces the character's own ability icon on the Gameplay HUD's ability " +
+                 "button while this skin is equipped (e.g. the tractor badge for Clucky's Tractor). " +
+                 "Leave null to keep the character's normal ability icon.")]
+        public Sprite abilityIconSprite;
     }
 }

@@ -565,7 +565,14 @@ namespace FarmFuryArcade.Core
             {
                 PlayerPrefs.SetString(EquippedKeyPrefix(CosmeticType.Hat) + character, string.Empty);
             }
+
+            OnCosmeticEquipChanged?.Invoke(character);
         }
+
+        /// <summary>Fired by SetEquippedCosmetic. GameplayHUD listens so the ability button's icon
+        /// switches to/from a machine skin's icon the moment it's equipped from the in-maze Locker,
+        /// not only on the next character swap.</summary>
+        public static event System.Action<CharacterType> OnCosmeticEquipChanged;
 
         public string GetEquippedTrail()
         {

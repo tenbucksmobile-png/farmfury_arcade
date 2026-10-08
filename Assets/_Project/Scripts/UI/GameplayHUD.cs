@@ -161,6 +161,8 @@ namespace FarmFuryArcade.UI
                 GameManager.Instance.OnGamePausedExternally += HandleGamePausedExternally;
             }
 
+            SaveManager.OnCosmeticEquipChanged += HandleCosmeticEquipChanged;
+
             _lastObservedState = GameState.Playing;
             RefreshPortrait();
             UpdateScoreText();
@@ -182,6 +184,7 @@ namespace FarmFuryArcade.UI
                 GameManager.Instance.OnReviveOffered -= HandleReviveOffered;
                 GameManager.Instance.OnGamePausedExternally -= HandleGamePausedExternally;
             }
+            SaveManager.OnCosmeticEquipChanged -= HandleCosmeticEquipChanged;
             if (_activeAbility != null)
             {
                 _activeAbility.OnCooldownChanged -= HandleAbilityCooldownChanged;
@@ -412,6 +415,29 @@ namespace FarmFuryArcade.UI
             return $"{total / 60:00}:{total % 60:00}";
         }
 
+        private static Sprite GetEquippedSkinAbilityIcon(CharacterType character)
+        {
+            if (SaveManager.Instance == null || DataManager.Instance == null)
+            {
+                return null;
+            }
+            string skinId = SaveManager.Instance.GetEquippedCosmetic(CosmeticType.Skin, character);
+            if (string.IsNullOrEmpty(skinId))
+            {
+                return null;
+            }
+            var skin = DataManager.Instance.GetCosmeticData(skinId);
+            return skin != null ? skin.abilityIconSprite : null;
+        }
+
+        private void HandleCosmeticEquipChanged(CharacterType character)
+        {
+            if (CharacterManager.Instance != null && character == CharacterManager.Instance.ActiveCharacter)
+            {
+                RefreshPortrait();
+            }
+        }
+
         private void RefreshPortrait()
         {
             if (characterPortrait == null || CharacterManager.Instance == null)
@@ -428,8 +454,17 @@ namespace FarmFuryArcade.UI
             // The button shows a dedicated ability-icon sprite (per-character {Name}_ability.png)
             // rather than the character's plain portrait — falls back to portraitSprite for any
             // character without one yet (currently just Horace).
-            var data = DataManager.Instance != null ? DataManager.Instance.GetCharacterData(CharacterManager.Instance.ActiveCharacter) : null;
+            var activeCharacter = CharacterManager.Instance.ActiveCharacter;
+            var data = DataManager.Instance != null ? DataManager.Instance.GetCharacterData(activeCharacter) : null;
             var iconSprite = data != null ? (data.abilityIconSprite != null ? data.abilityIconSprite : data.portraitSprite) : null;
+            // A machine skin (Clucky's Tractor, Bessie's Milk Tanker, Horace's Hay Baler) shows its own
+            // icon on the ability button while equipped, matching the vehicle the character is now
+            // drawn as. Same lookup CharacterCosmeticRenderer uses for the skin itself.
+            var machineIcon = GetEquippedSkinAbilityIcon(activeCharacter);
+            if (machineIcon != null)
+            {
+                iconSprite = machineIcon;
+            }
             if (iconSprite != null)
             {
                 characterPortrait.sprite = iconSprite;
