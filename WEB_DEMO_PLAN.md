@@ -51,6 +51,16 @@ coins + coin Revive + coin Skip kept; combos kept.
   delete play/farmfury-play-game.zip). Verified: files byte-identical, game boots in headless Edge.
   Phase 4 (Full Game panel, Demo Complete screen) and Phase 5 (portrait layout for YouTube) not done.
 
+- 2026-10-08 (later): Phase 4 (FullGamePanel, demo-complete, FULL GAME on Gerald/Billy) and Phase 5
+  (AspectLetterbox) built; full-screen art keeps native resolution (title poster was blurred at 512 px).
+  Live at **public_html/play/game/**; play/index.html = temporary forward to game/; home page Play
+  buttons (header + footer) patched to /play/. User: "its good". No in-game back-to-website button
+  (YouTube forbids exit/links; browser Back works). Next: App Store button on FullGamePanel once iOS is
+  released; YouTube build + certification once YouTube grants access; Claude Design wrapper at /play/
+  (iframe src "game/").
+- This worktree was moved to Desktop\FarmFury_Technical\FarmFury_Arcade_Web on 2026-10-08 (git
+  worktree repair run from the main repo).
+
 ## Working rules for this branch
 
 - After any UI change run **Farm Fury Arcade > Web Demo > Rebuild UI + Trim** (= Phase 5 builder,
