@@ -26,17 +26,7 @@ namespace FarmFuryArcade.UI
     /// reason about than the same listener duplicated across ten screens.</summary>
     public class AndroidBackButtonHandler : MonoBehaviour
     {
-        [SerializeField] private ParentalGateController parentalGate;
-        [SerializeField] private CosmeticPurchaseScreen worldPurchaseScreen;
-        [SerializeField] private CoinPurchaseScreen coinPurchaseScreen;
-        [SerializeField] private CosmeticPurchaseScreen cosmeticsHatsScreen;
-        [SerializeField] private CosmeticPurchaseScreen cosmeticsTrailsScreen;
-        [SerializeField] private CosmeticPurchaseScreen cosmeticsMachinesScreen;
-        [SerializeField] private CosmeticsChooserScreen cosmeticsChooserScreen;
-        [SerializeField] private LegalScreen legalScreen;
         [SerializeField] private SettingsPanel settingsPanel;
-        [SerializeField] private ShopController shopController;
-        [SerializeField] private MenuHubScreen menuHubScreen;
         [SerializeField] private ChooseCharacterScreen chooseCharacterScreen;
         [SerializeField] private PauseMenuController pauseMenuScreen;
         [SerializeField] private LevelSelectController levelSelectController;
@@ -49,20 +39,9 @@ namespace FarmFuryArcade.UI
                 return;
             }
 
-            // Innermost overlays first — a purchase screen or the parental gate can be open on top
-            // of the Shop hub, which can be open on top of the Menu Hub, and each step should only
-            // close the one topmost layer, matching how a real back button behaves everywhere else.
-            if (CloseIfActive(parentalGate)) return;
-            if (CloseIfActive(worldPurchaseScreen)) return;
-            if (CloseIfActive(coinPurchaseScreen)) return;
-            if (CloseIfActive(cosmeticsHatsScreen)) return;
-            if (CloseIfActive(cosmeticsTrailsScreen)) return;
-            if (CloseIfActive(cosmeticsMachinesScreen)) return;
-            if (CloseIfActive(cosmeticsChooserScreen)) return;
-            if (CloseIfActive(legalScreen)) return;
+            // Web demo: also YouTube Playables' "Esc closes modals/dialogs" recommendation.
+            // Innermost overlay first; each press closes only the topmost layer.
             if (CloseIfActive(settingsPanel)) return;
-            if (CloseIfActive(shopController)) return;
-            if (CloseIfActive(menuHubScreen)) return;
 
             if (chooseCharacterScreen != null && chooseCharacterScreen.gameObject.activeSelf)
             {

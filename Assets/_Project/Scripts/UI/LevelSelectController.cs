@@ -75,11 +75,9 @@ namespace FarmFuryArcade.UI
         /// ArtWiringBuilder.</summary>
         [SerializeField] private Sprite[] worldSignSprites;
 
-        /// <summary>World Purchase screen (see ShopController's own "New Worlds" entry point,
-        /// which opens the same screen instance) — a purchase-gated world's badge stays
-        /// interactable even while locked (see ShowWorldSelect) so tapping it opens this instead of
-        /// silently no-opping the way a star-locked badge does.</summary>
-        [SerializeField] private CosmeticPurchaseScreen worldPurchaseScreen;
+        /// <summary>Web demo: "available in the full game" panel, opened by tapping one of the
+        /// locked full-game world shields. Null-safe until Phase 4 builds it.</summary>
+        [SerializeField] private GameObject fullGamePanel;
 
         private const float ScrollTweenSeconds = 0.5f;
         private const float ShieldRevealSeconds = 0.45f;
@@ -156,9 +154,9 @@ namespace FarmFuryArcade.UI
             // explanation why. Same check OnCarouselCenterTapped already uses, applied here too, so
             // both entry points to "reveal a world" agree: an unpurchased purchase-gated world
             // opens the purchase screen instead of a grid the player hasn't earned.
-            if (UnlockProgression.IsPurchaseGatedWorld(world) && !UnlockProgression.IsWorldUnlocked(world))
+            if (UnlockProgression.IsFullGameOnlyWorld(world))
             {
-                worldPurchaseScreen?.Show();
+                ShowFullGamePanel();
                 return;
             }
 
@@ -216,26 +214,13 @@ namespace FarmFuryArcade.UI
             _shieldObjects.Clear();
             worldShieldContainer.gameObject.SetActive(true);
 
-            // Daily Challenge shield always goes first, ahead of Corn Field — always coloured and
-            // tappable regardless of save progress (unlike the 4 real world badges below), since the
-            // challenge itself only ever picks from worlds already unlocked for this player (see
-            // DailyChallengeManager.GetTodayLevelIndex).
-            var dailyChallengeShieldGO = Instantiate(worldShieldPrefab, worldShieldContainer);
-            var dailyChallengeShieldImage = dailyChallengeShieldGO.GetComponent<Image>();
-            dailyChallengeShieldImage.sprite = dailyChallengeSignSprite;
-            dailyChallengeShieldImage.color = Color.white;
-            dailyChallengeShieldGO.GetComponent<Button>().interactable = true;
-            _shownWorlds.Add(DailyChallengeSentinel);
-            _shieldObjects.Add(dailyChallengeShieldGO);
-
-            int worldCount = Mathf.CeilToInt((float)UnlockProgression.TotalLevels / UnlockProgression.LevelsPerWorld);
+            // Web demo: every full-game world gets a shield. Only Corn Field is playable; the rest
+            // are dimmed teasers that stay tappable so they can open the "full game" panel.
+            int worldCount = UnlockProgression.FullGameWorldCount;
             for (int world = 0; world < worldCount; world++)
             {
                 bool unlocked = UnlockProgression.IsWorldUnlocked(world);
-                // A purchase-gated world's badge stays tappable even while locked, so the player
-                // can reach the purchase screen from it (see OnCarouselCenterTapped) — unlike a
-                // star-locked free-world badge, which is genuinely inert until earned.
-                bool tappable = unlocked || UnlockProgression.IsPurchaseGatedWorld(world);
+                bool tappable = unlocked || UnlockProgression.IsFullGameOnlyWorld(world);
 
                 var shieldGO = Instantiate(worldShieldPrefab, worldShieldContainer);
                 var shieldImage = shieldGO.GetComponent<Image>();
@@ -270,19 +255,14 @@ namespace FarmFuryArcade.UI
                 return;
             }
             int world = _shownWorlds[localIndex];
-            if (world == DailyChallengeSentinel)
-            {
-                PlayDailyChallenge();
-                return;
-            }
             // A locked FREE-world badge's Button.interactable is false, so its onClick (and
             // therefore this callback) never fires for it via CardCarouselController's
             // tap-to-select path — no extra guard needed for that case. A locked but
             // purchase-gated badge IS interactable (see ShowWorldSelect), so it reaches here and
             // needs to open the purchase screen instead of revealing a grid it hasn't earned yet.
-            if (!UnlockProgression.IsWorldUnlocked(world) && UnlockProgression.IsPurchaseGatedWorld(world))
+            if (UnlockProgression.IsFullGameOnlyWorld(world))
             {
-                worldPurchaseScreen?.Show();
+                ShowFullGamePanel();
                 return;
             }
             SelectWorld(world, _shieldObjects[localIndex]);
@@ -297,6 +277,16 @@ namespace FarmFuryArcade.UI
         /// the same level tapped from its own tile in the grid does NOT count as the daily
         /// challenge, since that call goes through OnTilePlayRequested instead, which defaults to
         /// isDailyChallenge: false.</summary>
+        private void ShowFullGamePanel()
+        {
+            if (fullGamePanel == null)
+            {
+                return;
+            }
+            fullGamePanel.transform.SetAsLastSibling();
+            fullGamePanel.SetActive(true);
+        }
+
         private void PlayDailyChallenge()
         {
             if (DailyChallengeManager.Instance == null)

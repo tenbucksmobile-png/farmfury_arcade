@@ -19,9 +19,14 @@ namespace FarmFuryArcade.Utilities
     /// </summary>
     public static class UnlockProgression
     {
-        /// <summary>100 (worlds 0-3, the free star-progress worlds) + 25 per purchased world (see
-        /// PurchasedWorldMazeTypes). Grows by 25 for every purchased world added.</summary>
-        public const int TotalLevels = 175;
+        /// <summary>Web demo: Corn Field only (levels 0-24). The full game has 175.</summary>
+        public const int TotalLevels = 25;
+        /// <summary>Web demo: worlds that are actually playable here (Corn Field).</summary>
+        public const int DemoWorldCount = 1;
+        /// <summary>Web demo: worlds in the full game, shown as locked "full game" teaser shields.</summary>
+        public const int FullGameWorldCount = 7;
+        /// <summary>Web demo: true for a world that exists only in the full (store) game.</summary>
+        public static bool IsFullGameOnlyWorld(int world) => world >= DemoWorldCount;
         public const int LevelsPerWorld = 25;
         // Dropped from 2 to 1 (2026-09-09, per direct feedback) — a 2-star requirement gated core
         // progression behind the pellet-chain-kill bonus's RNG (see LevelData.
@@ -179,6 +184,10 @@ namespace FarmFuryArcade.Utilities
         /// this specific level open."</summary>
         public static bool IsWorldUnlocked(int world)
         {
+            if (IsFullGameOnlyWorld(world))
+            {
+                return false;
+            }
             if (IsPurchaseGatedWorld(world))
             {
                 return SaveManager.Instance != null && SaveManager.Instance.IsWorldPurchased(MazeTypeForPurchasedWorld(world));

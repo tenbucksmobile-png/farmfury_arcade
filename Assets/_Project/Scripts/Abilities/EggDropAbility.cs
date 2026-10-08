@@ -54,7 +54,7 @@ namespace FarmFuryArcade.Abilities
             }
 
             bool tractorSkinEquipped = SaveManager.Instance != null &&
-                SaveManager.Instance.GetEquippedCosmetic(CosmeticType.Skin, CharacterType.Cluck) == IAPManager.MachineTractorCluckyProductId;
+                SaveManager.Instance.GetEquippedCosmetic(CosmeticType.Skin, CharacterType.Cluck) == "machine_tractor_clucky";
             GameObject prefabToSpawn = tractorSkinEquipped && oilHazardPrefab != null ? oilHazardPrefab : eggPrefab;
             if (prefabToSpawn == null)
             {

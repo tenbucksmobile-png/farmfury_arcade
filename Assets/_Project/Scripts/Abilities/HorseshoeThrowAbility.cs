@@ -99,7 +99,7 @@ namespace FarmFuryArcade.Abilities
         private static bool IsHayBalerSkinEquipped()
         {
             return SaveManager.Instance != null &&
-                SaveManager.Instance.GetEquippedCosmetic(CosmeticType.Skin, CharacterType.Horace) == IAPManager.MachineHayHoraceProductId;
+                SaveManager.Instance.GetEquippedCosmetic(CosmeticType.Skin, CharacterType.Horace) == "machine_hay_horace";
         }
     }
 }

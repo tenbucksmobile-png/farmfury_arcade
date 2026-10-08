@@ -99,8 +99,7 @@ namespace FarmFuryArcade.EditorTools
             so.FindProperty("robotParent").objectReferenceValue = robotParent;
             so.ApplyModifiedPropertiesWithoutUndo();
 
-            // Phase 1 verification harness - not gameplay/UI, see Phase1Test.cs.
-            new GameObject("Phase1Test").AddComponent<Phase1Test>();
+            // Web demo: the Phase test harnesses were deleted.
 
             Directory.CreateDirectory(Path.GetDirectoryName(ScenePath)!);
             EditorSceneManager.SaveScene(scene, ScenePath);

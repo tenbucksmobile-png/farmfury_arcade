@@ -23,18 +23,10 @@ namespace FarmFuryArcade.UI
         [SerializeField] private Button musicButton;
         [SerializeField] private Image musicButtonIcon;
 
-        [SerializeField] private Button leaderboardsButton;
-        [SerializeField] private GameObject leaderboardsScreen;
-
         // "This is where we will tell a story about each character" — placeholder destination,
         // no real content yet (see Phase5ProjectBuilder.BuildCharacterStoryPlaceholder).
         [SerializeField] private Button characterStoryButton;
         [SerializeField] private GameObject characterStoryScreen;
-
-        // Policies — opens the legal hub (LegalScreen): Privacy Policy, Terms of Use, and any
-        // other required legal copy.
-        [SerializeField] private Button policiesButton;
-        [SerializeField] private GameObject policiesScreen;
 
         /// <summary>Dims the music icon when muted — same tint-based on/off feedback convention
         /// LockedTint/InactiveTabTint use elsewhere, since no dedicated "muted" art variant exists
@@ -62,54 +54,12 @@ namespace FarmFuryArcade.UI
             {
                 musicButton.onClick.AddListener(HandleMusicButtonTapped);
             }
-            if (leaderboardsButton != null && leaderboardsScreen != null)
-            {
-                leaderboardsButton.onClick.AddListener(() =>
-                {
-                    // Real bug found and fixed (2026-09-11): this used to hide Settings/_opener
-                    // synchronously, THEN call ShowOnly — but ShowOnly's own fade only reaches full
-                    // opaque black partway through its ramp (fadeSeconds, not instant), so for that
-                    // whole ramp-up window Main Menu (the screenRoot now exposed underneath the
-                    // just-hidden overlays) was visible through the still-transparent fade before
-                    // Leaderboards actually swapped in — read as "the landing page flashes for a
-                    // split second before Leaderboards opens." Fixed by passing the hide logic in
-                    // as ShowOnly's new beforeSwap callback instead, which only runs once the fade
-                    // has already reached full opaque black, same as every other screenRoot swap.
-                    SceneTransitionManager.Instance.ShowOnly(leaderboardsScreen, () =>
-                    {
-                        gameObject.SetActive(false);
-                        if (_opener != null)
-                        {
-                            // Pause needs its own GameState.Paused/Time.timeScale=0 reset too, not
-                            // just hiding — see CloseForNavigation's own doc comment. MenuHubScreen
-                            // (Main Menu's opener) has no such state and just needs to be hidden.
-                            var pause = _opener.GetComponent<PauseMenuController>();
-                            if (pause != null)
-                            {
-                                pause.CloseForNavigation();
-                            }
-                            else
-                            {
-                                _opener.SetActive(false);
-                            }
-                        }
-                    });
-                });
-            }
             if (characterStoryButton != null && characterStoryScreen != null)
             {
                 characterStoryButton.onClick.AddListener(() =>
                 {
                     characterStoryScreen.transform.SetAsLastSibling();
                     characterStoryScreen.SetActive(true);
-                });
-            }
-            if (policiesButton != null && policiesScreen != null)
-            {
-                policiesButton.onClick.AddListener(() =>
-                {
-                    policiesScreen.transform.SetAsLastSibling();
-                    policiesScreen.SetActive(true);
                 });
             }
         }

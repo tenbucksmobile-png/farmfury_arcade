@@ -59,7 +59,7 @@ namespace FarmFuryArcade.Abilities
             DefeatRobotsInRadius(originWorld, radiusWorldUnits);
 
             bool milkTankerSkinEquipped = SaveManager.Instance != null &&
-                SaveManager.Instance.GetEquippedCosmetic(CosmeticType.Skin, CharacterType.Bessie) == IAPManager.MachineTruckBessieProductId;
+                SaveManager.Instance.GetEquippedCosmetic(CosmeticType.Skin, CharacterType.Bessie) == "machine_truck_bessie";
             GameObject shockwaveToSpawn = milkTankerSkinEquipped && milkShockwavePrefab != null ? milkShockwavePrefab : shockwavePrefab;
             if (shockwaveToSpawn != null)
             {

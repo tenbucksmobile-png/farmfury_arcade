@@ -135,7 +135,6 @@ namespace FarmFuryArcade.Core
 
             CurrentLevel = level;
             _cropsRemaining = level.totalCropsRequired;
-            AnalyticsManager.Instance?.LogLevelStart(levelIndex, level.levelName, isDailyChallenge);
             HighlightMarkers.Mark("level_start", $"level={levelIndex} world={level.mazeType} daily={isDailyChallenge}");
             ScoreManager.Instance.ResetMazeScore();
             DeathCountThisMaze = 0;
@@ -160,46 +159,8 @@ namespace FarmFuryArcade.Core
 
             _sceneController.LoadLevelContent(level);
 
-            // Between-levels interstitial trigger — called here (never mid-Playing, since
-            // LoadLevel only ever runs at a level transition) rather than from wherever the player
-            // tapped a level tile, so every LoadLevel call site gets it for free. Time is frozen
-            // (same convention PauseGame/RequestRevivePrompt use) for the whole gate so a due
-            // interstitial genuinely gates the start of play instead of showing as an overlay while
-            // the player/robots/timer keep running behind it — _levelStartTime is already stamped
-            // above, and Time.time (what GetElapsedSeconds reads) doesn't advance while frozen, so
-            // no time is lost either. When no ad is due/ready, this resolves synchronously on the
-            // same frame and the freeze is imperceptible.
-            //
-            // The combo "hype" banner (ComboHypeScreen) is no longer tied to level start at all —
-            // it now shows only on a real ComboSystem.OnComboTriggered mid-gameplay, so it isn't
-            // part of this gate.
-            if (AdManager.Instance != null)
-            {
-                Time.timeScale = 0f;
-                AudioListener.pause = true;
-                AdManager.Instance.NotifyLevelLoaded(() =>
-                {
-                    // Audit finding C3.7: this callback used to unconditionally restore
-                    // Time.timeScale, with no awareness that OnApplicationPause could have
-                    // set CurrentState to Paused (and frozen time for THAT reason) during
-                    // the exact window this interstitial call was waiting on —
-                    // backgrounding is far more likely to actually land in a multi-second
-                    // async wait like this one, and more likely to fire at an inconvenient
-                    // moment on Android's looser OS scheduling than iOS's. Unconditionally
-                    // restoring would have silently resumed the maze simulation underneath
-                    // the still-visible Pause screen. If we're already Paused for that
-                    // reason, only clear the audio mute (matching normal Pause behaviour,
-                    // which never mutes audio) and leave Time.timeScale frozen — the normal
-                    // ResumeGame() path (the visible Pause screen's Play button, already
-                    // shown via OnGamePausedExternally) is what un-freezes it from here,
-                    // exactly like any other pause.
-                    AudioListener.pause = false;
-                    if (CurrentState != GameState.Paused)
-                    {
-                        Time.timeScale = 1f;
-                    }
-                });
-            }
+            // Web demo: no ads, so there's no between-levels interstitial gate here - play starts
+            // as soon as the level content is loaded.
         }
 
         /// <summary>Seconds since LoadLevel while Playing/Paused; frozen at the final value once
@@ -464,7 +425,6 @@ namespace FarmFuryArcade.Core
                 LastLevelResult = ComputeLevelResult(elapsed);
 
                 int levelNumber = CurrentLevel.levelNumber;
-                AnalyticsManager.Instance?.LogLevelComplete(levelNumber, LastLevelResult.stars, LastLevelResult.totalScore, elapsed);
                 HighlightMarkers.Mark("level_complete", $"level={levelNumber} stars={LastLevelResult.stars} score={LastLevelResult.totalScore} seconds={elapsed:F1} deaths={DeathCountThisMaze}");
 
                 SaveManager.Instance.AddCoins(LastLevelResult.coinsEarned);
@@ -493,10 +453,6 @@ namespace FarmFuryArcade.Core
             else
             {
                 LastLevelResult = new LevelResult { elapsedSeconds = elapsed };
-                if (CurrentLevel != null)
-                {
-                    AnalyticsManager.Instance?.LogLevelFailed(CurrentLevel.levelNumber, elapsed);
-                }
             }
         }
 

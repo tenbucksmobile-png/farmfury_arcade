@@ -40,7 +40,6 @@ namespace FarmFuryArcade.UI
         [SerializeField] private StarDisplay starDisplay;
         [SerializeField] private TextMeshProUGUI scoreText;
         [SerializeField] private Button playButton;
-        [SerializeField] private Button doubleCoinsButton;
         [SerializeField] private GameObject levelSelectScreen;
         [SerializeField] private LevelSelectController levelSelectController;
         [SerializeField] private NewCharacterUnlockScreen unlockScreen;
@@ -60,15 +59,10 @@ namespace FarmFuryArcade.UI
         private void Awake()
         {
             playButton.onClick.AddListener(Play);
-            if (doubleCoinsButton != null)
-            {
-                doubleCoinsButton.onClick.AddListener(HandleDoubleCoins);
-            }
         }
 
         private void OnEnable()
         {
-            RefreshDoubleCoinsButton();
             // Defensive — guarantees only one celebration sequence ever runs at a time even if
             // OnEnable somehow fires twice in a row (e.g. a future ShowOnly call re-activating an
             // already-active screen) instead of two overlapping coroutines racing each other and
@@ -194,52 +188,5 @@ namespace FarmFuryArcade.UI
             SceneTransitionManager.Instance.ShowOnly(levelSelectScreen);
         }
 
-        /// <summary>Rewarded-ad placement #2 (Monetisation Build Plan Phase 2): tops up this
-        /// completion's coin payout with an equal second copy — see GameManager.
-        /// ClaimDoubleCoinsViaAd's own doc comment for why that's an additive top-up rather than a
-        /// retroactive change to LastLevelResult.coinsEarned. Hidden entirely — never shown as a
-        /// dead button — whenever there's nothing to claim: no ad ready, no coins earned this
-        /// completion, or already claimed. Icon-only now (DoubleCoins.png, no text label — see
-        /// Phase5ProjectBuilder.BuildLevelComplete for why the old text overlay was removed);
-        /// "claimed" feedback is just disabling the button, same as every other icon-only button in
-        /// this project that has no dedicated "used" art variant.</summary>
-        private void RefreshDoubleCoinsButton()
-        {
-            if (doubleCoinsButton == null)
-            {
-                return;
-            }
-
-            bool claimed = GameManager.Instance != null && GameManager.Instance.DoubleCoinsClaimed;
-            bool hasCoinsToDouble = GameManager.Instance != null && GameManager.Instance.LastLevelResult.coinsEarned > 0;
-            bool adReady = Core.AdManager.Instance != null && Core.AdManager.Instance.IsRewardedAdReady;
-
-            doubleCoinsButton.gameObject.SetActive(!claimed && hasCoinsToDouble && adReady);
-        }
-
-        private void HandleDoubleCoins()
-        {
-            if (Core.AdManager.Instance == null)
-            {
-                return;
-            }
-
-            doubleCoinsButton.interactable = false;
-            Core.AdManager.Instance.ShowRewardedAd("double_coins_level_complete", rewarded =>
-            {
-                if (rewarded && GameManager.Instance != null && GameManager.Instance.ClaimDoubleCoinsViaAd())
-                {
-                    doubleCoinsButton.interactable = false;
-                }
-                else
-                {
-                    // Ad closed early/failed, or nothing left to claim — re-show as tappable rather
-                    // than leaving it stuck disabled, same re-check convention RevivePromptController
-                    // uses after a failed Watch Ad attempt.
-                    doubleCoinsButton.interactable = true;
-                    RefreshDoubleCoinsButton();
-                }
-            });
-        }
     }
 }

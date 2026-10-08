@@ -553,14 +553,6 @@ namespace FarmFuryArcade.EditorTools
                 mainCameraGO.AddComponent<CameraShake>();
             }
 
-            // See Phase2ProjectBuilder's matching comment — GameObject.Find only matches active
-            // objects, so once Phase4Test is disabled a plain Find-or-create re-spawns a duplicate.
-            var existingPhase4Test = Resources.FindObjectsOfTypeAll<Phase4Test>()
-                .FirstOrDefault(t => !EditorUtility.IsPersistent(t.gameObject));
-            if (existingPhase4Test == null)
-            {
-                new GameObject("Phase4Test").AddComponent<Phase4Test>();
-            }
 
             // Same reasoning as Phase3ProjectBuilder disabling Phase1Test/Phase2Test: only the
             // newest test harness's runOnStart should auto-fire, since they all independently

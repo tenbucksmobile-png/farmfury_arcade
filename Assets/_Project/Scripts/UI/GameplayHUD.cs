@@ -45,8 +45,6 @@ namespace FarmFuryArcade.UI
         [SerializeField] private Button abilityButton;
         [SerializeField] private Button swapCharacterButton;
         [SerializeField] private ChooseCharacterScreen chooseCharacterScreen;
-        [SerializeField] private Button lockerButton;
-        [SerializeField] private LockerScreen lockerScreen;
         [SerializeField] private Button pauseButton;
         [SerializeField] private GameObject powerPelletTimerBar;
         [SerializeField] private Image powerPelletTimerFill;
@@ -58,7 +56,6 @@ namespace FarmFuryArcade.UI
         [SerializeField] private RevivePromptController revivePrompt;
         [SerializeField] private Button skipCooldownCoinButton;
         [SerializeField] private RectTransform skipCooldownCoinIcon;
-        [SerializeField] private Button watchAdSkipCooldownButton;
 
         /// <summary>Monetisation: coin cost of the "skip cooldown" coin badge overlaid on the
         /// ability icon — only shown/tappable while the active ability actually is on cooldown (see
@@ -120,17 +117,9 @@ namespace FarmFuryArcade.UI
             {
                 swapCharacterButton.onClick.AddListener(() => chooseCharacterScreen.Show());
             }
-            if (lockerButton != null && lockerScreen != null)
-            {
-                lockerButton.onClick.AddListener(() => lockerScreen.Show());
-            }
             if (skipCooldownCoinButton != null)
             {
                 skipCooldownCoinButton.onClick.AddListener(HandleSkipCooldownClicked);
-            }
-            if (watchAdSkipCooldownButton != null)
-            {
-                watchAdSkipCooldownButton.onClick.AddListener(HandleWatchAdSkipCooldownClicked);
             }
         }
 
@@ -216,36 +205,6 @@ namespace FarmFuryArcade.UI
             {
                 _activeAbility.SkipCooldown();
             }
-        }
-
-        /// <summary>Monetisation (Phase 2, "extra ability charge"/"skip cooldown via ad" — per the
-        /// Monetisation Build Plan doc, these are the same button: a Watch Ad alternative next to
-        /// the coin-cost skip-cooldown button above, ad as the free option instead of spending
-        /// coins). Same no-op guards as HandleSkipCooldownClicked; only calls SkipCooldown once
-        /// AdManager confirms the reward actually fired (see AdManager.ShowRewardedAd's own doc
-        /// comment on that distinction) — a closed-early/failed ad leaves the cooldown untouched.</summary>
-        private void HandleWatchAdSkipCooldownClicked()
-        {
-            if (_activeAbility == null || _activeAbility.IsReady || AdManager.Instance == null)
-            {
-                return;
-            }
-
-            // Audit finding F5.6: this used to set .interactable = false here, only ever restoring
-            // it inside the result callback — if AdManager's callback hung (rare SDK/network edge
-            // case), the button stayed disabled not just for this cooldown window but every future
-            // one too, since HandleAbilityCooldownChanged's own per-frame refresh only ever touches
-            // .gameObject.SetActive, never .interactable. AdManager.ShowRewardedAd now guarantees
-            // onResult always fires (a timeout fallback), but this button no longer needs to gamble
-            // on that either — match RevivePromptController's own Watch Ad button, which never
-            // pre-disables itself, so a hung callback simply leaves it exactly as tappable as before.
-            AdManager.Instance.ShowRewardedAd("skip_cooldown_via_ad", rewarded =>
-            {
-                if (rewarded && _activeAbility != null && !_activeAbility.IsReady)
-                {
-                    _activeAbility.SkipCooldown();
-                }
-            });
         }
 
         private void Update()
@@ -471,10 +430,6 @@ namespace FarmFuryArcade.UI
                 {
                     skipCooldownCoinButton.gameObject.SetActive(false);
                 }
-                if (watchAdSkipCooldownButton != null)
-                {
-                    watchAdSkipCooldownButton.gameObject.SetActive(false);
-                }
             }
         }
 
@@ -513,13 +468,6 @@ namespace FarmFuryArcade.UI
                 skipCooldownCoinButton.gameObject.SetActive(remaining > 0f);
                 skipCooldownCoinButton.interactable = SaveManager.Instance != null &&
                     SaveManager.Instance.CoinBalance >= SkipCooldownCoinsCost;
-            }
-            // Never shown as a dead button — only while on cooldown AND a rewarded ad is actually
-            // ready (same rule RevivePromptController's own Watch Ad button follows).
-            if (watchAdSkipCooldownButton != null)
-            {
-                watchAdSkipCooldownButton.gameObject.SetActive(
-                    remaining > 0f && AdManager.Instance != null && AdManager.Instance.IsRewardedAdReady);
             }
         }
 

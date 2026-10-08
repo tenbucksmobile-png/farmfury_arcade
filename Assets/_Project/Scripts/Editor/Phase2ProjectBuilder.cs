@@ -3840,17 +3840,6 @@ namespace FarmFuryArcade.EditorTools
             scSO.FindProperty("robotParent").objectReferenceValue = robotParent;
             scSO.ApplyModifiedPropertiesWithoutUndo();
 
-            // GameObject.Find only matches ACTIVE objects — once Phase2Test is disabled (by a
-            // later phase's builder, or SceneCleanupBuilder), a re-run of this method couldn't find
-            // it and spawned a second active instance every time (see the "black tiles" duplicate-
-            // debug-overlay bug). Resources.FindObjectsOfTypeAll also matches inactive instances —
-            // same fix Phase5ProjectBuilder already applies to its own Phase5Test/LevelSelectTest.
-            var existingPhase2Test = Resources.FindObjectsOfTypeAll<Phase2Test>()
-                .FirstOrDefault(t => !EditorUtility.IsPersistent(t.gameObject));
-            if (existingPhase2Test == null)
-            {
-                new GameObject("Phase2Test").AddComponent<Phase2Test>();
-            }
 
             EditorSceneManager.SaveScene(EditorSceneManager.GetActiveScene());
         }

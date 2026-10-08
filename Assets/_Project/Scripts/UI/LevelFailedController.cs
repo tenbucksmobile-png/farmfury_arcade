@@ -56,12 +56,10 @@ namespace FarmFuryArcade.UI
         private void OnEnable()
         {
             _levelIndex = GameManager.Instance.CurrentLevel != null ? GameManager.Instance.CurrentLevel.levelNumber : 0;
-            AdManager.Instance?.ShowBanner();
         }
 
         private void OnDisable()
         {
-            AdManager.Instance?.HideBanner();
         }
 
         private void Play()

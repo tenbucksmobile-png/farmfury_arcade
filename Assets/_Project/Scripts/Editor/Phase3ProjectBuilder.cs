@@ -447,14 +447,6 @@ namespace FarmFuryArcade.EditorTools
             scSO.FindProperty("robotSpawner").objectReferenceValue = spawner;
             scSO.ApplyModifiedPropertiesWithoutUndo();
 
-            // See Phase2ProjectBuilder's matching comment — GameObject.Find only matches active
-            // objects, so once Phase3Test is disabled a plain Find-or-create re-spawns a duplicate.
-            var existingPhase3Test = Resources.FindObjectsOfTypeAll<Phase3Test>()
-                .FirstOrDefault(t => !EditorUtility.IsPersistent(t.gameObject));
-            if (existingPhase3Test == null)
-            {
-                new GameObject("Phase3Test").AddComponent<Phase3Test>();
-            }
 
             // Phase1Test/Phase2Test/Phase3Test all auto-run on Start() and each independently
             // calls GameManager.Instance.LoadLevel(0), which destroys and recreates the Cluck

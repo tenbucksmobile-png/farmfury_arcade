@@ -63,12 +63,10 @@ namespace FarmFuryArcade.UI
         // no risk of a future 5th close path forgetting to hide it.
         private void OnEnable()
         {
-            AdManager.Instance?.ShowBanner();
         }
 
         private void OnDisable()
         {
-            AdManager.Instance?.HideBanner();
         }
 
         // Public — audit finding C3.2's AndroidBackButtonHandler calls this directly so the
