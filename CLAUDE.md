@@ -5811,6 +5811,15 @@ Headless-rendering gotcha: served locally, the page renders blank because Babel-
 doesn't finish within the headless budget; pre-compiling each `text/babel` script with Node + `@babel/standalone`
 (each wrapped in an IIFE, since separate scripts all declare `const { Button }`) makes it mount.
 
+**Play buttons and /play/ (2026-10-08).** The home page's "Play" buttons only switched the page's own
+stage (`onNav("play")`). A patched `index.html` (`Desktop\farmfurygames-website\play-button-patch\`)
+makes the header Play (3 copies), "Play Farm Fury Arcade", "Play free" and the footer Play link go to
+`/play/` (`window.location.href`), uploaded by the user. `play-button-patch\play\index.html` is the
+temporary `/play/` page that forwards to `game/` (the web demo, see "Web demo" section). **A new Claude
+Design export will undo the patch** unless the design itself makes those buttons open `/play/`.
+Testing note: headless Edge can drive the site via the DevTools protocol (scratchpad `cdp_eval.py` /
+`cdp_shot.py` pattern: `--remote-allow-origins=*`, a short `--user-data-dir` under `%TEMP%`).
+
 **Still open:**
 - Since 2026-09-25 the site and both policies name one address only, `support@farmfurygames.com`
   (was `privacy@` in the Privacy Policy, `legal@` in the Terms). That mailbox must actually exist
@@ -6037,6 +6046,40 @@ were offered and declined, so don't build an uploader unless asked. Target 2-3 p
   Tooling gotcha: in this Bash tool, ``-style backslash sequences inside a heredoc were turned into
   control characters () when writing Python; build such strings with chr(92) or use the Edit tool. Frames checked from the first render (opener, Level Complete,
   held Percy card, mix); the full videos were not watched.
+  2026-10-08: `plan_posts.py` also writes a **YouTube Shorts title** (on-screen headline + "| Farm Fury:
+  Arcade", max 100 chars; repeats across sessions numbered "(Round N)", numbered over all rendered shorts
+  so a title is the same on every sheet) and **description** (Play link `utm_campaign=shorts`, `#shorts`
+  + hashtags) next to each TikTok caption. `--youtube-backlog` writes `plans/youtube-backlog.html` for
+  every rendered short (31 on 2026-10-08) to back-fill the YouTube channel. The channel itself
+  (`@farmfurygames`, setup steps in `channel-kit/SETUP.md`) had not been confirmed as created.
+
+## Web demo: YouTube Playables + farmfurygames.com/play (branch `web-demo`, 2026-10-08)
+
+A free, Corn Field-only (levels 1-25) build of the game used as marketing. It lives in a **separate git
+worktree, `Desktop\FarmFury_Arcade_Web`, on branch `web-demo`** - never merged into `main`; a main-game
+fix is brought over with `git cherry-pick`. **Read `WEB_DEMO_PLAN.md` in that folder first** - it has the
+YouTube rule findings, the phase plan and progress. In short:
+- Removed there: ads/IAP/analytics (code + packages), every shop/cosmetics/locker/legal/merch/leaderboard
+  screen, Exit button, levels 26-175, Daily Challenge shield. `UnlockProgression.TotalLevels = 25`.
+- Added there: `Core/Platform/` (`PlatformPrefs` - SaveManager saves through it; PlayerPrefs on the
+  website, one JSON blob via YouTube's `saveData/loadData` on YouTube; `PlatformBootstrap` in a new
+  `Boot.unity` loads the save before `Game.unity`; `AspectLetterbox` draws game + UI in a 16:10-2.4:1 box
+  so every aspect ratio works), Google's YouTube Playables Unity wrapper (`Assets/ThirdParty/YTGameSDK`),
+  `FullGamePanel` (locked worlds and "You cleared Corn Field!" with a Google Play badge on the website,
+  text only on YouTube), Gerald/Billy show FULL GAME.
+- Tools (Farm Fury Arcade > Web Demo): **Rebuild UI + Trim** (run after any UI change; never run
+  Phase2/Phase3 BuildAll there), Apply Web Size Settings, Build YouTube Playable, Build Website.
+- Size: YouTube build ~17 MB as served (data 14.0 MB raw, wasm 22.8 MB raw; limits 30 MB per file and
+  30 MB first download). Website build ~17 MB (gzip + decompression fallback, hashed file names).
+- **Live: `www.farmfurygames.com/play/game/`** (the website build, `FarmFuryEmbed` page made for an
+  iframe). `/play/index.html` is a temporary forward to `game/` until the Claude Design wrapper page
+  replaces it. The home page's header/footer Play buttons were patched to open `/play/` - see the
+  Website section. The live build includes Phase 4/5 (Full Game panel, letterboxing); the user reported
+  it as good on 2026-10-08.
+- YouTube: Playables interest form submitted 2026-10-08, waiting for access. YouTube forbids external
+  links, exit buttons and "made for kids" content - the demo must be positioned for a general audience.
+- Local headless-Edge testing of the web build was unreliable (data download "network error" on
+  alternate runs against a Python server); the live site loaded every time - test on the live site.
 
 ## Android multi-window — deliberately deferred, not fixed (cross-platform audit finding C3.8)
 
@@ -6083,6 +6126,18 @@ Fixed in `c46c21d` (local, fully wired scene committed; build number 6). **Befor
 **Always commit `Prefabs/UI/*.prefab` together with `Game.unity`:** Phase 5 embeds placeholder sprites
 inside those prefabs and the scene points at them by ID. Committing only the scene (c46c21d) left the
 iOS ability button as a white box (build 6); fixed in `e8a09cb`.
+
+**2026-10-08: submitted for App Review.** After Unity DevOps pay-as-you-go was enabled, build 10 failed
+on a compile error (fixed `ac45f71`), build 5 shipped without UI art, build 6 showed a white box behind the
+ability icon (both fixed, see above), and **build 7** (`e8a09cb`, also adds the machine-skin ability
+icon) was the one submitted. **Apple ID 6804415300**; App Store link
+`https://apps.apple.com/app/id6804415300` (404 until released). App Store badge (official SVG from
+developer.apple.com + 1197x400 PNG), QR code and scan card are in
+`Desktop\farmfurygames-website\appstore-badge-qr\` (`make_appstore_qr.py <AppleID> [campaign]` checks the
+QR decodes) - not to be published until the app is live. App Store product page **Header**
+(3840x1646) and **Search Results** (3840x2560) creative assets were made with
+`Tools/store-assets/make_appstore_assets.py` into `Desktop\FarmFury_Technical\AppStore_CreativeAssets`.
+**Next iOS rebuild: bump `buildNumber.iPhone` to 8 first.**
 
 **Current state (2026-09-20):** `buildNumber.iPhone` is **5**, committed. History: 5 was first bumped
 for an ad-testing Cloud Build, reverted to 4 once because "5 was never actually built", then set to 5
@@ -6437,6 +6492,11 @@ during troubleshooting.
   outright afterward — see "Removed: World Map screen".
 
 ## Known gaps / flagged for Phase 6
+- **The Bangers cartoon font is not actually on the HUD (found 2026-10-08).** `Game.unity` references
+  only `LiberationSans SDF` for every TMP text (37 references); `Bangers SDF` (guid
+  `125cb55b44b24c4393181402bc6200e6`) has zero references, so `ArtWiringBuilder.WireGameplayFont`/
+  `WireSettingsFont` are not taking effect (paths or ordering). Score/timer render in the plain default
+  font. Not yet investigated.
 - **Character Roster has no entry point anywhere** — removed in the landing-page cleanup (see
   "Landing/Gameplay-HUD cleanup" above) in favour of just Play/Settings/Shop, and never regained
   one the way Leaderboards/Daily Challenge/Shop each eventually did. The screen still exists and

@@ -370,6 +370,9 @@ The original design's coin-pack pricing included a 1,500-coin/$9.99 tier and pri
 | In-App Purchases | Unity IAP (com.unity.purchasing 5.4.2), the newer async UnityIAPServices/StoreController API |
 | Analytics | Unity Gaming Services Analytics (com.unity.services.analytics 6.3.0) — wired 2026-09-18, all 5 custom events registered in the dashboard 2026-09-19, not yet verified end-to-end on a real device |
 | Version Control | Git / GitHub |
+| Web demo | Unity Web build of the same project on a separate branch (`web-demo`), Corn Field only; YouTube Playables SDK via Google's Unity wrapper |
+
+**Web demo (2026-10-08).** A free browser version limited to Corn Field (levels 1–25) exists as a marketing piece, not a product: no ads, purchases, analytics or cosmetics. It is live at www.farmfurygames.com/play/ (website build). A YouTube Playables build of the same demo is built and within YouTube's size limits (~17 MB served) but YouTube access is still pending (interest form submitted 2026-10-08). Locked worlds and the end of level 25 open a "full game" panel (Google Play badge on the website, text only on YouTube, which forbids links). Any aspect ratio is supported by letterboxing the landscape game.
 
 ---
 
@@ -382,6 +385,9 @@ The original design's coin-pack pricing included a 1,500-coin/$9.99 tier and pri
 - Ad mediation (LevelPlay, mediating AdMob + Unity Ads) integrated in code
 - A real iOS device build (TestFlight) has been produced and is actively playtested
 - All 22 IAP products registered in App Store Connect; purchases tested and confirmed working end-to-end on the iOS TestFlight build
+- iOS 1.0 (build 7) submitted to App Review on 2026-10-08 (outcome pending). App Store product page Header and Search Results creative assets prepared the same day
+- Android live on Google Play since 2026-09-28
+- Browser demo (Corn Field, levels 1–25) live at www.farmfurygames.com/play/ (2026-10-08)
 
 **In Progress:**
 - Ad network live/approval status on iOS — LevelPlay init consistently fails (`Error 2080`) even after every individually-checkable network/instance-level dashboard setting (ironSource, AdMob, Unity Ads) was confirmed correctly configured. Both the iOS and Android apps show "Store Availability: Not live yet" (requires a real public App Store listing, which doesn't exist yet — only a TestFlight build), currently the strongest remaining lead but not confirmed as the actual mechanism. Escalated to LevelPlay/ironSource support as the next step. Update 2026-09-20: the iOS app key and ad unit IDs in the build did not match the dashboard (the same mistake that broke Android ad init) and were corrected in code, so the "Not live yet" lead above is unconfirmed until iOS is rebuilt and retested.
@@ -448,6 +454,12 @@ App Store: generate each link with App Store Connect > App Analytics > Campaign 
 Limits: a view of a video that doesn't lead to a tap on the link isn't attributed to anything; neither store connects an install to later ad or purchase revenue.
 
 **Short-form video (TikTok / YouTube Shorts) — built 2026-09-24, not active.** A local pipeline (`Tools/content-pipeline`) records Development Build gameplay from an Android phone over USB, uses in-game highlight log markers (level cleared, near miss, power crop, special moves, unlocks) to pick moments, and renders vertical 9:16 shorts: a 1.5 s poster opener, a headline, the maze, and "Free on Google Play". Kinds made per session: a highlight mix, single-moment shorts, unlock shorts, one short per animal special move, a power-crop short and a whole-game mix. Messaging leads with dodging robots and collecting every crop; robots are never "killed" or "eaten" (a word check blocks this). A channel kit (profile picture, YouTube banner, bios, tracked store links) is ready. Update 2026-09-30: with the Android app live, TikTok **@farmfurygames** was created as a Business account; YouTube is not confirmed yet. A planning step writes captions and a posting plan for 2-3 posts a day, and posts are scheduled by hand in TikTok Studio. Automatic uploading is not built: both platforms keep API uploads private until they audit the uploading app. YouTube's "made for kids" setting is an open decision for the studio.
+
+**Browser demo as a funnel (2026-10-08).** The Corn Field web demo (Section 12) is a free try-before-you-install channel: on farmfurygames.com the home page's Play buttons open it, and its "full game" panel links to Google Play (`utm_medium=web_demo`). A YouTube Playables version is pending YouTube approval; there it cannot link out, so it only names the store in text. Neither has measured results yet.
+
+**App Store assets (2026-10-08).** Product page Header and Search Results images were made for App Store Connect's new creative-assets slots (key art header; gameplay screenshot with "Dodge the robots. Save the crops!"). The official App Store badge, a QR code and a scan card for `apps.apple.com/app/id6804415300` are ready but deliberately unpublished until the app is released.
+
+**YouTube Shorts.** The posting sheets now carry a YouTube title and description for every short alongside the TikTok caption, plus a backlog sheet to back-fill a YouTube channel with the shorts already made. Whether the YouTube channel has been created is unconfirmed.
 
 **Launch Timeline (dependency-ordered, not date-anchored):**
 1. Get the ad network live and approved on iOS (currently blocked on `Error 2080`); finish Android IAP/ad platform registration and produce/purchase-test a real Android device build
@@ -520,3 +532,4 @@ Aspirational planning targets carried over from the original design pass, not va
   - 2026-09-24 addendum (social): TikTok/YouTube accounts to be created with the channel kit; posting deferred until the apps are live. Section 15 gained a Short-form video paragraph describing the pipeline and this status.
   - 2026-09-30 addendum (social): TikTok @farmfurygames created as a Business account. Added a caption and posting-plan step (templated captions, 2-3 posts a day); posts are scheduled by hand in TikTok Studio, no API uploading. First posts planned 1-5 Oct 2026; not yet confirmed as scheduled or posted.
   - 2026-10-08 addendum: Machine skins now swap the HUD ability icon to the machine's badge (Clucky's Tractor / Bessie's Milk Tanker / Horace's Hay Baler) while equipped, updating immediately when equipped from the Locker; the earlier Machine Cosmetics work had only reskinned the ability hazards. Also fixed on iOS: the ability button showed a white box because the committed scene referenced placeholder sprites that existed only in uncommitted local UI prefabs (Android builds locally and was unaffected).
+  - 2026-10-08 addendum: iOS 1.0 build 7 submitted to App Review (Apple ID 6804415300); App Store creative assets (Header, Search Results), badge and QR prepared, QR unpublished until release. Browser demo of Corn Field built on a separate branch and live at farmfurygames.com/play/; YouTube Playables build ready within YouTube's size limits but access pending. Sections 12, 13 and 15 updated. Shorts posting sheets gained YouTube titles/descriptions. Found: the HUD's Bangers font was never applied (plain default font in use) - not yet fixed.
