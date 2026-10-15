@@ -678,9 +678,9 @@ ability:
 | Bessie | GroundSlam | Instantly defeats every robot within 2 tiles at cast, shockwave + camera shake, then the zone lingers 3s defeating any robot that wanders in afterward | 10s |
 | Percy | BounceRoll | Rolls 3 tiles forward (9 if buffed) in his current facing direction, instantly defeating any robot touched; stops early at a wall | 10s |
 | Woolly | TripleClone | Spawns 2 AI clones (`WoollyClone`) that wander/collect crops for 10s | 10s |
-| Ducky | SkipShot | Teleports across an adjacent unused water tile pair — once per pair per maze | 10s (this is the real gate now too — see the note below on why it went from a 2s debounce to matching everyone else) |
+| Ducky | SkipShot | Teleports across an adjacent unused water tile pair — once per pair per maze. With no unused pair adjacent, fires a Water Spout (`waterSpoutPrefab`, a `ThrownProjectileEffect`, 3 tiles, defeats the first robot hit) instead (2026-10-15) | 10s (this is the real gate now too — see the note below on why it went from a 2s debounce to matching everyone else) |
 | Horace | HorseshoeThrow | Launches a horseshoe 3 tiles (6 if buffed) in his current facing direction, spinning, instantly defeating the first robot it touches — both vanish together on impact, unlike Percy's roll it does NOT carry on to a second target; stops early at a wall (reworked 2026-09-16 from RearKickAbility's "yank the nearest enemy within 3 tiles" — see below; distance/speed re-tuned the same day, and again 2026-09-17 to fix an invisible-throw bug — see that ability's own doc comment) | 10s |
-| Gerald | PuffUp | Pulsates between normal size and 2x scale for 3s, instantly defeats any robot touched throughout the pulse, half speed, can't use warp tunnels | 10s |
+| Gerald | PuffUp | Pulsates between normal size and 2x scale for 3s, instantly defeats any robot touched throughout the pulse, half speed, can't use warp tunnels. Also fires a Feather Burst (`featherBurstPrefab`, a `ThrownProjectileEffect`, 3 tiles, defeats the first robot hit) on activation (2026-10-15) | 10s |
 | Billy | HeadbuttThrough | Speeds up and charges 3 tiles forward in his current facing direction, instantly defeating any robot touched (reworked 2026-08-21 from a wall-destroy ability — see below) | 10s |
 
 **All 8 cooldowns were unified to 10s** in a later gameplay pass (previously a spread from 2s
@@ -4347,6 +4347,14 @@ phase made for art (solid-colour placeholders instead of real sprites).
   group to reposition since the landing-page cleanup (see "Landing/Gameplay-HUD cleanup"
   above); re-run `Phase5ProjectBuilder.BuildAll` if Main Menu ever needs rebuilding from scratch.
   Also no longer wires `matchup.png`/its buttons (see "Removed: Matchup screen").
+- **`AbilityProjectileWiringBuilder`** (`Farm Fury Arcade > Wire Ability Projectiles (Water Spout +
+  Feather Burst)`, added 2026-10-15) — builds `Prefabs/Abilities/WaterSpout.prefab` and
+  `FeatherBurst.prefab` (from `Sprites/Characters/WaterSpout.png`/`FeatherBurst.png`, scale 0.8 of a
+  cell, same Rigidbody2D/trigger setup as `Horseshoe.prefab`) and wires them onto
+  `SkipShotAbility.waterSpoutPrefab` (Ducky) / `PuffUpAbility.featherBurstPrefab` (Gerald).
+  Self-contained and idempotent; `Phase4ProjectBuilder.BuildAll` calls it at the end because it
+  rebuilds Ducky/Gerald from scratch. All three throwing abilities share
+  `ThrownProjectileEffect.SpawnAhead`. Not yet run in the Editor or tested in Play mode as of 2026-10-15.
 - **`CosmeticPreviewRenderer`** (`Farm Fury Arcade > Debug > Render Cosmetic Preview Sheet`,
   added 2026-09-11) — Edit-mode-only, no Play mode needed at all. Renders every (character, hat)
   pair's real sprite at its real `hatOffset`/`hatScale` into one contact-sheet PNG so hat
@@ -6052,6 +6060,26 @@ were offered and declined, so don't build an uploader unless asked. Target 2-3 p
   + hashtags) next to each TikTok caption. `--youtube-backlog` writes `plans/youtube-backlog.html` for
   every rendered short (31 on 2026-10-08) to back-fill the YouTube channel. The channel itself
   (`@farmfurygames`, setup steps in `channel-kit/SETUP.md`) had not been confirmed as created.
+
+## Storyline series (Tools/storyline, branch `marketing/kling-storyline`, 2026-10-15)
+
+An animated marketing series, "The Night the Robots Came", made clip by clip in Kling AI and narrated
+by Cluck and Bessie. `FarmFury_Storyline_Kling.md` holds the story, character bible (personality,
+catchphrase, power origin per character, robot "angles"), style lock + negative prompt, reference
+images, and ~70 clips across Eps 0-9 + end card. `FarmFury_Voice_Script.md` lists every spoken line
+by character (~100 recordings; Cluck 32, Bessie 35), with a voice brief per character and delivery
+notes; 👄 marks the Ep 3 lip-sync close-ups. Plan: one fixed ElevenLabs voice per character, lines
+acted by the user and converted with speech-to-speech; robots via text-to-speech + effects; Kling's
+own clip audio used only for ambience (it makes a new voice per clip). ElevenLabs commercial
+licensing not yet checked.
+- **Status:** one storyline clip generated so far (`kling_20261015_VIDEO___Style_lo_5296_0.mp4` in
+  `Desktop\FarmFury_Technical\FarmFury_Artwork\Video`; which clip it is was not checked). The Kling
+  MCP is connected in Claude Code (account on the Standard plan, 15 credits on 2026-10-15, topping up
+  daily). Every Kling job is charged: confirm settings with the user before each one.
+- **Open decision:** Ducky's gender. The game (Character Story, this file) says "she"; the storyline
+  doc says "he" in a surfer style. Pick one and make both match before building Ducky's voice.
+- Ducky's Water Spout and Gerald's Feather Burst started as story visuals here and were then added to
+  the game (2026-10-15, see the ability table).
 
 ## Web demo: YouTube Playables + farmfurygames.com/play (branch `web-demo`, 2026-10-08)
 

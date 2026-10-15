@@ -13,9 +13,18 @@ namespace FarmFuryArcade.Abilities
     /// pulse's peak, so a touch anywhere in the cycle still counts, matching the original "puffed up
     /// at all" behaviour. Movement speed halves for the duration, and IsPuffed blocks warp tunnels
     /// (see WarpTunnel.OnTriggerEnter2D — "too big" to fit). Iron Stampede combo (Bessie -> Gerald)
-    /// also destroys any wall Gerald is adjacent to while puffed.</summary>
+    /// also destroys any wall Gerald is adjacent to while puffed.
+    ///
+    /// Feather Burst (2026-10-15): the moment he puffs up he also fires a spinning burst of feathers
+    /// FeatherBurstTiles in his facing direction (a ThrownProjectileEffect, same distance/speed/
+    /// one-target-defeat rule as Horace's horseshoe), so he can hit a robot that isn't touching him.</summary>
     public class PuffUpAbility : AbilityBase
     {
+        private const int FeatherBurstTiles = 3;
+        private const float FeatherBurstSecondsPerTile = 0.4f;
+
+        [SerializeField] private GameObject featherBurstPrefab;
+
         private const float PuffDurationSeconds = 3f;
         private const float ScaleMultiplier = 2f;
         private const float SpeedMultiplier = 0.5f;
@@ -43,6 +52,8 @@ namespace FarmFuryArcade.Abilities
             }
 
             AudioManager.Instance?.PlayGeraldPuffSfx();
+            ThrownProjectileEffect.SpawnAhead(featherBurstPrefab, TileMap, Movement.CurrentGridPosition,
+                Movement.LastFacingDirection, FeatherBurstTiles, FeatherBurstSecondsPerTile);
             StartCoroutine(PuffRoutine());
         }
 

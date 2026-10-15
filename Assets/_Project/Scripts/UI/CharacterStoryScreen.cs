@@ -219,13 +219,14 @@ namespace FarmFuryArcade.UI
                 "on their own, while the real Woolly covers ground no robot can track." },
             { CharacterType.Ducky, "No fence, wall, or robot patrol has ever stopped Ducky — she just goes " +
                 "around them. Paddle into one water tile, pop out the other side of the maze in an " +
-                "instant, and slip past trouble the Harvest Robots never see coming." },
+                "instant, and slip past trouble the Harvest Robots never see coming. No water nearby? " +
+                "She fires a swirling water spout straight ahead instead." },
             { CharacterType.Horace, "Horace doesn't run from a fight — he throws it. A spinning horseshoe " +
                 "sails clean across the maze, and any robot in its path doesn't get back up. Farmhands " +
                 "three fields over say they can still hear the clang." },
             { CharacterType.Gerald, "Gerald's temper is legendary, and when he puffs up, the whole farm " +
-                "knows it. He swells in furious pulses, and every robot dumb enough to get close during " +
-                "the display doesn't get a second chance." },
+                "knows it. He swells in furious pulses and fires a burst of feathers straight ahead, and " +
+                "every robot dumb enough to get close during the display doesn't get a second chance." },
             { CharacterType.Billy, "Billy's never met an obstacle he'd rather walk around than through. " +
                 "Lower the horns, charge full speed across the maze — any robot standing in the way gets " +
                 "sent packing on contact." },

@@ -106,6 +106,10 @@ namespace FarmFuryArcade.EditorTools
             WireScene(cluckPrefab, bessiePrefab, percyPrefab, woollyPrefab, duckyPrefab,
                 horacePrefab, geraldPrefab, billyPrefab, waterTilePrefab);
 
+            // Ducky's Water Spout / Gerald's Feather Burst — Ducky/Gerald were just rebuilt from
+            // scratch above, so re-wire their projectile fields.
+            AbilityProjectileWiringBuilder.WireAll();
+
             AssetDatabase.SaveAssets();
             AssetDatabase.Refresh();
             Debug.Log("[Phase4ProjectBuilder] Phase 4 character prefabs, CharacterData, ability sub-prefabs, " +

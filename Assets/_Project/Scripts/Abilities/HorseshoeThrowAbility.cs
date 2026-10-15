@@ -74,10 +74,6 @@ namespace FarmFuryArcade.Abilities
             // direction is held) so the throw fires correctly in whichever of the 4 directions
             // Horace actually last faced, including while completely stationary — same reasoning
             // BounceRollAbility's own roll uses.
-            Direction facing = Movement.LastFacingDirection;
-            Vector2Int dirVector = DirectionUtils.ToVector(facing);
-            Vector2Int horaceCell = Movement.CurrentGridPosition;
-
             // Spawns one tile AHEAD of Horace instead of at his own feet (2026-09-16, per direct
             // feedback: it used to spawn on his own tile and animate its first hop moving out from
             // under him, which read as "left behind, rolling forward" rather than a clean throw, and
@@ -87,13 +83,10 @@ namespace FarmFuryArcade.Abilities
             // remaining tiles from there. Falls back to spawning at Horace's own tile only if a wall
             // sits immediately in front of him (matching TravelRoutine's own "stop early at a wall"
             // rule, so a wall-blocked throw still degrades gracefully instead of spawning inside it).
-            Vector2Int oneAhead = horaceCell + dirVector;
-            bool oneAheadWalkable = TileMap.IsWalkable(oneAhead);
-            Vector2Int spawnCell = oneAheadWalkable ? oneAhead : horaceCell;
-            int hopsFromSpawn = oneAheadWalkable ? tiles - 1 : tiles;
-
-            var projectile = Instantiate(prefabToThrow, TileMap.GridToWorld(spawnCell), Quaternion.identity);
-            projectile.GetComponent<ThrownProjectileEffect>()?.Launch(TileMap, spawnCell, dirVector, hopsFromSpawn, SecondsPerTile);
+            // Lives in ThrownProjectileEffect.SpawnAhead now, shared with Ducky's Water Spout and
+            // Gerald's Feather Burst.
+            ThrownProjectileEffect.SpawnAhead(prefabToThrow, TileMap, Movement.CurrentGridPosition,
+                Movement.LastFacingDirection, tiles, SecondsPerTile);
         }
 
         private static bool IsHayBalerSkinEquipped()

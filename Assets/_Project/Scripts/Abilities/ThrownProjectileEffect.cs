@@ -50,6 +50,28 @@ namespace FarmFuryArcade.Abilities
             _spriteRenderer = GetComponent<SpriteRenderer>();
         }
 
+        /// <summary>Spawns `prefab` one tile ahead of `fromCell` (or on `fromCell` itself if a wall
+        /// sits directly in front) and launches it so its total reach is `tiles` in front of the
+        /// thrower. Shared by HorseshoeThrowAbility, SkipShotAbility's Water Spout and PuffUpAbility's
+        /// Feather Burst — see HorseshoeThrowAbility.Execute for why it spawns one tile ahead.</summary>
+        public static void SpawnAhead(GameObject prefab, TileMapRenderer tileMap, Vector2Int fromCell,
+            Direction facing, int tiles, float secondsPerTile)
+        {
+            if (prefab == null || tileMap == null)
+            {
+                return;
+            }
+
+            Vector2Int dirVector = DirectionUtils.ToVector(facing);
+            Vector2Int oneAhead = fromCell + dirVector;
+            bool oneAheadWalkable = tileMap.IsWalkable(oneAhead);
+            Vector2Int spawnCell = oneAheadWalkable ? oneAhead : fromCell;
+            int hopsFromSpawn = oneAheadWalkable ? tiles - 1 : tiles;
+
+            var projectile = Instantiate(prefab, tileMap.GridToWorld(spawnCell), Quaternion.identity);
+            projectile.GetComponent<ThrownProjectileEffect>()?.Launch(tileMap, spawnCell, dirVector, hopsFromSpawn, secondsPerTile);
+        }
+
         /// <summary>Starts the throw immediately — tileCount tiles in `direction`, `secondsPerTile`
         /// each, stopping early at a wall. Call once, right after Instantiate.</summary>
         public void Launch(TileMapRenderer tileMap, Vector2Int startCell, Vector2Int direction, int tileCount, float secondsPerTile)
