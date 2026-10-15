@@ -688,7 +688,7 @@ Ducky to 45s Gerald) — `Phase4ProjectBuilder.BuildCharacterData`'s per-charact
 and the matching ability-component `totalCooldown` values it sets in `BuildCharacterPrefab`/
 `AddCharacterBaseAndAbilityToCluck` were all changed to `10f` together (both must stay in sync, per
 the existing convention). Ducky's Skip Shot cooldown going from 2s to 10s does mean the button
-re-arms much slower now, even though her real limiter was always the once-per-water-pair rule
+re-arms much slower now, even though his real limiter was always the once-per-water-pair rule
 (`WaterTile.Used`), not the cooldown — confirmed as an intentional tradeoff, not an oversight.
 
 **`WoollyClone` has a hard containment guard against ending up on (or dropping an egg onto) a
@@ -4494,8 +4494,8 @@ values from the GDD's color palette where one exists (e.g. walls = Wall Brown `#
   other character still has no dedicated Right art, so still gets mirrored). Every other character
   has only one pose per direction (no walk-cycle frames yet), so each direction's two slots repeat
   the same sprite — harmless no-op frame-toggle until second frames land for them too. Ducky has
-  front/back only (no left/right art uploaded for her); her Left/Right slots fall back to the front
-  sprite, so Left/Right facing won't read correctly for her until profile art exists — documented
+  front/back only (no left/right art uploaded for him); his Left/Right slots fall back to the front
+  sprite, so Left/Right facing won't read correctly for him until profile art exists — documented
   inline in `ArtWiringBuilder.SetWalkFrames`. Horace and Billy still have no art and remain
   solid-colour placeholders. `Gerald_effect.png` was uploaded but is unwired — `PuffUpAbility` has
   no spawned effect object (it just scales Gerald's own sprite 3x), unlike Bessie/Percy/Woolly's
@@ -5200,11 +5200,11 @@ silently fell back to front/back for every direction. His Bounce Roll ability ef
 see the Level Complete bullet above for the "brown boxes" double-tint bug this replaced.
 
 **Ducky's art is now complete**: real Left/Right walk frames (`Ducky_left.png`/`Ducky_right.png`,
-`hasDedicatedRightArt = true`, wired via a dedicated `WireDucky()` — she previously had only
+`hasDedicatedRightArt = true`, wired via a dedicated `WireDucky()` — he previously had only
 front/back, so Right silently mirrored Left) plus a Skip Shot departure-splash effect
 (`Ducky_ability_left.png`/`Ducky_ability_right.png` on a new `DuckySplash.prefab`/
 `DuckySplashEffect` — mirrored per the actual skip direction, chosen at runtime by
-`SkipShotAbility.Execute` from the sign of the horizontal distance to her destination).
+`SkipShotAbility.Execute` from the sign of the horizontal distance to his destination).
 
 **Horace has his first real art**: front + a real 2-frame Left walk cycle (`Horace_left1.png`/
 `Horace_Left2.png` — `Horace_left.png`, no suffix, is an earlier superseded draft left
@@ -5589,7 +5589,7 @@ happened rather than which clip field to reach into):
 | `Robot_damage.mp3` | `PlayRobotDamageSfx` | `RobotBase.TransitionToDefeated`, added 2026-09-12 — the single funnel both kill paths (`RegisterHit`'s power-pellet chain-kill and every `ForceDefeat` ability-triggered instant-kill: Percy's roll, Bessie's slam, Billy's charge, Horace's kick, Gerald's puff, Cluck's egg, `KnockBack`'s landing) already share, so it fires exactly once per robot actually defeated regardless of route. Distinct from `PlayEatRobotMusic` (a music-track swap for the whole vulnerable window) and from each ability's own cast SFX (which fires on activation whether or not it actually connects) — there was previously no sound at all for the moment a robot is defeated |
 | `Combo.mp3` | `PlayComboSfx` | `ComboHypeScreen`, once when its callout appears — on a real `ComboSystem.OnComboTriggered` mid-gameplay, not at level start (see "Ad mediation" section above for the level-start gate this used to share, which it's no longer part of) |
 | `Bessie-ability.mp3` | `PlayGroundSlamSfx` | `GroundSlamAbility.Execute()`, the instant Ground Slam casts |
-| `DuckyTeleport.mp3` | `PlayDuckyTeleportSfx` | `SkipShotAbility.Execute()`, only on a successful teleport (not the no-op case with no adjacent unused water tile pair) |
+| `DuckyTeleport.mp3` | `PlayDuckyTeleportSfx` | `SkipShotAbility.Execute()`, on a successful teleport, and also when he fires the Water Spout instead (no adjacent unused water pair) |
 | `Clucky_abiltiy.mp3` | `PlayEggDropSfx` | `EggDropAbility.Execute()`, only when the egg is actually spawned (not the no-op case where her current tile isn't walkable) — filename typo ("abiltiy") is on-disk, not a doc typo |
 | `Percy_ability.mp3` | `PlayPercyRollSfx` | `BounceRollAbility.Execute()`, guarded the same way `Execute()` itself is against the reachable double-activation edge case |
 | `billy_ability.mp3` | `PlayBillyChargeSfx` | `HeadbuttThroughAbility.Execute()`, same double-activation guard — note the lowercase 'b', unlike `Percy_ability.mp3`'s capital 'P' |
@@ -6076,8 +6076,8 @@ licensing not yet checked.
   `Desktop\FarmFury_Technical\FarmFury_Artwork\Video`; which clip it is was not checked). The Kling
   MCP is connected in Claude Code (account on the Standard plan, 15 credits on 2026-10-15, topping up
   daily). Every Kling job is charged: confirm settings with the user before each one.
-- **Open decision:** Ducky's gender. The game (Character Story, this file) says "she"; the storyline
-  doc says "he" in a surfer style. Pick one and make both match before building Ducky's voice.
+- **Ducky is male ("he")**, decided 2026-10-15 to match the storyline's surfer character; the game's
+  Character Story text and this file were corrected from "she".
 - Ducky's Water Spout and Gerald's Feather Burst started as story visuals here and were then added to
   the game (2026-10-15, see the ability table).
 

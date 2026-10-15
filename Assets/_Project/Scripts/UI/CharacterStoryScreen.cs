@@ -167,7 +167,7 @@ namespace FarmFuryArcade.UI
             ("Earthquake Roll", "Swap Bessie → Percy.",
                 "Percy's next Bounce Roll blasts 9 tiles instead of 3!"),
             ("Skip Shatter", "Swap Ducky → Woolly.",
-                "Ducky's next Skip Shot spawns 2 wool clones right where she lands!"),
+                "Ducky's next Skip Shot spawns 2 wool clones right where he lands!"),
             ("Double Slam", "Swap to Bessie, then swap to Bessie again (2nd time this maze).",
                 "Her Ground Slam radius doubles to 4 tiles!"),
             ("Crossfire", "Swap Billy → Horace.",
@@ -217,10 +217,10 @@ namespace FarmFuryArcade.UI
             { CharacterType.Woolly, "Woolly figured out early that one sheep can only be in one place at a " +
                 "time — so now she doesn't have to be. Two wandering look-alikes fan out to gather crops " +
                 "on their own, while the real Woolly covers ground no robot can track." },
-            { CharacterType.Ducky, "No fence, wall, or robot patrol has ever stopped Ducky — she just goes " +
+            { CharacterType.Ducky, "No fence, wall, or robot patrol has ever stopped Ducky — he just goes " +
                 "around them. Paddle into one water tile, pop out the other side of the maze in an " +
                 "instant, and slip past trouble the Harvest Robots never see coming. No water nearby? " +
-                "She fires a swirling water spout straight ahead instead." },
+                "He fires a swirling water spout straight ahead instead." },
             { CharacterType.Horace, "Horace doesn't run from a fight — he throws it. A spinning horseshoe " +
                 "sails clean across the maze, and any robot in its path doesn't get back up. Farmhands " +
                 "three fields over say they can still hear the clang." },

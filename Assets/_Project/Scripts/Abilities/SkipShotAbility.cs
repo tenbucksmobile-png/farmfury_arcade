@@ -4,15 +4,15 @@ using FarmFuryArcade.Gameplay;
 
 namespace FarmFuryArcade.Abilities
 {
-    /// <summary>Ducky's ability. If she's adjacent to (or standing on) an unused water tile,
-    /// teleports her to its paired tile and marks the pair used for the rest of this maze — "one
+    /// <summary>Ducky's ability. If he's adjacent to (or standing on) an unused water tile,
+    /// teleports him to its paired tile and marks the pair used for the rest of this maze — "one
     /// use per water tile pair per maze" per spec, tracked on WaterTile itself rather than a time
     /// cooldown (totalCooldown is a short button-debounce, not the real gate). No-ops with a log
     /// if no adjacent unused pair exists. Skip Shatter combo (Ducky -> Woolly) spawns 2 wool clones
     /// at the destination on the next use.
     ///
-    /// Water Spout (2026-10-15): when there's no adjacent unused water pair to skip across, she
-    /// fires a spinning water spout WaterSpoutTiles in her facing direction instead (a
+    /// Water Spout (2026-10-15): when there's no adjacent unused water pair to skip across, he
+    /// fires a spinning water spout WaterSpoutTiles in his facing direction instead (a
     /// ThrownProjectileEffect, same distance/speed/one-target-defeat rule as Horace's horseshoe), so
     /// the button is never a no-op. Next to water, the skip still takes priority.</summary>
     public class SkipShotAbility : AbilityBase

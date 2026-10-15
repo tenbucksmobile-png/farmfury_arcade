@@ -128,9 +128,9 @@ Delivery notes in *italics* say how to perform the line, not what to say.
 
 ## Ducky the Duck
 
-**Voice brief:** laid-back, unbothered, surfer-type voice; slow drawl, relaxed, never raises it.
+**Voice brief:** laid-back, unbothered, surfer-type young male voice; slow drawl, relaxed, never raises it.
 
-> ⚠️ **Decide Ducky's gender before building this voice.** The game's Character Story text and CLAUDE.md call Ducky **"she"**, but the storyline doc writes **"he"** (and the surfer "dude" style). Pick one and make the storyline doc and game text match, since the voice locks it in.
+Ducky is **male** ("he"), decided 2026-10-15; the game text now matches.
 
 | Clip | Line | Delivery |
 |---|---|---|

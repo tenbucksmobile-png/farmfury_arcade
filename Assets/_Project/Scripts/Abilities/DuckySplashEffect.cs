@@ -2,9 +2,9 @@ using UnityEngine;
 
 namespace FarmFuryArcade.Abilities
 {
-    /// <summary>Ducky's Skip Shot effect — a one-shot splash sprite at her departure point, mirrored
-    /// left/right to match which way she skipped (SkipShotAbility picks via PlayForDirection based
-    /// on the sign of the horizontal distance to her destination). Fades out and destroys itself,
+    /// <summary>Ducky's Skip Shot effect — a one-shot splash sprite at his departure point, mirrored
+    /// left/right to match which way he skipped (SkipShotAbility picks via PlayForDirection based
+    /// on the sign of the horizontal distance to his destination). Fades out and destroys itself,
     /// same scale-free fade convention as ShockwaveEffect.</summary>
     [RequireComponent(typeof(SpriteRenderer))]
     public class DuckySplashEffect : MonoBehaviour
