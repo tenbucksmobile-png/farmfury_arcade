@@ -6072,6 +6072,15 @@ notes; 👄 marks the Ep 3 lip-sync close-ups. Plan: one fixed ElevenLabs voice 
 acted by the user and converted with speech-to-speech; robots via text-to-speech + effects; Kling's
 own clip audio used only for ambience (it makes a new voice per clip). ElevenLabs commercial
 licensing not yet checked.
+- **Voices (2026-10-16):** ElevenLabs takes live in `FarmFury_Artwork/Video/Eleven_Audio`
+  (`<character>_<clip>_<take>.mp3`); Ep 0-1 and E.1 recorded. `Tools/storyline/make_animatic.py`
+  renders `Storyline_Animatic/ep00-01_animatic.mp4` (voices over game stills, captions, no end card -
+  that waits for the App Store badge). Bangers has no "…" glyph; captions swap it for "...".
+  `make_animated_shorts.py` clips can carry a `voice` list (phrase cuts from a take + when they play);
+  those render an extra `animated_<slug>_voiced.mp4` with the music ducked. Each take is converted in
+  one voice, so cross-character lines in `cluck_vd1`/`cluck_ed1`/`bessie_bb1` are in the wrong voice
+  until re-recorded. To check takes without listening: faster-whisper transcription (decode with our
+  ffmpeg and pass the array in - its own `av` loader failed with a version mismatch).
 - **Status:** one storyline clip generated so far (`kling_20261015_VIDEO___Style_lo_5296_0.mp4` in
   `Desktop\FarmFury_Technical\FarmFury_Artwork\Video`; which clip it is was not checked). The Kling
   MCP is connected in Claude Code (account on the Standard plan, 15 credits on 2026-10-15, topping up

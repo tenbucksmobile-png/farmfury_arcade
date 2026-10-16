@@ -204,6 +204,42 @@ Ducky is **male** ("he"), decided 2026-10-15; the game text now matches.
 
 ---
 
+## Existing character shorts (voice-over for the October Kling clips)
+
+Lines for the four finished Kling clips in `FarmFury_Artwork/Video`, so the shorts made by
+`content-pipeline/make_animated_shorts.py` get voices. "At" is seconds into the source clip, matched
+to what happens on screen. Keep each take short; the clips are 10 s and the timing is tight.
+File names use the clip's short code, e.g. `bessie_bb1_a.mp3`.
+
+**Bessie's Bell Boogie** (`BessieBellBoogie.mp4`: dances in a sunset meadow, waves ~3 s, jumps ~5 s, close-up thumbs up at the end)
+
+| Code | At | Who | Line | Delivery |
+|---|---|---|---|---|
+| bb1 | 0.8 | Bessie | "Field cleared. Every last carrot." | *Deadpan, satisfied* |
+| bb2 | 4.0 | Cluck | "Go Bessie! Go Bessie!" | *Off-screen cheerleader* |
+| bb3 | 7.5 | Bessie | "Steady, Clucky. I've still got it." | *Dry, quietly pleased* |
+
+**Cluck's Victory Dance** (`ClucksVictoryDance.mp4`: jumps for joy, catches falling eggs ~3–6 s, smug close-up at the end)
+
+| Code | At | Who | Line | Delivery |
+|---|---|---|---|---|
+| vd1 | 1.0 | Cluck | "Every. Last. KERNEL!" | *Three punchy beats* |
+| vd2 | 3.5 | Cluck | "And for my next trick... EGGS!" | *Showbiz* |
+| vd3 | 8.0 | Bessie | "Ten out of ten, Clucky." | *Deadpan* |
+
+**Egg Drop Dodge** (`EggDropDodge.mp4`: robot comes down the path, egg splats ~2 s, robot skids and tips over ~3–5 s, Cluck smug from ~6 s)
+
+| Code | At | Who | Line | Delivery |
+|---|---|---|---|---|
+| ed1 | 0.9 | Cluck | "Robot on my tail? Time for plan EGG." | *Conspiratorial whisper* |
+| ed2 | 4.2 | Cluck | "Whoops! Mind the yolk!" | *Gleeful* |
+| ed3 | 7.5 | Bessie | "Egg Drop. Works every time." | *Dry approval* |
+
+`Cluck_Celebration.mp4` (July, 4 s) is left out: it's too short for a line, Cluck's design has
+changed since, and it carries a Kling watermark.
+
+---
+
 ## Count
 
 | Character | Lines |
