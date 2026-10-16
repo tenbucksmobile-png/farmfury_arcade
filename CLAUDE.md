@@ -6074,7 +6074,8 @@ own clip audio used only for ambience (it makes a new voice per clip). ElevenLab
 licensing not yet checked.
 - **Voices (2026-10-16):** ElevenLabs takes live in `FarmFury_Artwork/Video/Eleven_Audio`
   (`<character>_<clip>_<take>.mp3`); Ep 0-1 and E.1 recorded. `Tools/storyline/make_animatic.py`
-  renders `Storyline_Animatic/ep00-01_animatic.mp4` (voices over game stills, captions, no end card -
+  renders `Storyline_Animatic/ep00-01_animatic.mp4` (voices over game stills, captions, the Combine's
+  0.3/1.4 lines from `Robot_Voices`, ~59 s, no end card -
   that waits for the App Store badge). Bangers has no "…" glyph; captions swap it for "...".
   `Tools/storyline/narrate_clips.py` renders narrated story videos to `Video/Narrated/`: the Kling clip
   full frame as-is, voice phrases cut from a take and dropped in at set moments, a quiet music bed

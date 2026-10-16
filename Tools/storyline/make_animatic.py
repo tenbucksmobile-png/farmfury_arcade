@@ -2,7 +2,8 @@
 with slow zooms, captions and music, in 9:16 (1080x1920). It is a pacing/voice test and a stand-in
 until the Kling clips exist - not the finished episode. No end card (that waits for the App Store).
 
-Voices come from <Video>/Eleven_Audio/<character>_<clip>_<take>.mp3 (see FarmFury_Voice_Script.md).
+Voices come from <Video>/Eleven_Audio/<character>_<clip>.mp3 (see FarmFury_Voice_Script.md); robot
+lines from <Video>/Robot_Voices (run robot_fx.py first).
 Output: <Video>/Storyline_Animatic/ep00-01_animatic.mp4
 
 Usage:
@@ -24,6 +25,7 @@ from normalize_video import find_ffmpeg  # noqa: E402
 
 VIDEO_DIR = Path(r"C:\Users\Personel\Desktop\FarmFury_Technical\FarmFury_Artwork\Video")
 VOICE_DIR = VIDEO_DIR / "Eleven_Audio"
+ROBOT_VOICE_DIR = VIDEO_DIR / "Robot_Voices"     # robot lines with effects, from robot_fx.py
 OUT = VIDEO_DIR / "Storyline_Animatic" / "ep00-01_animatic.mp4"
 UI = REPO / "Assets/_Project/Sprites/UI"
 CHARS = REPO / "Assets/_Project/Sprites/Characters"
@@ -39,23 +41,32 @@ SCALE = 2                 # stills are drawn at 2x so the slow zoom stays smooth
 LEAD, GAP, TAIL = 0.5, 0.35, 0.7
 SCENE_FADE = 0.3
 MUSIC_GAIN = 0.16         # music sits well under the voices
-SPEAKER_FILL = {"CLUCK": ACCENT_FILL, "BESSIE": (255, 190, 210)}
+SPEAKER_FILL = {"CLUCK": ACCENT_FILL, "BESSIE": (255, 190, 210), "THE COMBINE": (255, 90, 70)}
 
 # Each scene: background, sprites (file, centre x, centre y, height - in 1080x1920 units), zoom
 # start/end, optional red tint ("red": seconds after scene start when the red light starts, or
 # "always"), voice lines (file stem, caption) and sound effects (file, seconds after scene start).
 SCENES = [
     {"name": "0.1", "bg": UI / "World1_Cornfield.png", "bg_focus": 0.82, "zoom": (1.0, 1.18),
-     "lines": [("cluck_0.1_a", "Bessie… Bessie, are you awake?")], "red": "end", "sfx": [("RobotSpawn.mp3", "end")]},
+     "lines": [("cluck_0.1", "Bessie… Bessie, are you awake?")], "red": "end", "sfx": [("RobotSpawn.mp3", "end")]},
     {"name": "0.2", "bg": UI / "Bg_LevelSelect.png", "bg_focus": 0.2, "dim": 0.55, "zoom": (1.06, 1.0),
      "sprites": [(CHARS / "Cluck_front.png", 330, 1180, 520), (CHARS / "Bessie_front.png", 760, 1130, 700)],
-     "lines": [("bessie_0.2_a", "I am now, Clucky."),
-               ("cluck_0.2_a", "Don't call me— THERE'S A SPACESHIP IN THE CORN!")], "red": "line2"},
+     "lines": [("bessie_0.2", "I am now, Clucky."),
+               ("cluck_0.2", "Don't call me— THERE'S A SPACESHIP IN THE CORN!")], "red": "line2"},
+    {"name": "0.3", "bg": UI / "World1_Cornfield.png", "bg_focus": 0.3, "dim": 0.35, "zoom": (1.1, 1.0),
+     "red": "always",
+     "sprites": [(ROBOTS / "Drone.png", 540, 620, 240),
+                 (ROBOTS / "ScoutRobot_front.png", 250, 1090, 320),
+                 (ROBOTS / "HarvestorRobot_front.png", 760, 1050, 440)],
+     "lines": [("robot_combine_0.3", "COLLECT. EVERY. CROP.")], "sfx": [("RobotSpawn.mp3", 0.1)]},
     {"name": "title", "title": True, "seconds": 3.0},
     {"name": "1.1", "bg": UI / "World1_Cornfield.png", "bg_focus": 0.55, "zoom": (1.12, 1.0),
-     "lines": [("cluck_1.1_a", "It was harvest night. The corn was golden, the carrots were crunchy, "
+     "lines": [("cluck_1.1", "It was harvest night. The corn was golden, the carrots were crunchy, "
                                "and everybody was fast asleep…"),
-               ("bessie_1.1_a", "…except one chicken who'd had too much corn before bed.")]},
+               ("bessie_1.1", "…except one chicken who'd had too much corn before bed.")]},
+    {"name": "1.4", "bg": UI / "World1_Cornfield.png", "bg_focus": 0.5, "dim": 0.25, "zoom": (1.0, 1.25),
+     "red": "always", "sprites": [(ROBOTS / "RobotEyes.png", 540, 860, 700)],
+     "lines": [("robot_combine_1.4", "Target: farm. Instruction: collect every crop. Every. Single. One.")]},
     {"name": "1.5", "bg": UI / "World1_Cornfield.png", "bg_focus": 0.75, "dim": 0.45, "zoom": (1.0, 1.12),
      "red": "always",
      "sprites": [(ROBOTS / "Drone.png", 540, 640, 260),
@@ -63,10 +74,10 @@ SCENES = [
                  (ROBOTS / "HarvestorRobot_front.png", 400, 1040, 420),
                  (ROBOTS / "PatrolRobot_Front.png", 680, 1060, 360),
                  (ROBOTS / "DriftRobot_front.png", 910, 1090, 300)],
-     "lines": [("cluck_1.5_a", "And out came… them."), ("bessie_1.5_a", "The Harvest Robots.")],
+     "lines": [("cluck_1.5_a", "And out came… them."), ("bessie_1.5", "The Harvest Robots.")],
      "sfx": [("RobotSpawn.mp3", 0.2)]},
     {"name": "1.6", "bg": "maze", "zoom": (1.35, 1.0),
-     "lines": [("bessie_1.6_a", "In one night they turned our fields into mazes. "
+     "lines": [("bessie_1.6", "In one night they turned our fields into mazes. "
                                 "Harvest corridors, they called them."),
                ("cluck_1.6_a", "Rude, is what I called them.")]},
     {"name": "tbc", "tbc": True, "seconds": 2.8},
@@ -87,10 +98,10 @@ def probe_duration(ffmpeg, path):
 
 def prepare_voice(ffmpeg, stem, work):
     """Trim silence off both ends (pauses inside the line stay) and level each line."""
-    src = VOICE_DIR / f"{stem}.mp3"
+    src = (ROBOT_VOICE_DIR / f"{stem}.wav") if stem.startswith("robot_") else VOICE_DIR / f"{stem}.mp3"
     if not src.exists():
         raise FileNotFoundError(src)
-    level = -19 if stem == "cluck_0.1_a" else -16      # the whisper stays a bit quieter
+    level = -19 if stem == "cluck_0.1" else -16      # the whisper stays a bit quieter
     trim = "silenceremove=start_periods=1:start_threshold=-45dB"
     out = work / f"{stem}.wav"
     run([ffmpeg, "-v", "error", "-y", "-i", str(src), "-af",
@@ -159,7 +170,7 @@ def text_lines(draw, text, font, max_w):
 def build_caption(stem, text, path):
     check_wording(text)
     text = text.replace("…", "...")   # Bangers has no ellipsis glyph
-    speaker = stem.split("_")[0].upper()
+    speaker = "THE COMBINE" if stem.startswith("robot_combine") else stem.split("_")[0].upper()
     img = Image.new("RGBA", (W, H), (0, 0, 0, 0))
     d = ImageDraw.Draw(img)
     name_font = ImageFont.truetype(str(FONT), 64)
