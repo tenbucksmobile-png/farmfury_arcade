@@ -6080,9 +6080,8 @@ licensing not yet checked.
   full frame as-is, voice phrases cut from a take and dropped in at set moments, a quiet music bed
   ducked under them. **These are standalone story videos - never put them in the gameplay-short
   template** (logo intro, headline, store bar, blurred frame, end card); the user rejected that.
-  Each take is converted in
-  one voice, so cross-character lines in `cluck_vd1`/`cluck_ed1`/`bessie_bb1` are in the wrong voice
-  until re-recorded. To check takes without listening: faster-whisper transcription (decode with our
+  Each line is its own take in its character's voice (re-recorded 2026-10-16; the first takes had
+  cross-character lines in the wrong voice). To check takes without listening: faster-whisper transcription (decode with our
   ffmpeg and pass the array in - its own `av` loader failed with a version mismatch).
 - **Status:** one storyline clip generated so far (`kling_20261015_VIDEO___Style_lo_5296_0.mp4` in
   `Desktop\FarmFury_Technical\FarmFury_Artwork\Video`; which clip it is was not checked). The Kling

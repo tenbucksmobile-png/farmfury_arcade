@@ -22,27 +22,25 @@ MUSIC_DIR = REPO / "Assets/_Project/Audio/Music"
 FFMPEG_BIN = next((REPO / "Tools/content-pipeline/bin").glob("ffmpeg-*/bin"))
 
 MUSIC_LEVEL = 0.25        # quiet bed; it dips further while someone speaks
-FADE_OUT = 0.8            # picture and sound fade at the very end
+FADE_OUT = 0.5            # picture and sound fade at the very end
 
 # skip: seconds of the black reference-sprite opening Kling adds, cut off.
 # voice: (take file stem, from, to, at) - the phrase from..to seconds into the take plays at `at`
-# seconds into the source clip. Cut points sit in the takes' own pauses. Each take was converted in
-# one voice, so a line meant for the other character plays in the take's voice until it is
-# re-recorded separately (marked "wrong voice").
+# seconds into the source clip. One take per line, each in its own character's voice; `to` is where
+# the speech ends (trailing silence cut), and the lines are spaced so they never overlap.
 CLIPS = [
     {"name": "cluck_victory_dance", "file": "ClucksVictoryDance.mp4", "skip": 1.0, "music": "Theme.mp3",
-     "voice": [("cluck_vd1_a", 0.0, 2.45, 1.1),      # "Every last KERNEL!"
-               ("cluck_vd1_a", 2.50, 5.50, 3.7),     # "And for my next trick... EGGS!"
-               ("cluck_vd1_a", 5.70, 7.75, 7.6)]},   # "Ten out of ten, Clucky." (Bessie's line, wrong voice)
+     "voice": [("cluck_vd1", 0.0, 2.32, 1.1),        # Cluck: "Every. Last. KERNEL!"
+               ("cluck_vd2", 0.0, 2.93, 3.6),        # Cluck: "And for my next trick... EGGS!"
+               ("bessie_vd3", 0.0, 1.90, 7.3)]},     # Bessie: "Ten out of ten, Clucky."
     {"name": "cluck_egg_drop", "file": "EggDropDodge.mp4", "skip": 0.85, "music": "Theme.mp3",
-     "voice": [("cluck_ed1_a", 0.0, 3.60, 0.9),      # "Robot on my tail? Time for plan EGG."
-               ("cluck_ed1_a", 3.90, 5.70, 4.0),     # "Whoops! Mind the yolk!"
-               ("cluck_ed1_a", 5.90, 8.60, 6.2)]},   # "Egg Drop. Works every time." (Bessie's line, wrong voice)
+     "voice": [("cluck_ed1", 0.0, 3.62, 0.85),       # Cluck: "Robot on my tail? Time for plan EGG."
+               ("cluck_ed2", 0.0, 2.53, 4.5),        # Cluck: "Whoops! Mind the yolk!"
+               ("bessie_ed3", 0.0, 2.61, 7.05)]},    # Bessie: "Egg Drop. Works every time."
     {"name": "bessie_bell_boogie", "file": "BessieBellBoogie.mp4", "skip": 0.8, "music": "Theme.mp3",
-     "voice": [("bessie_bb1_a", 0.0, 2.30, 0.9),     # "Go Bessie! Go Bessie!" (Cluck's line, wrong voice)
-               ("bessie_bb1_a", 2.50, 3.25, 3.2),    # "Phew!"
-               ("bessie_bb1_a", 3.95, 6.90, 4.2),    # "Field cleared. Every last carrot."
-               ("bessie_bb1_a", 7.35, 10.20, 7.15)]},  # "Steady, Clucky. I've still got it."
+     "voice": [("bessie_bb1", 0.0, 3.10, 0.85),      # Bessie: "Field cleared. Every last carrot."
+               ("cluck_bb2", 0.0, 2.53, 4.05),       # Cluck: "Go Bessie! Go Bessie!"
+               ("bessie_bb3", 0.0, 2.78, 6.7)]},     # Bessie: "Steady, Clucky. I've still got it."
 ]
 
 
