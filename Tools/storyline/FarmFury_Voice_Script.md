@@ -180,7 +180,23 @@ Ducky is **male** ("he"), decided 2026-10-15; the game text now matches.
 
 ## The Robots
 
-**Voice brief:** use plain text-to-speech, then add pitch and robot effects in the editor. Being stiff and flat is the joke. Each robot needs only a small difference so they're distinguishable.
+**Voice brief:** make each robot as a plain voice in ElevenLabs (Voice Design, then Text to Speech).
+Robot effects (pitch, metallic ring, echo, glitch) are added afterwards with ffmpeg, not in an editor.
+Being stiff and flat is the joke. In the text, CAPITALS and full stops give the beats and "…" a pause.
+Stability around 30–40% for Drone and Drifter (more expressive), 70%+ for Combine and Patrol (flat).
+If a voice sounds too human, add "very robotic, monotone, computer-generated" and regenerate.
+File names: `robot_<name>_<clip>.mp3`, e.g. `robot_combine_0.3.mp3`, `robot_drone_4.6.mp3`.
+
+**Voice Design descriptions** (paste one per robot, save the voice):
+
+- **The Combine:** A very deep, slow, booming male voice of an enormous industrial farm machine. Cold, emotionless and methodical, like a giant computer announcing orders. Speaks in heavy, evenly spaced words with long pauses. Slightly robotic and synthetic, with no warmth at all. Menacing but not scary for children, more grand and pompous than frightening.
+- **Drone:** A high-pitched, airy, giggly voice of a small hovering robot drone. Playful, mischievous and a bit smug, like a cheeky little gadget that thinks everything is funny. Light, quick and bouncy, slightly synthetic and buzzy. Creepy-cute rather than scary.
+- **Scout:** A precise, nasal, know-it-all robot voice, mid-pitched and crisp. Speaks clearly and smugly, like a calculator that thinks it's a genius. Clipped, exact pronunciation, slightly synthetic, with a superior tone.
+- **Drifter:** A wobbly, nervous robot voice, mid-to-high pitched and slightly shaky, like an old machine with loose parts. Starts out trying to sound brave and tough, then loses its nerve. Hesitant and a bit cowardly, comic rather than scary, slightly synthetic.
+- **Harvester:** A blunt, heavy, low male robot voice, like a big tractor-sized machine. Flat and loud, with no emotion, speaking in short barked commands. Simple and direct, slightly synthetic and mechanical.
+- **Patrol:** A clipped, by-the-book robot voice, mid-low pitched, like a strict security guard machine. Speaks fast and efficiently in short military-style phrases. Serious and procedural, slightly synthetic, with a radio-dispatch feel.
+
+For 4.6, record the line with each of the five voices (Combine, Drone, Scout, Drifter, Harvester); they are layered and stuttered afterwards.
 
 | Robot | Voice | Clip | Line | Delivery |
 |---|---|---|---|---|

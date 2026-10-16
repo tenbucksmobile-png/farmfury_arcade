@@ -4354,7 +4354,7 @@ phase made for art (solid-colour placeholders instead of real sprites).
   `SkipShotAbility.waterSpoutPrefab` (Ducky) / `PuffUpAbility.featherBurstPrefab` (Gerald).
   Self-contained and idempotent; `Phase4ProjectBuilder.BuildAll` calls it at the end because it
   rebuilds Ducky/Gerald from scratch. All three throwing abilities share
-  `ThrownProjectileEffect.SpawnAhead`. Not yet run in the Editor or tested in Play mode as of 2026-10-15.
+  `ThrownProjectileEffect.SpawnAhead`. Run in the Editor 2026-10-16 (prefabs built and wired, committed); not yet tested in Play mode.
 - **`CosmeticPreviewRenderer`** (`Farm Fury Arcade > Debug > Render Cosmetic Preview Sheet`,
   added 2026-09-11) — Edit-mode-only, no Play mode needed at all. Renders every (character, hat)
   pair's real sprite at its real `hatOffset`/`hatScale` into one contact-sheet PNG so hat
@@ -6081,7 +6081,12 @@ licensing not yet checked.
   ducked under them. **These are standalone story videos - never put them in the gameplay-short
   template** (logo intro, headline, store bar, blurred frame, end card); the user rejected that.
   Each line is its own take in its character's voice (re-recorded 2026-10-16; the first takes had
-  cross-character lines in the wrong voice). To check takes without listening: faster-whisper transcription (decode with our
+  cross-character lines in the wrong voice).
+  All ~100 animal lines were recorded on 2026-10-16 and transcribed against the script; still open: Woolly
+  6.6 needs 3 takes for the clone layer, `cluck_9.5`'s "Combo" may be too quiet. **Robot voices:** the
+  user makes each robot as a plain ElevenLabs Voice Design voice (descriptions in the voice script's
+  Robots section), saved as `robot_<name>_<clip>.mp3`; the robot effects (pitch, metallic ring, echo,
+  glitch, the 5-voice 4.6 layer) are to be added with ffmpeg by Claude - not built yet. To check takes without listening: faster-whisper transcription (decode with our
   ffmpeg and pass the array in - its own `av` loader failed with a version mismatch).
 - **Status:** one storyline clip generated so far (`kling_20261015_VIDEO___Style_lo_5296_0.mp4` in
   `Desktop\FarmFury_Technical\FarmFury_Artwork\Video`; which clip it is was not checked). The Kling
