@@ -6076,8 +6076,11 @@ licensing not yet checked.
   (`<character>_<clip>_<take>.mp3`); Ep 0-1 and E.1 recorded. `Tools/storyline/make_animatic.py`
   renders `Storyline_Animatic/ep00-01_animatic.mp4` (voices over game stills, captions, no end card -
   that waits for the App Store badge). Bangers has no "…" glyph; captions swap it for "...".
-  `make_animated_shorts.py` clips can carry a `voice` list (phrase cuts from a take + when they play);
-  those render an extra `animated_<slug>_voiced.mp4` with the music ducked. Each take is converted in
+  `Tools/storyline/narrate_clips.py` renders narrated story videos to `Video/Narrated/`: the Kling clip
+  full frame as-is, voice phrases cut from a take and dropped in at set moments, a quiet music bed
+  ducked under them. **These are standalone story videos - never put them in the gameplay-short
+  template** (logo intro, headline, store bar, blurred frame, end card); the user rejected that.
+  Each take is converted in
   one voice, so cross-character lines in `cluck_vd1`/`cluck_ed1`/`bessie_bb1` are in the wrong voice
   until re-recorded. To check takes without listening: faster-whisper transcription (decode with our
   ffmpeg and pass the array in - its own `av` loader failed with a version mismatch).
