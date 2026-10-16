@@ -6097,6 +6097,13 @@ licensing not yet checked.
   `Desktop\FarmFury_Technical\FarmFury_Artwork\Video`; which clip it is was not checked). The Kling
   MCP is connected in Claude Code (account on the Standard plan, 15 credits on 2026-10-15, topping up
   daily). Every Kling job is charged: confirm settings with the user before each one.
+- **Next (agreed 2026-10-16, waiting on the user buying Kling credits; 15 left):** make the real Ep 0-1
+  video. 9 clips: 0.1, 0.2, 0.3 (5 s each), 1.1 (10 s), 1.2-1.4 (5 s), 1.5, 1.6 (10 s); expect ~20-25
+  generations. Order: 1.1 first to lock the look, then the rest of Ep 1 (chain 1.2 -> 1.3 -> 1.4 with each
+  clip's last frame as the next one's start frame), then Ep 0. Show the user the prompt/length/settings and
+  wait for an OK before every job. Then swap the animatic's stills for the clips, trimmed to the voice
+  lines; voices, Combine lines, captions, music and title card carry over; no end card until the App
+  Store badge exists. Don't start until the user says the credits are in.
 - **Ducky is male ("he")**, decided 2026-10-15 to match the storyline's surfer character; the game's
   Character Story text and this file were corrected from "she".
 - Ducky's Water Spout and Gerald's Feather Burst started as story visuals here and were then added to
