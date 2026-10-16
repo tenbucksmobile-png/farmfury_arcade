@@ -6086,7 +6086,11 @@ licensing not yet checked.
   6.6 needs 3 takes for the clone layer, `cluck_9.5`'s "Combo" may be too quiet. **Robot voices:** the
   user makes each robot as a plain ElevenLabs Voice Design voice (descriptions in the voice script's
   Robots section), saved as `robot_<name>_<clip>.mp3`; the robot effects (pitch, metallic ring, echo,
-  glitch, the 5-voice 4.6 layer) are to be added with ffmpeg by Claude - not built yet. To check takes without listening: faster-whisper transcription (decode with our
+  glitch, the 5-voice 4.6 layer) are added by `Tools/storyline/robot_fx.py` -> `Video/Robot_Voices/`.
+  ElevenLabs ran out of quota after Combine and Drone, so Scout/Drifter/Harvester/Patrol and all five
+  4.6 lines are Windows TTS placeholders (David/Zira, `robot_<name>_<clip>.wav`); an .mp3 with the
+  same name replaces one on the next run. Keep the effects light on the ElevenLabs takes: a strong
+  pitch shift/robotize made Combine and Drone unintelligible (check by transcription). To check takes without listening: faster-whisper transcription (decode with our
   ffmpeg and pass the array in - its own `av` loader failed with a version mismatch).
 - **Status:** one storyline clip generated so far (`kling_20261015_VIDEO___Style_lo_5296_0.mp4` in
   `Desktop\FarmFury_Technical\FarmFury_Artwork\Video`; which clip it is was not checked). The Kling
