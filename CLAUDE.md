@@ -6104,6 +6104,7 @@ licensing not yet checked.
   wait for an OK before every job. Then swap the animatic's stills for the clips, trimmed to the voice
   lines; voices, Combine lines, captions, music and title card carry over; no end card until the App
   Store badge exists. Don't start until the user says the credits are in.
+- **Ep 1 made (2026-10-17):** 5 Kling clips in `Video/Ep01_Clips` (A farm 14s on Kling 4.0, 140 credits; B landing 10s, C eye 6s, D robots 5s, E maze 8s on Kling 3.0 Turbo 720p, 8 credits/s; C and D start from B's last frame), joined by `Tools/storyline/make_episode.py` into `Video/Episodes/ep01_the_night_the_robots_came.mp4` (41.6s, 9:16, captions, voices, music, Kling sound as ambience; no title/end card). Credits used: 372 of 376. Ep 0 not made yet. Transcription check: lines in order; the Combine's "Target: farm" is hard to make out.
 - **Ducky is male ("he")**, decided 2026-10-15 to match the storyline's surfer character; the game's
   Character Story text and this file were corrected from "she".
 - Ducky's Water Spout and Gerald's Feather Burst started as story visuals here and were then added to
