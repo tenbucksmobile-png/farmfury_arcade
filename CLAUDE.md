@@ -5874,7 +5874,7 @@ the networks returned nothing.
 ## Android release: signing, Play Console, ad dashboards (2026-09-21)
 
 **Upload keystore.** Created 2026-09-21 with Unity's Keystore Manager and kept OUTSIDE the repo:
-`C:\Users\Personel\Desktop\Sprites_Arcade\Keystore\user.keystore`, alias `farmfury-upload` (PKCS12, RSA 2048,
+`C:\Users\Personel\Desktop\FarmFury_Technical\Keystore\user.keystore` (moved there from `Desktop\Sprites_Arcade\Keystore\` by 2026-10-19; after any move, re-point Unity's saved path in Player > Publishing Settings or the build fails with "No keystore file was found"), alias `farmfury-upload` (PKCS12, RSA 2048,
 valid to 2076, SHA-256 `F4:47:66:44:AD:47:1E:B6:E6:6E:61:5C:19:12:76:D2:67:7A:60:15:7F:2C:3A:48:6E:6D:A1:1B:19:8C:1C:41`).
 It is the Play App Signing *upload* key (Google holds the real signing key; a lost upload key can be reset via
 Google). The password is the user's alone - never write it here, never commit the keystore. A `Key.docx` was
