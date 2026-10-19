@@ -142,6 +142,39 @@ EPISODES = {
             {"gameplay": (338.8, 3.0), "lines": []},
         ],
     },
+    # Ep 3 (2026-10-19): the Barnyard Breakdown talk show. Five Kling 3.0 Turbo clips animated from 1-credit stills;
+    # 3.1's studio still is the set reference for the others, and 3.6 animates straight from it. 3.2 is not a Kling
+    # job: make_tv_replay.py puts Ep 1's landing on the studio TV with chalk marks. No lip-sync, by choice.
+    3: {
+        "name": "ep03_the_debrief",
+        "clip_dir": VIDEO_DIR / "Ep03_Clips",
+        "music": THEME,
+        "gameplay": SESSION_VIDEO,
+        "hook": ["BARNYARD", "BREAKDOWN"],
+        "shots": [
+            {"file": "ep03_3.1_studio.mp4", "use": 6.0, "hold": 1.0, "hook": True, "hook_seconds": 2.6, "lines": [
+                ("cluck_3.1", "Welcome back to Barnyard Breakdown, I'm Cluck—", 0.3),
+                ("bessie_3.1", "—and I'm Bessie. Let's look at the replay.", 3.9)]},
+            # Chalk marks in the replay appear at 0.9s (circle), 2.6s (arrow) and 5.6s (flattened rows).
+            {"file": "ep03_3.2_tv.mp4", "use": 10.8, "hold": 0.3, "lines": [
+                ("cluck_3.2", "Look at that landing! Right in the corn! Zero style points!", 0.6),
+                ("bessie_3.2", "Flattened forty rows. Very efficient. Very rude.", 5.9)]},
+            {"file": "ep03_3.3_cluck.mp4", "use": 6.0, "hold": 0.3, "lines": [
+                ("cluck_3.3", "Bessie, they took the CORN. The corn, Bessie! What's next, the EGGS?", 0.1)]},
+            {"file": "ep03_3.4_bessie.mp4", "use": 6.0, "hold": 2.8, "hold_zoom": True, "lines": [
+                ("bessie_3.4", "Steady, Clucky. Robots are fast. Robots are strong. But robots can't think like a farm.", 0.2)]},
+            {"file": "ep03_3.5_board.mp4", "use": 7.0, "hold": 4.1, "hold_zoom": True, "lines": [
+                ("bessie_3.5a", "Eight of us. Eight ways of being stubborn.", 0.3),
+                ("cluck_3.5", "Is this… a PLAN?", 4.3),
+                ("bessie_3.5b", "It's the start of one. Ring the bell.", 8.2)]},
+            {"file": "ep03_3.6_signoff.mp4", "use": 4.0, "hook": ["NEXT:", "MEET THE METAL"], "lines": [
+                ("cluck_3.6", "Stay tuned, farm fans!", 0.3)]},
+            # Gameplay: an early dodge, a power crop sending the robots running, Level Complete.
+            {"gameplay": (23.5, 2.4), "lines": []},
+            {"gameplay": (411.5, 2.4), "lines": []},
+            {"gameplay": (415.6, 2.0), "lines": []},   # stops before the game moves on to world select (~418s)
+        ],
+    },
 }
 
 GAMEPLAY_GAIN = 1.8       # game sound sits in the ambience track (x AMBIENCE); louder than Kling's
@@ -319,11 +352,12 @@ def main():
         vgraph.append(f"[{cur}][vend]xfade=transition=fade:duration={END_CARD_XFADE}:offset={end_start:.2f}[xend]")
         cur = "xend"
 
-        # Hook text over the cold open.
+        # Hook text over the cold open ("hook": True uses the episode's hook; a list gives a shot its own, e.g. a
+        # "Next episode" tag on the sign-off).
         for si, shot in enumerate(shots):
             if shot.get("hook"):
-                hook_png = work / "hook.png"
-                build_hook(hook_png, ep["hook"])
+                hook_png = work / f"hook_{si}.png"
+                build_hook(hook_png, ep["hook"] if shot["hook"] is True else shot["hook"])
                 hi = inputs.count("-i")
                 inputs += ["-i", str(hook_png)]
                 a = starts[si]
@@ -376,27 +410,34 @@ def main():
                               f"adelay={ms}|{ms}[sfx{fi}]")
                 sfx_labels.append(f"[sfx{fi}]")
                 print(f"  {starts[si] + at:5.1f}s       sfx {name}")
-        agraph.append("".join(sfx_labels) + f"amix=inputs={len(sfx_labels)}:normalize=0,apad,atrim=0:{total:.2f}[sfx]")
+        if sfx_labels:
+            agraph.append("".join(sfx_labels) + f"amix=inputs={len(sfx_labels)}:normalize=0,apad,atrim=0:{total:.2f}[sfx]")
+        else:
+            agraph.append(f"anullsrc=r=48000:cl=stereo,atrim=0:{total:.2f}[sfx]")
 
         # Music: the theme for the story, the chase music from the robots' arrival until the gameplay (which has
         # its own game music), then the theme again under the end card.
-        chase_at = next(starts[i] for i, s in enumerate(shots) if s.get("chase_music"))
         game_at = next(starts[i] for i, s in enumerate(shots) if "gameplay" in s)
+        chase_at = next((starts[i] for i, s in enumerate(shots) if s.get("chase_music")), game_at)   # optional
         level = "loudnorm=I=-14:TP=-1.5:LRA=11,aformat=sample_rates=48000:channel_layouts=stereo"
         m1, m2, m3 = (inputs.count("-i") + k for k in range(3))
         chase_len = game_at - chase_at
         # Looped (in case a stretch outlasts the track) but capped with -t: an endless input kept ffmpeg reading
         # long after its atrim had ended, turning a ~2 min render into 10+ min or a hang.
         inputs += ["-stream_loop", "-1", "-t", f"{chase_at + 2:.2f}", "-i", str(ep["music"]),
-                   "-stream_loop", "-1", "-t", f"{chase_len + 2:.2f}", "-i", str(CHASE_MUSIC),
+                   "-stream_loop", "-1", "-t", f"{max(chase_len, 0) + 2:.2f}", "-i", str(CHASE_MUSIC),
                    "-t", f"{card_s + 2:.2f}", "-i", str(THEME)]
         agraph.append(f"[{m1}:a]{level},atrim=0:{chase_at + 0.5:.2f},afade=t=in:d=1,"
                       f"afade=t=out:st={chase_at - 0.3:.2f}:d=0.8[mu1]")
-        agraph.append(f"[{m2}:a]{level},atrim=0:{chase_len + 0.6:.2f},afade=t=in:d=0.5,"
-                      f"afade=t=out:st={chase_len - 0.3:.2f}:d=0.8,adelay={int(chase_at * 1000)}|{int(chase_at * 1000)}[mu2]")
+        if chase_len > 0:
+            agraph.append(f"[{m2}:a]{level},atrim=0:{chase_len + 0.6:.2f},afade=t=in:d=0.5,"
+                          f"afade=t=out:st={chase_len - 0.3:.2f}:d=0.8,adelay={int(chase_at * 1000)}|{int(chase_at * 1000)}[mu2]")
+        else:   # no chase stretch: the input is still opened (indices stay fixed) but not used
+            agraph.append(f"[{m2}:a]anullsink")
         agraph.append(f"[{m3}:a]{level},atrim=0:{card_s + 1:.2f},afade=t=in:d=0.8,"
                       f"adelay={int(end_start * 1000)}|{int(end_start * 1000)}[mu3]")
-        agraph.append(f"[mu1][mu2][mu3]amix=inputs=3:normalize=0,apad,atrim=0:{total:.2f},volume={MUSIC_GAIN}[mus]")
+        beds = "[mu1][mu2][mu3]" if chase_len > 0 else "[mu1][mu3]"
+        agraph.append(f"{beds}amix=inputs={len(beds) // 5}:normalize=0,apad,atrim=0:{total:.2f},volume={MUSIC_GAIN}[mus]")
 
         agraph.append("".join(voice_labels) + f"amix=inputs={len(voice_labels)}:normalize=0,apad,"
                       f"atrim=0:{total:.2f},asplit=3[vox][key][key2]")
