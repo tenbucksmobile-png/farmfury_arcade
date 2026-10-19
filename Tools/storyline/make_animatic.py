@@ -10,6 +10,7 @@ Usage:
     python make_animatic.py
 """
 
+import re
 import subprocess
 import sys
 import tempfile
@@ -26,6 +27,7 @@ from normalize_video import find_ffmpeg  # noqa: E402
 VIDEO_DIR = Path(r"C:\Users\Personel\Desktop\FarmFury_Technical\FarmFury_Artwork\Video")
 VOICE_DIR = VIDEO_DIR / "Eleven_Audio"
 ROBOT_VOICE_DIR = VIDEO_DIR / "Robot_Voices"     # robot lines with effects, from robot_fx.py
+ROBOT_MEAN_DB = -18.0      # robot lines are set to this mean volume (the animals land around -17 to -19 dB)
 OUT = VIDEO_DIR / "Storyline_Animatic" / "ep00-01_animatic.mp4"
 UI = REPO / "Assets/_Project/Sprites/UI"
 CHARS = REPO / "Assets/_Project/Sprites/Characters"
@@ -104,6 +106,20 @@ def prepare_voice(ffmpeg, stem, work):
     level = -19 if stem == "cluck_0.1" else -16      # the whisper stays a bit quieter
     trim = "silenceremove=start_periods=1:start_threshold=-45dB"
     out = work / f"{stem}.wav"
+    if stem.startswith("robot_"):
+        # robot_fx.py lines are short and peaky; single-pass loudnorm can't measure a ~2s clip and left the Drone
+        # ~5 dB under the animals. Instead: dynaudnorm evens out the peaks, then the measured mean is set to the
+        # animals' level. (A limiter was tried first and pulled the line ~6 dB further down.)
+        trimmed = work / f"{stem}_trim.wav"
+        run([ffmpeg, "-v", "error", "-y", "-i", str(src), "-af",
+             f"{trim},areverse,{trim},areverse,dynaudnorm=f=150:g=5", str(trimmed)])
+        probe = subprocess.run([ffmpeg, "-hide_banner", "-i", str(trimmed), "-af", "volumedetect", "-f", "null", "-"],
+                               capture_output=True, text=True).stderr
+        mean = float(re.search(r"mean_volume: (-?[0-9.]+) dB", probe).group(1))
+        run([ffmpeg, "-v", "error", "-y", "-i", str(trimmed), "-af",
+             f"volume={ROBOT_MEAN_DB - mean:.1f}dB,"
+             "aformat=sample_rates=48000:channel_layouts=stereo", str(out)])
+        return out, probe_duration(ffmpeg, out)
     run([ffmpeg, "-v", "error", "-y", "-i", str(src), "-af",
          f"{trim},areverse,{trim},areverse,loudnorm=I={level}:TP=-2:LRA=11,"
          "aformat=sample_rates=48000:channel_layouts=stereo", str(out)])

@@ -108,9 +108,12 @@ EPISODES = {
         "gameplay": SESSION_VIDEO,
         "hook": ["THE ROBOTS", "TOOK EVERYTHING"],
         "shots": [
-            # Cold open: the end of Gerald's clip (steam, push-in) with the end of his line.
-            {"file": "ep02_2.4_gerald.mp4", "skip": 2.6, "use": 2.4, "hook": True,
-             "lines": [("gerald_2.4", "My. FENCE.", 0.3, (1.1, 2.75))]},
+            # Opens on the robots leaving the Combine (Ep 1's footage, reused) with the hook text, to tie the episodes
+            # together, then straight into Gerald. (A flash-forward to Gerald's own line made it play twice.)
+            {"path": VIDEO_DIR / "Ep01_Clips/ep01_D_robots.mp4", "skip": 1.9, "use": 3.1, "hook": True,
+             "sfx": [("RobotSpawn.mp3", 0.1, 0.8), ("RobotSpawn.mp3", 1.4, 0.6)], "lines": []},
+            {"file": "ep02_2.4_gerald.mp4", "use": 5.0, "lines": [
+                ("gerald_2.4", "That. Was. My. FENCE.", 0.5)]},
             {"file": "ep02_2.1_percy.mp4", "use": 5.0, "hold": 0.8, "lines": [
                 ("cluck_2.1", "Percy lost his midnight snack.", 0.2),
                 ("percy_2.1", "…Hey! That was for later!", 3.0)]},
@@ -119,8 +122,6 @@ EPISODES = {
                 ("robot_drone_2.2", "Hee hee. Fluffy crop.", 4.8)]},
             {"file": "ep02_2.3_ducky.mp4", "use": 5.0, "lines": [
                 ("ducky_2.3", "…Dude. Not cool.", 2.3)]},
-            {"file": "ep02_2.4_gerald.mp4", "use": 5.0, "lines": [
-                ("gerald_2.4", "That. Was. My. FENCE.", 0.5)]},
             {"file": "ep02_2.5_horace.mp4", "use": 5.0, "hold": 0.3, "lines": [
                 ("horace_2.5", "…Did that tin can just take my trophies?", 1.4)]},
             # Billy hits the robot ~2.5s in and lands on his back ~3.5s.
@@ -270,7 +271,7 @@ def main():
                               "aformat=sample_rates=48000:channel_layouts=stereo,"
                               f"apad=whole_dur={dur}[k{i}]")
             else:
-                clip = ep["clip_dir"] / shot["file"]
+                clip = Path(shot["path"]) if "path" in shot else ep["clip_dir"] / shot["file"]
                 if not clip.exists():
                     raise FileNotFoundError(clip)
                 inputs += ["-i", str(clip)]
@@ -325,7 +326,8 @@ def main():
                 build_hook(hook_png, ep["hook"])
                 hi = inputs.count("-i")
                 inputs += ["-i", str(hook_png)]
-                a, b = starts[si], starts[si] + shot["_dur"] - XFADE / 2
+                a = starts[si]
+                b = a + shot.get("hook_seconds", shot["_dur"] - XFADE / 2)
                 vgraph.append(f"[{cur}][{hi}:v]overlay=0:0:enable='between(t,{a:.2f},{b:.2f})'[h{hi}]")
                 cur = f"h{hi}"
 
@@ -382,9 +384,12 @@ def main():
         game_at = next(starts[i] for i, s in enumerate(shots) if "gameplay" in s)
         level = "loudnorm=I=-14:TP=-1.5:LRA=11,aformat=sample_rates=48000:channel_layouts=stereo"
         m1, m2, m3 = (inputs.count("-i") + k for k in range(3))
-        inputs += ["-stream_loop", "-1", "-i", str(ep["music"]), "-stream_loop", "-1", "-i", str(CHASE_MUSIC),
-                   "-i", str(THEME)]
         chase_len = game_at - chase_at
+        # Looped (in case a stretch outlasts the track) but capped with -t: an endless input kept ffmpeg reading
+        # long after its atrim had ended, turning a ~2 min render into 10+ min or a hang.
+        inputs += ["-stream_loop", "-1", "-t", f"{chase_at + 2:.2f}", "-i", str(ep["music"]),
+                   "-stream_loop", "-1", "-t", f"{chase_len + 2:.2f}", "-i", str(CHASE_MUSIC),
+                   "-t", f"{card_s + 2:.2f}", "-i", str(THEME)]
         agraph.append(f"[{m1}:a]{level},atrim=0:{chase_at + 0.5:.2f},afade=t=in:d=1,"
                       f"afade=t=out:st={chase_at - 0.3:.2f}:d=0.8[mu1]")
         agraph.append(f"[{m2}:a]{level},atrim=0:{chase_len + 0.6:.2f},afade=t=in:d=0.5,"
