@@ -42,8 +42,8 @@ MUSIC_GAIN = 0.16
 FADE_OUT = 0.6
 END_CARD_SECONDS = 4.5    # minimum; stretched to fit the end-card voices
 
-# End card voices (every episode): all eight animals shout "Farm Fury!" together (<character>_ff.mp3 in
-# Eleven_Audio; any missing file is skipped), each a few hundredths of a second apart so it reads as a crowd,
+# End card voices (every episode): all eight animals shout "Farm Fury!" together (<Character>_farmfury.mp3 in
+# Eleven_Audio, any capitalisation; any missing file is skipped), each a few hundredths of a second apart so it reads as a crowd,
 # then Bessie's E.1 with its two halves swapped: "Come help us out." (1.05-2.12s) then "Free to play." (0-0.80s).
 CHORUS = ["cluck", "bessie", "percy", "woolly", "ducky", "horace", "gerald", "billy"]
 CHORUS_STAGGER = 0.035
@@ -209,7 +209,8 @@ def build_end_voices(ffmpeg, work):
     """The end card's audio: the 'Farm Fury!' chorus and Bessie's reordered line, as (wav, seconds into the card,
     duration). Voice only, no captions: a caption would cover the store badges."""
     items, at = [], END_CHORUS_AT
-    voices = [prepare_voice(ffmpeg, f"{c}_ff", work)[0] for c in CHORUS if (VOICE_DIR / f"{c}_ff.mp3").exists()]
+    voices = [prepare_voice(ffmpeg, f"{c}_farmfury", work)[0] for c in CHORUS
+              if (VOICE_DIR / f"{c}_farmfury.mp3").exists()]
     if voices:
         chorus = work / "chorus.wav"
         ins = [x for v in voices for x in ("-i", str(v))]
@@ -224,7 +225,7 @@ def build_end_voices(ffmpeg, work):
         at += d + END_LINE_GAP
         print(f"  chorus: {len(voices)} of {len(CHORUS)} 'Farm Fury' takes found")
     else:
-        print("  chorus: no <character>_ff.mp3 takes found, skipped")
+        print("  chorus: no <character>_farmfury.mp3 takes found, skipped")
 
     stem, parts = END_LINE
     src, _ = prepare_voice(ffmpeg, stem, work)
