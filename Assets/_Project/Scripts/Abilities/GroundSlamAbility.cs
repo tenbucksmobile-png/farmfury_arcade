@@ -32,7 +32,7 @@ namespace FarmFuryArcade.Abilities
         /// <summary>True for the ability's whole active hazard window (cast through the end of the
         /// lingering killzone) — same "PlayerHealth checks this to skip its own death check, since
         /// the ability's own contact is already handled" convention BounceRollAbility.IsRolling/
-        /// HeadbuttThroughAbility.IsCharging/PuffUpAbility.IsPuffed use. Gap found and fixed
+        /// HeadbuttThroughAbility.IsCharging use (and PuffUpAbility.IsPuffed did, before 2026-10-19). Gap found and fixed
         /// 2026-09-08: those three were added to PlayerHealth.IsProtectedByActiveAbility on
         /// 2026-08-29 (see that commit's own doc comment), but Ground Slam was missed even though
         /// it defeats robots the same way — Bessie could die on the exact contact her own slam was

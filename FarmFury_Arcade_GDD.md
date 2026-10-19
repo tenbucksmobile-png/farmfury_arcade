@@ -90,7 +90,7 @@ Two abilities were substantially reworked after the original design: Percy's was
 | Woolly the Sheep | Triple Clone | Spawns 2 AI-controlled clones that wander and collect crops for 10 seconds. | 10s | After 10 mazes completed |
 | Ducky the Duck | Skip Shot | Teleports across an adjacent, not-yet-used water tile pair — usable once per pair per maze regardless of cooldown (the deeper limiter); the button re-arms on the shared 10s cooldown. When no unused water pair is adjacent, he fires a Water Spout instead: a spinning projectile that travels 3 tiles in his facing direction and instantly defeats the first robot it touches (same rule as Horace's horseshoe). | 10s | After 15 mazes completed |
 | Horace the Horse | Horseshoe Throw | Throws a spinning horseshoe (or hay bale, if his Machine Cosmetics skin is equipped) 3 tiles forward in his current facing direction (6 if buffed by Crossfire), instantly defeating the first robot it touches; stops early at a wall. | 10s | After 20 mazes completed |
-| Gerald the Turkey | Puff Up | Pulsates between normal size and 2x scale over 3 seconds (3 full pulse cycles); any robot touched during the pulse is instantly defeated. Moves at half speed and cannot use warp tunnels while pulsing. On activation he also fires a Feather Burst: a spinning projectile that travels 3 tiles in his facing direction and instantly defeats the first robot it touches. | 10s | After 30 mazes completed |
+| Gerald the Turkey | Feather Burst | Fires a spinning burst of feathers that travels 3 tiles in his facing direction (stopping early at a wall) and instantly defeats the first robot it touches. (Was "Puff Up" until 2026-10-19: he pulsed to 2x size, defeating robots on touch at half speed with no warp tunnels; the puff was removed and only the feathers kept.) | 10s | After 30 mazes completed |
 | Billy the Goat | Headbutt Through | Speeds up and charges 3 tiles forward in his current facing direction, instantly defeating any robot touched; stops early at a wall. | 10s | After 40 mazes completed |
 
 **Enemy Roster — Harvest Robots.** Six robot types are defined in data; five are in active use. Heavy's dedicated art was removed from the project and it is excluded from the automatic level-spawn curve — its code and data still exist, but no shipped level currently spawns one.
@@ -154,7 +154,7 @@ While active: robots turn Vulnerable and flee; the player defeats robots for esc
 | SKIP SHATTER | Ducky → Woolly | Ducky's next Skip Shot spawns 2 wool clones at the destination |
 | DOUBLE SLAM | Bessie → Bessie (2nd+ activation) | Ground Slam radius doubles to 4 tiles |
 | CROSSFIRE | Billy → Horace | Horace's next horseshoe (or hay bale) throw travels twice as far — 6 tiles instead of 3 |
-| IRON STAMPEDE | Bessie → Gerald | Puff Up also destroys walls Gerald is adjacent to |
+| IRON STAMPEDE | Bessie → Gerald | Gerald's next Feather Burst fires in all four directions at once |
 | KICK AND ROLL | Horace → Percy | Same buff as Earthquake Roll — 9-tile roll |
 | FULL FURY | 5+ distinct characters used this maze | Immediate: every robot on the maze is stunned for 5 seconds |
 
@@ -539,3 +539,4 @@ Aspirational planning targets carried over from the original design pass, not va
   - 2026-10-15 addendum: Ducky is male ("he"), matching the storyline series; in-game Character Story text corrected from "she".
   - 2026-10-15 addendum (marketing): Section 15 gained an "Animated storyline series" paragraph (Kling AI series narrated by Cluck and Bessie; storyline and per-character voice script in Tools/storyline). One clip generated, nothing posted.
   - 2026-10-16 addendum (marketing): Section 15's storyline paragraph updated: all animal voice lines recorded, robot voices in progress, Ep 0–1 animatic and three narrated character clips made. Still nothing posted.
+  - 2026-10-19 addendum: Gerald's Puff Up removed; his ability is now Feather Burst only (3-tile feather projectile, first robot hit is defeated). He no longer grows, slows down or gets blocked by warp tunnels. Iron Stampede (Bessie → Gerald) changed from "destroys adjacent walls while puffed" to "next Feather Burst fires in all four directions". Not yet tested in Play mode or on a device.

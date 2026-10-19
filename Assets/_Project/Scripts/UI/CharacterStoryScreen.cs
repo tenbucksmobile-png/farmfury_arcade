@@ -173,7 +173,7 @@ namespace FarmFuryArcade.UI
             ("Crossfire", "Swap Billy → Horace.",
                 "Horace's next horseshoe kick (or hay bale) flies twice as far — 6 tiles!"),
             ("Iron Stampede", "Swap Bessie → Gerald.",
-                "Gerald's Puff Up smashes through nearby walls too!"),
+                "Gerald's next Feather Burst fires in all four directions at once!"),
             ("Kick and Roll", "Swap Horace → Percy.",
                 "Same big boost as Earthquake Roll — Percy's next roll goes 9 tiles!"),
             ("Full Fury", "Play as 5 or more different animals in one maze.",
@@ -224,9 +224,9 @@ namespace FarmFuryArcade.UI
             { CharacterType.Horace, "Horace doesn't run from a fight — he throws it. A spinning horseshoe " +
                 "sails clean across the maze, and any robot in its path doesn't get back up. Farmhands " +
                 "three fields over say they can still hear the clang." },
-            { CharacterType.Gerald, "Gerald's temper is legendary, and when he puffs up, the whole farm " +
-                "knows it. He swells in furious pulses and fires a burst of feathers straight ahead, and " +
-                "every robot dumb enough to get close during the display doesn't get a second chance." },
+            { CharacterType.Gerald, "Gerald's temper is legendary, and when he loses it, the whole farm " +
+                "knows it. He shakes out a furious burst of feathers straight ahead, and the first robot " +
+                "in its path doesn't get a second chance." },
             { CharacterType.Billy, "Billy's never met an obstacle he'd rather walk around than through. " +
                 "Lower the horns, charge full speed across the maze — any robot standing in the way gets " +
                 "sent packing on contact." },

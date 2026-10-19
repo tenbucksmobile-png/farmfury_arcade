@@ -1,123 +1,50 @@
-using System.Collections;
 using UnityEngine;
 using FarmFuryArcade.Core;
-using FarmFuryArcade.Enemies;
 using FarmFuryArcade.Gameplay;
 
 namespace FarmFuryArcade.Abilities
 {
-    /// <summary>Gerald's ability. Pulsates (breathes) between normal size and 2x scale for 3s,
-    /// rather than jumping straight to a fixed size — per feedback that a flat 3x scale for 5s read
-    /// as "too big." Any robot touched while puffed is instantly defeated regardless of state
-    /// (bypasses the power-pellet requirement via RobotBase.ForceDefeat) — this isn't gated to the
-    /// pulse's peak, so a touch anywhere in the cycle still counts, matching the original "puffed up
-    /// at all" behaviour. Movement speed halves for the duration, and IsPuffed blocks warp tunnels
-    /// (see WarpTunnel.OnTriggerEnter2D — "too big" to fit). Iron Stampede combo (Bessie -> Gerald)
-    /// also destroys any wall Gerald is adjacent to while puffed.
+    /// <summary>Gerald's ability: Feather Burst. Fires a spinning burst of feathers FeatherBurstTiles
+    /// in his facing direction (a ThrownProjectileEffect, same distance/speed/one-target-defeat rule
+    /// as Horace's horseshoe). Iron Stampede combo (Bessie -> Gerald) makes the next burst fire in
+    /// all four directions at once.
     ///
-    /// Feather Burst (2026-10-15): the moment he puffs up he also fires a spinning burst of feathers
-    /// FeatherBurstTiles in his facing direction (a ThrownProjectileEffect, same distance/speed/
-    /// one-target-defeat rule as Horace's horseshoe), so he can hit a robot that isn't touching him.</summary>
+    /// Was "Puff Up" until 2026-10-19: he pulsed to 2x size for 3s at half speed, defeating any robot
+    /// he touched, couldn't use warp tunnels, and fired the feathers as a side effect. The puff was
+    /// removed per direct request ("remove the puff ability from Gerald and only keep the feathers").
+    /// The class name, AbilityType.PuffUp and the PlayGeraldPuffSfx/geraldPuffClip names are kept so
+    /// the Gerald prefab's script reference and serialized fields stay intact.</summary>
     public class PuffUpAbility : AbilityBase
     {
         private const int FeatherBurstTiles = 3;
         private const float FeatherBurstSecondsPerTile = 0.4f;
 
+        private static readonly Direction[] AllDirections = { Direction.Up, Direction.Down, Direction.Left, Direction.Right };
+
         [SerializeField] private GameObject featherBurstPrefab;
-
-        private const float PuffDurationSeconds = 3f;
-        private const float ScaleMultiplier = 2f;
-        private const float SpeedMultiplier = 0.5f;
-
-        /// <summary>Full swell-then-shrink cycles spread across PuffDurationSeconds — 3 gives a
-        /// clearly visible "breathing" rhythm (once per second) rather than either a single slow
-        /// swell or an overly frantic flutter.</summary>
-        private const float PulseCyclesOverDuration = 3f;
-
-        public bool IsPuffed { get; private set; }
 
         protected override void Execute()
         {
-            // Stability hardening: without this guard, the "skip cooldown" feature can zero an
-            // in-progress cooldown while PuffRoutine is still running, letting a second
-            // PuffRoutine start concurrently. The second call would capture its "original"
-            // scale/speed from whatever the FIRST call had already puffed them to (not the true
-            // original), so whichever coroutine finishes last restores the WRONG baseline —
-            // concretely, Gerald could end up permanently stuck at half movement speed and/or the
-            // wrong scale. Only the double-activation edge case is affected; a normal single
-            // activation is unchanged.
-            if (IsPuffed)
-            {
-                return;
-            }
-
             AudioManager.Instance?.PlayGeraldPuffSfx();
+
+            bool allDirections = ComboSystem.Instance != null && ComboSystem.Instance.ConsumeFeatherBurstAllDirections();
+            if (allDirections)
+            {
+                foreach (var dir in AllDirections)
+                {
+                    Fire(dir);
+                }
+            }
+            else
+            {
+                Fire(Movement.LastFacingDirection);
+            }
+        }
+
+        private void Fire(Direction direction)
+        {
             ThrownProjectileEffect.SpawnAhead(featherBurstPrefab, TileMap, Movement.CurrentGridPosition,
-                Movement.LastFacingDirection, FeatherBurstTiles, FeatherBurstSecondsPerTile);
-            StartCoroutine(PuffRoutine());
-        }
-
-        private IEnumerator PuffRoutine()
-        {
-            IsPuffed = true;
-            bool wallBuff = ComboSystem.Instance != null && ComboSystem.Instance.ConsumeWallDestroyPuff();
-
-            Vector3 originalScale = transform.localScale;
-
-            float originalSpeed = Movement.Speed;
-            Movement.SetSpeed(originalSpeed * SpeedMultiplier);
-
-            float elapsed = 0f;
-            while (elapsed < PuffDurationSeconds)
-            {
-                elapsed += Time.deltaTime;
-
-                float pulse = (Mathf.Sin(elapsed / PuffDurationSeconds * PulseCyclesOverDuration * Mathf.PI * 2f) + 1f) * 0.5f;
-                transform.localScale = Vector3.Lerp(originalScale, originalScale * ScaleMultiplier, pulse);
-
-                if (wallBuff && TileMap != null)
-                {
-                    DestroyAdjacentWalls();
-                }
-
-                yield return null;
-            }
-
-            transform.localScale = originalScale;
-            Movement.SetSpeed(originalSpeed);
-            IsPuffed = false;
-        }
-
-        private void DestroyAdjacentWalls()
-        {
-            Vector2Int pos = Movement.CurrentGridPosition;
-            foreach (var dir in new[] { Direction.Up, Direction.Down, Direction.Left, Direction.Right })
-            {
-                Vector2Int cell = pos + DirectionUtils.ToVector(dir);
-                if (!TileMap.IsWalkable(cell))
-                {
-                    TileMap.DestroyWallAt(cell);
-                }
-            }
-        }
-
-        private void OnTriggerEnter2D(Collider2D other)
-        {
-            if (!IsPuffed)
-            {
-                return;
-            }
-
-            var robot = other.GetComponent<RobotBase>();
-            if (robot == null)
-            {
-                return;
-            }
-
-            if (robot.CurrentState is RobotState.Chase or RobotState.Scatter or RobotState.Vulnerable)
-            {
-                robot.ForceDefeat();
-            }
+                direction, FeatherBurstTiles, FeatherBurstSecondsPerTile);
         }
     }
 }

@@ -35,13 +35,6 @@ namespace FarmFuryArcade.Gameplay
                 return;
             }
 
-            // Gerald is "too big" to fit through a warp tunnel while puffed up (Phase 4).
-            var puff = other.GetComponent<PuffUpAbility>();
-            if (puff != null && puff.IsPuffed)
-            {
-                return;
-            }
-
             other.transform.position = PairedWarp.transform.position;
             PairedWarp.StartCooldown(reWarpCooldown);
             _cooldownTimer = reWarpCooldown;

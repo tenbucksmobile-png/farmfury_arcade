@@ -43,7 +43,7 @@ namespace FarmFuryArcade.Core
         public bool PendingDoubleWoolClones { get; private set; } // Skip Shatter -> SkipShotAbility
         public bool PendingDoubleSlamRadius { get; private set; } // Double Slam -> GroundSlamAbility
         public bool PendingDoubleThrowDistance { get; private set; }  // Crossfire -> HorseshoeThrowAbility
-        public bool PendingWallDestroyPuff { get; private set; }  // Iron Stampede -> PuffUpAbility
+        public bool PendingFeatherBurstAllDirections { get; private set; }  // Iron Stampede -> PuffUpAbility (Feather Burst)
 
         public void ResetForNewMaze()
         {
@@ -58,7 +58,7 @@ namespace FarmFuryArcade.Core
             PendingDoubleWoolClones = false;
             PendingDoubleSlamRadius = false;
             PendingDoubleThrowDistance = false;
-            PendingWallDestroyPuff = false;
+            PendingFeatherBurstAllDirections = false;
         }
 
         /// <summary>Records the maze's starting character (no "previous" to pair-check against).</summary>
@@ -109,7 +109,7 @@ namespace FarmFuryArcade.Core
             }
             else if (previous == CharacterType.Bessie && next == CharacterType.Gerald)
             {
-                Trigger("Iron Stampede", () => PendingWallDestroyPuff = true);
+                Trigger("Iron Stampede", () => PendingFeatherBurstAllDirections = true);
             }
             else if (previous == CharacterType.Horace && next == CharacterType.Percy)
             {
@@ -180,10 +180,10 @@ namespace FarmFuryArcade.Core
             return value;
         }
 
-        public bool ConsumeWallDestroyPuff()
+        public bool ConsumeFeatherBurstAllDirections()
         {
-            bool value = PendingWallDestroyPuff;
-            PendingWallDestroyPuff = false;
+            bool value = PendingFeatherBurstAllDirections;
+            PendingFeatherBurstAllDirections = false;
             return value;
         }
     }

@@ -434,7 +434,7 @@ namespace FarmFuryArcade.EditorTools
             BuildCharacterDataAsset(CharacterType.Horace, "Horace", UnifiedCharacterSpeed, AbilityType.RearKick, UnifiedAbilityCooldown,
                 "Kicks the nearest robot within 3 tiles back 4 tiles and defeats it on landing.", 20, false);
             BuildCharacterDataAsset(CharacterType.Gerald, "Gerald", UnifiedCharacterSpeed, AbilityType.PuffUp, UnifiedAbilityCooldown,
-                "Inflates to 3x size for 5s — any robot touched is instantly defeated. Half speed, no warp tunnels while puffed.", 30, false);
+                "Fires a burst of feathers 3 tiles ahead — the first robot it hits is defeated.", 30, false);
             BuildCharacterDataAsset(CharacterType.Billy, "Billy", UnifiedCharacterSpeed, AbilityType.HeadbuttThrough, UnifiedAbilityCooldown,
                 "Permanently destroys the next 3 walls he headbutts.", 40, false);
         }

@@ -228,8 +228,9 @@ namespace FarmFuryArcade.Core
         /// launched-projectile ability) rather than renaming the clip/field — same "keep the
         /// serialized reference stable" convention BounceRollAbility's trailPrefab field uses.</summary>
         public void PlayHoraceKickSfx() => PlaySFX(horaceKickClip);
-        /// <summary>Gerald's Puff Up — fires from PuffUpAbility.Execute(), guarded the same way
-        /// Execute() itself is against the reachable double-activation edge case.</summary>
+        /// <summary>Gerald's Feather Burst — fires from PuffUpAbility.Execute() on every activation.
+        /// Kept its "Puff" name when the puff itself was removed (2026-10-19) so the serialized clip
+        /// reference stays intact.</summary>
         public void PlayGeraldPuffSfx() => PlaySFX(geraldPuffClip);
 
         /// <summary>Crossfades the looping music track to the "power active" cue for as long as a

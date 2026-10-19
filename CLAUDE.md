@@ -680,7 +680,7 @@ ability:
 | Woolly | TripleClone | Spawns 2 AI clones (`WoollyClone`) that wander/collect crops for 10s | 10s |
 | Ducky | SkipShot | Teleports across an adjacent unused water tile pair — once per pair per maze. With no unused pair adjacent, fires a Water Spout (`waterSpoutPrefab`, a `ThrownProjectileEffect`, 3 tiles, defeats the first robot hit) instead (2026-10-15) | 10s (this is the real gate now too — see the note below on why it went from a 2s debounce to matching everyone else) |
 | Horace | HorseshoeThrow | Launches a horseshoe 3 tiles (6 if buffed) in his current facing direction, spinning, instantly defeating the first robot it touches — both vanish together on impact, unlike Percy's roll it does NOT carry on to a second target; stops early at a wall (reworked 2026-09-16 from RearKickAbility's "yank the nearest enemy within 3 tiles" — see below; distance/speed re-tuned the same day, and again 2026-09-17 to fix an invisible-throw bug — see that ability's own doc comment) | 10s |
-| Gerald | PuffUp | Pulsates between normal size and 2x scale for 3s, instantly defeats any robot touched throughout the pulse, half speed, can't use warp tunnels. Also fires a Feather Burst (`featherBurstPrefab`, a `ThrownProjectileEffect`, 3 tiles, defeats the first robot hit) on activation (2026-10-15) | 10s |
+| Gerald | Feather Burst (`PuffUpAbility`) | Fires a Feather Burst (`featherBurstPrefab`, a `ThrownProjectileEffect`, 3 tiles, defeats the first robot hit). The old puff-up (2x pulse, robot-defeat on touch, half speed, no warp tunnels) was removed 2026-10-19 per direct request; class/enum/sfx names kept so the prefab references survive | 10s |
 | Billy | HeadbuttThrough | Speeds up and charges 3 tiles forward in his current facing direction, instantly defeating any robot touched (reworked 2026-08-21 from a wall-destroy ability — see below) | 10s |
 
 **All 8 cooldowns were unified to 10s** in a later gameplay pass (previously a spread from 2s
@@ -902,7 +902,7 @@ subclass already used, so no subclass code needed to change.
 | Skip Shatter | Ducky → Woolly | Ducky's next SkipShot spawns 2 wool clones at the destination |
 | Double Slam | Bessie → Bessie (2nd+ activation via swap) | Ground Slam radius doubles to 4 tiles |
 | Crossfire | Billy → Horace | His thrown horseshoe/hay bale travels twice as far (6 tiles instead of 3) |
-| Iron Stampede | Bessie → Gerald | Puff Up also destroys walls Gerald is adjacent to |
+| Iron Stampede | Bessie → Gerald | Gerald's next Feather Burst fires in all four directions (was "Puff Up destroys adjacent walls" until 2026-10-19) |
 | Kick and Roll | Horace → Percy | Same buff as Earthquake Roll (9-tile roll, identical effect per GDD) |
 | Full Fury | 5+ distinct characters used this maze | Immediate: every robot stunned 5s (not a "next use" buff) |
 
