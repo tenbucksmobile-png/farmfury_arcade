@@ -167,10 +167,11 @@ def text_lines(draw, text, font, max_w):
     return lines + [cur]
 
 
-def build_caption(stem, text, path):
+def build_caption(stem, text, path, center_y=1500):
     check_wording(text)
     text = text.replace("…", "...")   # Bangers has no ellipsis glyph
-    speaker = "THE COMBINE" if stem.startswith("robot_combine") else stem.split("_")[0].upper()
+    parts = stem.split("_")
+    speaker = f"THE {parts[1].upper()}" if parts[0] == "robot" else parts[0].upper()   # robot_drone_2.2 -> THE DRONE
     img = Image.new("RGBA", (W, H), (0, 0, 0, 0))
     d = ImageDraw.Draw(img)
     name_font = ImageFont.truetype(str(FONT), 64)
@@ -178,7 +179,7 @@ def build_caption(stem, text, path):
     lines = text_lines(d, text, font, W - 160)
     line_h = 84
     box_h = 100 + line_h * len(lines) + 40
-    top = 1500 - box_h // 2
+    top = center_y - box_h // 2
     d.rounded_rectangle((50, top, W - 50, top + box_h), radius=36, fill=(20, 12, 30, 175))
     d.text((W // 2, top + 58), speaker, font=name_font, fill=SPEAKER_FILL.get(speaker, TEXT_FILL),
            anchor="mm", stroke_width=5, stroke_fill=STROKE_FILL)

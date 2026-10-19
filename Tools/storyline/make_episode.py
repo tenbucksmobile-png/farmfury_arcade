@@ -1,19 +1,18 @@
-"""Storyline Episode 1 ("The Night the Robots Came") from the Kling clips: each clip trimmed to its
-slot, joined in order, voice lines dropped in at set times with burned-in captions, the clips' own
-Kling sound kept as quiet ambience, game sound effects on the big moments, and a music bed that dips
-under the voices. 9:16, 1080x1920.
+"""Storyline episodes from Kling clips: each clip trimmed to its slot, joined in order, voice lines
+dropped in at set times with burned-in captions, the clips' own Kling sound kept as quiet ambience, game
+sound effects on the big moments, and a music bed that dips under the voices. 9:16, 1080x1920.
 
-Opens on a flash-forward to the Combine's eye with a big text hook, ends on a few seconds of real
-gameplay (from a recorded content-pipeline session) and a card with the Farm Fury Arcade logo and
-the App Store / Google Play badges.
+Each episode opens on a flash-forward with a big text hook, ends on a few seconds of real gameplay (from a
+recorded content-pipeline session) and a card with the Farm Fury Arcade logo and the App Store / Google
+Play badges. Each episode's shots, lines and music are one entry in EPISODES.
 
-Clips: <Video>/Ep01_Clips/ep01_<letter>_*.mp4. Voices: <Video>/Eleven_Audio, robot lines from
-<Video>/Robot_Voices (run robot_fx.py first). Gameplay: Tools/content-pipeline/sessions/<id>/video.mp4.
-Output: <Video>/Episodes/ep01_the_night_the_robots_came.mp4
+Clips: <Video>/EpNN_Clips/. Voices: <Video>/Eleven_Audio, robot lines from <Video>/Robot_Voices (run
+robot_fx.py first). Gameplay: Tools/content-pipeline/sessions/<id>/video.mp4.
+Output: <Video>/Episodes/<episode name>.mp4
 
 Usage:
-    python make_episode.py              # App Store + Google Play badges
-    python make_episode.py --play-only  # Google Play badge only (to post before the iOS app is live)
+    python make_episode.py [--episode N]   # default episode 1
+    python make_episode.py --play-only     # Google Play badge only (to post before the iOS app is live)
 """
 
 import subprocess
@@ -30,14 +29,12 @@ from make_shorts import (ACCENT_FILL, AUDIO_OUT, CROP_ASPECT, FONT, FPS, H, LOGO
 from make_animatic import VIDEO_DIR, build_caption, prepare_voice, run  # noqa: E402
 from normalize_video import find_ffmpeg  # noqa: E402
 
-CLIP_DIR = VIDEO_DIR / "Ep01_Clips"
-OUT = VIDEO_DIR / "Episodes" / "ep01_the_night_the_robots_came.mp4"
-OUT_PLAY_ONLY = VIDEO_DIR / "Episodes" / "ep01_the_night_the_robots_came_play_only.mp4"
-MUSIC = REPO / "Assets/_Project/Audio/Music/Theme.mp3"
-# The game's power-pellet music ("robots run"): the more urgent bed from the robots' arrival to the gameplay.
+MUSIC_DIR = REPO / "Assets/_Project/Audio/Music"
+THEME = MUSIC_DIR / "Theme.mp3"
+# The game's power-pellet music ("robots run"): the more urgent bed for each episode's action stretch.
 CHASE_MUSIC = REPO / "Assets/_Project/Audio/SFX/EatRobot.mp3"
 SFX = REPO / "Assets/_Project/Audio/SFX"
-GAMEPLAY = HERE.parent / "content-pipeline/sessions/20261001-150832/video.mp4"
+SESSION_VIDEO = HERE.parent / "content-pipeline/sessions/20261001-150832/video.mp4"
 
 XFADE = 0.4               # crossfade between clips
 AMBIENCE = 0.45           # Kling's own clip sound, under everything
@@ -47,47 +44,98 @@ END_CARD_SECONDS = 4.5
 END_CARD_XFADE = 0.8
 APP_STORE_BADGE = HERE / "assets" / "app-store-badge.png"
 PLAY_BADGE = HERE / "assets" / "google-play-badge.png"
-
-# Big text over the cold open, for viewers watching with the sound off.
-HOOK_LINES = ["THEY CAME", "FOR THE CROPS"]
 HOOK_TOP = 200
 
-# Each shot: clip file (in CLIP_DIR), seconds cut off its start, seconds used after that, extra seconds to hold
-# the last frame, voice lines (file stem, caption, seconds after the shot starts, optionally (from, to) seconds to
-# use only part of the recording), and sound effects (file in SFX, seconds after the shot starts, gain).
-# A "gameplay" shot is (start, seconds) of GAMEPLAY, framed 9:16 like the shorts, with its own game sound.
-SHOTS = [
-    # Cold open (2026-10-19): a flash-forward to the Combine's eye and the end of its line, so the first two
-    # seconds hook the viewer before the slow farm intro.
-    {"file": "ep01_C_eye.mp4", "skip": 3.6, "use": 2.4, "hook": True,
-     "sfx": [("Bessie-ability.mp3", 0.0, 0.9)],
-     "lines": [("robot_combine_1.4", "Every. Single. One.", 0.05, (4.6, 6.9))]},
-    {"file": "ep01_A_farm.mp4", "use": 14.0, "lines": [
-        ("cluck_1.1", "It was harvest night. The corn was golden, the carrots were crunchy, "
-                      "and everybody was fast asleep…", 0.6),
-        ("bessie_1.1", "…except one chicken who'd had too much corn before bed.", 9.2)]},
-    # The Combine touches down ~5.6s into the clip.
-    {"file": "ep01_B_landing.mp4", "use": 10.0, "sfx": [("Bessie-ability.mp3", 5.5, 1.0)],
-     "lines": [("robot_combine_1.4", "Target: farm. Instruction: collect every crop. Every. Single. One.", 7.0)]},
-    {"file": "ep01_C_eye.mp4", "skip": 1.4, "use": 4.6, "sfx": [("RobotSpawn.mp3", 0.3, 0.7)], "lines": []},
-    # The clip opens on the scarecrow shot again (it was started from B's last frame) and only cuts to the hatch at
-    # ~1.9s; starting there avoids a jump back after the eye close-up. The last frame is held to fit Bessie's line.
-    {"file": "ep01_D_robots.mp4", "skip": 1.9, "use": 3.1, "hold": 1.3, "chase_music": True,
-     "sfx": [("RobotSpawn.mp3", 0.1, 0.8), ("RobotSpawn.mp3", 1.4, 0.6)],
-     "lines": [("cluck_1.5_a", "And out came… them.", 0.6),
-               ("bessie_1.5", "The Harvest Robots.", 3.3)]},
-    {"file": "ep01_E_maze.mp4", "use": 8.0, "hold": 3.0, "lines": [
-        ("bessie_1.6", "In one night they turned our fields into mazes. Harvest corridors, they called them.", 1.2),
-        ("cluck_1.6_a", "Rude, is what I called them.", 7.6)]},
-    # Ending on the game itself: Woolly dodging robots, a power crop sending them running, Level Complete.
-    {"gameplay": (210.6, 2.6), "lines": [("cluck_6.11", "Robots, meet the Farm Fury.", 0.15)]},
-    {"gameplay": (455.0, 2.4), "lines": []},
-    {"gameplay": (471.2, 3.0), "lines": []},
-]
-
-# Over the end card, seconds after it starts. Voice only: a caption would cover the store badges, and the card
-# already says "Play free now!".
-END_LINES = [("bessie_E.1", None, 0.6)]
+# Each shot: clip file (in the episode's clip_dir), seconds cut off its start, seconds used after that, extra
+# seconds to hold the last frame ("hold_zoom": True adds a slow push-in over the hold, for a comic freeze-frame),
+# voice lines (file stem, caption, seconds after the shot starts, optionally (from, to) seconds to use only part of
+# the recording), and sound effects (file in SFX, seconds after the shot starts, gain). "chase_music": True switches
+# the music to CHASE_MUSIC from that shot until the gameplay. A "gameplay" shot is (start, seconds) of the
+# episode's gameplay video, framed 9:16 like the shorts, with its own game sound.
+EPISODES = {
+    1: {
+        "name": "ep01_the_night_the_robots_came",
+        "clip_dir": VIDEO_DIR / "Ep01_Clips",
+        "music": THEME,
+        "gameplay": SESSION_VIDEO,
+        # Big text over the cold open, for viewers watching with the sound off.
+        "hook": ["THEY CAME", "FOR THE CROPS"],
+        "shots": [
+            # Cold open (2026-10-19): a flash-forward to the Combine's eye and the end of its line, so the first two
+            # seconds hook the viewer before the slow farm intro.
+            {"file": "ep01_C_eye.mp4", "skip": 3.6, "use": 2.4, "hook": True,
+             "sfx": [("Bessie-ability.mp3", 0.0, 0.9)],
+             "lines": [("robot_combine_1.4", "Every. Single. One.", 0.05, (4.6, 6.9))]},
+            {"file": "ep01_A_farm.mp4", "use": 14.0, "lines": [
+                ("cluck_1.1", "It was harvest night. The corn was golden, the carrots were crunchy, "
+                              "and everybody was fast asleep…", 0.6),
+                ("bessie_1.1", "…except one chicken who'd had too much corn before bed.", 9.2)]},
+            # The Combine touches down ~5.6s into the clip.
+            {"file": "ep01_B_landing.mp4", "use": 10.0, "sfx": [("Bessie-ability.mp3", 5.5, 1.0)],
+             "lines": [("robot_combine_1.4", "Target: farm. Instruction: collect every crop. Every. Single. One.", 7.0)]},
+            {"file": "ep01_C_eye.mp4", "skip": 1.4, "use": 4.6, "sfx": [("RobotSpawn.mp3", 0.3, 0.7)], "lines": []},
+            # The clip opens on the scarecrow shot again (it was started from B's last frame) and only cuts to the hatch at
+            # ~1.9s; starting there avoids a jump back after the eye close-up. The last frame is held to fit Bessie's line.
+            {"file": "ep01_D_robots.mp4", "skip": 1.9, "use": 3.1, "hold": 1.3, "chase_music": True,
+             "sfx": [("RobotSpawn.mp3", 0.1, 0.8), ("RobotSpawn.mp3", 1.4, 0.6)],
+             "lines": [("cluck_1.5_a", "And out came… them.", 0.6),
+                       ("bessie_1.5", "The Harvest Robots.", 3.3)]},
+            {"file": "ep01_E_maze.mp4", "use": 8.0, "hold": 3.0, "lines": [
+                ("bessie_1.6", "In one night they turned our fields into mazes. Harvest corridors, they called them.", 1.2),
+                ("cluck_1.6_a", "Rude, is what I called them.", 7.6)]},
+            # Ending on the game itself: Woolly dodging robots, a power crop sending them running, Level Complete.
+            {"gameplay": (210.6, 2.6), "lines": [("cluck_6.11", "Robots, meet the Farm Fury.", 0.15)]},
+            {"gameplay": (455.0, 2.4), "lines": []},
+            {"gameplay": (471.2, 3.0), "lines": []},
+        ],
+        # Over the end card, seconds after it starts. Voice only: a caption would cover the store badges, and the
+        # card already says "Play free now!".
+        "end_lines": [("bessie_E.1", None, 0.6)],
+    },
+    # Ep 2 (2026-10-19): one 5s Kling 3.0 Turbo clip per animal, each animated from a 1-credit still made from the
+    # animal's game art (stills and job ids in Ep02_Clips/). All voice lines were already recorded.
+    2: {
+        "name": "ep02_chaos_on_the_farm",
+        "clip_dir": VIDEO_DIR / "Ep02_Clips",
+        "music": MUSIC_DIR / "CornField.mp3",
+        "gameplay": SESSION_VIDEO,
+        "hook": ["THE ROBOTS", "TOOK EVERYTHING"],
+        "shots": [
+            # Cold open: the end of Gerald's clip (steam, push-in) with the end of his line.
+            {"file": "ep02_2.4_gerald.mp4", "skip": 2.6, "use": 2.4, "hook": True,
+             "lines": [("gerald_2.4", "My. FENCE.", 0.3, (1.1, 2.75))]},
+            {"file": "ep02_2.1_percy.mp4", "use": 5.0, "hold": 0.8, "lines": [
+                ("cluck_2.1", "Percy lost his midnight snack.", 0.2),
+                ("percy_2.1", "…Hey! That was for later!", 3.0)]},
+            {"file": "ep02_2.2_woolly.mp4", "use": 5.0, "hold": 1.6, "sfx": [("RobotSpawn.mp3", 0.2, 0.6)], "lines": [
+                ("woolly_2.2", "Not the wool! It took me a YEAR to grow this!", 0.2),
+                ("robot_drone_2.2", "Hee hee. Fluffy crop.", 4.8)]},
+            {"file": "ep02_2.3_ducky.mp4", "use": 5.0, "lines": [
+                ("ducky_2.3", "…Dude. Not cool.", 2.3)]},
+            {"file": "ep02_2.4_gerald.mp4", "use": 5.0, "lines": [
+                ("gerald_2.4", "That. Was. My. FENCE.", 0.5)]},
+            {"file": "ep02_2.5_horace.mp4", "use": 5.0, "hold": 0.3, "lines": [
+                ("horace_2.5", "…Did that tin can just take my trophies?", 1.4)]},
+            # Billy hits the robot ~2.5s in and lands on his back ~3.5s.
+            {"file": "ep02_2.6_billy.mp4", "use": 5.0, "hold": 2.2, "sfx": [("Bessie-ability.mp3", 2.5, 0.9)], "lines": [
+                ("billy_2.6", "Head first… questions… later…", 3.0)]},
+            # Chaos, then the punchline over a freeze-frame of Cluck mid-scream (1.55s into the same clip, where she's
+            # closest to camera) with a slow push-in.
+            {"file": "ep02_2.7_chaos.mp4", "use": 5.0, "chase_music": True, "lines": [
+                ("cluck_2.7a", "It was CHAOS. Feathers! Wool! Panic! Somebody screamed!", 0.1)]},
+            {"file": "ep02_2.7_chaos.mp4", "skip": 1.55, "use": 0.1, "hold": 4.3, "hold_zoom": True,
+             "caption_y": 560,   # Cluck fills the bottom of this frame; keep her face clear
+             "lines": [
+                ("bessie_2.7", "That was you, Clucky.", 0.6),
+                ("cluck_2.7b", "…It was a brave scream.", 2.4)]},
+            # Gameplay: dodging, more dodging, then unlocking a new animal (Ducky).
+            {"gameplay": (278.3, 2.4), "lines": [("cluck_5.5b", "So who's with me?!", 0.35)]},
+            {"gameplay": (311.8, 2.4), "lines": []},
+            {"gameplay": (338.8, 3.0), "lines": []},
+        ],
+        "end_lines": [("bessie_E.1", None, 0.6)],
+    },
+}
 
 GAMEPLAY_GAIN = 1.8       # game sound sits in the ambience track (x AMBIENCE); louder than Kling's
 
@@ -112,15 +160,15 @@ def has_audio(ffmpeg, clip):
     return bool(out.strip())
 
 
-def build_hook(path):
+def build_hook(path, hook_lines):
     """Big yellow headline across the top, like the gameplay shorts' hook text."""
-    check_wording(" ".join(HOOK_LINES))
+    check_wording(" ".join(hook_lines))
     img = Image.new("RGBA", (W, H), (0, 0, 0, 0))
     draw = ImageDraw.Draw(img)
-    longest = max(HOOK_LINES, key=len)
+    longest = max(hook_lines, key=len)
     font, _, line_h = fit_font(draw, longest, (60, 0, W - 60, 200), max_size=170)
     y = HOOK_TOP
-    for line in HOOK_LINES:
+    for line in hook_lines:
         _centered(draw, line, font, y, ACCENT_FILL, 10)
         y += line_h
     img.save(path)
@@ -152,20 +200,23 @@ def build_end_card(path, play_only=False):
 
 
 def main():
-    play_only = "--play-only" in sys.argv[1:]
-    out_path = OUT_PLAY_ONLY if play_only else OUT
+    args = sys.argv[1:]
+    play_only = "--play-only" in args
+    ep = EPISODES[int(args[args.index("--episode") + 1]) if "--episode" in args else 1]
+    shots = ep["shots"]
+    out_path = VIDEO_DIR / "Episodes" / (ep["name"] + ("_play_only" if play_only else "") + ".mp4")
     ffmpeg = find_ffmpeg()
     out_path.parent.mkdir(parents=True, exist_ok=True)
     with tempfile.TemporaryDirectory() as tmp:
         work = Path(tmp)
         inputs, vgraph, agraph = [], [], []
         starts, t = [], 0.0
-        for i, shot in enumerate(SHOTS):
+        for i, shot in enumerate(shots):
             hold = shot.get("hold", 0.0)
             if "gameplay" in shot:
                 g_start, use = shot["gameplay"]
                 dur = use + hold
-                inputs += ["-ss", f"{g_start:.2f}", "-t", f"{use:.2f}", "-i", str(GAMEPLAY)]
+                inputs += ["-ss", f"{g_start:.2f}", "-t", f"{use:.2f}", "-i", str(ep["gameplay"])]
                 vgraph.append(f"[{i}:v]trim=0:{use},setpts=PTS-STARTPTS,"
                               f"crop=ih*{CROP_ASPECT}:ih:(iw-ih*{CROP_ASPECT})/2:0,setsar=1,split[gb{i}][gf{i}];"
                               f"[gb{i}]scale={W}:{H}:force_original_aspect_ratio=increase,crop={W}:{H},"
@@ -176,15 +227,22 @@ def main():
                               "aformat=sample_rates=48000:channel_layouts=stereo,"
                               f"apad=whole_dur={dur}[k{i}]")
             else:
-                clip = CLIP_DIR / shot["file"]
+                clip = ep["clip_dir"] / shot["file"]
                 if not clip.exists():
                     raise FileNotFoundError(clip)
                 inputs += ["-i", str(clip)]
                 skip = shot.get("skip", 0.0)
                 dur = shot["use"] + hold
+                zoom = ""
+                if shot.get("hold_zoom") and hold:
+                    # Slow push-in that starts when the clip freezes: zoompan with d=1 keeps one output frame per
+                    # input frame, so it only changes the framing.
+                    n0 = int(shot["use"] * FPS)
+                    zoom = (f",zoompan=z='if(lt(on,{n0}),1,1+0.12*(on-{n0})/{max(1, int(hold * FPS))})':"
+                            f"x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':d=1:s={W}x{H}:fps={FPS}")
                 vgraph.append(f"[{i}:v]trim={skip}:{skip + shot['use']},setpts=PTS-STARTPTS,fps={FPS},"
                               f"scale={W}:{H}:flags=lanczos,setsar=1,"
-                              f"tpad=stop_mode=clone:stop_duration={hold}[v{i}]")
+                              f"tpad=stop_mode=clone:stop_duration={hold}{zoom},setsar=1[v{i}]")
                 if has_audio(ffmpeg, clip):
                     agraph.append(f"[{i}:a]atrim={skip}:{skip + shot['use']},asetpts=PTS-STARTPTS,"
                                   "aformat=sample_rates=48000:channel_layouts=stereo,"
@@ -209,7 +267,7 @@ def main():
 
         # Join with crossfades.
         cur, acur = "v0", "k0"
-        for i in range(1, len(SHOTS)):
+        for i in range(1, len(shots)):
             off = starts[i]
             vgraph.append(f"[{cur}][v{i}]xfade=transition=fade:duration={XFADE}:offset={off:.2f}[x{i}]")
             agraph.append(f"[{acur}][k{i}]acrossfade=d={XFADE}[ka{i}]")
@@ -218,10 +276,10 @@ def main():
         cur = "xend"
 
         # Hook text over the cold open.
-        for si, shot in enumerate(SHOTS):
+        for si, shot in enumerate(shots):
             if shot.get("hook"):
                 hook_png = work / "hook.png"
-                build_hook(hook_png)
+                build_hook(hook_png, ep["hook"])
                 hi = inputs.count("-i")
                 inputs += ["-i", str(hook_png)]
                 a, b = starts[si], starts[si] + shot["_dur"] - XFADE / 2
@@ -230,8 +288,8 @@ def main():
 
         # Voices and captions at absolute times.
         voice_labels = []
-        timed_lines = [(si, starts[si], line) for si, shot in enumerate(SHOTS) for line in shot["lines"]]
-        timed_lines += [("end", end_start, line) for line in END_LINES]
+        timed_lines = [(si, starts[si], line) for si, shot in enumerate(shots) for line in shot["lines"]]
+        timed_lines += [("end", end_start, line) for line in ep["end_lines"]]
         for li, (si, base, (stem, text, at, *part)) in enumerate(timed_lines):
             path, d = prepare_voice(ffmpeg, stem, work)
             if part:
@@ -244,7 +302,7 @@ def main():
             a = base + at
             if text:
                 cap = work / f"{stem}_{li}_cap.png"
-                build_caption(stem, text, cap)
+                build_caption(stem, text, cap, shots[si].get("caption_y", 1500) if si != "end" else 1500)
                 vi = inputs.count("-i")
                 inputs += ["-i", str(cap)]
                 vgraph.append(f"[{cur}][{vi}:v]overlay=0:0:enable='between(t,{a:.2f},{a + d + 0.25:.2f})'[o{vi}]")
@@ -258,7 +316,7 @@ def main():
 
         # Sound effects at absolute times (not part of the voice key, so they don't duck the music).
         sfx_labels = []
-        for si, shot in enumerate(SHOTS):
+        for si, shot in enumerate(shots):
             for name, at, gain in shot.get("sfx", []):
                 fi = inputs.count("-i")
                 inputs += ["-i", str(SFX / name)]
@@ -271,11 +329,12 @@ def main():
 
         # Music: the theme for the story, the chase music from the robots' arrival until the gameplay (which has
         # its own game music), then the theme again under the end card.
-        chase_at = next(starts[i] for i, s in enumerate(SHOTS) if s.get("chase_music"))
-        game_at = next(starts[i] for i, s in enumerate(SHOTS) if "gameplay" in s)
+        chase_at = next(starts[i] for i, s in enumerate(shots) if s.get("chase_music"))
+        game_at = next(starts[i] for i, s in enumerate(shots) if "gameplay" in s)
         level = "loudnorm=I=-14:TP=-1.5:LRA=11,aformat=sample_rates=48000:channel_layouts=stereo"
         m1, m2, m3 = (inputs.count("-i") + k for k in range(3))
-        inputs += ["-i", str(MUSIC), "-stream_loop", "-1", "-i", str(CHASE_MUSIC), "-i", str(MUSIC)]
+        inputs += ["-stream_loop", "-1", "-i", str(ep["music"]), "-stream_loop", "-1", "-i", str(CHASE_MUSIC),
+                   "-i", str(THEME)]
         chase_len = game_at - chase_at
         agraph.append(f"[{m1}:a]{level},atrim=0:{chase_at + 0.5:.2f},afade=t=in:d=1,"
                       f"afade=t=out:st={chase_at - 0.3:.2f}:d=0.8[mu1]")
