@@ -144,8 +144,9 @@ They're not evil. They're **over-efficient**. The Combine told them to *collect 
 | 1 | The Night the Robots Came | ~40s | The arrival and landing |
 | 2 | Chaos on the Farm | ~40s | Animals' dismay and chaos |
 | 3 | Cluck & Bessie: The Debrief | ~45s | Commentary talk-show on the landing |
-| 4 | Meet the Metal | ~45s | The robots and their angle |
-| 5 | The Barn Bell | ~35s | Call to arms |
+| 4 | The Barn Meeting *(made 2026-10-19)* | ~42s | All eight in the barn: Cluck's rally, Bessie's plan, the hayloft secret. Replaces "The Barn Bell" below as the direct follow-on to Ep 3's "Ring the bell"; the animals are already gathered (no bell or arrival shots). Ends on "NEXT: THE GOLDEN GLOW". |
+| (5) | Meet the Metal | ~45s | The robots and their angle. Moved after the barn meeting (2026-10-19); can also run as the five robot solo shorts |
+| — | The Barn Bell | ~35s | Call to arms. Superseded by Ep 4 The Barn Meeting; its lines were reused there |
 | 6 | The Golden Glow | ~60s (+8 solo shorts) | Characters receive abilities |
 | 7 | Operation Harvest Home | ~45s | Military-style briefing |
 | 8 | Into the Mazes | ~50s | Maze run through all 7 worlds |

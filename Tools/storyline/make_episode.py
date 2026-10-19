@@ -167,12 +167,43 @@ EPISODES = {
                 ("bessie_3.5a", "Eight of us. Eight ways of being stubborn.", 0.3),
                 ("cluck_3.5", "Is this… a PLAN?", 4.3),
                 ("bessie_3.5b", "It's the start of one. Ring the bell.", 8.2)]},
-            {"file": "ep03_3.6_signoff.mp4", "use": 4.0, "hook": ["NEXT:", "MEET THE METAL"], "lines": [
+            {"file": "ep03_3.6_signoff.mp4", "use": 4.0, "hook": ["NEXT:", "THE BARN MEETING"], "lines": [
                 ("cluck_3.6", "Stay tuned, farm fans!", 0.3)]},
             # Gameplay: an early dodge, a power crop sending the robots running, Level Complete.
             {"gameplay": (23.5, 2.4), "lines": []},
             {"gameplay": (411.5, 2.4), "lines": []},
             {"gameplay": (415.6, 2.0), "lines": []},   # stops before the game moves on to world select (~418s)
+        ],
+    },
+    # Ep 4 (2026-10-19): the barn meeting, the direct follow-on to Ep 3's "Ring the bell" (Meet the Metal moves later).
+    # Cheaper version per the user: the animals are already gathered (no bell/arrival shots). Two Kling clips; the
+    # Billy/Gerald reaction and the hayloft hook are 1-credit stills with a slow push. Every line was already recorded.
+    4: {
+        "name": "ep04_the_barn_meeting",
+        "clip_dir": VIDEO_DIR / "Ep04_Clips",
+        "music": THEME,
+        "gameplay": SESSION_VIDEO,
+        "hook": ["ONE FARM.", "EIGHT ANIMALS."],
+        "shots": [
+            {"file": "ep04_4.1_meeting.mp4", "use": 8.0, "hold": 3.6, "hold_zoom": True, "hook": True, "hook_seconds": 2.8,
+             "lines": [
+                ("cluck_5.5a", "They took our crops. They cut up our fields. They took WOOLLY'S WOOL!", 0.3),
+                ("woolly_5.5", "It was a really good fleece.", 6.0),
+                ("cluck_5.5b", "So who's with me?!", 9.2)]},
+            {"image": "stills/4.2_billy_gerald.png", "use": 6.6, "lines": [
+                ("billy_5.5", "Head first!", 0.3),
+                ("gerald_5.5", "…Ugh. Fine.", 2.9)]},
+            {"file": "ep04_4.3_bessie.mp4", "use": 5.0, "hold": 2.0, "hold_zoom": True, "lines": [
+                ("bessie_7.5", "We swap in, we swap out, we work together. Nobody gets left in the maze.", 0.3)]},
+            # The hook into the powers episode: a golden glow from the hayloft.
+            {"image": "stills/4.4_hayloft.png", "use": 6.0, "push": 0.14, "hook": ["NEXT:", "THE GOLDEN GLOW"], "lines": [
+                ("bessie_6.1a", "Every farm has a secret. Ours is up in the hayloft.", 0.5)]},
+            # Ability teaser from real gameplay: Cluck's egg, Percy's roll, Woolly's clones, Bessie's slam, Ducky's skip.
+            {"gameplay": (24.0, 1.7), "lines": []},
+            {"gameplay": (129.4, 1.7), "lines": []},
+            {"gameplay": (203.5, 1.7), "lines": []},
+            {"gameplay": (273.9, 1.7), "lines": []},
+            {"gameplay": (358.3, 1.7), "lines": []},
         ],
     },
 }
@@ -290,7 +321,17 @@ def main():
         starts, t = [], 0.0
         for i, shot in enumerate(shots):
             hold = shot.get("hold", 0.0)
-            if "gameplay" in shot:
+            if "image" in shot:
+                # A still with a slow push-in (Ken Burns), for shots where a 1-credit still is enough.
+                use = shot["use"]
+                dur = use + hold
+                frames = int(dur * FPS)
+                inputs += ["-loop", "1", "-framerate", str(FPS), "-t", f"{dur:.2f}", "-i", str(ep["clip_dir"] / shot["image"])]
+                vgraph.append(f"[{i}:v]scale={W * 2}:{H * 2}:force_original_aspect_ratio=increase,crop={W * 2}:{H * 2},"
+                              f"zoompan=z='1+{shot.get('push', 0.08)}*on/{frames}':x='iw/2-(iw/zoom/2)':"
+                              f"y='ih/2-(ih/zoom/2)':d=1:s={W}x{H}:fps={FPS},setsar=1[v{i}]")
+                agraph.append(f"anullsrc=r=48000:cl=stereo,atrim=0:{dur}[k{i}]")
+            elif "gameplay" in shot:
                 g_start, use = shot["gameplay"]
                 dur = use + hold
                 inputs += ["-ss", f"{g_start:.2f}", "-t", f"{use:.2f}", "-i", str(ep["gameplay"])]
