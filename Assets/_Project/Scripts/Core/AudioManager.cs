@@ -219,8 +219,9 @@ namespace FarmFuryArcade.Core
         /// way Execute() itself is, so it can't double-fire on the reachable double-activation
         /// edge case while a roll is already in progress).</summary>
         public void PlayPercyRollSfx() => PlaySFX(percyRollClip);
-        /// <summary>Billy's Headbutt Through — fires from HeadbuttThroughAbility.Execute(), same
-        /// double-activation guard as PlayPercyRollSfx above.</summary>
+        /// <summary>Billy's Mud Sling — fires from HeadbuttThroughAbility.Execute() on every throw.
+        /// Kept its "Charge" name when the headbutt was replaced (2026-10-19) so the serialized clip
+        /// reference stays intact.</summary>
         public void PlayBillyChargeSfx() => PlaySFX(billyChargeClip);
         /// <summary>Horace's ability — fires from HorseshoeThrowAbility.Execute() whenever a
         /// horseshoe/hay bale is actually thrown (only skipped if neither prefab is wired at all).

@@ -39,7 +39,7 @@ namespace FarmFuryArcade.UI
     /// CharacterSelectCard next to a short story/ability blurb, BuildRow), pulled from the GDD's
     /// narrative section and the characters' actual current abilities (several diverged from the
     /// GDD's original spec since v1.0 — e.g. Percy's wall-phase became a robot-charging roll, and
-    /// Billy's wall-destroy became a robot-charging headbutt — so the blurbs describe what the
+    /// Billy's wall-destroy became a headbutt and then (2026-10-19) a Mud Sling — so the blurbs describe what the
     /// ability does today, not the original GDD text). Same Cluck-first hierarchy order
     /// ChooseCharacterScreen uses; every card shows unlocked/non-active/non-interactive — this is a
     /// browsing list, not the swap gate ChooseCharacterScreen enforces, and tapping a card does
@@ -227,9 +227,9 @@ namespace FarmFuryArcade.UI
             { CharacterType.Gerald, "Gerald's temper is legendary, and when he loses it, the whole farm " +
                 "knows it. He shakes out a furious burst of feathers straight ahead, and the first robot " +
                 "in its path doesn't get a second chance." },
-            { CharacterType.Billy, "Billy's never met an obstacle he'd rather walk around than through. " +
-                "Lower the horns, charge full speed across the maze — any robot standing in the way gets " +
-                "sent packing on contact." },
+            { CharacterType.Billy, "Billy's never met a mud puddle he didn't want to throw. " +
+                "He flings a glob of mud straight ahead: the first robot it hits is done for, and if it " +
+                "misses, the mud it leaves behind catches the next robot that wanders in." },
         };
 
         // Robots tab (2026-09-18) — one blurb per RobotType, written from each robot's real AI

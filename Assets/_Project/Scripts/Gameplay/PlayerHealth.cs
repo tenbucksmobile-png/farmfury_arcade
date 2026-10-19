@@ -26,8 +26,8 @@ namespace FarmFuryArcade.Gameplay
         private SpriteRenderer _spriteRenderer;
         private Vector3 _spawnWorldPosition;
 
-        // Real bug found and fixed (2026-08-29): BounceRollAbility (Percy), HeadbuttThroughAbility
-        // (Billy), and (until 2026-10-19) PuffUpAbility (Gerald) each define their own OnTriggerEnter2D on this SAME
+        // Real bug found and fixed (2026-08-29): BounceRollAbility (Percy), and (until 2026-10-19)
+        // HeadbuttThroughAbility (Billy) and (until 2026-10-19) PuffUpAbility (Gerald) each define their own OnTriggerEnter2D on this SAME
         // GameObject to ForceDefeat any robot their active ability touches — but Unity does not
         // guarantee which sibling MonoBehaviour's OnTriggerEnter2D runs first on a shared trigger
         // event. If this component's own check happened to run first, the character could die on
@@ -36,7 +36,6 @@ namespace FarmFuryArcade.Gameplay
         // mid-ability, robot touch already being handled" as deterministically safe regardless of
         // callback order, rather than hoping execution order lines up.
         private BounceRollAbility _bounceRollAbility;
-        private HeadbuttThroughAbility _headbuttThroughAbility;
 
         // Same gap, found later (2026-09-08): GroundSlamAbility (Bessie) also instantly defeats any
         // robot within its radius, including on the very frame it's cast — but it was never added
@@ -63,7 +62,6 @@ namespace FarmFuryArcade.Gameplay
             _movement = GetComponent<GridMovement>();
             _spriteRenderer = GetComponent<SpriteRenderer>();
             _bounceRollAbility = GetComponent<BounceRollAbility>();
-            _headbuttThroughAbility = GetComponent<HeadbuttThroughAbility>();
             _groundSlamAbility = GetComponent<GroundSlamAbility>();
             _eggDropAbility = GetComponent<EggDropAbility>();
         }
@@ -72,7 +70,6 @@ namespace FarmFuryArcade.Gameplay
         /// robot contact itself (ForceDefeat) — see the field doc comment above.</summary>
         private bool IsProtectedByActiveAbility =>
             (_bounceRollAbility != null && _bounceRollAbility.IsRolling) ||
-            (_headbuttThroughAbility != null && _headbuttThroughAbility.IsCharging) ||
             (_groundSlamAbility != null && _groundSlamAbility.IsActive) ||
             (_eggDropAbility != null && _eggDropAbility.IsProtectingCurrentTile);
 

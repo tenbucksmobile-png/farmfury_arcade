@@ -43,6 +43,10 @@ namespace FarmFuryArcade.Abilities
 
         [SerializeField] private Sprite impactSprite;
 
+        /// <summary>Optional (2026-10-19): spawned where the projectile stops if it never hit a robot
+        /// - Billy's Mud Sling leaves a MudPileHazard this way. Null for every other projectile.</summary>
+        [SerializeField] private GameObject landingPrefab;
+
         private SpriteRenderer _spriteRenderer;
 
         private void Awake()
@@ -103,6 +107,10 @@ namespace FarmFuryArcade.Abilities
                 cell = nextCell;
             }
 
+            if (landingPrefab != null)
+            {
+                Instantiate(landingPrefab, tileMap.GridToWorld(cell), Quaternion.identity);
+            }
             Destroy(gameObject);
         }
 

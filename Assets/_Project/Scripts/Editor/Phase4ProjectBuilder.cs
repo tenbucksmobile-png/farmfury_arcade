@@ -436,7 +436,7 @@ namespace FarmFuryArcade.EditorTools
             BuildCharacterDataAsset(CharacterType.Gerald, "Gerald", UnifiedCharacterSpeed, AbilityType.PuffUp, UnifiedAbilityCooldown,
                 "Fires a burst of feathers 3 tiles ahead — the first robot it hits is defeated.", 30, false);
             BuildCharacterDataAsset(CharacterType.Billy, "Billy", UnifiedCharacterSpeed, AbilityType.HeadbuttThrough, UnifiedAbilityCooldown,
-                "Permanently destroys the next 3 walls he headbutts.", 40, false);
+                "Flings mud 3 tiles ahead — the first robot hit is defeated; a miss leaves a mud trap.", 40, false);
         }
 
         private static void BuildCharacterDataAsset(CharacterType type, string displayName, float speed,

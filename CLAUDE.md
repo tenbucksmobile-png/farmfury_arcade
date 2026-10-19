@@ -681,7 +681,7 @@ ability:
 | Ducky | SkipShot | Teleports across an adjacent unused water tile pair — once per pair per maze. With no unused pair adjacent, fires a Water Spout (`waterSpoutPrefab`, a `ThrownProjectileEffect`, 3 tiles, defeats the first robot hit) instead (2026-10-15) | 10s (this is the real gate now too — see the note below on why it went from a 2s debounce to matching everyone else) |
 | Horace | HorseshoeThrow | Launches a horseshoe 3 tiles (6 if buffed) in his current facing direction, spinning, instantly defeating the first robot it touches — both vanish together on impact, unlike Percy's roll it does NOT carry on to a second target; stops early at a wall (reworked 2026-09-16 from RearKickAbility's "yank the nearest enemy within 3 tiles" — see below; distance/speed re-tuned the same day, and again 2026-09-17 to fix an invisible-throw bug — see that ability's own doc comment) | 10s |
 | Gerald | Feather Burst (`PuffUpAbility`) | Fires a Feather Burst (`featherBurstPrefab`, a `ThrownProjectileEffect`, 3 tiles, defeats the first robot hit). The old puff-up (2x pulse, robot-defeat on touch, half speed, no warp tunnels) was removed 2026-10-19 per direct request; class/enum/sfx names kept so the prefab references survive | 10s |
-| Billy | HeadbuttThrough | Speeds up and charges 3 tiles forward in his current facing direction, instantly defeating any robot touched (reworked 2026-08-21 from a wall-destroy ability — see below) | 10s |
+| Billy | Mud Sling (`HeadbuttThroughAbility`) | Flings a mud glob (`mudBallPrefab`, a `ThrownProjectileEffect`, 3 tiles, defeats the first robot hit, `MudSplat.png` on impact); on a miss it leaves a `MudPileHazard` (`landingPrefab`, 3s, defeats the next robot to walk in). Holds `Billy_Sling.png` for 0.3s on left/right throws. Replaced the 3-tile charge 2026-10-19 (charge wasn't working in play), ported from Farm Fury: Stampede; class/enum/sfx names kept so prefab references survive. Built and wired by `AbilityProjectileWiringBuilder` | 10s |
 
 **All 8 cooldowns were unified to 10s** in a later gameplay pass (previously a spread from 2s
 Ducky to 45s Gerald) — `Phase4ProjectBuilder.BuildCharacterData`'s per-character cooldown literals
@@ -826,7 +826,7 @@ serialized reference was kept as-is even though it's no longer instantiated — 
 `SpriteRenderer.sprite` is read now — since renaming would drop the existing wired reference on
 Percy's prefab (Unity matches serialized fields by name).
 
-**`HeadbuttThroughAbility` (Billy) reworked from a 3-wall-destroy window to a robot charge
+**Superseded 2026-10-19 by Mud Sling (see the ability table); kept for history.** **`HeadbuttThroughAbility` (Billy) reworked from a 3-wall-destroy window to a robot charge
 (2026-08-21).** The original version armed a window that permanently destroyed the next 3 walls he
 walked into (`TileMapRenderer.DestroyWallAt`); per direct feedback ("when activated he should speed
 up and headbutt the robot in any direction") it was replaced with a charge, same shape as
@@ -4348,7 +4348,7 @@ phase made for art (solid-colour placeholders instead of real sprites).
   above); re-run `Phase5ProjectBuilder.BuildAll` if Main Menu ever needs rebuilding from scratch.
   Also no longer wires `matchup.png`/its buttons (see "Removed: Matchup screen").
 - **`AbilityProjectileWiringBuilder`** (`Farm Fury Arcade > Wire Ability Projectiles (Water Spout +
-  Feather Burst)`, added 2026-10-15) — builds `Prefabs/Abilities/WaterSpout.prefab` and
+  Feather Burst + Mud Sling)`, added 2026-10-15; Billy's Mud Sling `MudBall`/`MudPile` prefabs and `slingSprite` added 2026-10-19) — builds `Prefabs/Abilities/WaterSpout.prefab` and
   `FeatherBurst.prefab` (from `Sprites/Characters/WaterSpout.png`/`FeatherBurst.png`, scale 0.8 of a
   cell, same Rigidbody2D/trigger setup as `Horseshoe.prefab`) and wires them onto
   `SkipShotAbility.waterSpoutPrefab` (Ducky) / `PuffUpAbility.featherBurstPrefab` (Gerald).

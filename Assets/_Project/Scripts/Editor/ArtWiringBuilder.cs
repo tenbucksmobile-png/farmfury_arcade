@@ -156,10 +156,9 @@ namespace FarmFuryArcade.EditorTools
         private const string BillyLeft1 = "Assets/_Project/Sprites/Characters/Billy_left1.png";
         private const string BillyRight0 = "Assets/_Project/Sprites/Characters/Billy_right.png";
         private const string BillyRight1 = "Assets/_Project/Sprites/Characters/Billy_right1.png";
-        // Headbutt Through's charging-ram pose (HeadbuttThroughAbility.ramSpriteLeft/Right) — real
-        // dedicated art for each direction, not mirrored from one. Only Left/Right exist; an Up/Down
-        // charge leaves Billy's sprite untouched for the charge's duration (see that ability's own
-        // doc comment).
+        // Headbutt Through's old charging-ram pose. Unused since the ability became Mud Sling
+        // (2026-10-19; the sling pose is wired by AbilityProjectileWiringBuilder). Still configured
+        // for import below so the files keep their correct PPU.
         private const string BillyRamLeft = "Assets/_Project/Sprites/Characters/Billy_left_ram1.png";
         private const string BillyRamRight = "Assets/_Project/Sprites/Characters/Billy_right_ram1.png";
 
@@ -1072,46 +1071,6 @@ namespace FarmFuryArcade.EditorTools
             WireCharacterPrefabSprite($"{CharacterPrefabFolder}/Billy.prefab", front);
         }
 
-        /// <summary>Wires HeadbuttThroughAbility.ramSpriteLeft/Right (Billy_left_ram1.png /
-        /// Billy_right_ram1.png) directly onto Billy.prefab's own ability component — round-trips
-        /// through LoadPrefabContents/SaveAsPrefabAsset rather than a bare SerializedObject-on-the-
-        /// loaded-asset edit, same gotcha-safe pattern WireEgg's EggHazard field wiring already
-        /// uses (a plain SerializedObject edit against PrefabUtility.SaveAsPrefabAsset's return value
-        /// doesn't reliably persist in this Unity version — see Phase4ProjectBuilder's own doc
-        /// comment on the same issue).</summary>
-        private static void WireBillyHeadbutt()
-        {
-            var ramLeft = Load(BillyRamLeft);
-            var ramRight = Load(BillyRamRight);
-            if (ramLeft == null && ramRight == null)
-            {
-                return;
-            }
-
-            string prefabPath = $"{CharacterPrefabFolder}/Billy.prefab";
-            if (!File.Exists(prefabPath))
-            {
-                Debug.LogWarning($"[ArtWiringBuilder] Billy.prefab not found at {prefabPath} — skipping Headbutt ram art wiring.");
-                return;
-            }
-
-            var contents = PrefabUtility.LoadPrefabContents(prefabPath);
-            var ability = contents.GetComponent<HeadbuttThroughAbility>();
-            if (ability != null)
-            {
-                var so = new SerializedObject(ability);
-                if (ramLeft != null) so.FindProperty("ramSpriteLeft").objectReferenceValue = ramLeft;
-                if (ramRight != null) so.FindProperty("ramSpriteRight").objectReferenceValue = ramRight;
-                so.ApplyModifiedPropertiesWithoutUndo();
-            }
-            else
-            {
-                Debug.LogWarning("[ArtWiringBuilder] Billy.prefab has no HeadbuttThroughAbility component — skipping ram art wiring.");
-            }
-            PrefabUtility.SaveAsPrefabAsset(contents, prefabPath);
-            PrefabUtility.UnloadPrefabContents(contents);
-        }
-
         private static void WireHarvester()
         {
             var front = Load(HarvesterFront);
@@ -1757,7 +1716,6 @@ namespace FarmFuryArcade.EditorTools
             WireHorace();
             WireGerald();
             WireBilly();
-            WireBillyHeadbutt();
 
             WireAbilityIcons();
         }
