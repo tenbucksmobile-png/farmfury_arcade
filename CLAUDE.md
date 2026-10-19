@@ -4354,7 +4354,7 @@ phase made for art (solid-colour placeholders instead of real sprites).
   `SkipShotAbility.waterSpoutPrefab` (Ducky) / `PuffUpAbility.featherBurstPrefab` (Gerald).
   Self-contained and idempotent; `Phase4ProjectBuilder.BuildAll` calls it at the end because it
   rebuilds Ducky/Gerald from scratch. All three throwing abilities share
-  `ThrownProjectileEffect.SpawnAhead`. Run in the Editor 2026-10-16 (prefabs built and wired, committed); not yet tested in Play mode.
+  `ThrownProjectileEffect.SpawnAhead`. Run in the Editor 2026-10-16 (Water Spout/Feather Burst) and again 2026-10-19 (Mud Sling: `MudBall`/`MudPile` prefabs built, Billy's `mudBallPrefab`/`slingSprite` wired), all committed; none of the three tested in Play mode yet.
 - **`CosmeticPreviewRenderer`** (`Farm Fury Arcade > Debug > Render Cosmetic Preview Sheet`,
   added 2026-09-11) — Edit-mode-only, no Play mode needed at all. Renders every (character, hat)
   pair's real sprite at its real `hatOffset`/`hatScale` into one contact-sheet PNG so hat
