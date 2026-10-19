@@ -99,7 +99,7 @@ The narrators first, then the crew. Each character gets a **personality**, a **c
 - **Look:** bright yellow duck, half-closed relaxed eyes, orange bill.
 - **Personality:** laid-back, unbothered, a surfer type. He's the only one who isn't panicking, mainly because he hasn't noticed yet.
 - **Catchphrase:** *"Just go with the flow, dude."*
-- **Power (Water Skip + Water Spout):** he has always been happiest in the pond. Now he can skip across water like a stone, and blast a golden water spout from his bill that sends robots spinning. *(Story/marketing visual. In the game his ability is still Water Skip.)*
+- **Power (Water Skip + Water Spout):** he has always been happiest in the pond. Now he can skip across water like a stone, and blast a golden water spout from his bill that sends robots spinning. *(Matches the game since 2026-10-15: next to water he skips across; anywhere else he fires the Water Spout, 3 tiles, bonking the first robot it hits.)*
 
 ### Horace the Horse — the show-off
 - **Look:** chestnut horse, white blaze, black mane, big expressive eyes.
@@ -110,14 +110,14 @@ The narrators first, then the crew. Each character gets a **personality**, a **c
 ### Gerald the Turkey — the grump
 - **Look:** big dark-brown turkey, huge fanned tail, red face, permanently furious eyebrows.
 - **Personality:** permanently offended by everything: the robots, the noise, the moon, Cluck's enthusiasm. His temper is the farm's secret weapon.
-- **Catchphrase:** *"Oh, I am SO puffed up right now."*
-- **Power (Puff Up + Feather Cloud):** he has always puffed up when annoyed. Now when he puffs up, he bursts out a swirling feather cloud, and he's big enough to bonk any robot that touches him. *(Story/marketing visual. In the game his ability is still Puff Up.)*
+- **Catchphrase:** *"You want feathers? I'll GIVE you feathers!"*
+- **Power (Feather Burst):** he has always ruffled his feathers when annoyed. Now his temper comes out as a swirling golden burst of feathers that flies straight ahead and bonks the first robot in its path. He does NOT grow or puff up any more. *(Matches the game since 2026-10-19: the old Puff Up was removed; Feather Burst flies 3 tiles. Iron Stampede makes it fire in all four directions.)*
 
-### Billy the Goat — the battering ram
+### Billy the Goat — the stubborn one
 - **Look:** black-and-white goat, curved tan horns, grey goatee, determined frown. No bell.
 - **Personality:** stubborn and headstrong. He charges first and thinks never. He's head-butted every gate on the farm, and he's fiercely protective of the little ones.
 - **Catchphrase:** *"Head first. Questions later."*
-- **Power (Headbutt Through):** the stubbornest head on the farm, now charged with gold.
+- **Power (Mud Sling):** his headbutts bounce off robot armour (Ep 2), so he does what goats do best with mud: he flings it. A golden glob of mud flies straight ahead and splats the first robot it hits; if it misses, it leaves a sticky mud puddle that catches the next robot to roll in. *(Matches the game since 2026-10-19: Mud Sling replaced Headbutt Through; 3 tiles, the puddle lasts 3 seconds.)*
 
 ### The Robots — "and their angle"
 
@@ -409,8 +409,8 @@ Each clip below has: **Refs** (images to attach), **Prompt** (paste after the st
 | **6.6 Woolly** | Woolly | The sheep glows, there's a puff of wool, and suddenly three identical sheep stand side by side looking at each other in surprise. | Woolly ×3: "Ewe can never have too many of me." |
 | **6.7 Ducky** | Ducky | The duck skips across a moonlit pond in three golden bounces like a skipping stone, lands on the far bank, then blasts a glowing golden water spout from his bill that sends a robot spinning backwards, dripping. He slides his sunglasses on. | Ducky: "Just go with the flow, dude." |
 | **6.8 Horace** | Horace | The horse rears up, spins a glowing golden horseshoe and throws it down a corridor; it hits a robot with a clang and the robot spins away. | Horace: "Ringer!" |
-| **6.9 Gerald** | Gerald | The angry turkey puffs up to twice his size, pulsing big and small three times, glowing red-gold, and bursts out a swirling cloud of brown and gold feathers; a robot bounces off him and tumbles away through the feathers. | Gerald: "Oh, I am SO puffed up right now." |
-| **6.10 Billy** | Billy | The goat with curved horns lowers his head, his horns glow gold, and he charges forward in a golden streak, bursting through a stack of hay bales and bouncing a robot away. | Billy: "Head first. Questions later." |
+| **6.9 Gerald** | Gerald | Golden pollen settles on the furious turkey; his tail fans out, he shakes himself hard, and a swirling burst of glowing brown and gold feathers shoots straight down a corridor, bonking a robot into a spin. He stays his normal size. | Gerald: "You want feathers? I'll GIVE you feathers!" *(new line, record)* |
+| **6.10 Billy** | Billy | Golden pollen settles on the goat; he scoops a glob of glowing golden mud from a puddle and flings it down a corridor. It splats a robot, which spins away dripping; a second glob misses and leaves a sticky golden puddle that the next robot rolls straight into and gets stuck. | Billy: "Okay… maybe MUD first." *(new line, record; a callback to his failed headbutt in Ep 2)* |
 
 **6.11** · 5s · Refs: all 8 (silhouettes OK)
 **Prompt:** All eight animals in a heroic line in the barn doorway, glowing faintly gold, moon behind them, their shadows stretching long across the farmyard toward the distant spaceship.
@@ -466,8 +466,8 @@ And watch the factory. That's where they come from."
 | 8.3 | Orchard | Horace, Patrol | Chestnut horse galloping between fruit tree trunks under a deep purple night sky, throwing a golden horseshoe that bounces a cyan tank robot away; apples fall. | Horace: "Ringer!" |
 | 8.4 | Wheat Field | Woolly, Drifter | Three identical fluffy sheep running in different directions through a wheat-sheaf maze on cracked dry earth, confusing an orange robot that spins in circles. | Woolly: "Which one's the real me? …Me neither." |
 | 8.5 | Frostbite Garden | Ducky, Drone | Yellow duck skipping across a frozen pond in a snowy night garden maze in three golden bounces, then blasting a golden water spout upward that knocks a silver drone tumbling out of the air. | Ducky: "Ice, ice, ducky." |
-| 8.6 | Golden Sunset | Billy, Harvester | Goat with curved horns charging in a golden streak through a maze glowing with warm sunset-orange light, bouncing a red robot out of the way. | Billy: "Head first!" |
-| 8.7 | Harvest Moon | Gerald, Bessie | Under a giant orange harvest moon, the turkey puffs up huge in a swirling feather cloud and the cow stamps a golden shockwave at the same moment, sending four robots tumbling in every direction. | Bessie: "Harvest Moon." Gerald: "And I'm STILL mad." |
+| 8.6 | Golden Sunset | Billy, Harvester | Goat with curved horns flinging a glowing golden mud ball down a maze glowing with warm sunset-orange light; it splats a red robot, which spins away dripping. | Billy: "Head first!" |
+| 8.7 | Harvest Moon | Gerald, Bessie | Under a giant orange harvest moon, the turkey blasts a swirling golden feather burst and the cow stamps a golden shockwave at the same moment, sending four robots tumbling in every direction. | Bessie: "Harvest Moon." Gerald: "And I'm STILL mad." |
 | 8.8 | All | Golden wheat | A rare glowing golden wheat stalk is grabbed; every robot in the maze turns blue and flees in panic, little blue error clouds above their heads. | Cluck: "Golden crop! RUN, robots, RUN!" |
 
 **8.9** · 5s · Refs: all 8 (or silhouettes)
@@ -486,7 +486,7 @@ And watch the factory. That's where they come from."
 |---|---|---|---|
 | 9.1 | FEATHER STORM (Cluck → Woolly) | Chicken high-fives the sheep in a burst of feathers; the sheep splits into three, and each copy leaves a trail of golden eggs. | **FEATHER STORM!** |
 | 9.2 | EARTHQUAKE ROLL (Bessie → Percy) | Cow stamps the ground and the pig rolls on the shockwave like a surfer, rolling three times further down the corridor, glowing gold, knocking robots aside like bowling pins. | **EARTHQUAKE ROLL!** |
-| 9.3 | IRON STAMPEDE (Bessie → Gerald) | Cow taps the turkey; he puffs up into a giant glowing red-gold ball that pushes right through a hedge wall. | **IRON STAMPEDE!** |
+| 9.3 | IRON STAMPEDE (Bessie → Gerald) | Cow taps the turkey; he shakes out a golden feather burst in all four directions at once, bonking robots on every side of the junction. | **IRON STAMPEDE!** |
 | 9.4 | CROSSFIRE (Billy → Horace) | The goat bucks a horseshoe up into the air, the horse catches it and throws it twice as far down the corridor in a golden streak. | **CROSSFIRE!** |
 | 9.5 | FULL FURY (5+ animals) | Five animals tag in one after another in quick flashes; a golden shockwave freezes every robot on the maze in place with stars circling their heads. | **FULL FURY!** Cluck: "Swap. Combo. FURY!" |
 ---

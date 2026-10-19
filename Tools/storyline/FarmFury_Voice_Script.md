@@ -160,7 +160,7 @@ Ducky is **male** ("he"), decided 2026-10-15; the game text now matches.
 | 2.4 | "That. Was. My. FENCE." | *Each word a separate beat, exploding on FENCE* |
 | 5.4 | "Fine. FINE. But I'm not happy about it." | *Muttered, then snapped* |
 | 5.5 | "…Ugh. Fine." | *Defeated grumble* |
-| 6.9 | "Oh, I am SO puffed up right now." | *Seething, building* |
+| 6.9 | "You want feathers? I'll GIVE you feathers!" | *Seething, then explodes on the second FEATHERS* **NEW 2026-10-19: record** (replaces "Oh, I am SO puffed up right now."; Gerald no longer puffs up) |
 | 8.7 | "And I'm STILL mad." | *Huffy punchline* |
 
 ---
@@ -174,7 +174,7 @@ Ducky is **male** ("he"), decided 2026-10-15; the game text now matches.
 | 2.6 | "Head first… questions… later…" | *Dizzy, slurred, trailing off* |
 | 5.4 | "You're never happy about it!" | *Shouted back over his shoulder while running past* |
 | 5.5 / 8.6 | "Head first!" | *Battle cry (one take works for both)* |
-| 6.10 | "Head first. Questions later." | *Determined catchphrase* |
+| 6.10 | "Okay… maybe MUD first." | *Grudging, then grins on MUD* **NEW 2026-10-19: record** (replaces "Head first. Questions later."; his power is now the Mud Sling) |
 
 ---
 
