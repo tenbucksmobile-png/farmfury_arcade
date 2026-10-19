@@ -26,7 +26,7 @@ from PIL import Image, ImageDraw, ImageFilter, ImageFont  # noqa: E402
 
 from make_shorts import (ACCENT_FILL, AUDIO_OUT, CROP_ASPECT, FONT, FPS, H, LOGO, PICTURE_CENTER_Y,  # noqa: E402
                          POSTER, REPO, STROKE_FILL, TEXT_FILL, VIDEO_OUT, W, check_wording, fit_font)
-from make_animatic import VIDEO_DIR, build_caption, prepare_voice, run  # noqa: E402
+from make_animatic import VIDEO_DIR, VOICE_DIR, build_caption, prepare_voice, probe_duration, run  # noqa: E402
 from normalize_video import find_ffmpeg  # noqa: E402
 
 MUSIC_DIR = REPO / "Assets/_Project/Audio/Music"
@@ -40,7 +40,17 @@ XFADE = 0.4               # crossfade between clips
 AMBIENCE = 0.45           # Kling's own clip sound, under everything
 MUSIC_GAIN = 0.16
 FADE_OUT = 0.6
-END_CARD_SECONDS = 4.5
+END_CARD_SECONDS = 4.5    # minimum; stretched to fit the end-card voices
+
+# End card voices (every episode): all eight animals shout "Farm Fury!" together (<character>_ff.mp3 in
+# Eleven_Audio; any missing file is skipped), each a few hundredths of a second apart so it reads as a crowd,
+# then Bessie's E.1 with its two halves swapped: "Come help us out." (1.05-2.12s) then "Free to play." (0-0.80s).
+CHORUS = ["cluck", "bessie", "percy", "woolly", "ducky", "horace", "gerald", "billy"]
+CHORUS_STAGGER = 0.035
+END_CHORUS_AT = 0.5
+END_LINE = ("bessie_E.1", [(1.05, 2.12), (0.0, 0.80)])
+END_LINE_GAP = 0.35       # after the chorus, and between the two swapped halves
+END_TAIL = 1.0            # card stays up this long after the last word
 END_CARD_XFADE = 0.8
 APP_STORE_BADGE = HERE / "assets" / "app-store-badge.png"
 PLAY_BADGE = HERE / "assets" / "google-play-badge.png"
@@ -88,9 +98,6 @@ EPISODES = {
             {"gameplay": (455.0, 2.4), "lines": []},
             {"gameplay": (471.2, 3.0), "lines": []},
         ],
-        # Over the end card, seconds after it starts. Voice only: a caption would cover the store badges, and the
-        # card already says "Play free now!".
-        "end_lines": [("bessie_E.1", None, 0.6)],
     },
     # Ep 2 (2026-10-19): one 5s Kling 3.0 Turbo clip per animal, each animated from a 1-credit still made from the
     # animal's game art (stills and job ids in Ep02_Clips/). All voice lines were already recorded.
@@ -133,7 +140,6 @@ EPISODES = {
             {"gameplay": (311.8, 2.4), "lines": []},
             {"gameplay": (338.8, 3.0), "lines": []},
         ],
-        "end_lines": [("bessie_E.1", None, 0.6)],
     },
 }
 
@@ -199,6 +205,41 @@ def build_end_card(path, play_only=False):
     card.convert("RGB").save(path)
 
 
+def build_end_voices(ffmpeg, work):
+    """The end card's audio: the 'Farm Fury!' chorus and Bessie's reordered line, as (wav, seconds into the card,
+    duration). Voice only, no captions: a caption would cover the store badges."""
+    items, at = [], END_CHORUS_AT
+    voices = [prepare_voice(ffmpeg, f"{c}_ff", work)[0] for c in CHORUS if (VOICE_DIR / f"{c}_ff.mp3").exists()]
+    if voices:
+        chorus = work / "chorus.wav"
+        ins = [x for v in voices for x in ("-i", str(v))]
+        delays = ";".join(f"[{k}:a]adelay={int(k * CHORUS_STAGGER * 1000)}|{int(k * CHORUS_STAGGER * 1000)}[c{k}]"
+                          for k in range(len(voices)))
+        mix = "".join(f"[c{k}]" for k in range(len(voices)))
+        run([ffmpeg, "-v", "error", "-y", *ins, "-filter_complex",
+             f"{delays};{mix}amix=inputs={len(voices)}:normalize=0,volume={1.6 / len(voices) ** 0.5:.3f}",
+             str(chorus)])
+        d = probe_duration(ffmpeg, chorus)
+        items.append((chorus, at, d))
+        at += d + END_LINE_GAP
+        print(f"  chorus: {len(voices)} of {len(CHORUS)} 'Farm Fury' takes found")
+    else:
+        print("  chorus: no <character>_ff.mp3 takes found, skipped")
+
+    stem, parts = END_LINE
+    src, _ = prepare_voice(ffmpeg, stem, work)
+    line = work / "end_line.wav"
+    pieces = ";".join(f"[0:a]atrim={lo}:{hi},asetpts=PTS-STARTPTS,afade=t=in:d=0.02,"
+                      f"afade=t=out:st={hi - lo - 0.06:.2f}:d=0.06[p{k}]" for k, (lo, hi) in enumerate(parts))
+    gap = f"anullsrc=r=48000:cl=stereo,atrim=0:{END_LINE_GAP}[gap]"
+    order = "[gap]".join(f"[p{k}]" for k in range(len(parts)))
+    run([ffmpeg, "-v", "error", "-y", "-i", str(src), "-filter_complex",
+         f"{pieces};{gap};{order}concat=n={2 * len(parts) - 1}:v=0:a=1", str(line)])
+    d = probe_duration(ffmpeg, line)
+    items.append((line, at, d))
+    return items, max(END_CARD_SECONDS, at + d + END_TAIL)
+
+
 def main():
     args = sys.argv[1:]
     play_only = "--play-only" in args
@@ -209,6 +250,7 @@ def main():
     out_path.parent.mkdir(parents=True, exist_ok=True)
     with tempfile.TemporaryDirectory() as tmp:
         work = Path(tmp)
+        end_voices, card_s = build_end_voices(ffmpeg, work)
         inputs, vgraph, agraph = [], [], []
         starts, t = [], 0.0
         for i, shot in enumerate(shots):
@@ -258,12 +300,12 @@ def main():
         end_png = work / "end_card.png"
         build_end_card(end_png, play_only)
         ei = inputs.count("-i")
-        inputs += ["-loop", "1", "-framerate", str(FPS), "-t", f"{END_CARD_SECONDS:.2f}", "-i", str(end_png)]
-        frames = int(END_CARD_SECONDS * FPS)
+        inputs += ["-loop", "1", "-framerate", str(FPS), "-t", f"{card_s:.2f}", "-i", str(end_png)]
+        frames = int(card_s * FPS)
         vgraph.append(f"[{ei}:v]scale={W * 2}:{H * 2},zoompan=z='1+0.04*on/{frames}':x='iw/2-(iw/zoom/2)':"
                       f"y='ih/2-(ih/zoom/2)':d=1:s={W}x{H}:fps={FPS},setsar=1[vend]")
         end_start = clips_end - END_CARD_XFADE
-        total = end_start + END_CARD_SECONDS
+        total = end_start + card_s
 
         # Join with crossfades.
         cur, acur = "v0", "k0"
@@ -289,7 +331,6 @@ def main():
         # Voices and captions at absolute times.
         voice_labels = []
         timed_lines = [(si, starts[si], line) for si, shot in enumerate(shots) for line in shot["lines"]]
-        timed_lines += [("end", end_start, line) for line in ep["end_lines"]]
         for li, (si, base, (stem, text, at, *part)) in enumerate(timed_lines):
             path, d = prepare_voice(ffmpeg, stem, work)
             if part:
@@ -302,7 +343,7 @@ def main():
             a = base + at
             if text:
                 cap = work / f"{stem}_{li}_cap.png"
-                build_caption(stem, text, cap, shots[si].get("caption_y", 1500) if si != "end" else 1500)
+                build_caption(stem, text, cap, shots[si].get("caption_y", 1500))
                 vi = inputs.count("-i")
                 inputs += ["-i", str(cap)]
                 vgraph.append(f"[{cur}][{vi}:v]overlay=0:0:enable='between(t,{a:.2f},{a + d + 0.25:.2f})'[o{vi}]")
@@ -313,6 +354,13 @@ def main():
             agraph.append(f"[{ai}:a]adelay={ms}|{ms}[vo{ai}]")
             voice_labels.append(f"[vo{ai}]")
             print(f"  {a:5.1f}-{a + d:5.1f}s  {stem}")
+        for path, at, d in end_voices:
+            ai = inputs.count("-i")
+            inputs += ["-i", str(path)]
+            ms = int((end_start + at) * 1000)
+            agraph.append(f"[{ai}:a]adelay={ms}|{ms}[vo{ai}]")
+            voice_labels.append(f"[vo{ai}]")
+            print(f"  {end_start + at:5.1f}-{end_start + at + d:5.1f}s  end card: {path.stem}")
 
         # Sound effects at absolute times (not part of the voice key, so they don't duck the music).
         sfx_labels = []
@@ -340,7 +388,7 @@ def main():
                       f"afade=t=out:st={chase_at - 0.3:.2f}:d=0.8[mu1]")
         agraph.append(f"[{m2}:a]{level},atrim=0:{chase_len + 0.6:.2f},afade=t=in:d=0.5,"
                       f"afade=t=out:st={chase_len - 0.3:.2f}:d=0.8,adelay={int(chase_at * 1000)}|{int(chase_at * 1000)}[mu2]")
-        agraph.append(f"[{m3}:a]{level},atrim=0:{END_CARD_SECONDS + 1:.2f},afade=t=in:d=0.8,"
+        agraph.append(f"[{m3}:a]{level},atrim=0:{card_s + 1:.2f},afade=t=in:d=0.8,"
                       f"adelay={int(end_start * 1000)}|{int(end_start * 1000)}[mu3]")
         agraph.append(f"[mu1][mu2][mu3]amix=inputs=3:normalize=0,apad,atrim=0:{total:.2f},volume={MUSIC_GAIN}[mus]")
 
