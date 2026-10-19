@@ -5909,6 +5909,8 @@ the keystore path/alias and `androidUseCustomKeystore` lines in `ProjectSettings
 
 **First update, version code 3 (2026-09-24).** Production was already submitted, so the next release is an update: `AndroidBundleVersionCode` 3 (committed alone; `bundleVersion` left at 1.0 because iOS shares it). It carries the Level Complete unlock-screen fix and the dev-only analytics logging, which is compiled out of this release build. Upload it as a new production release. If the first release is still in review, it's unconfirmed whether a new release is queued behind it or replaces it and restarts review; checking the Publishing overview before uploading will show which. Test analytics with a separate Development Build APK, not this AAB.
 
+**Second update, version code 4 (2026-10-19).** Carries the ability changes (Ducky's Water Spout, Gerald's Feather Burst only, Billy's Mud Sling); `bundleVersion` still 1.0, so Play shows the same version name. Build the AAB locally as before (Development Build OFF, App Bundle ON) and upload as a new production release.
+
 **Launch (2026-09-21).** All Play Console forms, listing, IAP testing and mailboxes were confirmed complete by the
 user, who chose to promote to Production. Ads are switched live only AFTER approval: AdMob "Add store" for the Android
 app, then LevelPlay Store availability = live; allow 24-48 h for fill. A first review of a child-directed app can be
@@ -6195,7 +6197,7 @@ developer.apple.com + 1197x400 PNG), QR code and scan card are in
 QR decodes) - not to be published until the app is live. App Store product page **Header**
 (3840x1646) and **Search Results** (3840x2560) creative assets were made with
 `Tools/store-assets/make_appstore_assets.py` into `Desktop\FarmFury_Technical\AppStore_CreativeAssets`.
-**Next iOS rebuild: bump `buildNumber.iPhone` to 8 first.**
+**2026-10-19: build 8 / Android version code 4.** `marketing/kling-storyline` was fast-forwarded into `main` (it held the Ducky Water Spout, Gerald feathers-only and Billy Mud Sling changes) and `buildNumber.iPhone` set to 8, `AndroidBundleVersionCode` to 4, `bundleVersion` left at 1.0 (iOS 1.0 is not released yet; the user plans to pull build 7 from review and submit build 8 under the same 1.0 version). The new abilities had not been played in Play mode or on a device when these builds were started. **Next iOS rebuild: bump `buildNumber.iPhone` to 9 first.**
 
 **Current state (2026-09-20):** `buildNumber.iPhone` is **5**, committed. History: 5 was first bumped
 for an ad-testing Cloud Build, reverted to 4 once because "5 was never actually built", then set to 5
