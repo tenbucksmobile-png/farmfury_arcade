@@ -13,8 +13,14 @@ Output: <Video>/Episodes/<episode name>.mp4
 Usage:
     python make_episode.py [--episode N]   # default episode 1
     python make_episode.py --play-only     # Google Play badge only (to post before the iOS app is live)
+    python make_episode.py --episode N --opener-only   # re-add the opener without re-rendering the episode
+
+Every episode starts with the same 1.6 s opener (the logo over all eight animals, "Farm Fury!" shout). The render
+without it is kept in Episodes/no_opener/.
 """
 
+import random
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -55,6 +61,13 @@ END_CARD_XFADE = 0.8
 APP_STORE_BADGE = HERE / "assets" / "app-store-badge.png"
 PLAY_BADGE = HERE / "assets" / "google-play-badge.png"
 HOOK_TOP = 200
+
+OPENER_STILL = VIDEO_DIR / "Ep04_Clips/stills/4.1_meeting.png"
+OPENER_SECONDS = 1.6
+OPENER_SHOUT_AT = 0.08
+OPENER_LOGO_W = 620
+OPENER_LOGO_TOP = 70
+OPENER_SPEED = {"bessie": 1.5}   # her take is about 2 s, the others about 1 s
 
 # Each shot: clip file (in the episode's clip_dir), seconds cut off its start, seconds used after that, extra
 # seconds to hold the last frame ("hold_zoom": True adds a slow push-in over the hold, for a comic freeze-frame),
@@ -306,14 +319,80 @@ def build_end_voices(ffmpeg, work):
     return items, max(END_CARD_SECONDS, at + d + END_TAIL)
 
 
+def build_opener(ffmpeg, work):
+    """The opener: fast punch-in with a fading shake on the Ep 4 line-up still, logo on the barn wall, and the
+    'Farm Fury!' shout over Bessie's slam thud."""
+    frames_dir = work / "opener_frames"
+    frames_dir.mkdir()
+    still = Image.open(OPENER_STILL).convert("RGB")
+    base = still.resize((W, int(W * still.height / still.width) + 2), Image.LANCZOS)
+    logo = Image.open(LOGO).convert("RGBA")
+    logo = logo.crop(logo.getbbox())
+    logo = logo.resize((OPENER_LOGO_W, round(OPENER_LOGO_W * logo.height / logo.width)), Image.LANCZOS)
+    overlay = Image.new("RGBA", (W, H), (0, 0, 0, 0))
+    overlay.alpha_composite(logo, ((W - OPENER_LOGO_W) // 2, OPENER_LOGO_TOP))
+    random.seed(4)
+    cx, cy = base.width / 2, base.height * 0.60
+    for i in range(int(OPENER_SECONDS * FPS)):
+        t = i / FPS
+        zoom = 1.06 + 0.14 * (1 - (1 - min(1, t / 0.22)) ** 3) + 0.03 * t / OPENER_SECONDS
+        shake = max(0, 1 - t / 0.45) * 14
+        cw, ch = W / zoom, H / zoom
+        x = min(max(0, cx - cw / 2 + random.uniform(-shake, shake)), base.width - cw)
+        y = min(max(0, cy - ch / 2 + random.uniform(-shake, shake)), base.height - ch)
+        frame = base.crop((int(x), int(y), int(x + cw), int(y + ch))).resize((W, H), Image.BILINEAR).convert("RGBA")
+        frame.alpha_composite(overlay)
+        frame.convert("RGB").save(frames_dir / f"{i:04d}.png")
+
+    voices = []
+    for c in CHORUS:
+        if (VOICE_DIR / f"{c}_farmfury.mp3").exists():
+            path = prepare_voice(ffmpeg, f"{c}_farmfury", work)[0]
+            if c in OPENER_SPEED:   # a take too long for the opener
+                fast = work / f"{c}_farmfury_fast.wav"
+                run([ffmpeg, "-v", "error", "-y", "-i", str(path), "-af", f"atempo={OPENER_SPEED[c]}", str(fast)])
+                path = fast
+            voices.append(path)
+    ins = [x for v in voices for x in ("-i", str(v))]
+    delays = ";".join(f"[{k + 1}:a]adelay={int((OPENER_SHOUT_AT + k * CHORUS_STAGGER) * 1000)}|"
+                      f"{int((OPENER_SHOUT_AT + k * CHORUS_STAGGER) * 1000)}[c{k}]" for k in range(len(voices)))
+    mix = "".join(f"[c{k}]" for k in range(len(voices)))
+    thud = len(voices) + 1      # input index, after the frames
+    opener = work / "opener.mp4"
+    run([ffmpeg, "-v", "error", "-y", "-framerate", str(FPS), "-i", str(frames_dir / "%04d.png"), *ins,
+         "-i", str(SFX / "Bessie-ability.mp3"), "-filter_complex",
+         f"{delays};{mix}amix=inputs={len(voices)}:normalize=0,volume={1.6 / len(voices) ** 0.5:.3f}[shout];"
+         f"[{thud}:a]aformat=sample_rates=48000:channel_layouts=stereo,atrim=0:{OPENER_SECONDS},volume=0.5[thud];"
+         f"[shout][thud]amix=inputs=2:normalize=0,alimiter=limit=0.85:level=0,apad=whole_dur={OPENER_SECONDS},atrim=0:{OPENER_SECONDS}[a]",
+         "-map", "0:v", "-map", "[a]", "-t", str(OPENER_SECONDS), *VIDEO_OUT, *AUDIO_OUT, str(opener)])
+    return opener
+
+
+def add_opener(ffmpeg, body, out_path):
+    """body (the rendered episode) with the opener in front, written to out_path."""
+    with tempfile.TemporaryDirectory() as tmp:
+        opener = build_opener(ffmpeg, Path(tmp))
+        run([ffmpeg, "-v", "error", "-y", "-i", str(opener), "-i", str(body), "-filter_complex",
+             "[0:v]setsar=1[v0];[1:v]setsar=1[v1];"
+             "[v0][0:a][v1][1:a]concat=n=2:v=1:a=1[v][a]",
+             "-map", "[v]", "-map", "[a]", *VIDEO_OUT, *AUDIO_OUT, "-movflags", "+faststart", str(out_path)])
+
+
 def main():
     args = sys.argv[1:]
     play_only = "--play-only" in args
     ep = EPISODES[int(args[args.index("--episode") + 1]) if "--episode" in args else 1]
     shots = ep["shots"]
-    out_path = VIDEO_DIR / "Episodes" / (ep["name"] + ("_play_only" if play_only else "") + ".mp4")
+    final_path = VIDEO_DIR / "Episodes" / (ep["name"] + ("_play_only" if play_only else "") + ".mp4")
+    out_path = final_path.parent / "no_opener" / final_path.name
     ffmpeg = find_ffmpeg()
     out_path.parent.mkdir(parents=True, exist_ok=True)
+    if "--opener-only" in args:
+        if not out_path.exists():   # first run on an episode rendered before the opener existed
+            shutil.move(str(final_path), str(out_path))
+        add_opener(ffmpeg, out_path, final_path)
+        print(f"{final_path}  {probe_duration(ffmpeg, final_path):.1f}s")
+        return
     with tempfile.TemporaryDirectory() as tmp:
         work = Path(tmp)
         end_voices, card_s = build_end_voices(ffmpeg, work)
@@ -492,7 +571,8 @@ def main():
         run([ffmpeg, "-v", "error", "-y", *inputs, "-filter_complex", ";".join(vgraph + agraph),
              "-map", "[v]", "-map", "[a]", "-t", f"{total:.2f}", *VIDEO_OUT, *AUDIO_OUT,
              "-movflags", "+faststart", str(out_path)])
-    print(f"{out_path}  {total:.1f}s")
+    add_opener(ffmpeg, out_path, final_path)
+    print(f"{final_path}  {total + OPENER_SECONDS:.1f}s")
 
 
 if __name__ == "__main__":
