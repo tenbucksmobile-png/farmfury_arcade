@@ -6656,3 +6656,7 @@ and still works exactly as described above if shown directly via `SceneTransitio
 Challenge (via Level Select) both regained entry points after briefly living on Main Menu — see
 "Landing/Gameplay-HUD cleanup" above. Shop regained a Main Menu entry point when Monetisation
 Phase 3's IAP plumbing was built (see "IAP plumbing" above) — it's the overlay shown in the diagram.
+
+## Home screen name (2026-11-02)
+
+The name under the icon is "Arcade" (`ArcadeAndroidBuild` rewrites the generated launcher's `app_name`; `IOSPostProcessBuild` sets `CFBundleDisplayName`). `productName` stays `FarmFuryArcade` because the editor save location depends on it; store names are unchanged. Plain "Farm Fury" is reserved for the original game. Written in the Stampede session, not yet compiled in this project or seen on a phone.

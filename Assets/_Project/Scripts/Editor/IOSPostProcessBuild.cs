@@ -90,6 +90,10 @@ namespace FarmFuryArcade.EditorTools
 
             plist.root.SetString("GADApplicationIdentifier", AdMobAppId);
 
+            // The name under the home screen icon; productName stays "FarmFuryArcade" (the editor's
+            // save location depends on it). The App Store name is set in App Store Connect.
+            plist.root.SetString("CFBundleDisplayName", "Arcade");
+
             // This app uses no encryption beyond the OS's standard HTTPS, so it's exempt from
             // Apple's Export Compliance requirement — Export Compliance was already answered
             // manually for the first build ("None of the algorithms mentioned above"), but that
