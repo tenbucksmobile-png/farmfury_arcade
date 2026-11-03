@@ -188,6 +188,8 @@ def build_caption(stem, text, path, center_y=1500):
     text = text.replace("…", "...")   # Bangers has no ellipsis glyph
     parts = stem.split("_")
     speaker = f"THE {parts[1].upper()}" if parts[0] == "robot" else parts[0].upper()   # robot_drone_2.2 -> THE DRONE
+    if speaker == "THE ALL":   # robot_all_4.6, the five robots layered
+        speaker = "THE ROBOTS"
     img = Image.new("RGBA", (W, H), (0, 0, 0, 0))
     d = ImageDraw.Draw(img)
     name_font = ImageFont.truetype(str(FONT), 64)

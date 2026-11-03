@@ -251,8 +251,26 @@ File names use the clip's short code, e.g. `bessie_bb1_a.mp3`.
 | ed2 | 4.2 | Cluck | "Whoops! Mind the yolk!" | *Gleeful* |
 | ed3 | 7.5 | Bessie | "Egg Drop. Works every time." | *Dry approval* |
 
-`Cluck_Celebration.mp4` (July, 4 s) is left out: it's too short for a line, Cluck's design has
-changed since, and it carries a Kling watermark.
+**Bessie's Ground Slam** (`GroundSlam.mp4`: Bessie stamps and the golden shockwave ripples out ~2.5 s, a carrot flies ~5 s, pleased close-up at the end). Added 2026-11-03; the last line reuses `bessie_6.4`.
+
+| Code | At | Who | Line | Delivery |
+|---|---|---|---|---|
+| gs1 | 1.9 | Bessie | "GROUND... SLAM!" | *Big wind-up, then a booming stomp on SLAM* |
+| gs2 | 4.5 | Cluck | "Whoa! Did the whole farm just jump?" | *Off-screen, dizzy and impressed* |
+| (6.4) | 7.5 | Bessie | "Now that's what I call a ground rule." | *Already recorded as `bessie_6.4`* |
+
+**Robot Celebration** (`Robot_Celebration.mp4`, 4 s: the harvester machine unfolds into a robot and throws its arms up). Added 2026-11-03. The robot line uses the Harvester voice (`robot_harvester_rc1.mp3`); `robot_fx.py` adds its effect.
+
+| Code | At | Who | Line | Delivery |
+|---|---|---|---|---|
+| rc1 | 0.6 | Harvester | "Crops collected. Celebration mode... ON." | *Flat and robotic, a tiny pause before ON* |
+| rc2 | 4.7 | Cluck | "Not for long." | *Off-screen, low and determined* |
+
+**Cluck's Big Day** (`Cluck_Celebration.mp4`, July, 4 s: an older Cluck design leaping for joy with eggs). Added 2026-11-03; the Kling watermark is cropped off.
+
+| Code | At | Who | Line | Delivery |
+|---|---|---|---|---|
+| cc1 | 0.5 | Cluck | "We did it! Every crop's home safe!" | *Overjoyed, bouncing* |
 
 ---
 

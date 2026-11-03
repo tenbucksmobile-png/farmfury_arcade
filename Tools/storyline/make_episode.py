@@ -30,9 +30,9 @@ HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE.parent / "content-pipeline"))
 from PIL import Image, ImageDraw, ImageFilter, ImageFont  # noqa: E402
 
-from make_shorts import (ACCENT_FILL, AUDIO_OUT, CROP_ASPECT, FONT, FPS, H, LOGO, PICTURE_CENTER_Y,  # noqa: E402
+from make_shorts import (ACCENT_FILL, AUDIO_OUT, CROP_ASPECT, FONT, FPS, H, PICTURE_CENTER_Y,  # noqa: E402
                          POSTER, REPO, STROKE_FILL, TEXT_FILL, VIDEO_OUT, W, check_wording, fit_font)
-from make_animatic import VIDEO_DIR, VOICE_DIR, build_caption, prepare_voice, probe_duration, run  # noqa: E402
+from make_animatic import ROBOT_VOICE_DIR, VIDEO_DIR, VOICE_DIR, build_caption, prepare_voice, probe_duration, run  # noqa: E402
 from normalize_video import find_ffmpeg  # noqa: E402
 
 MUSIC_DIR = REPO / "Assets/_Project/Audio/Music"
@@ -62,11 +62,20 @@ APP_STORE_BADGE = HERE / "assets" / "app-store-badge.png"
 PLAY_BADGE = HERE / "assets" / "google-play-badge.png"
 HOOK_TOP = 200
 
+# The franchise logos (2026-11-03): one marketing push for every Farm Fury game, so the opener and end card show
+# the FARM FURY logo with Arcade and Stampede stacked beneath it.
+FARMFURY_LOGO = HERE / "assets" / "farmfury-logo.png"
+ARCADE_LOGO = HERE / "assets" / "arcade-logo.png"
+STAMPEDE_LOGO = HERE / "assets" / "stampede-logo.png"
+
+# Opener: the shout with FARM FURY punching in over the line-up, then Arcade (OPENER_ARCADE_AT) and Stampede
+# (OPENER_STAMPEDE_AT) fade in stacked while the scene dims, and everything fades before the story.
 OPENER_STILL = VIDEO_DIR / "Ep04_Clips/stills/4.1_meeting.png"
-OPENER_SECONDS = 1.6
+OPENER_SECONDS = 3.2
 OPENER_SHOUT_AT = 0.08
-OPENER_LOGO_W = 620
-OPENER_LOGO_TOP = 70
+OPENER_ARCADE_AT = 1.2
+OPENER_STAMPEDE_AT = 2.0
+OPENER_FADE = 0.35
 OPENER_SPEED = {"bessie": 1.5}   # her take is about 2 s, the others about 1 s
 
 # Each shot: clip file (in the episode's clip_dir), seconds cut off its start, seconds used after that, extra
@@ -103,13 +112,12 @@ EPISODES = {
              "sfx": [("RobotSpawn.mp3", 0.1, 0.8), ("RobotSpawn.mp3", 1.4, 0.6)],
              "lines": [("cluck_1.5_a", "And out came… them.", 0.6),
                        ("bessie_1.5", "The Harvest Robots.", 3.3)]},
-            {"file": "ep01_E_maze.mp4", "use": 8.0, "hold": 3.0, "lines": [
+            # Gameplay was taken out of the episodes on 2026-11-03 (it gets its own posts), so Cluck's closing line
+            # now plays over the held maze shot.
+            {"file": "ep01_E_maze.mp4", "use": 8.0, "hold": 5.0, "lines": [
                 ("bessie_1.6", "In one night they turned our fields into mazes. Harvest corridors, they called them.", 1.2),
-                ("cluck_1.6_a", "Rude, is what I called them.", 7.6)]},
-            # Ending on the game itself: Woolly dodging robots, a power crop sending them running, Level Complete.
-            {"gameplay": (210.6, 2.6), "lines": [("cluck_6.11", "Robots, meet the Farm Fury.", 0.15)]},
-            {"gameplay": (455.0, 2.4), "lines": []},
-            {"gameplay": (471.2, 3.0), "lines": []},
+                ("cluck_1.6_a", "Rude, is what I called them.", 7.6),
+                ("cluck_6.11", "Robots, meet the Farm Fury.", 10.0)]},
         ],
     },
     # Ep 2 (2026-10-19): one 5s Kling 3.0 Turbo clip per animal, each animated from a 1-credit still made from the
@@ -149,10 +157,6 @@ EPISODES = {
              "lines": [
                 ("bessie_2.7", "That was you, Clucky.", 0.6),
                 ("cluck_2.7b", "…It was a brave scream.", 2.4)]},
-            # Gameplay: dodging, more dodging, then unlocking a new animal (Ducky).
-            {"gameplay": (278.3, 2.4), "lines": [("cluck_5.5b", "So who's with me?!", 0.35)]},
-            {"gameplay": (311.8, 2.4), "lines": []},
-            {"gameplay": (338.8, 3.0), "lines": []},
         ],
     },
     # Ep 3 (2026-10-19): the Barnyard Breakdown talk show. Five Kling 3.0 Turbo clips animated from 1-credit stills;
@@ -182,10 +186,6 @@ EPISODES = {
                 ("bessie_3.5b", "It's the start of one. Ring the bell.", 8.2)]},
             {"file": "ep03_3.6_signoff.mp4", "use": 4.0, "hook": ["NEXT:", "THE BARN MEETING"], "lines": [
                 ("cluck_3.6", "Stay tuned, farm fans!", 0.3)]},
-            # Gameplay: an early dodge, a power crop sending the robots running, Level Complete.
-            {"gameplay": (23.5, 2.4), "lines": []},
-            {"gameplay": (411.5, 2.4), "lines": []},
-            {"gameplay": (415.6, 2.0), "lines": []},   # stops before the game moves on to world select (~418s)
         ],
     },
     # Ep 4 (2026-10-19): the barn meeting, the direct follow-on to Ep 3's "Ring the bell" (Meet the Metal moves later).
@@ -211,17 +211,249 @@ EPISODES = {
             # The hook into the powers episode: a golden glow from the hayloft.
             {"image": "stills/4.4_hayloft.png", "use": 6.0, "push": 0.14, "hook": ["NEXT:", "THE GOLDEN GLOW"], "lines": [
                 ("bessie_6.1a", "Every farm has a secret. Ours is up in the hayloft.", 0.5)]},
-            # Ability teaser from real gameplay: Cluck's egg, Percy's roll, Woolly's clones, Bessie's slam, Ducky's skip.
-            {"gameplay": (24.0, 1.7), "lines": []},
-            {"gameplay": (129.4, 1.7), "lines": []},
-            {"gameplay": (203.5, 1.7), "lines": []},
-            {"gameplay": (273.9, 1.7), "lines": []},
-            {"gameplay": (358.3, 1.7), "lines": []},
+        ],
+    },
+    # Ep 5 (2026-11-03): The Golden Glow, the payoff to Ep 4's hayloft hook. Opens on Ep 4's hayloft still (reused,
+    # no new job), then the sunflower, the golden circle and one 5s reveal per animal (each also works as a solo
+    # short), ending on the eight in the barn doorway (a 1-credit still). Kling 3.0 Turbo 720p, no sound; jobs in
+    # Ep05_Clips/jobs.txt. Woolly's line is three takes layered (only the first carries the caption).
+    5: {
+        "name": "ep05_the_golden_glow",
+        "clip_dir": VIDEO_DIR / "Ep05_Clips",
+        "music": THEME,
+        "hook": ["THE GOLDEN", "GLOW"],
+        "shots": [
+            {"image": "stills/4.4_hayloft.png", "use": 5.0, "push": 0.12, "hook": True, "lines": [
+                ("bessie_6.1a", "Every farm has a secret. Ours is up in the hayloft.", 0.5)]},
+            {"file": "ep05_6.1_sunflower.mp4", "use": 7.0, "hold": 0.6, "lines": [
+                ("cluck_6.1", "The Golden Sunflower. Older than the barn. Older than Bessie!", 0.3),
+                ("bessie_6.1b", "Careful.", 6.5)]},
+            {"file": "ep05_6.2_circle.mp4", "use": 5.0, "sfx": [("RarePellet_pickup.mp3", 0.6, 0.7)], "lines": [
+                ("bessie_6.2", "When we stood together, the sunflower answered.", 0.8)]},
+            {"file": "ep05_6.3_cluck.mp4", "use": 5.0, "chase_music": True,
+             "sfx": [("Clucky_abiltiy.mp3", 0.4, 0.8), ("Robot_damage.mp3", 2.4, 0.7)], "lines": [
+                ("bessie_6.3", "Clucky got Egg Drop.", 0.2),
+                ("cluck_6.3", "And it's CLUCK!", 3.3)]},
+            {"file": "ep05_6.4_bessie.mp4", "use": 5.0, "hold": 0.6, "sfx": [("Bessie-ability.mp3", 1.0, 0.9)], "lines": [
+                ("cluck_6.4", "Bessie got Ground Slam.", 0.4),
+                ("bessie_6.4", "Now that's what I call a ground rule.", 2.6)]},
+            {"file": "ep05_6.5_percy.mp4", "use": 5.0, "sfx": [("Percy_ability.mp3", 0.3, 0.8)], "lines": [
+                ("percy_6.5", "Roll with it!", 3.4)]},
+            {"file": "ep05_6.6_woolly.mp4", "use": 5.0, "lines": [
+                ("woolly_6.6", "Ewe can never have too many of me.", 2.2),
+                ("woolly_6.6_b", "", 2.27),
+                ("woolly_6.6_c", "", 2.15)]},
+            {"file": "ep05_6.7_ducky.mp4", "use": 5.0, "sfx": [("DuckyTeleport.mp3", 0.3, 0.8)], "lines": [
+                ("ducky_6.7", "Just go with the flow, dude.", 3.2)]},
+            {"file": "ep05_6.8_horace.mp4", "use": 5.0, "sfx": [("Horace_ability.mp3", 0.8, 0.8)], "lines": [
+                ("horace_6.8", "Ringer!", 3.8)]},
+            {"file": "ep05_6.9_gerald.mp4", "use": 5.0, "hold": 0.3, "sfx": [("Gerald_ability.mp3", 1.6, 0.6)], "lines": [
+                ("gerald_6.9", "You want feathers? I'll GIVE you feathers!", 0.4)]},
+            {"file": "ep05_6.10_billy.mp4", "use": 5.0, "hold": 0.3, "sfx": [("billy_ability.mp3", 0.9, 0.7)], "lines": [
+                ("billy_6.10", "Okay… maybe MUD first.", 0.6)]},
+            {"image": "stills/6.11_doorway.png", "use": 5.0, "push": 0.1, "hook": ["NEXT:", "MEET THE METAL"], "lines": [
+                ("cluck_6.11", "Robots, meet the Farm Fury.", 0.8)]},
+        ],
+    },
+    # Ep 6 (2026-11-03): Meet the Metal. One "wanted poster" shot per robot (the per-shot hook is the stamp), then
+    # the five lined up as the golden wheat sends them running. Each robot shot also works as a solo short. Cold
+    # open reuses the first 2s of the line-up clip (no extra job). Robot lines come from robot_fx.py; the five-voice
+    # error line has the Scout's take on top (no caption of its own) so the words stay clear.
+    6: {
+        "name": "ep06_meet_the_metal",
+        "clip_dir": VIDEO_DIR / "Ep06_Clips",
+        "music": THEME,
+        "hook": ["MEET THE", "METAL"],
+        "shots": [
+            {"file": "ep06_4.6_lineup.mp4", "use": 2.2, "hook": True,
+             "sfx": [("RobotSpawn.mp3", 0.2, 0.8)], "lines": []},
+            {"file": "ep06_4.1_harvester.mp4", "use": 5.0, "hold": 4.6, "hold_zoom": True, "chase_music": True,
+             "hook": ["THE HARVESTER", "DIRECT PURSUIT"], "sfx": [("RobotSpawn.mp3", 0.3, 0.6)], "lines": [
+                ("bessie_4.1", "The Harvester. The boss. It sees you, it comes for you. No tricks.", 0.3),
+                ("cluck_4.1", "Just like Gerald at dinner time.", 6.9)]},
+            {"file": "ep06_4.2_scout.mp4", "use": 5.0, "hold": 3.0, "hook": ["THE SCOUT", "PREDICTS YOUR PATH"], "lines": [
+                ("cluck_4.2", "The Scout. Thinks it knows where you're going.", 0.2),
+                ("robot_scout_4.2", "Calculating your next move…", 3.5),
+                ("bessie_4.2", "Usually it does.", 5.7)]},
+            {"file": "ep06_4.3_patrol.mp4", "use": 4.0, "hold": 3.4, "hook": ["THE PATROL", "THE FLANKER"], "lines": [
+                ("bessie_4.3", "The Patrol. Never works alone. Its partner comes from the front; it comes from behind.", 0.3)]},
+            {"file": "ep06_4.4_drifter.mp4", "use": 5.0, "hold": 2.6, "hook": ["THE DRIFTER", "MOODY"], "lines": [
+                ("robot_drifter_4.4", "I'm coming for y— …actually, never mind.", 0.2),
+                ("cluck_4.4", "The Drifter. Big talk from far away.", 3.9)]},
+            {"file": "ep06_4.5_drone.mp4", "use": 5.0, "hold": 3.0, "hook": ["THE DRONE", "IGNORES WALLS"], "lines": [
+                ("robot_drone_4.5", "Walls? How quaint. Hee hee.", 0.3),
+                ("bessie_4.5", "The Drone. Floats over walls. Watch the sky.", 3.4)]},
+            {"file": "ep06_4.6_lineup.mp4", "use": 7.0, "hold": 3.4, "hook": ["NEXT:", "OPERATION HARVEST HOME"],
+             "hook_at": 7.0, "hook_seconds": 2.8, "sfx": [("RarePellet_pickup.mp3", 2.6, 0.8)], "lines": [
+                ("cluck_4.6", "But they've got one weakness…", 0.6),
+                ("bessie_4.6", "…and it grows on our farm.", 3.0),
+                ("robot_all_4.6", "ERROR. ERROR. GOLDEN PROTOCOL NOT FOUND.", 5.5),
+                ("robot_scout_4.6", "", 5.5)]},
+        ],
+    },
+    # Ep 7 (2026-11-03): Operation Harvest Home, the how-to-play briefing. Three new Kling clips (Bessie's beret
+    # briefing, Cluck's salute, the huddle); the chalkboard objectives and map are 1-credit stills with a push, and
+    # objective two reuses Ep 6's line-up clip (the robots turning blue at the golden wheat). Hook stamps name each
+    # objective so it reads as a tutorial with the sound off. Ends on all eight shouting FARM FURY (the *_7.5 takes).
+    7: {
+        "name": "ep07_operation_harvest_home",
+        "end_card": "arcade",   # about Arcade's mazes/combos, so the end card points at Arcade only
+        "clip_dir": VIDEO_DIR / "Ep07_Clips",
+        "music": THEME,
+        "hook": ["OPERATION", "HARVEST HOME"],
+        "shots": [
+            {"file": "ep07_7.1_bessie.mp4", "use": 5.0, "hold": 0.2, "hook": True, "lines": [
+                ("bessie_7.1", "Listen up, farm. This is Operation Harvest Home.", 0.4)]},
+            {"file": "ep07_7.2_cluck.mp4", "use": 5.0, "hold": 0.4, "lines": [
+                ("cluck_7.2", "Ma'am, yes ma'am!", 0.5),
+                ("bessie_7.2", "Sit down, Clucky.", 3.4)]},
+            {"image": "stills/7.3a_board.png", "use": 6.5, "push": 0.12, "hook": ["OBJECTIVE 1", "COLLECT EVERY CROP"],
+             "sfx": [("CornPickup.mp3", 1.0, 0.6), ("CornPickup.mp3", 1.4, 0.6)], "lines": [
+                ("bessie_7.3a", "Objective one: collect every crop in the maze. Every last kernel.", 0.4)]},
+            {"path": VIDEO_DIR / "Ep06_Clips/ep06_4.6_lineup.mp4", "skip": 1.5, "use": 5.5, "hold": 1.9,
+             "hook": ["OBJECTIVE 2", "GRAB THE GOLDEN CROP"], "chase_music": True,
+             "sfx": [("RarePellet_pickup.mp3", 1.2, 0.8)], "lines": [
+                ("bessie_7.3b", "Objective two: find the golden crop. Grab it, and the robots turn blue and run.", 0.3)]},
+            {"image": "stills/7.3b_board.png", "use": 10.2, "push": 0.16, "hook": ["OBJECTIVE 3", "USE THE TUNNELS"],
+             "lines": [
+                ("bessie_7.3c", "Objective three: the tunnels on the edges take you to the other side. Use them.", 0.3),
+                ("bessie_7.3d", "And watch the factory. That's where they come from.", 6.6)]},
+            {"image": "stills/7.4_map.png", "use": 9.6, "push": 0.06, "hook": ["7 WORLDS"], "caption_y": 1690, "lines": [
+                ("bessie_7.4", "Four fields to start. Three farms beyond the hills.", 0.3),
+                ("cluck_7.4", "Frostbite Garden. Golden Sunset. Harvest Moon!", 4.9)]},
+            {"file": "ep07_7.5_huddle.mp4", "use": 5.0, "hold": 0.6, "hook": ["NEXT:", "INTO THE MAZES"],
+             "hook_at": 3.0, "lines": [
+                ("cluck_7.5", "FARM FURY!", 1.4),
+                ("bessie_7.5solo", "", 1.435),
+                ("percy_7.5", "", 1.47),
+                ("woolly_7.5", "", 1.505),
+                ("ducky_7.5", "", 1.54),
+                ("horace_7.5", "", 1.575),
+                ("gerald_7.5", "", 1.61),
+                ("billy_7.5", "", 1.645)]},
+        ],
+    },
+    # Ep 8 (2026-11-03): Into the Mazes, one world per shot, each world stamped by name. Corn Field reuses Ep 5's
+    # Cluck clip and the golden-crop beat reuses Ep 6's line-up; the six other worlds are new clips started from
+    # stills that used the game's own world backdrops as references. Ends on the eight at dawn (a still).
+    8: {
+        "name": "ep08_into_the_mazes",
+        "end_card": "arcade",   # about Arcade's mazes/combos, so the end card points at Arcade only
+        "clip_dir": VIDEO_DIR / "Ep08_Clips",
+        "music": THEME,
+        "hook": ["INTO THE MAZES"],
+        "shots": [
+            {"path": VIDEO_DIR / "Ep05_Clips/ep05_6.3_cluck.mp4", "use": 5.0, "hook": ["INTO THE MAZES", "CORN FIELD"],
+             "sfx": [("Clucky_abiltiy.mp3", 0.4, 0.8)], "lines": [
+                ("cluck_8.1", "Corn Field. MY turf.", 2.6)]},
+            {"file": "ep08_8.2_percy.mp4", "use": 5.0, "hook": ["VEGETABLE PATCH"], "chase_music": True,
+             "sfx": [("Percy_ability.mp3", 0.3, 0.8)], "lines": [
+                ("percy_6.5", "Roll with it!", 3.3)]},
+            {"file": "ep08_8.3_horace.mp4", "use": 5.0, "hook": ["ORCHARD"],
+             "sfx": [("Horace_ability.mp3", 0.6, 0.8)], "lines": [
+                ("horace_6.8", "Ringer!", 3.6)]},
+            {"file": "ep08_8.4_woolly.mp4", "use": 5.0, "hold": 0.3, "hook": ["WHEAT FIELD"], "lines": [
+                ("woolly_8.4", "Which one's the real me? …Me neither.", 1.0)]},
+            {"file": "ep08_8.5_ducky.mp4", "use": 5.0, "hold": 0.2, "hook": ["FROSTBITE GARDEN"],
+             "sfx": [("DuckyTeleport.mp3", 0.3, 0.8)], "lines": [
+                ("ducky_8.5", "Ice, ice, ducky.", 2.6)]},
+            {"file": "ep08_8.6_billy.mp4", "use": 5.0, "hook": ["GOLDEN SUNSET"],
+             "sfx": [("billy_ability.mp3", 0.6, 0.7)], "lines": [
+                ("billy_8.6", "Incoming! MUD!", 0.4)]},
+            {"file": "ep08_8.7_gerald_bessie.mp4", "use": 5.0, "hold": 0.4, "hook": ["HARVEST MOON"],
+             "sfx": [("Bessie-ability.mp3", 0.8, 0.8), ("Gerald_ability.mp3", 1.0, 0.5)], "lines": [
+                ("bessie_8.7", "Harvest Moon.", 0.3),
+                ("gerald_8.7", "And I'm STILL mad.", 2.9)]},
+            {"path": VIDEO_DIR / "Ep06_Clips/ep06_4.6_lineup.mp4", "skip": 2.0, "use": 5.0, "hold": 0.4,
+             "sfx": [("RarePellet_pickup.mp3", 0.5, 0.8)], "lines": [
+                ("cluck_8.8", "Golden crop! RUN, robots, RUN!", 0.6)]},
+            {"image": "stills/8.9_dawn.png", "use": 7.2, "push": 0.1, "hook": ["NEXT:", "COMBO CHAOS"], "hook_at": 5.2,
+             "lines": [
+                ("bessie_8.9a", "We took back the corn that night.", 0.4),
+                ("cluck_8.9", "But the Combine's still out there…", 2.7),
+                ("bessie_8.9b", "Then so are we.", 5.4)]},
+        ],
+    },
+    # Ep 9 (2026-11-03): Combo Chaos. No new Kling jobs: each combo is two of Ep 5's reveal clips cut back to back
+    # (the tag-out, then the tag-in), the pair named in the hook text, then the game's own combo banner popping on
+    # with its combo sound. Iron Stampede uses Ep 8's Gerald and Bessie clip; Full Fury the Ep 7 huddle.
+    9: {
+        "name": "ep09_combo_chaos",
+        "end_card": "arcade",   # about Arcade's mazes/combos, so the end card points at Arcade only
+        "clip_dir": VIDEO_DIR / "Ep05_Clips",
+        "music": THEME,
+        "hook": ["COMBO", "CHAOS"],
+        "shots": [
+            {"file": "ep05_6.2_circle.mp4", "use": 3.0, "hook": True, "lines": []},
+            {"file": "ep05_6.3_cluck.mp4", "skip": 0.2, "use": 2.0, "hook": ["CLUCK + WOOLLY"], "chase_music": True,
+             "sfx": [("Clucky_abiltiy.mp3", 0.2, 0.7)], "lines": []},
+            {"file": "ep05_6.6_woolly.mp4", "skip": 1.0, "use": 4.0, "banner": ("Combo_Featherstorm.png", 1.0, 2.6),
+             "lines": []},
+            {"file": "ep05_6.4_bessie.mp4", "skip": 0.6, "use": 2.2, "hook": ["BESSIE + PERCY"],
+             "sfx": [("Bessie-ability.mp3", 0.4, 0.8)], "lines": []},
+            {"file": "ep05_6.5_percy.mp4", "skip": 1.0, "use": 4.0, "banner": ("Combo_EarthquakeRoll.png", 1.0, 2.6),
+             "sfx": [("Percy_ability.mp3", 0.1, 0.7)], "lines": []},
+            {"path": VIDEO_DIR / "Ep08_Clips/ep08_8.7_gerald_bessie.mp4", "use": 5.0, "hook": ["BESSIE + GERALD"],
+             "banner": ("Combo_IronStampede.png", 2.2, 2.4),
+             "sfx": [("Bessie-ability.mp3", 0.8, 0.8), ("Gerald_ability.mp3", 1.0, 0.5)], "lines": []},
+            {"file": "ep05_6.10_billy.mp4", "skip": 0.6, "use": 2.2, "hook": ["BILLY + HORACE"],
+             "sfx": [("billy_ability.mp3", 0.3, 0.7)], "lines": []},
+            {"file": "ep05_6.8_horace.mp4", "skip": 0.6, "use": 4.0, "banner": ("Combo_CrossFire.png", 1.2, 2.6),
+             "sfx": [("Horace_ability.mp3", 0.2, 0.7)], "lines": []},
+            {"path": VIDEO_DIR / "Ep07_Clips/ep07_7.5_huddle.mp4", "use": 5.0, "hold": 1.4,
+             "hook": ["5 ANIMALS, 1 MAZE"], "banner": ("Combo_FullFury.png", 2.6, 3.6), "lines": [
+                ("cluck_9.5", "Swap. Combo. FURY!", 0.4)]},
+        ],
+    },
+    # Singles (2026-11-03): the standalone Kling character clips, now with the franchise opener, captions and the
+    # two-game end card like the episodes. Render with --episode <key> (gs, rc, cc). The square/landscape
+    # clips are "fit" (whole picture on a blurred copy); "skip" cuts the ~1s reference sprite each square clip opens
+    # on. Line times = the voice script's "At" minus skip. Lines not recorded yet are skipped until they are.
+    # (Victory Dance, Bell Boogie and Egg Drop already exist as narrated videos in Video/Narrated; those are
+    # wrapped with --wrap instead, see wrap_video.)
+    "gs": {
+        "name": "single_bessie_ground_slam",
+        "clip_dir": VIDEO_DIR,
+        "music": THEME,
+        "hook": ["BESSIE'S", "GROUND SLAM!"],
+        "shots": [
+            {"file": "GroundSlam.mp4", "skip": 1.45, "use": 8.55, "hold": 0.8, "fit": True, "hook": True,
+             "hook_seconds": 2.6, "sfx": [("Bessie-ability.mp3", 1.0, 0.9)], "lines": [
+                ("bessie_gs1", "GROUND... SLAM!", 0.5),
+                # cluck_gs2 ("Whoa! Did the whole farm just jump?") goes at 3.0 once re-recorded: the first take
+                # (2026-11-03) was the ground-rule line instead.
+                ("bessie_gs1_6.4", "Now that's what I call a ground rule.", 5.2)]},
+        ],
+    },
+    "rc": {
+        "name": "single_robot_celebration",
+        "clip_dir": VIDEO_DIR / "Singles",
+        "music": THEME,
+        "hook": ["THE ROBOTS ARE", "CELEBRATING..."],
+        "shots": [
+            # Robot_Celebration.mp4 is on green screen; make_singles_prep.py keys it onto the Corn Field backdrop.
+            {"file": "robot_celebration_keyed.mp4", "use": 4.0, "hold": 2.6, "fit": True, "hook": True,
+             "hook_seconds": 3.0, "sfx": [("RobotSpawn.mp3", 0.3, 0.7)], "lines": [
+                ("robot_harvester_rc1", "Crops collected. Celebration mode... ON.", 0.6),
+                ("cluck_rc2", "Not for long.", 4.7)]},
+        ],
+    },
+    "cc": {
+        "name": "single_cluck_celebration",
+        "clip_dir": VIDEO_DIR,
+        "music": THEME,
+        "hook": ["CLUCK'S", "BIG DAY!"],
+        "shots": [
+            # July clip: an older Cluck design, with a Kling watermark bottom-right (cropped off).
+            {"file": "Cluck_Celebration.mp4", "use": 4.0, "hold": 1.6, "fit": True, "crop": (0.04, 0.0, 0.9, 0.9),
+             "hook": True, "hook_seconds": 2.6, "lines": [
+                ("cluck_cc1", "We did it! Every crop's home safe!", 0.5)]},
         ],
     },
 }
 
-GAMEPLAY_GAIN = 1.8       # game sound sits in the ambience track (x AMBIENCE); louder than Kling's
+GAMEPLAY_GAIN = 1.8
+FIT_CENTER_Y = 860        # "fit" shots: centre of the picture, between the hook text and the captions       # game sound sits in the ambience track (x AMBIENCE); louder than Kling's
 
 
 def _centered(draw, text, font, y, fill, stroke):
@@ -258,8 +490,64 @@ def build_hook(path, hook_lines):
     img.save(path)
 
 
-def build_end_card(path, play_only=False):
-    """Blurred, darkened game poster; logo, 'play free', both store badges, the website."""
+COMBO_BANNERS = REPO / "Assets/_Project/Sprites/UI"
+BANNER_W = 920
+BANNER_CENTER_Y = 880
+
+
+def build_banner(path, banner_png):
+    """One of the game's own combo banners (Combo_*.png), enlarged and centred between the hook text and the
+    captions, as a full-frame overlay."""
+    img = Image.new("RGBA", (W, H), (0, 0, 0, 0))
+    _paste(img, _logo(banner_png, BANNER_W, True), W / 2, BANNER_CENTER_Y)
+    img.save(path)
+
+
+def _logo(path, width, shadow=False):
+    """A logo trimmed to its artwork and scaled to width; shadow adds a soft dark glow so it reads over a busy
+    background."""
+    im = Image.open(path).convert("RGBA")
+    im = im.crop(im.getbbox())
+    im = im.resize((width, round(width * im.height / im.width)), Image.LANCZOS)
+    if not shadow:
+        return im
+    pad = 60
+    out = Image.new("RGBA", (im.width + 2 * pad, im.height + 2 * pad), (0, 0, 0, 0))
+    alpha = Image.new("L", out.size, 0)
+    alpha.paste(im.getchannel("A"), (pad, pad))
+    glow = Image.new("RGBA", out.size, (0, 0, 0, 0))
+    glow.putalpha(alpha.filter(ImageFilter.GaussianBlur(22)).point(lambda p: min(255, int(p * 1.4))))
+    out.alpha_composite(glow)
+    out.alpha_composite(im, (pad, pad))
+    return out
+
+
+def _paste(frame, logo, cx, cy, alpha=1.0, scale=1.0):
+    """logo centred on (cx, cy) at the given opacity and scale."""
+    if alpha <= 0:
+        return
+    if scale != 1:
+        logo = logo.resize((max(1, round(logo.width * scale)), max(1, round(logo.height * scale))), Image.BILINEAR)
+    if alpha < 1:
+        logo = logo.copy()
+        logo.putalpha(logo.getchannel("A").point(lambda p: int(p * alpha)))
+    frame.alpha_composite(logo, (round(cx - logo.width / 2), round(cy - logo.height / 2)))
+
+
+def _recorded(stem):
+    """True if a voice line has been recorded; a missing one is skipped with a note, so a video can be rendered
+    before every line exists and re-rendered once it does."""
+    path = (ROBOT_VOICE_DIR / f"{stem}.wav") if stem.startswith("robot_") else VOICE_DIR / f"{stem}.mp3"
+    if not path.exists():
+        print(f"  (not recorded yet, skipped: {stem})")
+    return path.exists()
+
+
+def build_end_card(path, play_only=False, arcade_only=False):
+    """Blurred, darkened game poster; FARM FURY with the Arcade and Stampede logos stacked beneath, 'play both
+    free', the store badges side by side, the website. Everything sits above the bottom of the frame, which TikTok
+    and Shorts cover with the caption. arcade_only (Eps 7-9, which are about Arcade's mazes, tunnels and combos):
+    the Arcade logo alone and 'play free now', so a maze tutorial doesn't point viewers at Stampede."""
     card = Image.open(POSTER).convert("RGBA")
     scale = max(W / card.width, H / card.height)
     card = card.resize((round(card.width * scale), round(card.height * scale)), Image.LANCZOS)
@@ -268,18 +556,22 @@ def build_end_card(path, play_only=False):
     card = Image.alpha_composite(card, Image.new("RGBA", (W, H), (0, 0, 0, 155)))
     draw = ImageDraw.Draw(card)
 
-    logo_size = 640
-    logo = Image.open(LOGO).convert("RGBA").resize((logo_size, logo_size), Image.LANCZOS)
-    card.alpha_composite(logo, ((W - logo_size) // 2, 230))
-    _centered(draw, "PLAY FREE NOW!", ImageFont.truetype(str(FONT), 124), 930, TEXT_FILL, 8)
+    if arcade_only:
+        _paste(card, _logo(ARCADE_LOGO, 640), W / 2, 560)
+        _centered(draw, "PLAY FREE NOW!", ImageFont.truetype(str(FONT), 112), 1050, TEXT_FILL, 8)
+    else:
+        _paste(card, _logo(FARMFURY_LOGO, 640), W / 2, 230)
+        _paste(card, _logo(ARCADE_LOGO, 380), W / 2, 560)
+        _paste(card, _logo(STAMPEDE_LOGO, 500), W / 2, 935)
+        _centered(draw, "PLAY BOTH FREE!", ImageFont.truetype(str(FONT), 104), 1110, TEXT_FILL, 8)
 
-    badge_w = 600
-    y = 1130
-    for badge_path in ((PLAY_BADGE,) if play_only else (APP_STORE_BADGE, PLAY_BADGE)):
-        badge = _badge(badge_path, badge_w)
-        card.alpha_composite(badge, ((W - badge_w) // 2, y))
-        y += badge.height + 50
-    _centered(draw, "FARMFURYGAMES.COM", ImageFont.truetype(str(FONT), 80), y + 40, ACCENT_FILL, 6)
+    badge_w, gap, y = 455, 30, 1260
+    badges = [_badge(p, badge_w) for p in ((PLAY_BADGE,) if play_only else (APP_STORE_BADGE, PLAY_BADGE))]
+    x = (W - len(badges) * badge_w - (len(badges) - 1) * gap) // 2
+    for k, badge in enumerate(badges):
+        card.alpha_composite(badge, (x + k * (badge_w + gap), y))
+    y += max(b.height for b in badges)
+    _centered(draw, "FARMFURYGAMES.COM", ImageFont.truetype(str(FONT), 80), y + 20, ACCENT_FILL, 6)
     card.convert("RGB").save(path)
 
 
@@ -320,28 +612,44 @@ def build_end_voices(ffmpeg, work):
 
 
 def build_opener(ffmpeg, work):
-    """The opener: fast punch-in with a fading shake on the Ep 4 line-up still, logo on the barn wall, and the
-    'Farm Fury!' shout over Bessie's slam thud."""
+    """The opener: the 'Farm Fury!' shout over Bessie's slam thud, with a fast punch-in and fading shake on the
+    Ep 4 line-up still and the FARM FURY logo popping in; then the scene dims while the Arcade and Stampede logos
+    fade in stacked, and everything fades out before the story."""
     frames_dir = work / "opener_frames"
     frames_dir.mkdir()
     still = Image.open(OPENER_STILL).convert("RGB")
     base = still.resize((W, int(W * still.height / still.width) + 2), Image.LANCZOS)
-    logo = Image.open(LOGO).convert("RGBA")
-    logo = logo.crop(logo.getbbox())
-    logo = logo.resize((OPENER_LOGO_W, round(OPENER_LOGO_W * logo.height / logo.width)), Image.LANCZOS)
-    overlay = Image.new("RGBA", (W, H), (0, 0, 0, 0))
-    overlay.alpha_composite(logo, ((W - OPENER_LOGO_W) // 2, OPENER_LOGO_TOP))
+    ff, arcade, stampede = _logo(FARMFURY_LOGO, 900), _logo(ARCADE_LOGO, 470, True), _logo(STAMPEDE_LOGO, 600, True)
+
+    def ease(x):
+        x = max(0.0, min(1.0, x))
+        return 1 - (1 - x) ** 3
+
+    def shown(t, a, fin):
+        """Opacity of something fading in at a and out with everything else at the end."""
+        if t < a:
+            return 0.0
+        return max(0.0, min(1.0, (t - a) / fin, (OPENER_SECONDS - t) / 0.4))
+
     random.seed(4)
     cx, cy = base.width / 2, base.height * 0.60
     for i in range(int(OPENER_SECONDS * FPS)):
         t = i / FPS
-        zoom = 1.06 + 0.14 * (1 - (1 - min(1, t / 0.22)) ** 3) + 0.03 * t / OPENER_SECONDS
+        zoom = 1.06 + 0.14 * ease(t / 0.22) + 0.03 * t / OPENER_SECONDS
         shake = max(0, 1 - t / 0.45) * 14
         cw, ch = W / zoom, H / zoom
         x = min(max(0, cx - cw / 2 + random.uniform(-shake, shake)), base.width - cw)
         y = min(max(0, cy - ch / 2 + random.uniform(-shake, shake)), base.height - ch)
         frame = base.crop((int(x), int(y), int(x + cw), int(y + ch))).resize((W, H), Image.BILINEAR).convert("RGBA")
-        frame.alpha_composite(overlay)
+        pop = 0.85 + 0.15 * ease(t / 0.25)
+        _paste(frame, ff, W / 2, 330, shown(t, 0, 0.08), pop)
+        games = shown(t, OPENER_ARCADE_AT, OPENER_FADE)
+        if games > 0:   # dim the busy scene so the game logos read; redraw FARM FURY on top of the dim
+            frame.alpha_composite(Image.new("RGBA", (W, H), (0, 0, 0, int(150 * games))))
+            _paste(frame, ff, W / 2, 330, games * shown(t, 0, 0.08), pop)
+        _paste(frame, arcade, W / 2, 810, games, 0.9 + 0.1 * ease((t - OPENER_ARCADE_AT) / OPENER_FADE))
+        _paste(frame, stampede, W / 2, 1250, shown(t, OPENER_STAMPEDE_AT, OPENER_FADE),
+               0.9 + 0.1 * ease((t - OPENER_STAMPEDE_AT) / OPENER_FADE))
         frame.convert("RGB").save(frames_dir / f"{i:04d}.png")
 
     voices = []
@@ -359,11 +667,14 @@ def build_opener(ffmpeg, work):
     mix = "".join(f"[c{k}]" for k in range(len(voices)))
     thud = len(voices) + 1      # input index, after the frames
     opener = work / "opener.mp4"
+    music = thud + 1
     run([ffmpeg, "-v", "error", "-y", "-framerate", str(FPS), "-i", str(frames_dir / "%04d.png"), *ins,
-         "-i", str(SFX / "Bessie-ability.mp3"), "-filter_complex",
+         "-i", str(SFX / "Bessie-ability.mp3"), "-t", str(OPENER_SECONDS), "-i", str(THEME), "-filter_complex",
          f"{delays};{mix}amix=inputs={len(voices)}:normalize=0,volume={1.6 / len(voices) ** 0.5:.3f}[shout];"
          f"[{thud}:a]aformat=sample_rates=48000:channel_layouts=stereo,atrim=0:{OPENER_SECONDS},volume=0.5[thud];"
-         f"[shout][thud]amix=inputs=2:normalize=0,alimiter=limit=0.85:level=0,apad=whole_dur={OPENER_SECONDS},atrim=0:{OPENER_SECONDS}[a]",
+         f"[{music}:a]aformat=sample_rates=48000:channel_layouts=stereo,volume=0.25,afade=t=in:st=0.9:d=0.6,"
+         f"afade=t=out:st={OPENER_SECONDS - 0.5}:d=0.5[mus];"
+         f"[shout][thud][mus]amix=inputs=3:normalize=0,alimiter=limit=0.85:level=0,apad=whole_dur={OPENER_SECONDS},atrim=0:{OPENER_SECONDS}[a]",
          "-map", "0:v", "-map", "[a]", "-t", str(OPENER_SECONDS), *VIDEO_OUT, *AUDIO_OUT, str(opener)])
     return opener
 
@@ -378,10 +689,65 @@ def add_opener(ffmpeg, body, out_path):
              "-map", "[v]", "-map", "[a]", *VIDEO_OUT, *AUDIO_OUT, "-movflags", "+faststart", str(out_path)])
 
 
+WRAP_DIR = VIDEO_DIR / "Episodes" / "singles"
+
+
+def wrap_video(ffmpeg, src):
+    """An already-finished video (e.g. Video/Narrated/*.mp4, with its own voices and music) given the episodes'
+    framing: centred on a blurred copy of itself (if not already 9:16), the end card crossfaded on after it with
+    the end-card voices and theme, and the opener in front. Its own sound is kept as it is."""
+    out = WRAP_DIR / src.name
+    out.parent.mkdir(parents=True, exist_ok=True)
+    body_s = probe_duration(ffmpeg, src)
+    with tempfile.TemporaryDirectory() as tmp:
+        work = Path(tmp)
+        end_voices, card_s = build_end_voices(ffmpeg, work)
+        end_png = work / "end_card.png"
+        build_end_card(end_png)
+        end_start = body_s - END_CARD_XFADE
+        total = end_start + card_s
+        frames = int(card_s * FPS)
+        inputs = ["-i", str(src), "-loop", "1", "-framerate", str(FPS), "-t", f"{card_s:.2f}", "-i", str(end_png)]
+        vg = [f"[0:v]fps={FPS},setsar=1,split[a][b];"
+              f"[a]scale={W}:{H}:force_original_aspect_ratio=increase,crop={W}:{H},boxblur=24:2,eq=brightness=-0.2[bg];"
+              f"[b]scale={W}:-2:flags=lanczos[fg];[bg][fg]overlay=0:{FIT_CENTER_Y}-h/2,setsar=1[body]",
+              f"[1:v]scale={W * 2}:{H * 2},zoompan=z='1+0.04*on/{frames}':x='iw/2-(iw/zoom/2)':"
+              f"y='ih/2-(ih/zoom/2)':d=1:s={W}x{H}:fps={FPS},setsar=1[vend]",
+              f"[body][vend]xfade=transition=fade:duration={END_CARD_XFADE}:offset={end_start:.2f},"
+              f"fade=t=out:st={total - FADE_OUT:.2f}:d={FADE_OUT},format=yuv420p[v]"]
+        labels = []
+        for k, (path, at, _d) in enumerate(end_voices):
+            idx = inputs.count("-i")
+            inputs += ["-i", str(path)]
+            ms = int((end_start + at) * 1000)
+            vg.append(f"[{idx}:a]adelay={ms}|{ms}[ev{k}]")
+            labels.append(f"[ev{k}]")
+        mi = inputs.count("-i")
+        inputs += ["-t", f"{card_s + 2:.2f}", "-i", str(THEME)]
+        ms = int(end_start * 1000)
+        vg.append(f"[{mi}:a]loudnorm=I=-14:TP=-1.5:LRA=11,aformat=sample_rates=48000:channel_layouts=stereo,"
+                  f"atrim=0:{card_s + 1:.2f},afade=t=in:d=0.8,volume={MUSIC_GAIN},adelay={ms}|{ms}[mus]")
+        vg.append(f"[0:a]aformat=sample_rates=48000:channel_layouts=stereo,"
+                  f"afade=t=out:st={end_start:.2f}:d={END_CARD_XFADE}[orig]")
+        vg.append("[orig][mus]" + "".join(labels) + f"amix=inputs={2 + len(labels)}:normalize=0:duration=longest,"
+                  f"apad,atrim=0:{total:.2f},afade=t=out:st={total - FADE_OUT:.2f}:d={FADE_OUT}[aout]")
+        body = work / "wrapped.mp4"
+        run([ffmpeg, "-v", "error", "-y", *inputs, "-filter_complex", ";".join(vg), "-map", "[v]", "-map", "[aout]",
+             "-t", f"{total:.2f}", *VIDEO_OUT, *AUDIO_OUT, str(body)])
+        add_opener(ffmpeg, body, out)
+    print(f"{out}  {total + OPENER_SECONDS:.1f}s")
+
+
 def main():
     args = sys.argv[1:]
+    if "--wrap" in args:   # python make_episode.py --wrap <video> [<video> ...]
+        ffmpeg = find_ffmpeg()
+        for name in args[args.index("--wrap") + 1:]:
+            wrap_video(ffmpeg, Path(name))
+        return
     play_only = "--play-only" in args
-    ep = EPISODES[int(args[args.index("--episode") + 1]) if "--episode" in args else 1]
+    key = args[args.index("--episode") + 1] if "--episode" in args else "1"
+    ep = EPISODES[int(key) if key.isdigit() else key]   # numbered episodes, or a single's name (e.g. "vd")
     shots = ep["shots"]
     final_path = VIDEO_DIR / "Episodes" / (ep["name"] + ("_play_only" if play_only else "") + ".mp4")
     out_path = final_path.parent / "no_opener" / final_path.name
@@ -437,9 +803,21 @@ def main():
                     n0 = int(shot["use"] * FPS)
                     zoom = (f",zoompan=z='if(lt(on,{n0}),1,1+0.12*(on-{n0})/{max(1, int(hold * FPS))})':"
                             f"x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)':d=1:s={W}x{H}:fps={FPS}")
-                vgraph.append(f"[{i}:v]trim={skip}:{skip + shot['use']},setpts=PTS-STARTPTS,fps={FPS},"
-                              f"scale={W}:{H}:flags=lanczos,setsar=1,"
-                              f"tpad=stop_mode=clone:stop_duration={hold}{zoom},setsar=1[v{i}]")
+                if shot.get("fit"):
+                    # A square or landscape clip (the singles): the whole picture, full width, centred at
+                    # FIT_CENTER_Y on a blurred, darkened copy of itself. "crop" (fractions x, y, w, h) trims
+                    # first, e.g. to cut off a Kling watermark.
+                    cx, cy, cw, ch = shot.get("crop", (0, 0, 1, 1))
+                    vgraph.append(f"[{i}:v]trim={skip}:{skip + shot['use']},setpts=PTS-STARTPTS,fps={FPS},"
+                                  f"crop=iw*{cw}:ih*{ch}:iw*{cx}:ih*{cy},setsar=1,split[fa{i}][fb{i}];"
+                                  f"[fa{i}]scale={W}:{H}:force_original_aspect_ratio=increase,crop={W}:{H},"
+                                  f"boxblur=24:2,eq=brightness=-0.2[fbg{i}];[fb{i}]scale={W}:-2:flags=lanczos[ffg{i}];"
+                                  f"[fbg{i}][ffg{i}]overlay=0:{FIT_CENTER_Y}-h/2,setsar=1,"
+                                  f"tpad=stop_mode=clone:stop_duration={hold}{zoom},setsar=1[v{i}]")
+                else:
+                    vgraph.append(f"[{i}:v]trim={skip}:{skip + shot['use']},setpts=PTS-STARTPTS,fps={FPS},"
+                                  f"scale={W}:{H}:flags=lanczos,setsar=1,"
+                                  f"tpad=stop_mode=clone:stop_duration={hold}{zoom},setsar=1[v{i}]")
                 if has_audio(ffmpeg, clip):
                     agraph.append(f"[{i}:a]atrim={skip}:{skip + shot['use']},asetpts=PTS-STARTPTS,"
                                   "aformat=sample_rates=48000:channel_layouts=stereo,"
@@ -453,7 +831,7 @@ def main():
 
         # End card: a still with a slow push-in, crossfaded in after the last clip.
         end_png = work / "end_card.png"
-        build_end_card(end_png, play_only)
+        build_end_card(end_png, play_only, ep.get("end_card") == "arcade")
         ei = inputs.count("-i")
         inputs += ["-loop", "1", "-framerate", str(FPS), "-t", f"{card_s:.2f}", "-i", str(end_png)]
         frames = int(card_s * FPS)
@@ -480,14 +858,29 @@ def main():
                 build_hook(hook_png, ep["hook"] if shot["hook"] is True else shot["hook"])
                 hi = inputs.count("-i")
                 inputs += ["-i", str(hook_png)]
-                a = starts[si]
-                b = a + shot.get("hook_seconds", shot["_dur"] - XFADE / 2)
+                a = starts[si] + shot.get("hook_at", 0.0)   # hook_at: seconds into the shot (e.g. a "NEXT:" tag at the end)
+                b = a + shot.get("hook_seconds", shot["_dur"] - XFADE - 0.05 - shot.get("hook_at", 0.0))
                 vgraph.append(f"[{cur}][{hi}:v]overlay=0:0:enable='between(t,{a:.2f},{b:.2f})'[h{hi}]")
                 cur = f"h{hi}"
 
+        # Combo banners ("banner": (file in Sprites/UI, seconds into the shot, seconds shown)), popped on with the
+        # game's combo sound.
+        for si, shot in enumerate(shots):
+            if shot.get("banner"):
+                name, at, secs = shot["banner"]
+                banner_png = work / f"banner_{si}.png"
+                build_banner(banner_png, COMBO_BANNERS / name)
+                bi = inputs.count("-i")
+                inputs += ["-i", str(banner_png)]
+                a = starts[si] + at
+                vgraph.append(f"[{cur}][{bi}:v]overlay=0:0:enable='between(t,{a:.2f},{a + secs:.2f})'[bn{bi}]")
+                cur = f"bn{bi}"
+                shot.setdefault("sfx", []).append(("Combo.mp3", at, 0.8))
+
         # Voices and captions at absolute times.
         voice_labels = []
-        timed_lines = [(si, starts[si], line) for si, shot in enumerate(shots) for line in shot["lines"]]
+        timed_lines = [(si, starts[si], line) for si, shot in enumerate(shots) for line in shot["lines"]
+                       if _recorded(line[0])]
         for li, (si, base, (stem, text, at, *part)) in enumerate(timed_lines):
             path, d = prepare_voice(ffmpeg, stem, work)
             if part:
@@ -536,8 +929,8 @@ def main():
             agraph.append(f"anullsrc=r=48000:cl=stereo,atrim=0:{total:.2f}[sfx]")
 
         # Music: the theme for the story, the chase music from the robots' arrival until the gameplay (which has
-        # its own game music), then the theme again under the end card.
-        game_at = next(starts[i] for i, s in enumerate(shots) if "gameplay" in s)
+        # its own game music) or the end card, then the theme again under the end card.
+        game_at = next((starts[i] for i, s in enumerate(shots) if "gameplay" in s), end_start)   # no gameplay: up to the end card
         chase_at = next((starts[i] for i, s in enumerate(shots) if s.get("chase_music")), game_at)   # optional
         level = "loudnorm=I=-14:TP=-1.5:LRA=11,aformat=sample_rates=48000:channel_layouts=stereo"
         m1, m2, m3 = (inputs.count("-i") + k for k in range(3))

@@ -44,7 +44,7 @@ def robot(dry, wet, win=512):
 # Per-robot effect chain, applied after the take is converted to 48 kHz mono.
 FX = {
     "combine":   f"{pitch(0.88)},{robot(0.9, 0.3, 1024)},aecho=0.8:0.6:50:0.3,aecho=0.8:0.4:350:0.12",
-    "harvester": f"{pitch(0.86)},{robot(0.5, 0.8)},acrusher=bits=10:mix=0.25,aecho=0.8:0.6:45:0.3",
+    "harvester": f"{pitch(1.0)},{robot(0.5, 0.8)},acrusher=bits=10:mix=0.25,aecho=0.8:0.6:45:0.3",
     "patrol":    f"{robot(0.6, 0.6)},highpass=f=350,lowpass=f=3200,acrusher=bits=8:mix=0.15,aecho=0.8:0.5:30:0.25",
     "scout":     f"{pitch(1.08)},{robot(0.6, 0.6, 256)},highpass=f=250,aecho=0.8:0.5:25:0.3",
     "drifter":   f"{pitch(1.05)},vibrato=f=5.5:d=0.45,{robot(0.6, 0.6)},aecho=0.8:0.5:35:0.3",
