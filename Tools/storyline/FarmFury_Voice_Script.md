@@ -274,6 +274,123 @@ File names use the clip's short code, e.g. `bessie_bb1_a.mp3`.
 
 ---
 
+## Chapter 2: Stampede (Eps 10–13 and its singles)
+
+Lines for the storyline doc's "CHAPTER 2 — STAMPEDE" section, added 2026-11-03; none are recorded yet. Use the same saved voices as Eps 1–9. Clip numbers match the storyline doc; the four singles use short codes (`sd` Only Ducky Goes There, `bf` Bessie Breaks the Floor, `wc` Woolly's Cloud Step, `pw` The Paid Worlds). File names as before, e.g. `cluck_10.1.mp3`, `bessie_13.7.mp3`, `ducky_sd.mp3`. No character has two lines in the same clip, so no letter suffixes are needed.
+
+The tone is the same as Arcade with more get-up-and-go: it's daytime, the animals are on the march, and Bessie is less "commander in the barn" and more "leading from the front".
+
+### Cluck (12)
+
+| Clip | Line | Delivery |
+|---|---|---|
+| 10.1 | "They're running away!" | *Thrilled, pointing* |
+| 10.3 | "Meadow, Tundra, Watermill, Sky, Sunken City… *Mothership!*" | *Rattling the names off fast, then a gulp before Mothership* |
+| 10.5 | "Pick me! Pick ME!" | *Hopping up and down, waving a wing* |
+| 10.6 | "So bring the right animal!" | *Bright, to camera, the "how to play" tip* |
+| 11.1 | "Egg Launch! High, low, in the air!" | *Showing off, three quick beats* |
+| 11.9 | "Find a crystal apple…" | *Conspiratorial, a secret* |
+| 12.1 | "Meadow Ruins. Easy! …Mostly." | *Cocky, then a small wince* |
+| 12.7 | "And something big behind it…" | *Uneasy whisper* |
+| 13.1 | "Stomp it, roll it, pound it, horseshoe it!" | *Rapid-fire chant, building* |
+| 13.7 | "And after the Mothership?" | *Curious, leaning in* |
+| sd | "We're not going in there." | *Flat refusal, at the water's edge* |
+| pw | "Field trip!" | *Delighted, after Bessie lists the worlds* |
+
+### Bessie (15)
+
+| Clip | Line | Delivery |
+|---|---|---|
+| 10.1 | "No, Clucky. They're going home." | *Calm, watching the ship leave* |
+| 10.3 | "Six lands between us and their Mothership." | *Measured, over the map* |
+| 10.4 | "No more sneaking around at night. This time, we march." | *Determined, the chapter's big line* |
+| 10.5 | "Before every run, you pick who goes." | *Briefing, crisp* |
+| 10.6 | "Every land hides a secret only one of us can reach." | *Hushed storyteller, like 6.1a* |
+| 11.0 | "Out here, you don't stand still. Your power works on the run." | *Coach, warming up* |
+| 11.2 | "Ground Pound. Floors crack. Robots wobble." | *Three dry beats* |
+| 11.9 | "…and another friend joins the stampede." | *Warm, finishing Cluck's line* |
+| 12.7 | "Six lands. One door left." | *Low, serious* |
+| 13.1 | "Every land has a boss. Each one takes three good bonks." | *Dry briefing* |
+| 13.2 | "The Commander. Calls for backup. Every time." | *Documentary narrator, unimpressed* |
+| 13.5 | "Hit it. Let it wobble. Hit it again." | *Steady, the one rule; slight smile* |
+| 13.7 | "Three more. The Overlord's last hideouts." | *Quiet, setting up the paid worlds* |
+| bf | "Floors are just a suggestion." | *Deadpan one-liner* |
+| pw | "Dustbowl. Fairground. The Crop Factory." | *Naming them like a list of chores* |
+
+### Percy (2)
+
+| Clip | Line | Delivery |
+|---|---|---|
+| 11.3 | "Roll Dash! Mind your toes!" | *Gleeful, mid-roll* |
+| 12.2 | "Ice. Is. SLIPPERY!" | *Three beats, spinning out on SLIPPERY* |
+
+### Woolly (5)
+
+| Clip | Line | Delivery |
+|---|---|---|
+| 10.6 | "Ooh, up here!" | *Surprised and pleased, small* |
+| 11.4 | "Cloud Step. One step more than you've got." | *Shy, then quietly proud* |
+| 12.4 | "Don't look down. Okay, I looked." | *Nervous, then a tiny squeak* |
+| 13.3 | "My HAIR!" | *Wail, wool blown sideways* |
+| wc | "Up, up, aaand… up." | *Concentrating, a little out of breath* |
+
+### Ducky (4)
+
+| Clip | Line | Delivery |
+|---|---|---|
+| 11.5 | "Water Spout. Surf's up, dude." | *Laid-back, unbothered* |
+| 12.5 | "Finally. A level for ducks." | *Content sigh* |
+| 13.4 | "Dude. Rude." | *Unhurried, mildly offended* |
+| sd | "Your loss, dudes." | *Strolling into the water, not looking back* |
+
+### Horace (1)
+
+| Clip | Line | Delivery |
+|---|---|---|
+| 11.6 | "Horseshoe, coming in high!" | *Rodeo announcer, big wind-up* |
+
+### Gerald (2)
+
+| Clip | Line | Delivery |
+|---|---|---|
+| 11.7 | "Feather Blow. And I'm STILL mad." | *Huffy, callback to 8.7* |
+| 12.6 | "Nobody said there'd be FLOATING." | *Grumbling, outraged on FLOATING* |
+
+### Billy (2)
+
+| Clip | Line | Delivery |
+|---|---|---|
+| 11.8 | "Mud Sling! …Watch your step." | *Battle cry, then a smug aside* |
+| 12.3 | "Fish robots. Of course there are fish robots." | *Blunt, exasperated* |
+
+### Robots (6)
+
+The Combine uses its existing voice. Four new robot voices; build each once in Voice Design and save it. They will each need an effect preset added to `robot_fx.py` (not done yet). Like the Combine, keep them grand and silly rather than scary.
+
+- **The Robot Overlord:** A slow, quiet, smooth and velvety deep voice of the robots' supreme ruler, with a faint electronic double behind every word. Calm and theatrical, a pantomime villain who never needs to shout. Should sound bigger and more important than the Combine, but softer: the Combine booms, the Overlord purrs. Menacing in a cartoon way, never frightening for children.
+- **The Commander:** A loud, barking robot drill-sergeant voice, mid-low pitched, speaking in short shouted orders. Pompous and easily flustered, its voice cracks a little when it panics. Slightly synthetic and mechanical, comic rather than scary.
+- **The Storm Baron:** A grand, posh, theatrical robot voice, like an old aristocrat with a twirly moustache, airy and breathy with a faint crackle of static. Pleased with itself, drawling, a little windy. Slightly synthetic, comic villain.
+- **The Deep Dredger:** A slow, low, gurgly voice of a huge old underwater machine, as if speaking through water and bubbles. Grumpy and possessive, drawn-out words, like a cranky old submarine. Slightly synthetic, comic rather than scary.
+
+| Robot | Clip | Line | Delivery |
+|---|---|---|---|
+| The Combine | 10.2 | "Overlord. The farm… fought back." | *Cold report, a tiny hesitation before "fought back"* |
+| The Overlord | 10.2 | "Then bring me the farm." | *Quiet, unbothered* |
+| The Overlord | 13.6 | "Little farm animals. Come… and try." | *Slow, amused, a long pause before "and try"* |
+| The Commander | 13.2 | "Reinforcements! RE-IN-FORCE-MENTS!" | *Barked, then panicky, one syllable at a time* |
+| The Storm Baron | 13.3 | "Feeling… a little breezy?" | *Smug drawl* |
+| The Deep Dredger | 13.4 | "Everything down here… is MINE." | *Slow gurgle, booming on MINE* |
+
+File names: `robot_combine_10.2.mp3`, `robot_overlord_10.2.mp3`, `robot_overlord_13.6.mp3`, `robot_commander_13.2.mp3`, `robot_stormbaron_13.3.mp3`, `robot_deepdredger_13.4.mp3`.
+
+### Group (1)
+
+| Clip | Who | Line | Delivery |
+|---|---|---|---|
+| 10.7 | All 8 animals | "STAMPEDE!" | *Record each character separately, then layer all 8 (same method as "Farm Fury!")* |
+
+---
+
 ## Count
 
 | Character | Lines |
@@ -289,4 +406,6 @@ File names use the clip's short code, e.g. `bessie_bb1_a.mp3`.
 | Robots | 9 |
 | Group | 1 (8 layered takes) |
 
-Roughly 100 recordings in total. Cluck and Bessie are two-thirds of the work, so build and approve those two voices first.
+Chapter 2 (Stampede) adds 49 more: Cluck 12, Bessie 15, Percy 2, Woolly 5, Ducky 4, Horace 1, Gerald 2, Billy 2, robots 6 (four new voices), plus "STAMPEDE!" from all 8.
+
+Roughly 100 recordings in total for Chapter 1. Cluck and Bessie are two-thirds of the work, so build and approve those two voices first.

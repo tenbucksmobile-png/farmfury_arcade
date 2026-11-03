@@ -151,6 +151,10 @@ They're not evil. They're **over-efficient**. The Combine told them to *collect 
 | 7 | Operation Harvest Home | ~45s | Military-style briefing |
 | 8 | Into the Mazes | ~50s | Maze run through all 7 worlds |
 | 9 | Combo Chaos (bonus) | ~35s | Shows the character-swap combos |
+| 10 | Stampede: The March | ~50s | Chapter 2 opener: the robots retreat, the six lands, pick your animal, secrets |
+| 11 | Stampede: New Moves | ~55s (+8 solo shorts) | Each animal's power the platformer way, the crystal apple |
+| 12 | Stampede: Six Lands | ~45s | Side-on montage through all six territories |
+| 13 | Stampede: The Bosses | ~50s | Boss wanted posters, the 3-hit rule, the Overlord silhouette, paid-world tease |
 | End | End card | 4s | Call to action |
 
 Each clip below has: **Refs** (images to attach), **Prompt** (paste after the style lock), **Camera**, **VO** (voice-over) and **SFX/Music**.
@@ -490,6 +494,182 @@ And watch the factory. That's where they come from."
 | 9.3 | IRON STAMPEDE (Bessie → Gerald) | Cow taps the turkey; he shakes out a golden feather burst in all four directions at once, bonking robots on every side of the junction. | **IRON STAMPEDE!** |
 | 9.4 | CROSSFIRE (Billy → Horace) | The goat bucks a horseshoe up into the air, the horse catches it and throws it twice as far down the corridor in a golden streak. | **CROSSFIRE!** |
 | 9.5 | FULL FURY (5+ animals) | Five animals tag in one after another in quick flashes; a golden shockwave freezes every robot on the maze in place with stars circling their heads. | **FULL FURY!** Cluck: "Swap. Combo. FURY!" |
+
+---
+
+## CHAPTER 2 — STAMPEDE: "The March on the Mothership" *(written 2026-11-03, nothing generated yet)*
+
+Eps 10–13 sell **Farm Fury: Stampede** (the side-scrolling platformer, repo `Desktop/FarmFury_Stampede`, design in its `FarmFury_Stampede_GDD.md`). Eps 7–9 stay Arcade episodes. These go out once Stampede is live on both stores, continuing the same playlist ("EP 10 |" captions), so the story runs straight on from Ep 8.9's "But the Combine's still out there… / Then so are we."
+
+**How the two stories join.** Arcade = the night war: taking the crops back field by field. Stampede = the direct assault in daylight: the robots retreat from the farm and the animals follow them on foot through **six territories** they took on the way in, to the **Robot Mothership**, where **the Robot Overlord** gives the orders. The Combine (Ep 1's robot brain on the Harvest Hauler) answers to the Overlord; that keeps Eps 1–9 true and gives Stampede its final boss, which the Stampede GDD already names as the franchise's final antagonist.
+
+**Story facts that must match Stampede** (from its GDD and CLAUDE.md):
+- Side-on platforming: run, jump, stomp robots. All eight animals move and jump the same; only their powers differ.
+- The player **picks an animal before each level**. Every level has a **secret only certain animals can reach** (Bessie's pound breaks cracked floors; Woolly's Cloud Step reaches high ledges; Ducky is the only one at home in water). The main path is always passable by anyone.
+- A glowing **crystal apple** (the rare pellet) unlocks the next animal on the spot.
+- Six free territories, in order: **Meadow Ruins**, **Frozen Tundra** (ice), **Watermill Village** (moving ledges, rope bridges, leaping Piranha robots), **Sky Islands** (updrafts, balloon lifts), **Sunken City** (underwater, floaty jumps, air vents), **Robot Mothership** (low gravity, gravity lifts). Then three paid worlds after the finale: **Dustbowl Canyon**, **Harvest Fairground**, **Crop Factory**.
+- Every territory ends in a boss fight (3 hits, the boss staggers between hits). Named bosses with art: the **Commander** (Meadow Ruins), the **Storm Baron** (Sky Islands), the **Deep Dredger** (Sunken City), the **Drill Rig** (Dustbowl), the **Ringmaster Bot** (Fairground), **Harvester Prime** (Crop Factory, true final boss). The **Robot Overlord** (Mothership) has no art of its own yet: always show it as a silhouette or a giant red eye behind glass, never a full design.
+- Powers in Stampede (use these names on screen): Cluck **Egg Launch**, Bessie **Ground Pound** (sends a quake along the ground), Percy **Roll Dash**, Woolly **Cloud Step** (a wool platform mid-air, plus a wool tuft), Ducky **Water Spout**, Horace **Horseshoe Throw** (lobbed in an arc, reaches Drones), Gerald **Feather Blow**, Billy **Mud Sling** (leaves a mud pile trap).
+
+**Style lock for Stampede clips** (use instead of the moonlit one):
+
+> `3D cartoon animation, family-friendly animated film style, side-on view like a classic platformer, bright adventurous daylight, rich saturated colours, expressive faces, smooth motion, cinematic depth of field, NOT pixel art, NOT isometric,`
+
+Same negative prompt as the rest of the series. Per-world light: Meadow Ruins warm morning; Frozen Tundra icy blue with aurora; Watermill Village golden afternoon; Sky Islands bright blue sky; Sunken City teal underwater light; Robot Mothership cold purple and red.
+
+**References (Stampede repo, `Assets/_Project/Sprites/`).** Characters: keep using the Arcade ThumbsUp refs plus earlier approved Kling stills (they give the 3D look; Stampede's own character sprites are flat side views). Worlds: `Environment/WS_<World>.png` (the world-select art) and `Environment/<XX>_Parallax_Far.png` as style/backdrop refs, the same way Ep 8 used Arcade's backdrops. Bosses: `Placeholder/Commander.png`, `UI/SkyIsland/StormBaron.png`, `UI/SunkenCity/DeepDredger.png`, `UI/DustbowlCanyon/DrillRig_Right.png`, `UI/HarvestFairground/Ringmaster_Right.png`, `UI/CropFactory/HarvesterPrime_Right.png`. These are 2D sprites: give an approved 3D robot still (Ep 6) as the style reference and say "NOT pixel art" (the lesson from Ep 6). World signs for a map: `Environment/WS_*.png` / `UI/Badge_*.png`.
+
+**End card:** a Stampede-only variant (Stampede logo, "PLAY FREE NOW!", both store badges), added to `make_episode.py` alongside the Arcade-only one; the franchise opener stays as it is.
+
+### EPISODE 10 — The March
+
+*Picks up at dawn after Ep 8.9. Sets up the chapter and is the Stampede "how to play" in story form. ~50s.*
+
+**10.1** · 5s · Refs: all 8 (Ep 4 line-up still), Ep 1 spaceship frame
+**Prompt:** Dawn breaking over the farm. The eight animals stand on the barn roof watching the giant robot spaceship lift off from the corn and fly away over the far hills, a long line of small robots marching after it. Sunrise light, morning mist.
+**Camera:** behind the animals, looking out at the ship; slow push.
+**VO — Cluck:** "They're running away!"
+**VO — Bessie:** "No, Clucky. They're going home."
+
+**10.2** · 5s · Refs: Combine eye (Ep 1 clip C frame)
+**Prompt:** Inside the spaceship: the Combine's big red eye on a screen, and on a second, much bigger screen behind it a giant shadowy robot face with one glowing red eye, only its outline visible.
+**Camera:** slow push past the Combine to the big screen.
+**Robot VO (Combine):** "Overlord. The farm… fought back."
+**Robot VO (Overlord):** "Then bring me the farm."
+*(The Overlord stays a silhouette; no art exists. New robot voice, see the voice script.)*
+
+**10.3** · 5s · **No Kling:** a world map built like Ep 7's (`make_world_map.py`) from Stampede's six `WS_*.png` world signs on a chalkboard, joined by a dotted chalk trail that ends at the Mothership sign.
+**VO — Bessie:** "Six lands between us and their Mothership."
+**VO — Cluck:** "Meadow, Tundra, Watermill, Sky, Sunken City… *Mothership!*"
+
+**10.4** · 5s · Refs: Bessie, Cluck, Meadow Ruins backdrop
+**Prompt:** Side-on view: the cow and the chicken running left to right across grassy ruins in morning sun, leaping a gap together; the chicken bounces off the head of a small red robot, which wobbles and sits down with stars over its head.
+**Camera:** side-on tracking shot, like a platform game.
+**VO — Bessie:** "No more sneaking around at night. This time, we march."
+
+**10.5** · 5s · Refs: all 8, a signpost
+**Prompt:** The eight animals in a line at a wooden signpost at the start of a path; one by one each steps forward and strikes a pose, then the cow steps up and the others cheer.
+**Camera:** slow pan along the line.
+**VO — Bessie:** "Before every run, you pick who goes."
+**VO — Cluck:** "Pick me! Pick ME!"
+
+**10.6** · 10s · Refs: Bessie, Woolly, Meadow Ruins backdrop
+**Prompt:** Side-on: the cow jumps and stamps down hard on a cracked stone floor, which breaks open to a hidden cave glowing with golden crops; then the sheep jumps, a fluffy cloud of wool appears under her hooves in mid-air, she hops off it up to a high ledge with a glowing golden crop.
+**Camera:** side-on, cut between the two moments.
+**VO — Bessie:** "Every land hides a secret only one of us can reach."
+**VO — Woolly:** "Ooh, up here!"
+**VO — Cluck:** "So bring the right animal!"
+**Hook:** *EVERY LEVEL HAS A SECRET*
+
+**10.7** · 5s · Refs: Ep 4 line-up still, Meadow Ruins backdrop
+**Prompt:** The eight animals running together left to right across a hill in morning sun, kicking up dust, determined faces; the far-off spaceship small on the horizon.
+**Camera:** wide side-on tracking.
+**All:** "STAMPEDE!"
+**Hook:** *NEXT: NEW MOVES*
+
+### EPISODE 11 — New Moves
+
+*One clip per animal showing their power the Stampede way: side-on, mid-run, mid-jump. Each clip also works as a 5s solo short. Percy, Ducky, Gerald, Billy and Horace's powers look like Arcade's, so try trimming their Ep 5 reveal clips first and only generate new ones if those read too much like the barn. ~55s.*
+
+**11.0** · 4s · Refs: Bessie, Meadow Ruins backdrop
+**Prompt:** The cow at the start of a sunny path cracking her neck, the other animals warming up behind her.
+**VO — Bessie:** "Out here, you don't stand still. Your power works on the run."
+
+| Clip | Animal | Prompt (after the Stampede style lock) | VO | Stamp |
+|---|---|---|---|---|
+| 11.1 | Cluck | Side-on: the chicken jumps, and at the top of her jump lobs a golden egg down onto a robot standing on a lower ledge; it wobbles and sits down with stars over its head. | Cluck: "Egg Launch! High, low, in the air!" | **CLUCK — EGG LAUNCH** |
+| 11.2 | Bessie | Side-on: the cow drops from a jump and stamps the ground; a golden quake ripples along the floor and flips a red robot over further along the path. | Bessie: "Ground Pound. Floors crack. Robots wobble." | **BESSIE — GROUND POUND** |
+| 11.3 | Percy | Side-on: the pig curls into a ball and rolls at speed across a small gap, knocking a robot off its feet like a bowling pin. | Percy: "Roll Dash! Mind your toes!" | **PERCY — ROLL DASH** |
+| 11.4 | Woolly | Side-on: the sheep jumps toward a ledge that is too high, a fluffy wool cloud pops under her hooves in mid-air, she steps off it onto the ledge and puffs a tuft of wool that knocks a robot flat. | Woolly: "Cloud Step. One step more than you've got." | **WOOLLY — CLOUD STEP** |
+| 11.5 | Ducky | Side-on: the duck plants his feet and sends a spinning spout of water rolling along the ground; it washes a robot away down the path. He's surfer-cool. | Ducky: "Water Spout. Surf's up, dude." | **DUCKY — WATER SPOUT** |
+| 11.6 | Horace | Side-on: the horse throws a golden horseshoe in a high arc; it spins up and bonks a silver flying drone out of the sky. | Horace: "Horseshoe, coming in high!" | **HORACE — HORSESHOE THROW** |
+| 11.7 | Gerald | Side-on: the grumpy turkey puffs up and blows a flurry of golden feathers straight ahead; they bowl over a robot and a drone behind it. | Gerald: "Feather Blow. And I'm STILL mad." | **GERALD — FEATHER BLOW** |
+| 11.8 | Billy | Goat with a grey goatee and curved tan horns, no bell. Side-on: he flings a glob of mud that splats a robot; a second robot walks into the mud pile it left behind and gets stuck, wobbling. | Billy: "Mud Sling! …Watch your step." | **BILLY — MUD SLING** |
+
+**11.9** · 5s · Refs: Cluck, a glowing crystal apple
+**Prompt:** Side-on: the chicken finds a glowing crystal apple floating on a ledge, grabs it, and it bursts in sparkles; a new animal friend runs in from the edge of frame to join her.
+**VO — Cluck:** "Find a crystal apple…"
+**VO — Bessie:** "…and another friend joins the stampede."
+**Hook:** *NEXT: SIX LANDS*
+
+### EPISODE 12 — Six Lands
+
+*The action montage, like Ep 8 but side-on. One clip per territory, one animal each, with the world's own twist. Use each world's `WS_*.png` / `*_Parallax_Far.png` as the backdrop reference so the trailer matches the game. ~45s.*
+
+| Clip | Territory | Refs | Prompt (after the Stampede style lock) | VO | Stamp |
+|---|---|---|---|---|---|
+| 12.1 | Meadow Ruins | Cluck, `WS_MeadowRuins.png` | The chicken runs through grassy stone ruins in warm morning light, leaping from a broken pillar and lobbing an egg at a red robot below. | Cluck: "Meadow Ruins. Easy! …Mostly." | **1 · MEADOW RUINS** |
+| 12.2 | Frozen Tundra | Percy, `FT_Paralax_Far.png` | Under a green aurora, the pig rolls across shiny ice, skids, spins, and slides straight into an ice-blue robot, which topples. | Percy: "Ice. Is. SLIPPERY!" | **2 · FROZEN TUNDRA** |
+| 12.3 | Watermill Village | Billy, `WS_WatermillVillage.png` | Goat with a grey goatee and curved tan horns, no bell, crossing a swaying rope bridge by a turning water wheel in golden afternoon light; a robot fish leaps out of the river below and he splats it with a mud ball mid-air. | Billy: "Fish robots. Of course there are fish robots." | **3 · WATERMILL VILLAGE** |
+| 12.4 | Sky Islands | Woolly, `SI_Parallax_Far.png` | The sheep rides an updraft between floating grassy islands in a bright blue sky, pops a wool cloud under her hooves, and lands on a higher island next to a balloon. | Woolly: "Don't look down. Okay, I looked." | **4 · SKY ISLANDS** |
+| 12.5 | Sunken City | Ducky, `SC_Parallax_Far.png` | Underwater ruins in teal light: the duck swims happily past a column of bubbles from an air vent, while a robot crab clatters after him and a bubble-blast of his water spout sends it tumbling. | Ducky: "Finally. A level for ducks." | **5 · SUNKEN CITY** |
+| 12.6 | Robot Mothership | Horace, Gerald, `RM_Parallax_Far.png` | Inside a cold purple-and-red metal spaceship with low gravity: the horse floats up a glowing gravity lift throwing a horseshoe at a drone, while the turkey drifts past upside down, blowing feathers, grumbling. | Gerald: "Nobody said there'd be FLOATING." | **6 · ROBOT MOTHERSHIP** |
+
+**12.7** · 5s · Refs: all 8, `WS_Mothership.png`
+**Prompt:** The eight animals stand in a line on a metal walkway in front of a huge sealed robot door with a giant red eye glowing behind its glass; their reflections on the floor.
+**Camera:** low, behind the animals, slow push toward the door.
+**VO — Bessie:** "Six lands. One door left."
+**VO — Cluck:** "And something big behind it…"
+**Hook:** *NEXT: THE BOSSES*
+
+### EPISODE 13 — The Bosses
+
+*"Wanted posters" like Ep 6 Meet the Metal, for the bosses. A narrator line plus the boss's own line for each, and Bessie explaining the one rule that beats them all. Ends with the Overlord as a silhouette and a tease for the three paid worlds. ~50s.*
+
+**13.1** · 5s · Refs: Bessie, Cluck
+**Prompt:** The cow and the chicken pinning wanted posters to a wooden board in a camp at sunset; the posters are blank with a shadowy robot shape on each.
+**VO — Bessie:** "Every land has a boss. Each one takes three good bonks."
+**VO — Cluck:** "Stomp it, roll it, pound it, horseshoe it!"
+
+**13.2** · 5s · Refs: `Placeholder/Commander.png` (3D style ref from Ep 6)
+**Prompt:** Side-on: a big armoured robot commander stomping out of a stone fortress gate in grassy ruins, waving a signal arm to call smaller robots, glaring red eyes.
+**Robot VO (Commander):** "Reinforcements! RE-IN-FORCE-MENTS!"
+**VO — Bessie:** "The Commander. Calls for backup. Every time."
+**Stamp:** *COMMANDER — MEADOW RUINS*
+
+**13.3** · 5s · Refs: `UI/SkyIsland/StormBaron.png`
+**Prompt:** A storm-cloud robot with lightning-rod arms floating above a sky island, crackling with harmless cartoon static, laughing; a gust blows the sheep's wool sideways.
+**Robot VO (Storm Baron):** "Feeling… a little breezy?"
+**VO — Woolly:** "My HAIR!"
+**Stamp:** *STORM BARON — SKY ISLANDS*
+
+**13.4** · 5s · Refs: `UI/SunkenCity/DeepDredger.png`
+**Prompt:** A huge submarine-like dredging robot rising out of the dark of an underwater city, its scoop arm opening, headlights sweeping the teal water; little fish dart away.
+**Robot VO (Deep Dredger):** "Everything down here… is MINE."
+**VO — Ducky:** "Dude. Rude."
+**Stamp:** *DEEP DREDGER — SUNKEN CITY*
+
+**13.5** · 5s · Refs: Bessie, Commander
+**Prompt:** Side-on: the cow stamps a quake into the Commander; it flashes and staggers with stars over its head; the pig rolls in, bonk, it staggers again; the chicken lands on its head, and it sits down with a clank, defeated.
+**VO — Bessie:** "Hit it. Let it wobble. Hit it again."
+**Hook:** *3 HITS. YOU'VE GOT THIS.*
+
+**13.6** · 5s · Refs: `WS_Mothership.png`
+**Prompt:** Inside the robot mothership: a giant dark shape on a throne of machinery, only its outline and one huge red eye visible, lights flickering on as it wakes.
+**Camera:** slow push in, the eye fills the frame.
+**Robot VO (Overlord):** "Little farm animals. Come… and try."
+**Stamp:** *THE ROBOT OVERLORD — ???*
+
+**13.7** · 5s · **1-credit still with a slow push:** three silhouettes on a dark horizon, a drilling rig in a red canyon, a robot ringmaster in front of a lit-up night fairground, and a huge harvester robot over a factory chimney.
+**VO — Cluck:** "And after the Mothership?"
+**VO — Bessie:** "Three more. The Overlord's last hideouts."
+**Hook:** *DUSTBOWL CANYON · HARVEST FAIRGROUND · CROP FACTORY*
+
+### Stampede singles (between episodes)
+
+Codes in brackets are the voice-script codes.
+
+| Single | Content | Lines |
+|---|---|---|
+| Only Ducky Goes There (sd) | Side-on, Watermill or Sunken City: every animal stops at the water's edge; the duck strolls straight in and swims to a golden crop. | Cluck: "We're not going in there." Ducky: "Your loss, dudes." |
+| Bessie Breaks the Floor (bf) | Bessie's Ground Pound clip (11.2 or 10.6) cut long, the cracked floor dropping into a secret room. | Bessie: "Floors are just a suggestion." |
+| Woolly's Cloud Step (wc) | The 11.4 clip cut long, three cloud steps in a row up a cliff. | Woolly: "Up, up, aaand… up." |
+| The Paid Worlds (pw) | The 13.7 still per world, one at a time, with the boss's wreck flashing in. | Bessie: "Dustbowl. Fairground. The Crop Factory." Cluck: "Field trip!" |
+
+### Chapter 2 cost and lines (estimate)
+
+About 35 Kling clips (mostly 5s on Kling 3.0 Turbo 720p) plus stills, roughly **700–900 credits** for Eps 10–13, less if Ep 5's reveal clips cover Percy, Ducky, Horace, Gerald and Billy in Ep 11. 10.3 is free (built map) and 13.7 is a 1-credit still. About 45 new voice lines across Cluck, Bessie, Woolly, Ducky, Percy, Horace, Gerald, Billy, the Combine and four new robot voices (Overlord, Commander, Storm Baron, Deep Dredger); add them to `FarmFury_Voice_Script.md` before recording.
+
 ---
 
 ### END CARD (every episode)
