@@ -97,6 +97,16 @@ CAPTIONS = {
     ("Corn Field", 8): "Collect every crop to clear the maze 🌽",
     ("Corn Field", 9): "Can you outrun the Harvest Robots? 🤖💨",
     ("Corn Field", 10): "Ducky takes the water shortcut 🦆💦",
+    ("Vegetable Patch", 1): "Horace throws a horseshoe, and the robot is out of the game 🐴✨",
+    ("Vegetable Patch", 2): "Three Woollys in the veggie patch 🐑🐑🐑🥕",
+    ("Vegetable Patch", 3): "Bessie's Ground Slam shakes the whole vegetable patch 💥🐄",
+    ("Vegetable Patch", 4): "Meet Gerald! The newest animal on the team 🦃",
+    ("Vegetable Patch", 5): "Bessie, then Percy: that's the Earthquake Roll combo 🐄➡️🐷💥",
+    ("Vegetable Patch", 6): "Ducky waddles through the vegetable patch 🦆🥕",
+    ("Vegetable Patch", 7): "Horace dodges the robots between the cabbages 🐴🤖",
+    ("Vegetable Patch", 8): "Collect every carrot before the robots catch up 🥕",
+    ("Vegetable Patch", 9): "Gerald stays one step ahead 🦃🤖",
+    ("Vegetable Patch", 10): "Percy on the move in the vegetable patch 🐷🥬",
 }
 GP_TAGS = ["#farmfury", "#mobilegame", "#arcadegame", "#mazegame", "#retrogaming"]
 
