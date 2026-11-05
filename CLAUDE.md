@@ -5911,6 +5911,8 @@ the keystore path/alias and `androidUseCustomKeystore` lines in `ProjectSettings
 
 **Second update, version code 4 (2026-10-19).** Carries the ability changes (Ducky's Water Spout, Gerald's Feather Burst only, Billy's Mud Sling); `bundleVersion` still 1.0, so Play shows the same version name. Build the AAB locally as before (Development Build OFF, App Bundle ON) and upload as a new production release.
 
+**Third update, version code 5 (2026-11-05).** Carries the "Arcade" home-screen name (`ArcadeAndroidBuild`, first build to include it - check the label on the phone) plus everything in vc 4; `bundleVersion` 1.0.1 (shared with iOS 1.0.1). Unknown whether vc 4 ever reached production or stayed in internal testing; the user's account was on the internal-testing list, so Play served them the testing build. Upload vc 5 as a production release.
+
 **Launch (2026-09-21).** All Play Console forms, listing, IAP testing and mailboxes were confirmed complete by the
 user, who chose to promote to Production. Ads are switched live only AFTER approval: AdMob "Add store" for the Android
 app, then LevelPlay Store availability = live; allow 24-48 h for fill. A first review of a child-directed app can be
