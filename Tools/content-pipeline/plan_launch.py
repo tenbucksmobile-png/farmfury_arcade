@@ -76,7 +76,7 @@ STORY_TAGS = ["#farmfury", "#animation", "#cartoon", "#farmanimals", "#cute"]
 # 0,3,7,10,14,17,21,24,28; these sit next to the episode each one belongs with.
 SINGLE_DAYS = {2: "robots",      # Mon, after Ep 1: the robots gloating
                9: "bell",        # Mon, before Ep 4 "Ring the bell"
-               12: "slam",       # Thu, before Ep 5's powers
+               13: "slam",       # Fri, before Ep 5's powers (not Thu: Vegetable Patch 03 is a ground slam too)
                16: "egg",        # Mon, after Ep 5
                26: "dance",      # Thu, before the finale
                29: "cluckday"}   # Sun, after Ep 9: "every crop's home safe"
