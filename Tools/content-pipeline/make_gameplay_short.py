@@ -42,9 +42,9 @@ SFX = REPO / "Assets/_Project/Audio/SFX"
 # world index -> (badge, backdrop, music, label). Purchased worlds: add their shield art when needed.
 WORLDS = {
     0: ("CornfieldSign.png", "World1_Cornfield.png", "CornField.mp3", "WORLD 1"),
-    1: ("VegetablePatchSign.png", None, "VegetablePatch.mp3", "WORLD 2"),
-    2: ("OrchardSign.png", None, "Orchard.mp3", "WORLD 3"),
-    3: ("WheatfieldSign.png", None, "Wheatfield.mp3", "WORLD 4"),
+    1: ("VegetablePatchSign.png", "VegatableGarden.png", "VegetablePatch.mp3", "WORLD 2"),
+    2: ("OrchardSign.png", "OrchardBackground.png", "Orchard.mp3", "WORLD 3"),
+    3: ("WheatfieldSign.png", "Wheatfield_background.png", "Wheatfield.mp3", "WORLD 4"),
 }
 BADGE_SECONDS = 1.8
 ALIGN_SR = 4000

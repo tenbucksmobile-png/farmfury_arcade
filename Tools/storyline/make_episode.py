@@ -760,6 +760,8 @@ def main():
     ep = EPISODES[int(key) if key.isdigit() else key]   # numbered episodes, or a single's name (e.g. "vd")
     shots = ep["shots"]
     final_path = VIDEO_DIR / "Episodes" / (ep["name"] + ("_play_only" if play_only else "") + ".mp4")
+    if not key.isdigit():   # singles live in Episodes/singles, named without the "single_" prefix
+        final_path = WRAP_DIR / final_path.name.removeprefix("single_")
     out_path = final_path.parent / "no_opener" / final_path.name
     ffmpeg = find_ffmpeg()
     out_path.parent.mkdir(parents=True, exist_ok=True)
