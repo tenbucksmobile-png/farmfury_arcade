@@ -6063,6 +6063,27 @@ were offered and declined, so don't build an uploader unless asked. Target 2-3 p
   every rendered short (31 on 2026-10-08) to back-fill the YouTube channel. The channel itself
   (`@farmfurygames`, setup steps in `channel-kit/SETUP.md`) had not been confirmed as created.
 
+- **Gameplay-short template, v3 (2026-11-05, `make_gameplay_short.py`).** Replaces the old gameplay
+  shorts (all deleted, including the TikTok uploads). Each short is: the storyline opener (8-voice
+  "Farm Fury!" over the line-up, FARM FURY/Arcade/Stampede logos), the world's Level Select sign over
+  its blurred backdrop (1.8 s), one continuous gameplay window (~10 s, headline on top, small
+  "FARM FURY: ARCADE / FREE ON APP STORE & GOOGLE PLAY" bar), then the Arcade end card
+  (`make_episode.wrap_video(..., arcade_only=True)`). No Level Complete card, no "WORLD 1" text.
+  The world track is found in the recording by FFT cross-correlation (`find_music_position`; the
+  recording is very quiet, gain ~0.008), so the badge music runs straight into the gameplay and on
+  under the end card. Pick windows with no power crop (EatRobot.mp3 replaces the music for 9.5 s) and
+  check frames: the power bar shows 0.5-2 s before its marker. End-card shout lands ~1 s after the
+  card (`WRAP_SHOUT_DELAY` 0.97, user-tuned); episodes keep their own timing. Output
+  `<session>/shorts_v3/<name>.mp4` + `.json`. Five made from Corn Field footage: Ducky water skip,
+  Percy swap (no power shown: his only roll in the footage coincides with a death), Woolly clones,
+  Bessie slam, Cluck egg drop. Horace/Gerald/Billy need new footage.
+- **Launch schedule, `plan_launch.py`.** One storyline episode (Eps 1-9) each morning (07:00 weekdays,
+  08:30 weekends) and a gameplay short at 17:30, written to `plans/launch-<start>.html` with TikTok
+  captions and YouTube titles/descriptions. It still reads `shorts_franchise/` (deleted): point it at
+  `shorts_v3/` and give the `gp_*` names their own caption kind before using it. Times not yet confirmed.
+- ffmpeg gotcha (fixed in `make_episode.py`): a bare `apad` before `atrim` hangs; use
+  `apad=whole_dur=`. This was probably the singles render hang.
+
 ## Storyline series (Tools/storyline, branch `marketing/kling-storyline`, 2026-10-15)
 
 An animated marketing series, "The Night the Robots Came", made clip by clip in Kling AI and narrated

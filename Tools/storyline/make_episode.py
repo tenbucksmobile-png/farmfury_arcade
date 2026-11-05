@@ -54,6 +54,9 @@ END_CARD_SECONDS = 4.5    # minimum; stretched to fit the end-card voices
 CHORUS = ["cluck", "bessie", "percy", "woolly", "ducky", "horace", "gerald", "billy"]
 CHORUS_STAGGER = 0.035
 END_CHORUS_AT = 0.5
+WRAP_CARD_FADE = 0.3     # wrapped shorts: the end card snaps in over this, at the end of the audio crossfade,
+WRAP_SHOUT_DELAY = 0.97   # the shout starts this long after the card lands (user-tuned, 2026-11-05)
+                         # and the shout starts as it lands (a slow dissolve made the shout read as early/late)
 END_LINE = ("bessie_E.1", [(1.05, 2.12), (0.0, 0.80)])
 END_LINE_GAP = 0.35       # after the chorus, and between the two swapped halves
 END_TAIL = 1.0            # card stays up this long after the last word
@@ -575,10 +578,10 @@ def build_end_card(path, play_only=False, arcade_only=False):
     card.convert("RGB").save(path)
 
 
-def build_end_voices(ffmpeg, work):
+def build_end_voices(ffmpeg, work, chorus_at=END_CHORUS_AT):
     """The end card's audio: the 'Farm Fury!' chorus and Bessie's reordered line, as (wav, seconds into the card,
     duration). Voice only, no captions: a caption would cover the store badges."""
-    items, at = [], END_CHORUS_AT
+    items, at = [], chorus_at
     voices = [prepare_voice(ffmpeg, f"{c}_farmfury", work)[0] for c in CHORUS
               if (VOICE_DIR / f"{c}_farmfury.mp3").exists()]
     if voices:
@@ -692,28 +695,31 @@ def add_opener(ffmpeg, body, out_path):
 WRAP_DIR = VIDEO_DIR / "Episodes" / "singles"
 
 
-def wrap_video(ffmpeg, src):
+def wrap_video(ffmpeg, src, out_dir=None, arcade_only=False, end_music=None, end_music_start=0.0):
+    """end_music/end_music_start: the end card's music track and where in it to start (looped), e.g. to carry
+    a gameplay short's world music on under the end card instead of switching to the theme."""
     """An already-finished video (e.g. Video/Narrated/*.mp4, with its own voices and music) given the episodes'
     framing: centred on a blurred copy of itself (if not already 9:16), the end card crossfaded on after it with
     the end-card voices and theme, and the opener in front. Its own sound is kept as it is."""
-    out = WRAP_DIR / src.name
+    out = (out_dir or WRAP_DIR) / src.name
     out.parent.mkdir(parents=True, exist_ok=True)
     body_s = probe_duration(ffmpeg, src)
     with tempfile.TemporaryDirectory() as tmp:
         work = Path(tmp)
-        end_voices, card_s = build_end_voices(ffmpeg, work)
+        end_voices, card_s = build_end_voices(ffmpeg, work, chorus_at=END_CARD_XFADE + WRAP_SHOUT_DELAY)
         end_png = work / "end_card.png"
-        build_end_card(end_png)
+        build_end_card(end_png, arcade_only=arcade_only)
         end_start = body_s - END_CARD_XFADE
         total = end_start + card_s
         frames = int(card_s * FPS)
         inputs = ["-i", str(src), "-loop", "1", "-framerate", str(FPS), "-t", f"{card_s:.2f}", "-i", str(end_png)]
         vg = [f"[0:v]fps={FPS},setsar=1,split[a][b];"
               f"[a]scale={W}:{H}:force_original_aspect_ratio=increase,crop={W}:{H},boxblur=24:2,eq=brightness=-0.2[bg];"
-              f"[b]scale={W}:-2:flags=lanczos[fg];[bg][fg]overlay=0:{FIT_CENTER_Y}-h/2,setsar=1[body]",
+              f"[b]scale={W}:-2:flags=lanczos[fg];"
+              f"[bg][fg]overlay=0:'if(gte(h,{H}),({H}-h)/2,{FIT_CENTER_Y}-h/2)',setsar=1[body]",
               f"[1:v]scale={W * 2}:{H * 2},zoompan=z='1+0.04*on/{frames}':x='iw/2-(iw/zoom/2)':"
               f"y='ih/2-(ih/zoom/2)':d=1:s={W}x{H}:fps={FPS},setsar=1[vend]",
-              f"[body][vend]xfade=transition=fade:duration={END_CARD_XFADE}:offset={end_start:.2f},"
+              f"[body][vend]xfade=transition=fade:duration={WRAP_CARD_FADE}:offset={body_s - WRAP_CARD_FADE:.2f},"
               f"fade=t=out:st={total - FADE_OUT:.2f}:d={FADE_OUT},format=yuv420p[v]"]
         labels = []
         for k, (path, at, _d) in enumerate(end_voices):
@@ -723,14 +729,18 @@ def wrap_video(ffmpeg, src):
             vg.append(f"[{idx}:a]adelay={ms}|{ms}[ev{k}]")
             labels.append(f"[ev{k}]")
         mi = inputs.count("-i")
-        inputs += ["-t", f"{card_s + 2:.2f}", "-i", str(THEME)]
+        if end_music:
+            inputs += ["-stream_loop", "-1", "-ss", f"{end_music_start:.2f}", "-t", f"{card_s + 2:.2f}",
+                       "-i", str(end_music)]
+        else:
+            inputs += ["-t", f"{card_s + 2:.2f}", "-i", str(THEME)]
         ms = int(end_start * 1000)
         vg.append(f"[{mi}:a]loudnorm=I=-14:TP=-1.5:LRA=11,aformat=sample_rates=48000:channel_layouts=stereo,"
                   f"atrim=0:{card_s + 1:.2f},afade=t=in:d=0.8,volume={MUSIC_GAIN},adelay={ms}|{ms}[mus]")
         vg.append(f"[0:a]aformat=sample_rates=48000:channel_layouts=stereo,"
                   f"afade=t=out:st={end_start:.2f}:d={END_CARD_XFADE}[orig]")
         vg.append("[orig][mus]" + "".join(labels) + f"amix=inputs={2 + len(labels)}:normalize=0:duration=longest,"
-                  f"apad,atrim=0:{total:.2f},afade=t=out:st={total - FADE_OUT:.2f}:d={FADE_OUT}[aout]")
+                  f"apad=whole_dur={total:.2f},atrim=0:{total:.2f},afade=t=out:st={total - FADE_OUT:.2f}:d={FADE_OUT}[aout]")
         body = work / "wrapped.mp4"
         run([ffmpeg, "-v", "error", "-y", *inputs, "-filter_complex", ";".join(vg), "-map", "[v]", "-map", "[aout]",
              "-t", f"{total:.2f}", *VIDEO_OUT, *AUDIO_OUT, str(body)])
@@ -924,7 +934,7 @@ def main():
                 sfx_labels.append(f"[sfx{fi}]")
                 print(f"  {starts[si] + at:5.1f}s       sfx {name}")
         if sfx_labels:
-            agraph.append("".join(sfx_labels) + f"amix=inputs={len(sfx_labels)}:normalize=0,apad,atrim=0:{total:.2f}[sfx]")
+            agraph.append("".join(sfx_labels) + f"amix=inputs={len(sfx_labels)}:normalize=0,apad=whole_dur={total:.2f},atrim=0:{total:.2f}[sfx]")
         else:
             agraph.append(f"anullsrc=r=48000:cl=stereo,atrim=0:{total:.2f}[sfx]")
 
@@ -950,7 +960,7 @@ def main():
         agraph.append(f"[{m3}:a]{level},atrim=0:{card_s + 1:.2f},afade=t=in:d=0.8,"
                       f"adelay={int(end_start * 1000)}|{int(end_start * 1000)}[mu3]")
         beds = "[mu1][mu2][mu3]" if chase_len > 0 else "[mu1][mu3]"
-        agraph.append(f"{beds}amix=inputs={len(beds) // 5}:normalize=0,apad,atrim=0:{total:.2f},volume={MUSIC_GAIN}[mus]")
+        agraph.append(f"{beds}amix=inputs={len(beds) // 5}:normalize=0,apad=whole_dur={total:.2f},atrim=0:{total:.2f},volume={MUSIC_GAIN}[mus]")
 
         agraph.append("".join(voice_labels) + f"amix=inputs={len(voice_labels)}:normalize=0,apad,"
                       f"atrim=0:{total:.2f},asplit=3[vox][key][key2]")

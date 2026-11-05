@@ -18,6 +18,10 @@ Usage:
     python make_shorts.py                      # newest session
     python make_shorts.py sessions/<id> --count 5
     python make_shorts.py --include-deaths     # also use clips where you died
+    python make_shorts.py <session> --franchise
+        # no logo intro/end card of its own, CTA names both stores; each short is then wrapped in
+        # the storyline episodes' opener and Arcade end card (storyline/make_episode.py) and written
+        # to <session>/shorts_franchise/
 """
 
 import argparse
@@ -168,6 +172,11 @@ def fit_font(draw, text, box, max_size=120, min_size=56):
     return ImageFont.truetype(str(FONT), min_size), [text], int(min_size * 1.05)
 
 
+CTA_TITLE = "FREE ON GOOGLE PLAY"
+CTA_SUBTITLE = "FARM FURY: ARCADE"
+FRANCHISE = False      # set by --franchise: no intro/end card/fades here, both stores in the CTA
+
+
 def build_overlay(hook, path):
     check_wording(hook)
     overlay = Image.new("RGBA", (W, H), (0, 0, 0, 0))
@@ -183,11 +192,14 @@ def build_overlay(hook, path):
 
     logo_size = 170
     logo = Image.open(LOGO).convert("RGBA").resize((logo_size, logo_size), Image.LANCZOS)
-    cta_font = ImageFont.truetype(str(FONT), 78)
-    small_font = ImageFont.truetype(str(FONT), 52)
-    title, subtitle = "FREE ON GOOGLE PLAY", "FARM FURY: ARCADE"
-    text_w = max(draw.textlength(title, font=cta_font), draw.textlength(subtitle, font=small_font))
+    title, subtitle = CTA_TITLE, CTA_SUBTITLE
     gap = 24
+    for big in range(78, 40, -2):   # shrink until logo + text fit inside the frame with a margin
+        cta_font = ImageFont.truetype(str(FONT), big)
+        small_font = ImageFont.truetype(str(FONT), round(big * 52 / 78))
+        text_w = max(draw.textlength(title, font=cta_font), draw.textlength(subtitle, font=small_font))
+        if logo_size + gap + text_w <= W - 80:
+            break
     left = int((W - (logo_size + gap + text_w)) / 2)
     overlay.alpha_composite(logo, (left, CTA_TOP))
     text_x = left + logo_size + gap
@@ -300,10 +312,15 @@ def join_segments(ffmpeg, parts, out):
     prep = "".join(f"[{i}:v]setsar=1[sv{i}];" for i in range(n))
     streams = "".join(f"[sv{i}][{i}:a]" for i in range(n))
     fade = 0.3
+    if FRANCHISE:   # the wrapper crossfades the end card on and puts the opener in front
+        vfade = afade = ""
+    else:
+        vfade = f",fade=t=in:st=0:d={fade},fade=t=out:st={total - fade:.2f}:d={fade}"
+        afade = f",afade=t=in:st=0:d={fade},afade=t=out:st={total - fade:.2f}:d={fade}"
     filters = (
         f"{prep}{streams}concat=n={n}:v=1:a=1[cv][ca];"
-        f"[cv]fade=t=in:st=0:d={fade},fade=t=out:st={total - fade:.2f}:d={fade}[v];"
-        f"[ca]loudnorm=I=-14:TP=-1.5:LRA=11,afade=t=in:st=0:d={fade},afade=t=out:st={total - fade:.2f}:d={fade}[a]"
+        f"[cv]null{vfade}[v];"
+        f"[ca]loudnorm=I=-14:TP=-1.5:LRA=11{afade}[a]"
     )
     cmd = [ffmpeg, "-v", "error", "-y", *inputs, "-filter_complex", filters, "-map", "[v]", "-map", "[a]",
            *VIDEO_OUT, *AUDIO_OUT, "-movflags", "+faststart", str(out)]
@@ -358,6 +375,7 @@ class Builder:
     def __init__(self, ffmpeg, video, out_dir, work_dir):
         self.ffmpeg, self.video, self.out_dir, self.work = ffmpeg, video, out_dir, work_dir
         self.count = 0
+        self.bodies = []
 
     def _temp(self, suffix):
         self.count += 1
@@ -370,6 +388,8 @@ class Builder:
 
     def opener(self, hook):
         """Quick intro: the Farm Fury logo fading in and out over a blurred poster."""
+        if FRANCHISE:
+            return None
         out = self._temp(".mp4")
         render_card(self.ffmpeg, out, OPENER_SECONDS, None, music_start=0.0, logo_fade=True)
         return out, OPENER_SECONDS
@@ -398,7 +418,12 @@ class Builder:
 
     def finish(self, name, parts, info):
         out = self.out_dir / f"{name}.mp4"
-        total = join_segments(self.ffmpeg, parts + [self.endcard()], out)
+        parts = [p for p in parts if p is not None]
+        if FRANCHISE:
+            total = join_segments(self.ffmpeg, parts, out)
+            self.bodies.append(out)
+        else:
+            total = join_segments(self.ffmpeg, parts + [self.endcard()], out)
         info = dict(info, file=out.name, seconds=round(total, 1))
         (self.out_dir / f"{name}.json").write_text(json.dumps(info, indent=2), encoding="utf-8")
         print(f"  {out.name}  {total:.1f}s  \"{info['hook']}\"")
@@ -409,7 +434,13 @@ def main():
     parser.add_argument("session", nargs="?", help="session folder (default: newest)")
     parser.add_argument("--count", type=int, default=3, help="how many single-moment shorts (default 3)")
     parser.add_argument("--include-deaths", action="store_true", help="also use clips that show a death")
+    parser.add_argument("--franchise", action="store_true",
+                        help="wrap each short in the storyline opener + Arcade end card (shorts_franchise/)")
     args = parser.parse_args()
+    global FRANCHISE, CTA_TITLE, CTA_SUBTITLE
+    if args.franchise:
+        FRANCHISE = True
+        CTA_TITLE, CTA_SUBTITLE = "FARM FURY: ARCADE", "FREE ON APP STORE & GOOGLE PLAY"
 
     if args.session:
         session_dir = Path(args.session).resolve()
@@ -437,7 +468,10 @@ def main():
 
     ffmpeg = find_ffmpeg()
     video_len = video_duration(ffmpeg, video)
-    out_dir = session_dir / "shorts"
+    out_dir = session_dir / ("shorts_franchise" if FRANCHISE else "shorts")
+    if FRANCHISE:
+        final_dir, out_dir = out_dir, out_dir / "body"
+        out_dir.mkdir(parents=True, exist_ok=True)
     out_dir.mkdir(exist_ok=True)  # files are overwritten by name; nothing else in the folder is removed
     deaths = [m["t"] for m in markers if m["type"] == "player_death"]
 
@@ -558,6 +592,15 @@ def main():
                 spans.append([start, end])
             b.finish("mix_03_swaps", parts, {"hook": SWAP_MIX_HEADLINE, "clips": spans})
 
+    if FRANCHISE:
+        sys.path.insert(0, str(HERE.parent / "storyline"))
+        import make_episode
+        print("Wrapping in the storyline opener and Arcade end card:")
+        for body in b.bodies:
+            make_episode.wrap_video(ffmpeg, body, out_dir=final_dir, arcade_only=True)
+            (final_dir / f"{body.stem}.json").write_text((out_dir / f"{body.stem}.json").read_text(encoding="utf-8"),
+                                                          encoding="utf-8")
+        out_dir = final_dir
     print(f"Shorts written to {out_dir}")
 
 

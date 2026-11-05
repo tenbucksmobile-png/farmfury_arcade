@@ -79,24 +79,25 @@ CAPTIONS = {
         "Unlocked {character}! Every animal plays differently 🐷🐑🦆",
     ],
 }
-CTA = "Farm Fury: Arcade is free on Google Play, link in bio."
+CTA = "Farm Fury: Arcade is free on the App Store and Google Play, link in bio."
 
 # YouTube: links in Shorts descriptions often aren't clickable, so the channel page's own link
 # (channel-kit/SETUP.md) is the reliable one; this tracked link is still worth including.
 YOUTUBE_SHORTS_LINK = ("https://play.google.com/store/apps/details?id=com.farmfury.arcade"
                        "&referrer=utm_source%3Dyoutube%26utm_medium%3Dsocial%26utm_campaign%3Dshorts")
-YOUTUBE_CTA = (f"Farm Fury: Arcade is free on Google Play: {YOUTUBE_SHORTS_LINK}\n"
+APP_STORE_LINK = "https://apps.apple.com/app/id6804415300"
+YOUTUBE_CTA = (f"Farm Fury: Arcade is free.\nApp Store: {APP_STORE_LINK}\nGoogle Play: {YOUTUBE_SHORTS_LINK}\n"
                "(If the link isn't tappable, use the one on our channel page.)")
 YOUTUBE_TITLE_SUFFIX = " | Farm Fury: Arcade"
 YOUTUBE_TITLE_MAX = 100
 
 HASHTAGS_BASE = ["#farmfury", "#mobilegame", "#arcadegame"]
 HASHTAGS_EXTRA = {
-    "main": ["#mazegame", "#retrogaming", "#androidgames"],
-    "ability": ["#indiegame", "#gamedev", "#androidgames"],
+    "main": ["#mazegame", "#retrogaming", "#mobilegames"],
+    "ability": ["#indiegame", "#gamedev", "#mobilegames"],
     "power": ["#retrogaming", "#mazegame", "#indiegame"],
-    "combo": ["#indiegame", "#gaming", "#androidgames"],
-    "unlock": ["#cuteanimals", "#indiegame", "#androidgames"],
+    "combo": ["#indiegame", "#gaming", "#mobilegames"],
+    "unlock": ["#cuteanimals", "#indiegame", "#mobilegames"],
     "swap": ["#cuteanimals", "#indiegame", "#mazegame"],
     "animated": ["#cuteanimals", "#animation", "#indiegame"],
 }
@@ -105,7 +106,7 @@ ABILITIES = {
     "eggdrop": ("Cluck", "Egg Drop"), "groundslam": ("Bessie", "Ground Slam"),
     "bounceroll": ("Percy", "Bounce Roll"), "tripleclone": ("Woolly", "Triple Clone"),
     "skipshot": ("Ducky", "Water Skip"), "horseshoethrow": ("Horace", "Horseshoe Throw"),
-    "puffup": ("Gerald", "Puff Up"), "headbuttthrough": ("Billy", "Headbutt Charge"),
+    "puffup": ("Gerald", "Feather Burst"), "headbuttthrough": ("Billy", "Mud Sling"),
 }
 
 
