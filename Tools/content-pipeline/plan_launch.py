@@ -107,6 +107,16 @@ CAPTIONS = {
     ("Vegetable Patch", 8): "Collect every carrot before the robots catch up 🥕",
     ("Vegetable Patch", 9): "Gerald stays one step ahead 🦃🤖",
     ("Vegetable Patch", 10): "Percy on the move in the vegetable patch 🐷🥬",
+    ("Orchard", 1): "Meet Billy! He flings mud at the robots 🐐🟤",
+    ("Orchard", 2): "Three Woollys in the orchard 🐑🐑🐑🍎",
+    ("Orchard", 3): "Ducky's Water Spout sends the robots packing 🦆💦",
+    ("Orchard", 4): "Horace's horseshoe flies through the apple trees 🐴✨",
+    ("Orchard", 5): "Cluck drops an egg, and the robot walks right into it 🥚🍎",
+    ("Orchard", 6): "Percy rolls through the orchard 🐷💨",
+    ("Orchard", 7): "Gerald's Feather Burst! 🦃🪶",
+    ("Orchard", 8): "Bessie's Ground Slam shakes the apple trees 💥🐄",
+    ("Orchard", 9): "Can Horace outrun the robots? 🐴🤖",
+    ("Orchard", 10): "Collect every apple to clear the maze 🍎",
 }
 GP_TAGS = ["#farmfury", "#mobilegame", "#arcadegame", "#mazegame", "#retrogaming"]
 
