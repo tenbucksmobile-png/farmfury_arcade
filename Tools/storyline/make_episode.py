@@ -40,6 +40,7 @@ THEME = MUSIC_DIR / "Theme.mp3"
 # The game's power-pellet music ("robots run"): the more urgent bed for each episode's action stretch.
 CHASE_MUSIC = REPO / "Assets/_Project/Audio/SFX/EatRobot.mp3"
 SFX = REPO / "Assets/_Project/Audio/SFX"
+COSMETIC_SPRITES = REPO / "Assets/_Project/Sprites/Cosmetics"   # Shop category banners (absolute "banner" paths)
 SESSION_VIDEO = HERE.parent / "content-pipeline/sessions/20261001-150832/video.mp4"
 
 XFADE = 0.4               # crossfade between clips
@@ -451,6 +452,38 @@ EPISODES = {
             {"file": "Cluck_Celebration.mp4", "use": 4.0, "hold": 1.6, "fit": True, "crop": (0.04, 0.0, 0.9, 0.9),
              "hook": True, "hook_seconds": 2.6, "lines": [
                 ("cluck_cc1", "We did it! Every crop's home safe!", 0.5)]},
+        ],
+    },
+    # Cosmetics shorts (2026-11-06): the Shop's hats/trails and machine skins. One 4 s Kling clip per item
+    # (Cosmetics_Clips/jobs.txt, 198 credits), music only, the Shop's own category banners popped on like the combo
+    # banners. Arcade-only end card (these items are in Arcade). The real in-game footage of each item (recorded in
+    # the Editor) is still to be added as a "gameplay" shot before the end card.
+    "hats": {
+        "name": "single_cosmetics_dress_up",
+        "end_card": "arcade",
+        "clip_dir": VIDEO_DIR / "Cosmetics_Clips",
+        "music": THEME,
+        "hook": ["DRESS UP", "YOUR FARM!"],
+        "shots": [
+            {"file": "c1_bessie_cowboy.mp4", "use": 4.0, "hook": True, "hook_seconds": 2.0,
+             "banner": (COSMETIC_SPRITES / "Hats&Caps.png", 2.1, 1.7), "lines": []},
+            {"file": "c2_cluck_crown.mp4", "use": 4.0, "hook": ["THE CROWN"], "hook_at": 0.3,
+             "sfx": [("RarePellet_pickup.mp3", 0.4, 0.6)], "lines": []},
+            {"file": "c3_percy_ribbon.mp4", "use": 4.0, "hook": ["RAINBOW RIBBON"], "hook_at": 1.8,
+             "banner": (COSMETIC_SPRITES / "Trails.png", 0.2, 1.5), "lines": []},
+        ],
+    },
+    "machines": {
+        "name": "single_cosmetics_machines",
+        "end_card": "arcade",
+        "clip_dir": VIDEO_DIR / "Cosmetics_Clips",
+        "music": THEME,
+        "hook": ["RIDE IN", "STYLE!"],
+        "shots": [
+            {"file": "m1_cluck_tractor.mp4", "use": 4.0, "hook": True, "hook_seconds": 2.0,
+             "banner": (COSMETIC_SPRITES / "machine.png", 2.1, 1.7), "lines": []},
+            {"file": "m2_bessie_tanker.mp4", "use": 4.0, "hook": ["MILK TANKER"], "hook_at": 0.3, "lines": []},
+            {"file": "m3_horace_baler.mp4", "use": 4.0, "hook": ["HAY BALER"], "hook_at": 0.3, "lines": []},
         ],
     },
 }

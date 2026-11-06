@@ -6080,6 +6080,36 @@ were offered and declined, so don't build an uploader unless asked. Target 2-3 p
   Percy swap (no power shown: his only roll in the footage coincides with a death), Woolly clones,
   Bessie slam, Cluck egg drop. Horace/Gerald/Billy need new footage.
 - **Launch schedule, `plan_launch.py` (2026-11-05, revised).** Every morning 07:30 the next gameplay short, world by world in number order (`WORLD_ORDER`, 10 per world, files found in `Episodes/singles/<World>/`); Tuesday and Saturday 16:30 the next episode; six story singles on other afternoons next to their episodes (`SINGLE_DAYS`). From Sat 7 Nov it runs 30 days to Sun 6 Dec (Ep 9 on Sat 5 Dec). Corn Field 01-10 and Vegetable Patch 01-10 are in (mornings 7-26 Nov); Orchard 01-10 is needed by Tue 24 Nov. The Ground Slam story single moved to Fri 20 Nov so it doesn't share Thu 19 Nov with Vegetable Patch 03 (also a ground slam); after that mornings continue through the remaining worlds and Tue/Sat afternoons are for Chapter 2 (Stampede). Re-run after rendering: new shorts are picked up automatically (plain caption from the file title unless added to `CAPTIONS`). The 4 older `animated_*` shorts are left out. Sheet: `plans/launch-2026-11-07.html`.
+- **Launch went live 2026-11-07.** The user scheduled TikTok up to Mon 16 Nov (Bessie's Bell Boogie);
+  TikTok Studio allows 10 days ahead, so top up from ~16 Nov. YouTube is scheduled by hand in Studio at
+  the same times (titles/descriptions from the launch sheet; for episodes use the fuller
+  `Episodes/thumbnails/descriptions.md`, see below). Gameplay posts use the sheet's text as-is.
+- **One channel for every Farm Fury game (2026-11-06).** @farmfurygames on TikTok and YouTube covers
+  Arcade, Stampede and later titles; the user changed both profile pictures to the new **Farm Fury
+  Games** logo (`FarmFury_Artwork/Rough_Icons/Logo_game.png`, 500x500; a faint mark in its bottom-right
+  corner still needs cleaning in the source). Channel art in `channel-kit/`:
+  `youtube_banner_franchise.png` (2560x1440: website hero background + `Web/Characters_nobackground.png`
+  cast, logo left, Arcade + Stampede logos right, "FREE ON THE APP STORE & GOOGLE PLAY" - the user wants
+  both games shown on both stores, Stampede's App Store resubmission being in review), `youtube_watermark.png`
+  (150x150), and two general thumbnails from the opener still (`thumbnail_vertical_1080x1920.png`, used for
+  gameplay posts; `thumbnail_landscape_1280x720.png`). The older `youtube_banner.png`/`profile_picture.png`
+  and SETUP.md's texts are Arcade-only and outdated. Stampede on Google Play:
+  `https://play.google.com/store/apps/details?id=com.farmfury.stampede` (package from the Stampede
+  project; page answered 200 but the listing title wasn't checked). Use `#farmfury #farmfurygames` plus a
+  game tag. Shorts thumbnails can only be set from the YouTube mobile app.
+- **Episode thumbnails + descriptions (2026-11-06):** `Video/Episodes/thumbnails/ep01..ep09_thumbnail.png`
+  (1080x1920: FARM FURY logo, red EPISODE n chip, a frame from the episode, the episode's hook text; frames
+  in `_src/`, Eps 1/5/8/9 use a later, stronger shot) and `descriptions.md` (YouTube title, kid-friendly
+  text with a "Next" lead-in, shared franchise footer with Arcade + Stampede links). Not in the repo.
+- **Cosmetics shorts (2026-11-06, drafts):** `make_episode.py --episode hats|machines` ->
+  `Episodes/singles/cosmetics_dress_up.mp4` and `cosmetics_machines.mp4` (19.7 s each, music only, Shop
+  category banners `Hats&Caps.png`/`Trails.png`/`machine.png` via `banner` with an absolute path,
+  Arcade-only end card). Clips in `Video/Cosmetics_Clips/` (jobs.txt): Bessie cowboy hat, Cluck crown,
+  Percy rainbow ribbon, Cluck tractor, Bessie milk tanker, Horace hay baler; Ep 5 3D stills + the game's
+  hat/machine art as refs, sunny daytime, all first takes, 198 credits (6 stills + 6 x 4 s Turbo). Kling
+  balance ~41 after this (the account showed 239, not the 430 the user expected). Still to add: a
+  `gameplay` shot of the real items, recorded by the user in the Editor (Debug > Unlock All Cosmetics),
+  before the end card. Not scheduled yet.
 - ffmpeg gotcha (fixed in `make_episode.py`): a bare `apad` before `atrim` hangs; use
   `apad=whole_dur=`. This was probably the singles render hang.
 
