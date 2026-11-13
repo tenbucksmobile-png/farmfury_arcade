@@ -5877,12 +5877,14 @@ the networks returned nothing.
 `C:\Users\Personel\Desktop\FarmFury_Technical\Keystore\user.keystore` (moved there from `Desktop\Sprites_Arcade\Keystore\` by 2026-10-19; after any move, re-point Unity's saved path in Player > Publishing Settings or the build fails with "No keystore file was found"), alias `farmfury-upload` (PKCS12, RSA 2048,
 valid to 2076, SHA-256 `F4:47:66:44:AD:47:1E:B6:E6:6E:61:5C:19:12:76:D2:67:7A:60:15:7F:2C:3A:48:6E:6D:A1:1B:19:8C:1C:41`).
 It is the Play App Signing *upload* key (Google holds the real signing key; a lost upload key can be reset via
-Google). The password is the user's alone - never write it here, never commit the keystore. A `Key.docx` was
-sitting beside the keystore and may contain the password; the user was told to move it to a password manager.
+Google). The password is the user's alone - never write it here, never commit the keystore. The `Key.docx` that sat
+beside the keystore was moved 2026-11-13 to `OneDrive\FarmFury_Backup\Keys_and_Passwords\Passwords\` (backups of both
+keystores and all other keys are in that folder too; the iOS signing files now live in `Desktop\FarmFury_Secrets\iOS_Arcade`).
 Do not reuse `fizzog-release.jks` (a different app). Unity stores the keystore path and alias in
 `ProjectSettings.asset` (`AndroidKeystoreName`, `AndroidKeyaliasName`, `androidUseCustomKeystore: 1`) but not the
-password; that path is machine-specific, so those lines are left uncommitted and the passwords are re-entered in
-Player Settings each session.
+password. Those lines were long left uncommitted (machine-specific path), but version code 5 was built with them, so on
+2026-11-13 they were committed (with `useCustomProguardFile: 1` and the Android build profile) so the repo matches the
+live build, as Stampede already does. Passwords are still re-entered in Player Settings each session.
 
 **Release AAB.** Build Profiles > Android: Build App Bundle ON, Development Build OFF (the LevelPlay Test Suite
 auto-launches in Development Builds), IL2CPP + ARM64, target SDK 36, min 26. `AndroidBundleVersionCode` must
