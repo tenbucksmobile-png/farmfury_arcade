@@ -497,6 +497,8 @@ And watch the factory. That's where they come from."
 
 ---
 
+> **Chapter 3 (Cannonfire) and the saga arc** live in `FarmFury_Artwork/Video/FarmFury_Saga/FarmFury_Saga_Story_Arc.md` (2026-11-14): robots dig in behind walls across the same nine lands, the animals build the Farm Cannon. It adds a bridge shot **13.10** to the end of Ep 13 (Overlord: "They run through everything. Then we will build... WALLS.").
+
 ## CHAPTER 2 — STAMPEDE: "The March on the Mothership" *(written 2026-11-03, nothing generated yet)*
 
 Eps 10–13 sell **Farm Fury: Stampede** (the side-scrolling platformer, repo `Desktop/FarmFury_Stampede`, design in its `FarmFury_Stampede_GDD.md`). Eps 7–9 stay Arcade episodes. These go out once Stampede is live on both stores, continuing the same playlist ("EP 10 |" captions), so the story runs straight on from Ep 8.9's "But the Combine's still out there… / Then so are we."
