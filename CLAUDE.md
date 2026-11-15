@@ -6230,10 +6230,10 @@ licensing not yet checked.
     game logo under Arcade and Stampede (opener 3.8 s). On for any episode with `"cannonfire": True` (Ep 10 has it;
     add it to Eps 11+) and for every `make_gameplay_short.py --game stampede` short. Ep 10 and Meadow Ruins 01-05
     were re-rendered with it. Arcade-era renders (Scout Reviews, cosmetics) keep the two-game opener.
-  - **Cosmetics shorts:** all 8 narration lines are recorded and check out by transcription, but the narrated
-    re-render (`--episode hats|trails|machines`) hung on the first one (ffmpeg idle, no output for 15 min) and was
-    stopped; the files in `singles/` are still the unnarrated versions. Re-run one at a time and find the hang
-    before 29 Nov (Hats & Caps posts Sun 29 Nov).
+  - **Cosmetics shorts: DONE with narration** (19.8 / 18.7 / 22.5 s, `singles/cosmetics_*.mp4`, voices checked by
+    transcribing the finished files). The first attempt hung once (ffmpeg idle, cause not found); a straight re-run
+    worked, so if a render stalls, stop it and re-run before debugging. Hats' banner card was lengthened to 3.2 s
+    so Cluck's c1 no longer overlaps Bessie's c1.
   - **Chapter 2 voice:** everything recorded (Ducky, Horace, Gerald, the Overlord 13.6, Commander, Storm Baron,
     Deep Dredger) except Billy's 11.8 and 12.3. The new robots still need `robot_fx.py` FX presets
     (`commander`, `stormbaron`, `deepdredger`) before Ep 13 is built.

@@ -528,7 +528,7 @@ EPISODES = {
         "music": THEME,
         "hook": ["HATS & CAPS"],
         "shots": [
-            {"image": "stills/card_hats.png", "use": 2.4, "push": 0.06, "sfx": [("Combo.mp3", 0.1, 0.8)], "lines": [
+            {"image": "stills/card_hats.png", "use": 3.2, "push": 0.06, "sfx": [("Combo.mp3", 0.1, 0.8)], "lines": [
                 ("cluck_c1", "Ooh! Who wants a makeover?", 0.3)]},
             {"file": "c1_bessie_cowboy.mp4", "use": 4.0, "hold": 0.3, "hook": ["COWBOY HAT"], "hook_at": 0.2, "lines": [
                 ("bessie_c1", "Howdy, partner.", 0.6)]},
