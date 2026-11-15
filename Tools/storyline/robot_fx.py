@@ -48,7 +48,17 @@ FX = {
     "patrol":    f"{robot(0.6, 0.6)},highpass=f=350,lowpass=f=3200,acrusher=bits=8:mix=0.15,aecho=0.8:0.5:30:0.25",
     "scout":     f"{pitch(1.08)},{robot(0.6, 0.6, 256)},highpass=f=250,aecho=0.8:0.5:25:0.3",
     "drifter":   f"{pitch(1.05)},vibrato=f=5.5:d=0.45,{robot(0.6, 0.6)},aecho=0.8:0.5:35:0.3",
+    # Chapter 2 (Stampede): the Overlord, the Combine's boss. Deep, slow, big hall echo. Tune on the real take.
+    "overlord":  f"{pitch(0.74)},{robot(0.8, 0.45, 2048)},aecho=0.8:0.5:70:0.25",
     "drone":     f"{pitch(1.10)},flanger=delay=1:depth=1.5:speed=2,vibrato=f=8:d=0.08,{robot(0.9, 0.25, 256)},aecho=0.8:0.4:20:0.2",
+}
+
+# Per-line overrides: the Combine's full echo turned "Overlord" into "in the morning" on 10.2 (checked by
+# transcription), so that line gets a lighter version of the same voice.
+# The Scout Reviews (robot_scout_rv*): long speeches, so a lighter Scout than Ep 6's (same pitch, less robotize).
+SCOUT_REVIEW_FX = f"{pitch(1.04)},{robot(0.9, 0.25, 256)},highpass=f=150,aecho=0.8:0.4:25:0.15"
+FX_LINE = {
+    "robot_combine_10.2": f"{pitch(0.9)},{robot(0.95, 0.22, 1024)},aecho=0.8:0.4:50:0.2",
 }
 
 # Windows TTS placeholders for lines without an ElevenLabs take. Text is SSML-lite: "|" = pause.
@@ -57,6 +67,9 @@ TTS = {
     "robot_drifter_4.4":     ("Microsoft David Desktop", 1, "I'm coming for y | | actually. | never mind."),
     "robot_harvester_extra": ("Microsoft David Desktop", -3, "CROP DETECTED. | COLLECTING."),
     "robot_patrol_extra":    ("Microsoft David Desktop", 2, "Flanking procedure engaged. | Partner, go."),
+    # Ep 10 (Stampede bridge), placeholders until the ElevenLabs takes exist.
+    "robot_combine_10.2":    ("Microsoft David Desktop", -1, "Overlord. | The farm. | fought back."),
+    "robot_overlord_10.2":   ("Microsoft David Desktop", -2, "Then bring me | the farm."),
 }
 ERROR_LINE = "ERROR. | ERROR. | GOLDEN | PROTOCOL | NOT FOUND."
 CHORUS = [("combine", "Microsoft David Desktop", -3), ("harvester", "Microsoft David Desktop", -1),
@@ -93,8 +106,8 @@ def source(stem, remake):
     return wav if wav.exists() else None
 
 
-def apply_fx(src, robot_name, out):
-    graph = (f"[0:a]aformat=sample_rates=48000:channel_layouts=mono,{FX[robot_name]},"
+def apply_fx(src, robot_name, out, fx=None):
+    graph = (f"[0:a]aformat=sample_rates=48000:channel_layouts=mono,{fx or FX[robot_name]},"
              "loudnorm=I=-16:TP=-1.5:LRA=11,apad=pad_dur=0.6[a]")
     cmd = [FFMPEG, "-v", "error", "-y", "-i", str(src), "-filter_complex", graph, "-map", "[a]",
            "-ar", "48000", str(out)]
@@ -138,7 +151,8 @@ def main():
         if src is None:
             print(f"  missing {stem}")
             continue
-        apply_fx(src, robot_name, OUT_DIR / f"{stem}.wav")
+        line_fx = FX_LINE.get(stem) or (SCOUT_REVIEW_FX if stem.startswith("robot_scout_rv") else None)
+        apply_fx(src, robot_name, OUT_DIR / f"{stem}.wav", line_fx)
 
     chorus = [OUT_DIR / f"robot_{name}_4.6.wav" for name, _, _ in CHORUS]
     if all(p.exists() for p in chorus):

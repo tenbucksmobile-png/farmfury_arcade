@@ -47,6 +47,7 @@ FPS = 30
 # Width of the centre crop as a multiple of the landscape frame's height. The maze is centred and
 # about 1.25x as wide as tall; 1.3 keeps a little scenery either side.
 CROP_ASPECT = 1.3
+CROP_FILTER = None   # a full "crop=...," filter overriding the centre crop (Stampede: cuts off its full-width control bar)
 PICTURE_CENTER_Y = 960
 HOOK_BOX = (60, 190, W - 60, 520)      # left, top, right, bottom
 CTA_TOP = 1420
@@ -190,8 +191,11 @@ def build_overlay(hook, path):
         draw.text((x, top + i * line_height), line, font=font, fill=TEXT_FILL,
                   stroke_width=stroke, stroke_fill=STROKE_FILL)
 
-    logo_size = 170
-    logo = Image.open(LOGO).convert("RGBA").resize((logo_size, logo_size), Image.LANCZOS)
+    logo = Image.open(LOGO).convert("RGBA")
+    box = 240 if logo.width > 1.2 * logo.height else 170      # a wide logo (Stampede) gets a wider box, aspect kept
+    k = min(box / logo.width, 170 / logo.height)
+    logo = logo.resize((round(logo.width * k), round(logo.height * k)), Image.LANCZOS)
+    logo_size, logo_top = logo.width, CTA_TOP + (170 - logo.height) // 2
     title, subtitle = CTA_TITLE, CTA_SUBTITLE
     gap = 24
     for big in range(78, 40, -2):   # shrink until logo + text fit inside the frame with a margin
@@ -201,7 +205,7 @@ def build_overlay(hook, path):
         if logo_size + gap + text_w <= W - 80:
             break
     left = int((W - (logo_size + gap + text_w)) / 2)
-    overlay.alpha_composite(logo, (left, CTA_TOP))
+    overlay.alpha_composite(logo, (left, logo_top))
     text_x = left + logo_size + gap
     draw.text((text_x, CTA_TOP + 18), title, font=cta_font, fill=ACCENT_FILL, stroke_width=6, stroke_fill=STROKE_FILL)
     draw.text((text_x, CTA_TOP + 104), subtitle, font=small_font, fill=TEXT_FILL, stroke_width=5, stroke_fill=STROKE_FILL)
@@ -233,7 +237,7 @@ def build_endcard_overlay(path):
 def vertical_frame_filter(crop_centre):
     """[0:v] -> [pic] laid out 1080x1920 with blurred background. crop_centre=False keeps the full
     width (used for the poster, whose title spans the whole image)."""
-    crop = f"crop=ih*{CROP_ASPECT}:ih:(iw-ih*{CROP_ASPECT})/2:0," if crop_centre else ""
+    crop = (CROP_FILTER or f"crop=ih*{CROP_ASPECT}:ih:(iw-ih*{CROP_ASPECT})/2:0,") if crop_centre else ""
     return (
         f"[0:v]{crop}setsar=1,split[a][b];"
         f"[a]scale={W}:{H}:force_original_aspect_ratio=increase,crop={W}:{H},boxblur=24:2,eq=brightness=-0.18[bg];"

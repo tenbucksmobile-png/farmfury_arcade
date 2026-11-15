@@ -10,6 +10,7 @@ release builds), USB debugging on, scrcpy and adb available.
 Usage:
     python record_session.py            # record, then parse markers
     python record_session.py --show     # also show the mirror window on the PC
+    python record_session.py --game stampede   # record Farm Fury: Stampede instead
 """
 
 import argparse
@@ -26,7 +27,8 @@ from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
 SESSIONS_DIR = HERE / "sessions"
-PACKAGE = "com.farmfury.arcade"
+PACKAGES = {"arcade": "com.farmfury.arcade", "stampede": "com.farmfury.stampede"}
+PACKAGE = PACKAGES["arcade"]   # set from --game in main()
 
 ADB_FALLBACKS = [
     Path(os.environ.get("LOCALAPPDATA", "")) / "Android/Sdk/platform-tools/adb.exe",
@@ -120,7 +122,10 @@ def measure_clock_offset(adb, samples=7):
 def main():
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--show", action="store_true", help="show the scrcpy mirror window")
+    parser.add_argument("--game", choices=sorted(PACKAGES), default="arcade", help="which Farm Fury game to open")
     args = parser.parse_args()
+    global PACKAGE
+    PACKAGE = PACKAGES[args.game]
 
     adb = find_adb()
     scrcpy = find_scrcpy()
@@ -201,6 +206,7 @@ def main():
 
     (session_dir / "scrcpy.log").write_text("\n".join(scrcpy_log), encoding="utf-8")
     session = {
+        "game": PACKAGE,
         "device_model": model,
         "video": video_path.name,
         "screen_size": screen_size(adb),

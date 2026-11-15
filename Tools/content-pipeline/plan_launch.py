@@ -31,6 +31,7 @@ SINGLES = VIDEO / "singles"
 SERIES = "Farm Fury: The Story"
 CTA = "Play Farm Fury free on the App Store and Google Play, link in bio."
 ARCADE_CTA = "Farm Fury: Arcade is free on the App Store and Google Play, link in bio."
+STAMPEDE_CTA = "Farm Fury: Stampede is free on the App Store and Google Play, link in bio."
 
 # Robots get dodged, outrun, busted or powered down - never anything harsher (check_wording enforces it).
 EPISODES = {
@@ -52,6 +53,9 @@ EPISODES = {
         "Seven worlds of mazes, from the Corn Field to Harvest Moon 🌽🍎🌾 Which one looks hardest?"),
     9: ("ep09_combo_chaos.mp4", "Combo Chaos",
         "Tag-team two animals in the right order and you get a COMBO 🔁💥 Which pair would you pick?"),
+    # Chapter 2 (Stampede) starts here: the bridge from Arcade.
+    10: ("ep10_the_march.mp4", "The March",
+         "The robots ran home... so the farm is going after them 🐄🐔 Chapter 2: STAMPEDE starts now!"),
 }
 EP_TAGS = ["#farmfury", "#animation", "#cartoon", "#farmanimals", "#mobilegame"]
 EPISODE_WEEKDAYS = (1, 5)      # Tuesday, Saturday
@@ -72,20 +76,63 @@ STORY = {
                  "We did it! Every crop's home safe 🌽🐔"),
 }
 STORY_TAGS = ["#farmfury", "#animation", "#cartoon", "#farmanimals", "#cute"]
+
+# Cosmetics singles (Farm Fury: Arcade's Shop items, one short per Shop category): key -> (file, title, body)
+COSMETICS = {
+    "hats": ("cosmetics_hats.mp4", "Hats & Caps",
+             "Cowboy hats, crowns and more 🤠👑 Which animal looks best?"),
+    "trails": ("cosmetics_trails.mp4", "Trails",
+               "Leave a rainbow ribbon... or a trail of bubbles 🌈🫧 Which trail would you pick?"),
+    "machines": ("cosmetics_machines.mp4", "Machines",
+                 "Tractor, milk tanker, hay baler 🚜 Ride through the maze in style!"),
+}
+COS_TAGS = ["#farmfury", "#farmfuryarcade", "#mobilegame", "#farmanimals", "#cute"]
 # Afternoon of day N (0 = the first day) -> story single. With a Saturday start the episodes land on days
 # 0,3,7,10,14,17,21,24,28; these sit next to the episode each one belongs with.
-SINGLE_DAYS = {2: "robots",      # Mon, after Ep 1: the robots gloating
-               9: "bell",        # Mon, before Ep 4 "Ring the bell"
-               13: "slam",       # Fri, before Ep 5's powers (not Thu: Vegetable Patch 03 is a ground slam too)
-               16: "egg",        # Mon, after Ep 5
-               26: "dance",      # Thu, before the finale
-               29: "cluckday"}   # Sun, after Ep 9: "every crop's home safe"
+SINGLE_DAYS = {2: ("story", "robots"),      # Mon, after Ep 1: the robots gloating
+               9: ("story", "bell"),        # Mon, before Ep 4 "Ring the bell"
+               13: ("story", "slam"),       # Fri, before Ep 5's powers (not Thu: Vegetable Patch 03 is a ground slam too)
+               16: ("story", "egg"),        # Mon, after Ep 5
+               22: ("cos", "hats"),         # Sun 29 Nov: cosmetics singles start after the days already scheduled
+               25: ("cos", "trails"),       # Wed 2 Dec
+               26: ("story", "dance"),      # Thu, before the finale
+               27: ("cos", "machines"),     # Fri 4 Dec
+               29: ("story", "cluckday")}   # Sun, after Ep 9: "every crop's home safe"
+# The Scout Reviews (user, 2026-11-15): a third, midday post slotted in between the existing posts, starting
+# Mon 16 Nov, every 5 days, the last one the day before Chapter 2 starts (day 0 = Sat 7 Nov).
+MIDDAY = {9: ("review", 1),      # Mon 16 Nov
+          14: ("review", 2),     # Sat 21 Nov
+          19: ("review", 3),     # Thu 26 Nov
+          24: ("review", 4),     # Tue 1 Dec
+          30: ("review", 5)}     # Mon 7 Dec
+# Ep 10 (and with it all Stampede gameplay) starts the day after the last review: Tue 8 Dec = day 31.
+STAMPEDE_FROM_DAY = 31
+
+# The Scout Reviews: the Scout "reviews" Farm Fury: Arcade, Bessie corrects him (scripts in
+# Video/FarmFury_Arcade/Robot_Reviews/). n -> (file in Episodes/scout_reviews/, title, caption body)
+REVIEWS_DIR = VIDEO / "scout_reviews"
+REVIEWS = {
+    1: ("scout_review_01.mp4", "A Robot Reviews Farm Fury: Arcade",
+        "A Harvest Robot reviews our game. He hates it. Bessie has notes 🤖⭐"),
+    2: ("scout_review_02.mp4", "A Robot Rates the Farm Fury Animals",
+        "The Scout rates all eight animals... badly 🐔🐄🐷🐑🦆🐴🦃🐐"),
+    3: ("scout_review_03.mp4", "A Robot Explores Every Farm Fury World",
+        "Corn, carrots, apples... the Scout is NOT impressed by any of it 🌽🥕🍎"),
+    4: ("scout_review_04.mp4", "A Robot Discovers Combos",
+        "Two animals, one combo, one very confused robot 🔁💥"),
+    5: ("scout_review_05.mp4", "The Verdict: Is Farm Fury: Arcade Worth It?",
+        "The Scout's final verdict, and the honest facts for grown-ups 🤖✅"),
+}
+REVIEW_TAGS = ["#farmfury", "#farmfuryarcade", "#gamereview", "#mobilegame", "#funny"]
 
 # Gameplay: world by world, numbered 01-10 each. Add hand-written captions as shorts get made; one without
 # gets a plain caption from its file title.
-WORLD_ORDER = ["Corn Field", "Vegetable Patch", "Orchard", "Wheat Field",
-               "Frozen Garden", "Golden Sunset", "Harvest Moon"]
-PER_WORLD = 10
+# 2026-11-15: Arcade stops after Orchard (enough Arcade gameplay); Stampede follows, 5 shorts per world.
+ARCADE_WORLDS = ["Corn Field", "Vegetable Patch", "Orchard"]
+STAMPEDE_WORLDS = ["Meadow Ruins", "Frozen Tundra", "Watermill Village", "Sky Islands", "Sunken City",
+                   "Robot Mothership"]
+WORLD_ORDER = ARCADE_WORLDS + STAMPEDE_WORLDS
+PER_WORLD = {**{w: 10 for w in ARCADE_WORLDS}, **{w: 5 for w in STAMPEDE_WORLDS}}
 CAPTIONS = {
     ("Corn Field", 1): "Cluck leaves an egg behind, and the robot walks right into it 🥚",
     ("Corn Field", 2): "Bessie's Ground Slam powers down every robot nearby 💥🐄",
@@ -117,8 +164,14 @@ CAPTIONS = {
     ("Orchard", 8): "Bessie's Ground Slam shakes the apple trees 💥🐄",
     ("Orchard", 9): "Can Horace outrun the robots? 🐴🤖",
     ("Orchard", 10): "Collect every apple to clear the maze 🍎",
+    ("Meadow Ruins", 1): "Cluck finds a secret room... and a crystal apple! Percy joins the stampede 🐔🍎🐷",
+    ("Meadow Ruins", 2): "Bessie pounds through the floor into a secret room. Hello, Woolly! 🐄💥🐑",
+    ("Meadow Ruins", 3): "Cluck races to the flag for three stars ⭐⭐⭐🐔",
+    ("Meadow Ruins", 4): "Pick your animal before every run! Woolly's turn 🐑",
+    ("Meadow Ruins", 5): "Woolly jumps the robots all the way to the finish 🐑🤖🏁",
 }
 GP_TAGS = ["#farmfury", "#mobilegame", "#arcadegame", "#mazegame", "#retrogaming"]
+ST_TAGS = ["#farmfury", "#farmfurystampede", "#mobilegame", "#platformer", "#farmanimals"]
 
 
 def store_links(tags):
@@ -147,6 +200,29 @@ def story(key):
             "note": "TikTok: AI-generated label on.", "short": f"{title} (story single)"}
 
 
+def review(n):
+    file, title, body = REVIEWS[n]
+    video = REVIEWS_DIR / file
+    if not video.exists():
+        return None
+    return {"kind": f"The Scout Reviews {n}", "video": video,
+            "caption": f"THE SCOUT REVIEWS {n}/5 | {title}\n{body}\n\n{ARCADE_CTA}\n\n{' '.join(REVIEW_TAGS)}",
+            "yt_title": f"{title} | The Scout Reviews",
+            "yt_desc": (f"{body}\n\nThe Scout Reviews, part {n} of 5. A Farm Fury team production.\n\nPlay free:\n"
+                        f"{store_links(REVIEW_TAGS)}"),
+            "note": "TikTok: AI-generated label on. YouTube: add to a \"The Scout Reviews\" playlist.",
+            "short": f"Scout Reviews {n}: {title}"}
+
+
+def cosmetic(key):
+    file, title, body = COSMETICS[key]
+    return {"kind": "Cosmetics single", "video": SINGLES / file,
+            "caption": f"{body}\n\n{ARCADE_CTA}\n\n{' '.join(COS_TAGS)}",
+            "yt_title": f"{title} | Farm Fury: Arcade Shop",
+            "yt_desc": f"{body}\n\nFrom the Shop in Farm Fury: Arcade.\n\nPlay free:\n{store_links(COS_TAGS)}",
+            "note": "TikTok: AI-generated label on.", "short": f"{title} (cosmetics)"}
+
+
 def gameplay(world, n):
     folder = SINGLES / world
     found = sorted(folder.glob(f"{world} {n:02d} - *.mp4")) if folder.exists() else []
@@ -155,11 +231,13 @@ def gameplay(world, n):
     video = found[0]
     title = video.stem.split(" - ", 1)[1]
     body = CAPTIONS.get((world, n), f"{title}! 🌽🤖")
+    game, cta, tags = (("Farm Fury: Stampede", STAMPEDE_CTA, ST_TAGS) if world in STAMPEDE_WORLDS
+                       else ("Farm Fury: Arcade", ARCADE_CTA, GP_TAGS))
     return {"kind": f"Gameplay - {world} {n:02d}", "video": video,
-            "caption": f"{body}\n\n{ARCADE_CTA}\n\n{' '.join(GP_TAGS)}",
-            "yt_title": f"{title} | Farm Fury: Arcade",
-            "yt_desc": (f"{body}\n\nReal gameplay from Farm Fury: Arcade, {world}.\n\nPlay free:\n"
-                        f"{store_links(GP_TAGS)}"),
+            "caption": f"{body}\n\n{cta}\n\n{' '.join(tags)}",
+            "yt_title": f"{title} | {game}",
+            "yt_desc": (f"{body}\n\nReal gameplay from {game}, {world}.\n\nPlay free:\n"
+                        f"{store_links(tags)}"),
             "note": "", "short": f"{world} {n:02d} {title}"}
 
 
@@ -169,24 +247,36 @@ def resolve(slot):
         return episode(slot[1])
     if slot[0] == "story":
         return story(slot[1])
+    if slot[0] == "cos":
+        return cosmetic(slot[1])
+    if slot[0] == "review":
+        return review(slot[1])
     return gameplay(slot[1], slot[2])
 
 
 def label(slot):
-    return f"{slot[1]} {slot[2]:02d}"
+    if slot[0] == "review":
+        return f"The Scout Reviews {slot[1]}: {REVIEWS[slot[1]][1]}"
+    return f"{slot[1]} {slot[2]:02d} gameplay short"
 
 
 def build_days(start):
-    queue = [("gp", w, n) for w in WORLD_ORDER for n in range(1, PER_WORLD + 1)]
+    queue = [("gp", w, n) for w in WORLD_ORDER for n in range(1, PER_WORLD[w] + 1)]
     days, ep, d = [], 1, 0
-    while ep <= len(EPISODES) or any(k >= d for k in SINGLE_DAYS):
+    # Runs until every episode and single is out, then on while rendered gameplay shorts are left.
+    while ep <= len(EPISODES) or any(k >= d for k in SINGLE_DAYS) or (queue and resolve(queue[0])):
         day = start + dt.timedelta(days=d)
         afternoon = None
-        if day.weekday() in EPISODE_WEEKDAYS and ep <= len(EPISODES):
+        ep_ready = ep <= len(EPISODES) and (ep < 10 or d >= STAMPEDE_FROM_DAY)
+        if day.weekday() in EPISODE_WEEKDAYS and ep_ready:
             afternoon, ep = ("ep", ep), ep + 1
         elif d in SINGLE_DAYS:
-            afternoon = ("story", SINGLE_DAYS[d])
-        days.append((day, queue.pop(0), afternoon))
+            afternoon = SINGLE_DAYS[d]
+        # Stampede gameplay only from Ep 10's day on; mornings before that stay empty once Arcade runs out.
+        morning = None
+        if queue and (queue[0][1] not in STAMPEDE_WORLDS or d >= STAMPEDE_FROM_DAY):
+            morning = queue.pop(0)
+        days.append((day, morning, MIDDAY.get(d), afternoon))
         d += 1
     return days, queue
 
@@ -194,8 +284,8 @@ def build_days(start):
 def post_html(i, time, slot):
     p = resolve(slot)
     if p is None:
-        return (f'<div class="post todo"><div class="meta"><b>{time}</b> &middot; TO RECORD: '
-                f'{html.escape(label(slot))} gameplay short</div></div>')
+        return (f'<div class="post todo"><div class="meta"><b>{time}</b> &middot; TO MAKE: '
+                f'{html.escape(label(slot))}</div></div>')
     for text in (p["caption"], p["yt_title"], p["yt_desc"]):
         check_wording(text.replace("#", " "))
     missing = "" if p["video"].exists() else ' <b style="color:#c00">FILE MISSING</b>'
@@ -222,17 +312,18 @@ def main():
     p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     p.add_argument("--start", default="2026-11-07")
     p.add_argument("--morning", default="07:30")
+    p.add_argument("--midday", default="12:00")
     p.add_argument("--afternoon", default="16:30")
     args = p.parse_args()
     start = dt.date.fromisoformat(args.start)
     days, left = build_days(start)
 
     rows, overview, first_todo, i = [], [], {}, 0
-    for n, (day, morning, afternoon) in enumerate(days, 1):
+    for n, (day, morning, midday, afternoon) in enumerate(days, 1):
         kind = "Episode day" if afternoon and afternoon[0] == "ep" else "Gameplay day"
         rows.append(f"<h2>Day {n} &middot; {day.strftime('%a %d %b')} &middot; {kind}</h2>")
         cells = []
-        for time, slot in ((args.morning, morning), (args.afternoon, afternoon)):
+        for time, slot in ((args.morning, morning), (args.midday, midday), (args.afternoon, afternoon)):
             if slot is None:
                 cells.append("")
                 continue
@@ -240,15 +331,16 @@ def main():
             i += 1
             r = resolve(slot)
             if r is None:
-                first_todo.setdefault(slot[1], day)
-                cells.append(f"<i>to record: {html.escape(label(slot))}</i>")
+                if slot[0] == "gp":
+                    first_todo.setdefault(slot[1], day)
+                cells.append(f"<i>to make: {html.escape(label(slot))}</i>")
             else:
                 text = html.escape(r["short"])
                 cells.append(f"<b>{text}</b>" if r["kind"].startswith("Episode") else text)
         overview.append(f"<tr><td>{n}</td><td>{day.strftime('%a %d %b')}</td>"
                         + "".join(f"<td>{c}</td>" for c in cells) + "</tr>")
-    todo_count = sum(1 for _, m, _ in days if resolve(m) is None)
-    need = "".join(f"<li><b>{html.escape(w)}</b> (10 shorts): first one posts {d.strftime('%a %d %b')}, so have "
+    todo_count = sum(1 for _, m, md, a in days for x in (m, md, a) if x and resolve(x) is None)
+    need = "".join(f"<li><b>{html.escape(w)}</b> ({PER_WORLD[w]} shorts): first one posts {d.strftime('%a %d %b')}, so have "
                    f"them rendered by {(d - dt.timedelta(days=3)).strftime('%a %d %b')}</li>"
                    for w, d in first_todo.items())
     after = sorted({s[1] for s in left}, key=WORLD_ORDER.index)
@@ -264,7 +356,7 @@ table{{border-collapse:collapse;width:100%;font-size:14px}} td,th{{border:1px so
 <h1>Farm Fury launch schedule ({TIKTOK_HANDLE} + YouTube Shorts)</h1>
 <p>{len(days)} days, {start.strftime('%a %d %b')} to {days[-1][0].strftime('%a %d %b')}. Every morning
 {args.morning}: the next gameplay short, world by world in number order. Tuesday and Saturday {args.afternoon}:
-the next episode. Six other afternoons: a story single next to its episode. Same file, same time on TikTok and
+the next episode. Other afternoons: a story or cosmetics single. Same file, same time on TikTok and
 YouTube.</p>
 <p><b>Recordings needed:</b></p><ul>{need or "<li>none</li>"}</ul>
 <p><b>After this sheet:</b> the mornings carry on through {html.escape(', '.join(after))} ({len(left)} more
@@ -273,10 +365,10 @@ shorts, one a day); Tuesday and Saturday afternoons are free for Chapter 2 (Stam
 (next on or after {window.strftime('%a %d %b')}). Every post: <i>Disclose post content &gt; Your brand</i> on.
 Episodes and story singles: also the <i>AI-generated content</i> label. Make a "{SERIES}" playlist.</p>
 {YOUTUBE_STEPS}
-<table><tr><th>Day</th><th>Date</th><th>{args.morning}</th><th>{args.afternoon}</th></tr>{''.join(overview)}</table>
+<table><tr><th>Day</th><th>Date</th><th>{args.morning}</th><th>{args.midday}</th><th>{args.afternoon}</th></tr>{''.join(overview)}</table>
 {''.join(rows)}
 """, encoding="utf-8")
-    print(f"{out}  ({len(days)} days to {days[-1][0]}, {todo_count} gameplay slots still to record)")
+    print(f"{out}  ({len(days)} days to {days[-1][0]}, {todo_count} posts still to make)")
 
 
 if __name__ == "__main__":

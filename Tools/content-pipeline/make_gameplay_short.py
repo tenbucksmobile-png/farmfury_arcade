@@ -46,6 +46,21 @@ WORLDS = {
     2: ("OrchardSign.png", "OrchardBackground.png", "Orchard.mp3", "WORLD 3"),
     3: ("WheatfieldSign.png", "Wheatfield_background.png", "Wheatfield.mp3", "WORLD 4"),
 }
+# Farm Fury: Stampede (separate repo). Badge, backdrop (None = a blurred frame of the recording itself, since the
+# Stampede world art has its name baked in), music, label. Index = world in play order.
+STAMPEDE = Path("C:/Users/Personel/Desktop/FarmFury_Stampede/Assets/_Project")
+ST_UI, ST_MUSIC = STAMPEDE / "Sprites/UI", STAMPEDE / "Audio/Music"
+STAMPEDE_WORLDS = {
+    0: (ST_UI / "Badge_Meadowruins.png", None, ST_MUSIC / "MeadowRuins.mp3", "MEADOW RUINS"),
+    1: (ST_UI / "Badge_FrozenTundra.png", None, ST_MUSIC / "FrozenTundra.mp3", "FROZEN TUNDRA"),
+    2: (ST_UI / "Badge_WatermillVillage.png", None, ST_MUSIC / "WatermillVillage.mp3", "WATERMILL VILLAGE"),
+    3: (ST_UI / "Badge_SkyWorld.png", None, ST_MUSIC / "SkyIsland.mp3", "SKY ISLANDS"),
+    4: (ST_UI / "Badge_SunkenCity.png", None, ST_MUSIC / "SunkenCity.mp3", "SUNKEN CITY"),
+    5: (ST_UI / "Badge_Mothership.png", None, ST_MUSIC / "Mothership.mp3", "ROBOT MOTHERSHIP"),
+}
+STAMPEDE_BADGE_W = 700   # the Stampede badges are square shields, so a little narrower than Arcade's signs
+GAME = "arcade"          # set from --game in main()
+
 BADGE_SECONDS = 1.8
 ALIGN_SR = 4000
 BADGE_W = 820
@@ -84,16 +99,27 @@ def find_music_position(ffmpeg, video, start, track):
     return k / ALIGN_SR, len(mus) / ALIGN_SR, gain
 
 
-def render_badge(ffmpeg, world, out, work, music_pos=None):
-    badge_file, backdrop_file, music_file, label = WORLDS[world]
-    backdrop = Image.open(UI / (backdrop_file or "Bg_LevelSelect.png")).convert("RGB")
+def world_info(world):
+    return STAMPEDE_WORLDS[world] if GAME == "stampede" else WORLDS[world]
+
+
+def render_badge(ffmpeg, world, out, work, music_pos=None, video=None, start=0.0):
+    badge_file, backdrop_file, music_file, label = world_info(world)
+    if GAME == "stampede":   # backdrop = the gameplay frame the short is about to cut to
+        grab = work / "backdrop.png"
+        subprocess.run([ffmpeg, "-v", "error", "-y", "-ss", f"{start:.2f}", "-i", str(video), "-frames:v", "1",
+                        str(grab)], check=True)
+        backdrop = Image.open(grab).convert("RGB")
+    else:
+        backdrop = Image.open(UI / (backdrop_file or "Bg_LevelSelect.png")).convert("RGB")
     s = max(W / backdrop.width, H / backdrop.height)
     backdrop = backdrop.resize((round(backdrop.width * s), round(backdrop.height * s)), Image.LANCZOS)
     l, t = (backdrop.width - W) // 2, (backdrop.height - H) // 2
     bg = backdrop.crop((l, t, l + W, t + H)).filter(ImageFilter.GaussianBlur(14)).convert("RGBA")
     bg = Image.alpha_composite(bg, Image.new("RGBA", (W, H), (0, 0, 0, 90)))
     badge = Image.open(UI / badge_file).convert("RGBA")
-    badge = badge.resize((BADGE_W, round(BADGE_W * badge.height / badge.width)), Image.LANCZOS)
+    bw = STAMPEDE_BADGE_W if GAME == "stampede" else BADGE_W
+    badge = badge.resize((bw, round(bw * badge.height / badge.width)), Image.LANCZOS)
 
     frames = work / "badge_frames"
     frames.mkdir()
@@ -139,7 +165,10 @@ def main():
     p.add_argument("--world", type=int, default=0)
     p.add_argument("--hook", required=True, help="on-screen headline during gameplay")
     p.add_argument("--name", required=True)
+    p.add_argument("--game", choices=["arcade", "stampede"], default="arcade")
     args = p.parse_args()
+    global GAME
+    GAME = args.game
     ms.check_wording(args.hook)
 
     session_dir = Path(args.session).resolve()
@@ -148,19 +177,24 @@ def main():
     body_dir = out_dir / "body"
     body_dir.mkdir(parents=True, exist_ok=True)
     ms.FRANCHISE = True                      # no fades/end card in the body: the wrapper adds them
-    ms.CTA_TITLE, ms.CTA_SUBTITLE = "FARM FURY: ARCADE", "FREE ON APP STORE & GOOGLE PLAY"
+    ms.CTA_TITLE = "FARM FURY: STAMPEDE" if GAME == "stampede" else "FARM FURY: ARCADE"
+    ms.CTA_SUBTITLE = "FREE ON APP STORE & GOOGLE PLAY"
+    if GAME == "stampede":
+        ms.LOGO = HERE.parent / "storyline/assets/stampede-logo.png"
+    if GAME == "stampede":   # Stampede's controls span the whole bottom edge and coins sit at the top: crop both off
+        ms.CROP_FILTER = "crop=ih*0.757*1.45:ih*0.757:(iw-ih*0.757*1.45)/2:ih*0.035,"
     ffmpeg = find_ffmpeg()
 
     with tempfile.TemporaryDirectory() as tmp:
         work = Path(tmp)
         b = ms.Builder(ffmpeg, video, body_dir, work)
-        track = MUSIC / WORLDS[args.world][2]
+        track = MUSIC / world_info(args.world)[2]   # an absolute path (Stampede) replaces MUSIC
         music_pos = find_music_position(ffmpeg, video, args.start, track)
         if music_pos:
             print(f"  world music found in the recording at {music_pos[0]:.2f}s of {track.name} (gain {music_pos[2]:.2f})")
         else:
             print(f"  world music not found at {args.start}s (power-crop music?); badge uses {track.name} from the top")
-        badge = render_badge(ffmpeg, args.world, work / "badge.mp4", work, music_pos)
+        badge = render_badge(ffmpeg, args.world, work / "badge.mp4", work, music_pos, video, args.start)
         play = b.gameplay(args.hook, args.start, args.start + args.seconds)
         body = body_dir / f"{args.name}.mp4"
         total = ms.join_segments(ffmpeg, [badge, play], body)
@@ -168,9 +202,10 @@ def main():
         if music_pos:   # the end card carries the same track on from where the gameplay leaves it
             end_at = BADGE_SECONDS + args.seconds - make_episode.END_CARD_XFADE
             end_kw = {"end_music": track, "end_music_start": (music_pos[0] - BADGE_SECONDS + end_at) % music_pos[1]}
-        make_episode.wrap_video(ffmpeg, body, out_dir=out_dir, arcade_only=True, **end_kw)
+        make_episode.wrap_video(ffmpeg, body, out_dir=out_dir, arcade_only=GAME == "arcade",
+                                stampede_only=GAME == "stampede", **end_kw)
 
-    info = {"hook": args.hook, "clip": [args.start, args.start + args.seconds], "world": args.world,
+    info = {"hook": args.hook, "clip": [args.start, args.start + args.seconds], "world": args.world, "game": GAME,
             "file": f"{args.name}.mp4", "seconds": round(ms.video_duration(ffmpeg, out_dir / f"{args.name}.mp4"), 1)}
     (out_dir / f"{args.name}.json").write_text(json.dumps(info, indent=2), encoding="utf-8")
     print(f"body {total:.1f}s -> {out_dir / (args.name + '.mp4')}  {info['seconds']}s")

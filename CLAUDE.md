@@ -6067,6 +6067,15 @@ were offered and declined, so don't build an uploader unless asked. Target 2-3 p
   every rendered short (31 on 2026-10-08) to back-fill the YouTube channel. The channel itself
   (`@farmfurygames`, setup steps in `channel-kit/SETUP.md`) had not been confirmed as created.
 
+- **Stampede gameplay (2026-11-15).** `record_session.py --game stampede` opens/records `com.farmfury.stampede`
+  (`session.json` records the package). `make_gameplay_short.py --game stampede --world 0..5` uses Stampede's
+  `UI/Badge_*.png` shields and `Audio/Music/<World>.mp3` (paths into the Stampede repo, `STAMPEDE_WORLDS`), a
+  blurred frame of the recording as the badge backdrop (Stampede's world art has its name baked in), a crop that
+  cuts off Stampede's full-width control bar and top coin bar (`make_shorts.CROP_FILTER`), the Stampede logo in
+  the bottom bar (`make_shorts.LOGO`, wide logos kept to aspect), and a Stampede-only end card
+  (`build_end_card(stampede_only=True)`). Meadow Ruins 01-05 cut from session `20261115-064849` (Play build, no
+  markers; moments found by matching Stampede's own SFX, then frame checks), filed in
+  `Episodes/singles/Meadow Ruins/`.
 - **Gameplay-short template, v3 (2026-11-05, `make_gameplay_short.py`).** Replaces the old gameplay
   shorts (all deleted, including the TikTok uploads). Each short is: the storyline opener (8-voice
   "Farm Fury!" over the line-up, FARM FURY/Arcade/Stampede logos), the world's Level Select sign over
@@ -6082,10 +6091,21 @@ were offered and declined, so don't build an uploader unless asked. Target 2-3 p
   Percy swap (no power shown: his only roll in the footage coincides with a death), Woolly clones,
   Bessie slam, Cluck egg drop. Horace/Gerald/Billy need new footage.
 - **Launch schedule, `plan_launch.py` (2026-11-05, revised).** Every morning 07:30 the next gameplay short, world by world in number order (`WORLD_ORDER`, 10 per world, files found in `Episodes/singles/<World>/`); Tuesday and Saturday 16:30 the next episode; six story singles on other afternoons next to their episodes (`SINGLE_DAYS`). From Sat 7 Nov it runs 30 days to Sun 6 Dec (Ep 9 on Sat 5 Dec). Corn Field 01-10 and Vegetable Patch 01-10 are in (mornings 7-26 Nov); Orchard 01-10 is needed by Fri 27 Nov (first "to record" morning on the sheet). The Ground Slam story single moved to Fri 20 Nov so it doesn't share Thu 19 Nov with Vegetable Patch 03 (also a ground slam); after that mornings continue through the remaining worlds and Tue/Sat afternoons are for Chapter 2 (Stampede). Re-run after rendering: new shorts are picked up automatically (plain caption from the file title unless added to `CAPTIONS`). The 4 older `animated_*` shorts are left out. Sheet: `plans/launch-2026-11-07.html`.
+  **Revised 2026-11-15:** Arcade gameplay stops after Orchard 10 (user: enough Arcade); `WORLD_ORDER` is
+  Corn Field/Vegetable Patch/Orchard (10 each) then the six Stampede worlds (`PER_WORLD` 5 each, own captions/
+  `STAMPEDE_CTA`/`ST_TAGS`). New slot kinds: `("cos", key)` cosmetics singles (`COSMETICS`), `("review", n)` Scout
+  Reviews in a third 12:00 `MIDDAY` slot. Stampede gameplay and Ep 10 only from `STAMPEDE_FROM_DAY` (Tue 8 Dec).
+  A slot whose file doesn't exist yet shows as "TO MAKE".
 - **Instagram + Facebook Reels (2026-11-14, `plan_meta.py`).** Same videos and order as `plan_launch.py`, aimed at the UK/US: gameplay short 20:00 SAST, episode/single 01:00 SAST the next date; Instagram caption (5 hashtags, link in bio) + Facebook caption (plain link) per post, plus Page/Instagram setup steps. Sheet `plans/meta-2026-11-21.html` (30 days from Sat 21 Nov). Scheduled via Meta Business Suite; accounts not yet created.
-- **Launch went live 2026-11-07.** As of 2026-11-06 the user has scheduled BOTH TikTok and YouTube up to
-  Mon 16 Nov (Bessie's Bell Boogie); TikTok Studio allows 10 days ahead, so top up from ~16 Nov (next post
-  is Tue 17 Nov). YouTube is scheduled by hand in Studio at the same times (titles/descriptions from the launch sheet; for episodes use the fuller
+- **Launch went live 2026-11-07.** As of 2026-11-15 the user has scheduled everything up to
+  Sat 28 Nov (Ep 7), except the cosmetics singles (not released). TikTok Studio allows 10 days
+  ahead. The sheet (re-made 2026-11-15) runs to Wed 16 Dec: cosmetics singles Hats Sun 29 Nov / Trails Wed 2 Dec /
+  Machines Fri 4 Dec (narration to record first); Arcade gameplay ends at Orchard 10 (Sun 6 Dec); The Scout
+  Reviews 1-5 (made 2026-11-15, `Episodes/scout_reviews/`, `make_episode.py --episode rv1..rv5`) go in a third
+  12:00 midday slot (`MIDDAY` in plan_launch.py) the user inserts between existing posts: Mon 16, Sat 21, Thu 26
+  Nov, Tue 1, Mon 7 Dec; then Chapter 2: Ep 10 The March Tue 8 Dec with Stampede gameplay mornings from the same
+  day (5 per world, Meadow Ruins 01-05 to Sat 12 Dec). No Stampede content goes out before Ep 10
+  (`STAMPEDE_FROM_DAY`). From Stampede renders on, the opener must also show Farm Fury: Cannonfire (in review). YouTube is scheduled by hand in Studio at the same times (titles/descriptions from the launch sheet; for episodes use the fuller
   `Episodes/thumbnails/descriptions.md`, see below). Gameplay posts use the sheet's text as-is.
 - **One channel for every Farm Fury game (2026-11-06).** @farmfurygames on TikTok and YouTube covers
   Arcade, Stampede and later titles; the user changed both profile pictures to the new **Farm Fury
@@ -6180,12 +6200,31 @@ licensing not yet checked.
   - **Voice:** all missing lines were recorded (Percy/Woolly "Farm Fury!", new Gerald 6.9 and Billy 6.10, Woolly 6.6 b/c, Billy 8.6 "Incoming! MUD!", ElevenLabs robot lines). The robot error line in Ep 6 puts the Scout's clear take over the five-voice layer; its caption reads "THE ROBOTS". `robot_fx.py`'s Harvester pitch was raised to 1.0 so it doesn't sound like the Combine.
   - **Kling lessons:** the robot game sprites are 2D, so stills come out as pixel art unless a 3D still is the style reference and the prompt says "NOT pixel art"; a pointer in a prompt brings a human hand ("no hands, no pointer"); "small yellow chick" drew Ducky (describe Cluck's red comb); Billy is drawn as a cow unless the goatee/horns/no-bell are spelled out; one Percy still was refused as "copyright", and a Kling-made Percy still as the reference got past it. Approved stills from earlier episodes make the best character references.
   - **Release plan:** Eps 1-9 in order, singles in between; captions/titles not written yet.
+  - **Ep 10 The March made (2026-11-15), the Arcade→Stampede bridge, 60.2 s:** `make_episode.py --episode 10` -> `Episodes/ep10_the_march.mp4`. 206 Kling credits (5 Turbo videos + 6 stills, one take each, ids in `Ep10_Clips/jobs.txt`; 217 left). 10.1 animates Ep 8's last still (8.9_dawn) so the chapters join; 10.2 Overlord (silhouette) and 10.5 signpost are still+push; 10.3 is `make_stampede_map.py` (Stampede's six `UI/Badge_*.png` on Ep 7's chalkboard, snaking trail to a red-glowing Mothership). Music: Arcade Theme, then Stampede's `MeadowRuins.mp3` from 10.4 via the new per-episode `chase_track` key. All lines recorded, incl. the eight `*_10.7` "STAMPEDE!" takes and the ElevenLabs Combine/Overlord 10.2 takes (Overlord = new Voice Design voice, `overlord` FX in `robot_fx.py`; the Combine 10.2 uses a lighter per-line effect via `FX_LINE` because its normal echo made "Overlord" transcribe as "in the morning"). Final 59.2 s. Default two-game end card.
   - **Chapter 2, Stampede (written 2026-11-03, nothing generated):** Eps 10 The March, 11 New Moves, 12 Six Lands, 13 The Bosses, plus 4 singles, in the storyline doc's "CHAPTER 2" section (its own side-on daylight style lock, Stampede art as refs, the Overlord only ever a silhouette). Airs after Stampede is live on both stores. Voice lines are in the voice script's "Chapter 2: Stampede" section (49 lines + a layered "STAMPEDE!"; singles coded sd/bf/wc/pw), with Voice Design briefs for four new robots (Overlord, Commander, Storm Baron, Deep Dredger); none recorded yet. Still to do: record them, add those four robots to `robot_fx.py` (tune on the real takes), a Stampede-only end card in `make_episode.py`, ~700-900 Kling credits.
   - **Singles (2026-11-05):** all six live in `Episodes/singles/` (`bessie_ground_slam`, `robot_celebration`, `cluck_celebration`, `cluck_victory_dance`, `bessie_bell_boogie`, `cluck_egg_drop`); `--episode gs|rc|cc` now writes there directly. The 2026-11-03 hang was the bare `apad` (fixed). Ground Slam still lacks `cluck_gs2` (the take on disk is the wrong line). Gameplay shorts go in `Episodes/singles/<World name>/` as `<World> NN - <title>.mp4`: Corn Field 01-10 done (5 more cut 2026-11-05 from the two existing sessions; each `shorts_v3/*.json` now has `path` and `number`). make_gameplay_short.py still renders into `shorts_v3/`; move/rename after.
   - **Vegetable Patch 01-10 (2026-11-05)** cut from session `20261105-204640` (7 min, levels 1-9, recorded on the Play Store build, so no markers). Moments were found by matching sound effects in the recording (ability, robot-hit, death and power-crop sounds, same cross-correlation as the music) plus frame checks; the sound match missed a death once, so always check frames. Horace, Gerald, Woolly, Bessie, Percy (incl. the Earthquake Roll combo, a 5.8 s window because Percy is caught right after) and Ducky; Billy was still locked.
   - **Orchard 01-10 (2026-11-06)** cut from session `20261106-192320` (11 min; the earlier `20261106-192122` is a wrong 1-minute take, ignore it). Same sound-match method; the one-off script is not saved. Windows (start s, all 10.5 s): Billy Mud Sling 644.5 (first short with Billy), Woolly clones 305.5, Ducky Water Spout 333, Horace throw 444.5, Cluck egg 7, Percy roll 238, Gerald Feather Burst 527, Bessie slam 145, Horace dodge 482, Cluck collect 53. Captions are in `plan_launch.py` CAPTIONS. All 10 are filed in `Episodes/singles/Orchard/` (22 s each, frames checked) and the launch sheet has no "to record" slots left (mornings run Corn Field, Vegetable Patch, Orchard through Sun 6 Dec).
   - **Cosmetics gameplay (to record, user's next job):** in the Editor, Play > Debug > Unlock All Cosmetics, Game view 1600x720, record with Win+Alt+R/OBS while switching items via the in-maze Locker: 5 hats on mixed characters, 6 trails, the 3 machines with their ability reskins. Save to `Video/Cosmetics_Clips/editor/`; then add it to the Dress Up and Machines shorts and make a Trails short.
-- **"The Scout Reviews" (2026-11-14, scripts only):** a review series where the Scout robot grudgingly reviews each Farm Fury game and Bessie corrects his 1-bolt rating; clearly our own characters (on-screen "A Farm Fury team production"), never presented as an independent review. Arcade: 5 videos (game, animals, worlds, combos, honest verdict for parents), script + v3-tagged lines at `Video/FarmFury_Arcade/Robot_Reviews/Robot_Reviews_Arcade_Script.md`, takes go in its `Audio/` (`robot_scout_rv<v>.<n>.mp3`, `bessie_rv<v>.<n>.mp3`). Stampede and Cannonfire next. Not recorded or rendered yet.
+- **"The Scout Reviews" (2026-11-14, scripts only):** a review series where the Scout robot grudgingly reviews each Farm Fury game and Bessie corrects his 1-bolt rating; clearly our own characters (on-screen "A Farm Fury team production"), never presented as an independent review. Arcade: 5 videos (game, animals, worlds, combos, honest verdict for parents), script + v3-tagged lines at `Video/FarmFury_Arcade/Robot_Reviews/Robot_Reviews_Arcade_Script.md`, takes go in its `Audio/` (`robot_scout_rv<v>.<n>.mp3`, `bessie_rv<v>.<n>.mp3`). Stampede and Cannonfire next.
+  **Arcade reviews made 2026-11-15:** `make_episode.py --episode rv1..rv5` -> `Episodes/scout_reviews/scout_review_0N.mp4`
+  (49.7/59.7/53.2/53.1/51.7 s). Takes were saved in `Eleven_Audio/` (read from there). Scout lines go through
+  `robot_fx.py` with a lighter `SCOUT_REVIEW_FX` (all checked by transcription). Picture: 5 Kling "reviewer desk"
+  stills + 2 clips (freeze, glitch) in `Robot_Reviews/clips/` (85 credits, ids in its `jobs.txt`), the Scout's Ep 6
+  clip, story clips, and clean gameplay cut straight from the session recordings via per-shot `"src"`. Graphics
+  from `make_review_cards.py` (title card with "A Farm Fury team production", rating stamps, facts card, Daily
+  Challenge and 8-combo cards). New `make_episode.py` keys: shot `"src"` (gameplay from any session),
+  episode `"music_through"` (music bed doesn't stop at gameplay), `"end_line": False` (end card without Bessie's
+  E.1), banner tuple optional `center_y, width`.
+- **Cosmetics shorts split into three (2026-11-15):** `--episode hats|trails|machines` -> `singles/cosmetics_*.mp4`.
+  Order: opener > the Shop's category banner on its own scene (`make_banner_cards.py`, combo sound) > the videos,
+  each named by a hook stamp > end card. New Ducky Bubbles Trail clip (`c4_ducky_bubbles.mp4`, 33 credits).
+  Narration lines `cluck_c1`, `bessie_c1`, `cluck_c2`, `percy_c3`, `ducky_c4`, `cluck_m1`, `bessie_m2`,
+  `horace_m3` are not recorded yet (render skips them); re-render once they are, before Sun 29 Nov.
+  `cosmetics_dress_up.mp4` is the old combined version, superseded.
+- **Recording sheet artifact:** https://claude.ai/artifact/8Y5tf9t47JfX2BmLC8PixT lists every line still to record
+  (cosmetics, Chapter 2 Eps 11-13 leftovers, new robot voice briefs); generated by a one-off script, not in the repo.
+- **Kling balance after 2026-11-15:** 99 credits.
 - **Saga arc + ability shorts (2026-11-14, scripts only).** One story across the games: Arcade (night war on the farm) → Stampede (march through six lands to the Mothership) → Cannonfire (the Overlord builds fortresses across the same nine lands; the animals build the Farm Cannon and their powers grow). Chapter 3 = Eps 14-17 outline + an Ep 13 bridge shot (13.10), in `Video/FarmFury_Saga/FarmFury_Saga_Story_Arc.md`. Ability shorts get more weight: 8 per game (`Video/FarmFury_<Arcade|Stampede|Cannonfire>/Ability_Shorts/`) + 8 "Power Up" evolution shorts (same power in all three games, `Video/FarmFury_Saga/Power_Up_Evolution_Shorts.md`). Cannonfire is the renamed original Farm Fury (`Desktop/FarmFury`, GDD v3.1). Nothing recorded or rendered yet.
 - **Ducky is male ("he")**, decided 2026-10-15 to match the storyline's surfer character; the game's
   Character Story text and this file were corrected from "she".

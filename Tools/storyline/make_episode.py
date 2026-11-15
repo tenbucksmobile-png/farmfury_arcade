@@ -40,7 +40,8 @@ THEME = MUSIC_DIR / "Theme.mp3"
 # The game's power-pellet music ("robots run"): the more urgent bed for each episode's action stretch.
 CHASE_MUSIC = REPO / "Assets/_Project/Audio/SFX/EatRobot.mp3"
 SFX = REPO / "Assets/_Project/Audio/SFX"
-COSMETIC_SPRITES = REPO / "Assets/_Project/Sprites/Cosmetics"   # Shop category banners (absolute "banner" paths)
+COSMETIC_SPRITES = REPO / "Assets/_Project/Sprites/Cosmetics"
+COS_BANNER_Y, COS_BANNER_W = 330, 760   # cosmetics shorts: category banner in the hook area, above the character   # Shop category banners (absolute "banner" paths)
 SESSION_VIDEO = HERE.parent / "content-pipeline/sessions/20261001-150832/video.mp4"
 
 XFADE = 0.4               # crossfade between clips
@@ -86,7 +87,7 @@ OPENER_SPEED = {"bessie": 1.5}   # her take is about 2 s, the others about 1 s
 # seconds to hold the last frame ("hold_zoom": True adds a slow push-in over the hold, for a comic freeze-frame),
 # voice lines (file stem, caption, seconds after the shot starts, optionally (from, to) seconds to use only part of
 # the recording), and sound effects (file in SFX, seconds after the shot starts, gain). "chase_music": True switches
-# the music to CHASE_MUSIC from that shot until the gameplay. A "gameplay" shot is (start, seconds) of the
+# the music to CHASE_MUSIC (or the episode's own "chase_track") from that shot until the gameplay. A "gameplay" shot is (start, seconds) of the
 # episode's gameplay video, framed 9:16 like the shorts, with its own game sound.
 EPISODES = {
     1: {
@@ -409,6 +410,53 @@ EPISODES = {
                 ("cluck_9.5", "Swap. Combo. FURY!", 0.4)]},
         ],
     },
+    # Ep 10 (2026-11-15): The March, the bridge from Arcade to Stampede and Chapter 2's opener. Continues straight
+    # from Ep 8's last still (the eight on the barn roof at dawn): the ship leaves, the Combine reports to the
+    # Overlord (a silhouette, never a full design), Bessie lays out the six lands on a map built from Stampede's
+    # own world badges (make_stampede_map.py), then the side-on daylight "how to play": run and jump, pick your
+    # animal, every level hides a secret only one animal can reach. Music goes from the Arcade theme to Stampede's
+    # Meadow Ruins track as the march begins. End card: the default two-game card (it bridges both games).
+    # Robot lines: ElevenLabs takes through robot_fx.py (the Combine's 10.2 uses a lighter per-line effect).
+    10: {
+        "name": "ep10_the_march",
+        "clip_dir": VIDEO_DIR / "Ep10_Clips",
+        "music": THEME,
+        "chase_track": Path(r"C:\Users\Personel\Desktop\FarmFury_Stampede\Assets\_Project\Audio\Music\MeadowRuins.mp3"),
+        "hook": ["CHAPTER 2", "STAMPEDE"],
+        "shots": [
+            {"file": "ep10_10.1_liftoff.mp4", "skip": 0.6, "use": 4.4, "hold": 1.5, "hook": True, "hook_seconds": 2.6,
+             "sfx": [("RobotSpawn.mp3", 0.3, 0.6)], "lines": [
+                ("cluck_10.1", "They're running away!", 0.4),
+                ("bessie_10.1", "No, Clucky. They're going home.", 2.6)]},
+            {"image": "stills/10.2_overlord.png", "use": 7.6, "push": 0.14, "hook": ["THE ROBOT", "OVERLORD"],
+             "hook_at": 4.4, "sfx": [("RobotSpawn.mp3", 0.2, 0.5)], "lines": [
+                ("robot_combine_10.2", "Overlord. The farm… fought back.", 0.3),
+                ("robot_overlord_10.2", "Then bring me the farm.", 4.6)]},
+            {"image": "stills/10.3_map.png", "use": 10.4, "push": 0.06, "hook": ["6 LANDS"], "caption_y": 1690, "lines": [
+                ("bessie_10.3", "Six lands between us and their Mothership.", 0.3),
+                ("cluck_10.3", "Meadow, Tundra, Watermill, Sky, Sunken City… Mothership!", 3.7)]},
+            {"file": "ep10_10.4_run.mp4", "skip": 0.4, "use": 4.6, "hold": 0.6, "chase_music": True,
+             "hook": ["THIS TIME,", "WE MARCH"], "hook_at": 2.6,
+             "sfx": [("CornPickup.mp3", 2.2, 0.5)], "lines": [
+                ("bessie_10.4", "No more sneaking around at night. This time, we march.", 0.4)]},
+            {"image": "stills/10.5_signpost.png", "use": 6.4, "push": 0.1, "hook": ["PICK YOUR ANIMAL"], "caption_y": 640, "lines": [
+                ("bessie_10.5", "Before every run, you pick who goes.", 0.3),
+                ("cluck_10.5", "Pick me! Pick ME!", 3.9)]},
+            {"file": "ep10_10.6a_bessie.mp4", "skip": 0.4, "use": 4.6, "hold": 0.4,
+             "hook": ["EVERY LEVEL", "HAS A SECRET"], "sfx": [("Bessie-ability.mp3", 1.2, 0.9)], "lines": [
+                ("bessie_10.6", "Every land hides a secret only one of us can reach.", 0.3)]},
+            {"file": "ep10_10.6b_woolly.mp4", "skip": 0.4, "use": 4.6, "hold": 0.4,
+             "sfx": [("RarePellet_pickup.mp3", 2.4, 0.7)], "lines": [
+                ("woolly_10.6", "Ooh, up here!", 0.4),
+                ("cluck_10.6", "So bring the right animal!", 2.7)]},
+            {"file": "ep10_10.7_stampede.mp4", "skip": 0.4, "use": 4.6, "hold": 0.8, "hook": ["STAMPEDE!"],
+             "hook_seconds": 2.4, "lines": [
+                ("cluck_10.7", "STAMPEDE!", 0.5), ("bessie_10.7", "", 0.535), ("percy_10.7", "", 0.57),
+                ("woolly_10.7", "", 0.605), ("ducky_10.7", "", 0.64), ("horace_10.7", "", 0.675),
+                ("gerald_10.7", "", 0.71), ("billy_10.7", "", 0.745)]},
+            {"image": "stills/10.7_horizon.png", "use": 3.0, "push": 0.08, "hook": ["NEXT:", "NEW MOVES"], "lines": []},
+        ],
+    },
     # Singles (2026-11-03): the standalone Kling character clips, now with the franchise opener, captions and the
     # two-game end card like the episodes. Render with --episode <key> (gs, rc, cc). The square/landscape
     # clips are "fit" (whole picture on a blurred copy); "skip" cuts the ~1s reference sprite each square clip opens
@@ -458,19 +506,37 @@ EPISODES = {
     # (Cosmetics_Clips/jobs.txt, 198 credits), music only, the Shop's own category banners popped on like the combo
     # banners. Arcade-only end card (these items are in Arcade). The real in-game footage of each item (recorded in
     # the Editor) is still to be added as a "gameplay" shot before the end card.
+    # Three cosmetics shorts (split 2026-11-15): Hats & Caps, Trails, Machines. Order per the user: opener > the
+    # Shop's category banner on its own scene (make_banner_cards.py, popped on with the combo sound) > the videos,
+    # each named by a hook stamp > end card. Narration lines <character>_c1..c4 / _m1..m3 (skipped until recorded).
     "hats": {
-        "name": "single_cosmetics_dress_up",
+        "name": "single_cosmetics_hats",
         "end_card": "arcade",
         "clip_dir": VIDEO_DIR / "Cosmetics_Clips",
         "music": THEME,
-        "hook": ["DRESS UP", "YOUR FARM!"],
+        "hook": ["HATS & CAPS"],
         "shots": [
-            {"file": "c1_bessie_cowboy.mp4", "use": 4.0, "hook": True, "hook_seconds": 2.0,
-             "banner": (COSMETIC_SPRITES / "Hats&Caps.png", 2.1, 1.7), "lines": []},
-            {"file": "c2_cluck_crown.mp4", "use": 4.0, "hook": ["THE CROWN"], "hook_at": 0.3,
-             "sfx": [("RarePellet_pickup.mp3", 0.4, 0.6)], "lines": []},
-            {"file": "c3_percy_ribbon.mp4", "use": 4.0, "hook": ["RAINBOW RIBBON"], "hook_at": 1.8,
-             "banner": (COSMETIC_SPRITES / "Trails.png", 0.2, 1.5), "lines": []},
+            {"image": "stills/card_hats.png", "use": 2.4, "push": 0.06, "sfx": [("Combo.mp3", 0.1, 0.8)], "lines": [
+                ("cluck_c1", "Ooh! Who wants a makeover?", 0.3)]},
+            {"file": "c1_bessie_cowboy.mp4", "use": 4.0, "hold": 0.3, "hook": ["COWBOY HAT"], "hook_at": 0.2, "lines": [
+                ("bessie_c1", "Howdy, partner.", 0.6)]},
+            {"file": "c2_cluck_crown.mp4", "use": 4.0, "hold": 0.6, "hook": ["THE CROWN"], "hook_at": 0.2,
+             "sfx": [("RarePellet_pickup.mp3", 0.4, 0.6)], "lines": [
+                ("cluck_c2", "Bow down. Queen Clucky is here!", 0.6)]},
+        ],
+    },
+    "trails": {
+        "name": "single_cosmetics_trails",
+        "end_card": "arcade",
+        "clip_dir": VIDEO_DIR / "Cosmetics_Clips",
+        "music": THEME,
+        "hook": ["TRAILS"],
+        "shots": [
+            {"image": "stills/card_trails.png", "use": 2.0, "push": 0.06, "sfx": [("Combo.mp3", 0.1, 0.8)], "lines": []},
+            {"file": "c3_percy_ribbon.mp4", "use": 4.0, "hold": 0.4, "hook": ["RAINBOW RIBBON"], "hook_at": 0.2,
+             "lines": [("percy_c3", "Rainbow Ribbon! Wheee!", 0.5)]},
+            {"file": "c4_ducky_bubbles.mp4", "use": 4.0, "hold": 0.6, "hook": ["BUBBLES TRAIL"], "hook_at": 0.2,
+             "lines": [("ducky_c4", "Bubbles, dude. Totally chill.", 0.6)]},
         ],
     },
     "machines": {
@@ -478,15 +544,157 @@ EPISODES = {
         "end_card": "arcade",
         "clip_dir": VIDEO_DIR / "Cosmetics_Clips",
         "music": THEME,
-        "hook": ["RIDE IN", "STYLE!"],
+        "hook": ["MACHINES"],
         "shots": [
-            {"file": "m1_cluck_tractor.mp4", "use": 4.0, "hook": True, "hook_seconds": 2.0,
-             "banner": (COSMETIC_SPRITES / "machine.png", 2.1, 1.7), "lines": []},
-            {"file": "m2_bessie_tanker.mp4", "use": 4.0, "hook": ["MILK TANKER"], "hook_at": 0.3, "lines": []},
-            {"file": "m3_horace_baler.mp4", "use": 4.0, "hook": ["HAY BALER"], "hook_at": 0.3, "lines": []},
+            {"image": "stills/card_machines.png", "use": 2.0, "push": 0.06, "sfx": [("Combo.mp3", 0.1, 0.8)], "lines": []},
+            {"file": "m1_cluck_tractor.mp4", "use": 4.0, "hold": 0.4, "hook": ["TRACTOR"], "hook_at": 0.2, "lines": [
+                ("cluck_m1", "Beep beep! Clucky's driving!", 0.4)]},
+            {"file": "m2_bessie_tanker.mp4", "use": 4.0, "hold": 0.4, "hook": ["MILK TANKER"], "hook_at": 0.2, "lines": [
+                ("bessie_m2", "Milk delivery! Coming through!", 0.5)]},
+            {"file": "m3_horace_baler.mp4", "use": 4.0, "hold": 0.4, "hook": ["HAY BALER"], "hook_at": 0.2, "lines": [
+                ("horace_m3", "Hay there! Need a lift?", 0.5)]},
         ],
     },
 }
+
+
+# The Scout Reviews (Arcade, 2026-11-15): the Scout "reviews" Farm Fury: Arcade and hates it, Bessie corrects him.
+# Script: Video/FarmFury_Arcade/Robot_Reviews/Robot_Reviews_Arcade_Script.md. Render with --episode rv1..rv5.
+# Picture: 5 Kling "reviewer desk" stills + 2 clips (freeze, glitch) in RV_DIR, the Scout's Ep 6 clip, story clips,
+# and clean gameplay cut straight from the recording sessions (no short overlays). Graphics (title card, rating
+# stamps, facts card, Daily Challenge and combo cards) from make_review_cards.py. Scout lines through robot_fx.py
+# (light SCOUT_REVIEW_FX). Music runs under everything (music_through); the end card has the chorus but not
+# Bessie's E.1, since each review already ends on Bessie.
+RV_DIR = VIDEO_DIR / "FarmFury_Arcade" / "Robot_Reviews" / "clips"
+RV_CARDS = RV_DIR / "cards"
+_SESS = HERE.parent / "content-pipeline" / "sessions"
+S1, S2 = _SESS / "20260924-170129" / "video.mp4", _SESS / "20261001-150832" / "video.mp4"
+VP, OR = _SESS / "20261105-204640" / "video.mp4", _SESS / "20261106-192320" / "video.mp4"
+SCOUT_CLIP = VIDEO_DIR / "Ep06_Clips" / "ep06_4.2_scout.mp4"
+BESSIE_A = VIDEO_DIR / "Ep05_Clips" / "ep05_6.4_bessie.mp4"
+BESSIE_B = VIDEO_DIR / "Ep07_Clips" / "ep07_7.1_bessie.mp4"
+BESSIE_C = VIDEO_DIR / "Ep04_Clips" / "ep04_4.3_bessie.mp4"
+
+
+def _sc(n, text, at=0.3):
+    return (f"robot_scout_rv{n}", text, at)
+
+
+def _be(n, text, at=0.3):
+    return (f"bessie_rv{n}", text, at)
+
+
+def _title(n):
+    return (RV_CARDS / f"title_rv{n}.png", 0.15, 3.2, 330, 900)
+
+
+def _stamp(name, at, secs):
+    return (RV_CARDS / f"{name}.png", at, secs, 880, 780)
+
+
+def _gp(src, start, use, hook=None, lines=()):
+    shot = {"gameplay": (start, use), "src": src, "lines": list(lines)}
+    if hook:
+        shot.update({"hook": [hook], "hook_at": 0.1, "hook_seconds": use - 0.5})
+    return shot
+
+
+def _review(n, title, shots):
+    return {"name": f"scout_review_{n:02d}", "end_card": "arcade", "end_line": False, "clip_dir": RV_DIR,
+            "music": THEME, "music_through": True, "hook": ["THE SCOUT", "REVIEWS"], "shots": shots}
+
+
+EPISODES.update({
+    "rv1": _review(1, "A Robot Reviews Farm Fury: Arcade", [
+        {"image": "stills/rv1_smug.png", "use": 9.6, "push": 0.08, "banner": _title(1), "lines": [
+            _sc("1.1", "Greetings, organics. I am the Scout. Today I review Farm Fury: Arcade. Spoiler... I hate it.")]},
+        _gp(S2, 157.5, 6.6, lines=[_sc("1.2", "You are a farm animal. You are in a maze. At night. You collect every crop.", 0.2)]),
+        _gp(S2, 113.0, 5.9, lines=[_sc("1.3", "We robots try to catch you. That is the whole point. That is OUR point.", 0.2)]),
+        _gp(S2, 163.5, 4.4, lines=[_sc("1.4", "Two minutes on the clock. Clear the maze and you earn up to three stars.", 0.2)]),
+        {"path": VIDEO_DIR / "Ep06_Clips/ep06_4.6_lineup.mp4", "skip": 1.5, "use": 5.0, "hold": 1.9,
+         "sfx": [("RarePellet_pickup.mp3", 1.2, 0.7)], "lines": [
+            _sc("1.5", "Then an animal grabs a glowing power crop... and suddenly WE are the ones running. Unacceptable.")]},
+        {"path": SCOUT_CLIP, "use": 5.0, "hold": 2.0, "banner": _stamp("stamp_1bolt", 2.4, 4.4),
+         "sfx": [("Bessie-ability.mp3", 2.4, 0.6)], "lines": [
+            _sc("1.6", "Rating: one bolt out of five. Too fast. Too fun. Too many chickens.", 0.2)]},
+        {"path": BESSIE_A, "use": 4.0, "hold": 0.8, "lines": [
+            _be("1.7", "Don't listen to him. It's free. Come help us out.")]},
+    ]),
+    "rv2": _review(2, "A Robot Rates the Farm Fury Animals", [
+        {"image": "stills/rv2_weary.png", "use": 8.9, "push": 0.08, "banner": _title(2), "lines": [
+            _sc("2.1", "Review two. The animals. There are EIGHT of them. I counted. Twice.")]},
+        _gp(S1, 205.0, 5.9, "CLUCK", [_sc("2.2", "Cluck drops eggs. We walk into them. Every. Single. Time.", 0.2)]),
+        _gp(S2, 266.5, 4.3, "BESSIE", [_sc("2.3", "Bessie stamps the ground, and the whole maze shakes.", 0.2)]),
+        _gp(OR, 238.0, 6.0, "PERCY", [_sc("2.4", "Percy rolls into a ball. Rolling is not a strategy... apparently it is.", 0.2)]),
+        _gp(S2, 211.5, 5.9, "WOOLLY", [_sc("2.5", "Woolly makes copies of herself. Now there are three. Do you see my problem?", 0.2)]),
+        _gp(S2, 352.0, 5.3, "DUCKY", [_sc("2.6", "Ducky skips straight across the water. Robots do not swim.", 0.2)]),
+        _gp(VP, 278.6, 2.4, "HORACE", [_sc("2.7", "Horace throws horseshoes. Gerald fires feathers. And Billy flings MUD. Mud! On a robot!", 0.2)]),
+        _gp(OR, 527.0, 2.2, "GERALD"),
+        _gp(OR, 644.5, 2.9, "BILLY"),
+        {"path": VIDEO_DIR / "Ep04_Clips/ep04_4.1_meeting.mp4", "use": 8.0, "hold": 1.6,
+         "banner": _stamp("stamp_1half", 6.2, 3.2), "sfx": [("Bessie-ability.mp3", 6.2, 0.6)], "lines": [
+            _sc("2.8", "You start with Cluck and Bessie, and unlock the rest as you play. Rating: one bolt. Fine. One and a half.")]},
+        {"path": BESSIE_A, "skip": 1.0, "use": 3.4, "lines": [_be("2.9", "Which one's your favourite? Tell us.")]},
+    ]),
+    "rv3": _review(3, "A Robot Explores Every Farm Fury World", [
+        {"image": "stills/rv3_proud.png", "use": 5.0, "push": 0.08, "banner": _title(3), "lines": [
+            _sc("3.1", "Review three. The worlds. I scanned all seven.")]},
+        _gp(S2, 157.5, 2.5, "CORN FIELD", [_sc("3.2", "Corn Field. Vegetable Patch. Orchard. Wheat Field. One hundred levels... all free. Who approved this?", 0.2)]),
+        _gp(VP, 205.0, 2.5, "VEGETABLE PATCH"),
+        _gp(OR, 53.0, 2.5, "ORCHARD"),
+        {"path": VIDEO_DIR / "Ep08_Clips/ep08_8.4_woolly.mp4", "skip": 1.2, "use": 3.2, "hook": ["WHEAT FIELD"], "hook_at": 0.1,
+         "hook_seconds": 2.6, "lines": []},
+        {"image": VIDEO_DIR / "Ep07_Clips/stills/7.4_map.png", "use": 8.4, "push": 0.06, "hook": ["+3 EXTRA WORLDS"],
+         "hook_at": 0.2, "caption_y": 1690, "lines": [
+            _sc("3.3", "Then Frozen Garden, Golden Sunset and Harvest Moon. Seventy-five more levels, as extra worlds.")]},
+        {"image": VIDEO_DIR / "Ep07_Clips/stills/7.3b_board.png", "use": 6.6, "push": 0.08, "hook": ["WARP TUNNELS"],
+         "hook_at": 0.2, "lines": [
+            _sc("3.4", "Every maze has warp tunnels. In one side, out the other. I find this deeply rude.")]},
+        {"image": RV_CARDS / "card_daily.png", "use": 8.9, "push": 0.06, "sfx": [("Combo.mp3", 0.1, 0.6)], "lines": [
+            _sc("3.5", "And there is a Daily Challenge. A new one. Every. Day. Do they never rest?")]},
+        {"path": SCOUT_CLIP, "use": 5.0, "hold": 0.9, "banner": _stamp("stamp_1bolt", 1.8, 4.0),
+         "sfx": [("Bessie-ability.mp3", 1.8, 0.6)], "lines": [
+            _sc("3.6", "Rating: one bolt. I got lost in the Orchard. Twice.", 0.2)]},
+        {"path": BESSIE_B, "use": 4.4, "lines": [_be("3.7", "A hundred free levels. Start with the Corn Field.")]},
+    ]),
+    "rv4": _review(4, "A Robot Discovers Combos", [
+        {"image": "stills/rv4_panic.png", "use": 5.1, "push": 0.08, "banner": _title(4), "lines": [
+            _sc("4.1", "Review four. Combos. My least favourite word.")]},
+        _gp(S2, 55.5, 5.4, "SWAP!", [_sc("4.2", "In the middle of a maze, you can swap to a different animal. Whenever you like.", 0.2)]),
+        {"gameplay": (63.7, 5.8), "src": VP, "hold": 2.6, "banner": ("Combo_EarthquakeRoll.png", 4.6, 3.6), "lines": [
+            _sc("4.3", "Swap in the right order and you get a COMBO. Bessie, then Percy: the Earthquake Roll. He rolls three times as far.", 0.2)]},
+        {"path": VIDEO_DIR / "Ep05_Clips/ep05_6.6_woolly.mp4", "skip": 1.0, "use": 4.0, "hold": 3.0,
+         "banner": ("Combo_Featherstorm.png", 2.2, 4.4), "lines": [
+            _sc("4.4", "Cluck, then Woolly: the Feather Storm. Now the copies drop eggs too. Who designed this?!")]},
+        {"path": VIDEO_DIR / "Ep07_Clips/ep07_7.5_huddle.mp4", "use": 4.6, "banner": ("Combo_FullFury.png", 0.5, 3.8),
+         "lines": [_sc("4.5", "Use five different animals in one maze, and it's Full Fury. Every robot freezes... including me.")]},
+        {"file": "rv4_freeze.mp4", "use": 5.0, "hold": 0.4, "lines": []},
+        {"image": RV_CARDS / "card_combos.png", "use": 5.9, "push": 0.05, "lines": [
+            _sc("4.6", "There are eight combos. I have found all eight. Against my will.")]},
+        {"path": SCOUT_CLIP, "use": 3.8, "hold": 0.4, "banner": _stamp("stamp_1bolt", 1.4, 2.2),
+         "sfx": [("Bessie-ability.mp3", 1.4, 0.6)], "lines": [_sc("4.7", "Rating: one bolt. And a headache.", 0.2)]},
+        {"path": BESSIE_C, "use": 3.4, "lines": [_be("4.8", "Can you find all eight? Go on.")]},
+    ]),
+    "rv5": _review(5, "The Verdict: Is Farm Fury: Arcade Worth It?", [
+        {"image": "stills/rv5_anchor.png", "use": 6.2, "push": 0.06, "banner": _title(5), "lines": [
+            _sc("5.1", "Final review. The verdict. Grown-ups... this one is for you.")]},
+        {"gameplay": (445.8, 8.3), "src": S2, "banner": (RV_CARDS / "facts.png", 0.4, 7.6, 900, 920), "lines": [
+            _sc("5.2", "Farm Fury: Arcade is free to download. There are ads, and things you can buy. You do not have to buy anything.", 0.2)]},
+        {"path": VIDEO_DIR / "Cosmetics_Clips/c2_cluck_crown.mp4", "use": 4.0, "lines": [
+            _sc("5.3", "One purchase switches off the ads between levels. Others add extra worlds, hats, trails... and a tractor.")]},
+        {"path": VIDEO_DIR / "Cosmetics_Clips/m1_cluck_tractor.mp4", "use": 4.0, "hold": 0.7, "lines": []},
+        _gp(OR, 482.0, 3.0, lines=[_sc("5.4", "Each maze takes about two minutes. Easy to learn. Bright. Silly. And... annoyingly fun.", 0.2)]),
+        _gp(VP, 335.0, 3.0),
+        _gp(S2, 392.0, 3.4),
+        {"image": "stills/rv5_anchor.png", "use": 3.9, "push": 0.12, "banner": _stamp("stamp_1bolt", 2.7, 1.2),
+         "lines": [_sc("5.5", "My final rating is... one bo—", 0.2)]},
+        {"path": BESSIE_A, "skip": 0.5, "use": 2.7, "banner": _stamp("stamp_5stars", 0.6, 2.1),
+         "sfx": [("Bessie-ability.mp3", 0.6, 0.9)], "lines": [_be("5.6", "Five stars.", 0.4)]},
+        {"file": "rv5_glitch.mp4", "use": 5.0, "lines": [_sc("5.7", "Rating... has been changed... by a cow.", 0.4)]},
+        {"path": BESSIE_B, "skip": 0.6, "use": 4.4, "hold": 0.2, "lines": [
+            _be("5.8", "Free on the App Store and Google Play. Come help us out.")]},
+    ]),
+})
 
 GAMEPLAY_GAIN = 1.8
 FIT_CENTER_Y = 860        # "fit" shots: centre of the picture, between the hook text and the captions       # game sound sits in the ambience track (x AMBIENCE); louder than Kling's
@@ -531,11 +739,12 @@ BANNER_W = 920
 BANNER_CENTER_Y = 880
 
 
-def build_banner(path, banner_png):
+def build_banner(path, banner_png, center_y=BANNER_CENTER_Y, width=BANNER_W):
     """One of the game's own combo banners (Combo_*.png), enlarged and centred between the hook text and the
-    captions, as a full-frame overlay."""
+    captions, as a full-frame overlay. center_y/width move it (the cosmetics shorts put it in the hook area, so it
+    doesn't cover the character)."""
     img = Image.new("RGBA", (W, H), (0, 0, 0, 0))
-    _paste(img, _logo(banner_png, BANNER_W, True), W / 2, BANNER_CENTER_Y)
+    _paste(img, _logo(banner_png, width, True), W / 2, center_y)
     img.save(path)
 
 
@@ -579,7 +788,7 @@ def _recorded(stem):
     return path.exists()
 
 
-def build_end_card(path, play_only=False, arcade_only=False):
+def build_end_card(path, play_only=False, arcade_only=False, stampede_only=False):
     """Blurred, darkened game poster; FARM FURY with the Arcade and Stampede logos stacked beneath, 'play both
     free', the store badges side by side, the website. Everything sits above the bottom of the frame, which TikTok
     and Shorts cover with the caption. arcade_only (Eps 7-9, which are about Arcade's mazes, tunnels and combos):
@@ -592,7 +801,10 @@ def build_end_card(path, play_only=False, arcade_only=False):
     card = Image.alpha_composite(card, Image.new("RGBA", (W, H), (0, 0, 0, 155)))
     draw = ImageDraw.Draw(card)
 
-    if arcade_only:
+    if stampede_only:   # Stampede gameplay shorts: the Stampede logo alone
+        _paste(card, _logo(STAMPEDE_LOGO, 760), W / 2, 560)
+        _centered(draw, "PLAY FREE NOW!", ImageFont.truetype(str(FONT), 112), 1050, TEXT_FILL, 8)
+    elif arcade_only:
         _paste(card, _logo(ARCADE_LOGO, 640), W / 2, 560)
         _centered(draw, "PLAY FREE NOW!", ImageFont.truetype(str(FONT), 112), 1050, TEXT_FILL, 8)
     else:
@@ -611,7 +823,7 @@ def build_end_card(path, play_only=False, arcade_only=False):
     card.convert("RGB").save(path)
 
 
-def build_end_voices(ffmpeg, work, chorus_at=END_CHORUS_AT):
+def build_end_voices(ffmpeg, work, chorus_at=END_CHORUS_AT, end_line=True):
     """The end card's audio: the 'Farm Fury!' chorus and Bessie's reordered line, as (wav, seconds into the card,
     duration). Voice only, no captions: a caption would cover the store badges."""
     items, at = [], chorus_at
@@ -633,6 +845,8 @@ def build_end_voices(ffmpeg, work, chorus_at=END_CHORUS_AT):
     else:
         print("  chorus: no <character>_farmfury.mp3 takes found, skipped")
 
+    if not end_line:   # the episode already ends on its own sign-off line (the Scout Reviews)
+        return items, max(END_CARD_SECONDS, at + END_TAIL)
     stem, parts = END_LINE
     src, _ = prepare_voice(ffmpeg, stem, work)
     line = work / "end_line.wav"
@@ -728,7 +942,7 @@ def add_opener(ffmpeg, body, out_path):
 WRAP_DIR = VIDEO_DIR / "Episodes" / "singles"
 
 
-def wrap_video(ffmpeg, src, out_dir=None, arcade_only=False, end_music=None, end_music_start=0.0):
+def wrap_video(ffmpeg, src, out_dir=None, arcade_only=False, end_music=None, end_music_start=0.0, stampede_only=False):
     """end_music/end_music_start: the end card's music track and where in it to start (looped), e.g. to carry
     a gameplay short's world music on under the end card instead of switching to the theme."""
     """An already-finished video (e.g. Video/Narrated/*.mp4, with its own voices and music) given the episodes'
@@ -741,7 +955,7 @@ def wrap_video(ffmpeg, src, out_dir=None, arcade_only=False, end_music=None, end
         work = Path(tmp)
         end_voices, card_s = build_end_voices(ffmpeg, work, chorus_at=END_CARD_XFADE + WRAP_SHOUT_DELAY)
         end_png = work / "end_card.png"
-        build_end_card(end_png, arcade_only=arcade_only)
+        build_end_card(end_png, arcade_only=arcade_only, stampede_only=stampede_only)
         end_start = body_s - END_CARD_XFADE
         total = end_start + card_s
         frames = int(card_s * FPS)
@@ -806,7 +1020,7 @@ def main():
         return
     with tempfile.TemporaryDirectory() as tmp:
         work = Path(tmp)
-        end_voices, card_s = build_end_voices(ffmpeg, work)
+        end_voices, card_s = build_end_voices(ffmpeg, work, end_line=ep.get("end_line", True))
         inputs, vgraph, agraph = [], [], []
         starts, t = [], 0.0
         for i, shot in enumerate(shots):
@@ -824,7 +1038,7 @@ def main():
             elif "gameplay" in shot:
                 g_start, use = shot["gameplay"]
                 dur = use + hold
-                inputs += ["-ss", f"{g_start:.2f}", "-t", f"{use:.2f}", "-i", str(ep["gameplay"])]
+                inputs += ["-ss", f"{g_start:.2f}", "-t", f"{use:.2f}", "-i", str(shot.get("src", ep.get("gameplay")))]
                 vgraph.append(f"[{i}:v]trim=0:{use},setpts=PTS-STARTPTS,"
                               f"crop=ih*{CROP_ASPECT}:ih:(iw-ih*{CROP_ASPECT})/2:0,setsar=1,split[gb{i}][gf{i}];"
                               f"[gb{i}]scale={W}:{H}:force_original_aspect_ratio=increase,crop={W}:{H},"
@@ -908,13 +1122,13 @@ def main():
                 vgraph.append(f"[{cur}][{hi}:v]overlay=0:0:enable='between(t,{a:.2f},{b:.2f})'[h{hi}]")
                 cur = f"h{hi}"
 
-        # Combo banners ("banner": (file in Sprites/UI, seconds into the shot, seconds shown)), popped on with the
-        # game's combo sound.
+        # Combo banners ("banner": (file in Sprites/UI, seconds into the shot, seconds shown[, centre y[, width]])),
+        # popped on with the game's combo sound.
         for si, shot in enumerate(shots):
             if shot.get("banner"):
-                name, at, secs = shot["banner"]
+                name, at, secs, *where = shot["banner"]
                 banner_png = work / f"banner_{si}.png"
-                build_banner(banner_png, COMBO_BANNERS / name)
+                build_banner(banner_png, COMBO_BANNERS / name, *where)
                 bi = inputs.count("-i")
                 inputs += ["-i", str(banner_png)]
                 a = starts[si] + at
@@ -976,6 +1190,8 @@ def main():
         # Music: the theme for the story, the chase music from the robots' arrival until the gameplay (which has
         # its own game music) or the end card, then the theme again under the end card.
         game_at = next((starts[i] for i, s in enumerate(shots) if "gameplay" in s), end_start)   # no gameplay: up to the end card
+        if ep.get("music_through"):   # gameplay is cut in among other shots (the Scout Reviews): keep the bed going
+            game_at = end_start
         chase_at = next((starts[i] for i, s in enumerate(shots) if s.get("chase_music")), game_at)   # optional
         level = "loudnorm=I=-14:TP=-1.5:LRA=11,aformat=sample_rates=48000:channel_layouts=stereo"
         m1, m2, m3 = (inputs.count("-i") + k for k in range(3))
@@ -983,7 +1199,7 @@ def main():
         # Looped (in case a stretch outlasts the track) but capped with -t: an endless input kept ffmpeg reading
         # long after its atrim had ended, turning a ~2 min render into 10+ min or a hang.
         inputs += ["-stream_loop", "-1", "-t", f"{chase_at + 2:.2f}", "-i", str(ep["music"]),
-                   "-stream_loop", "-1", "-t", f"{max(chase_len, 0) + 2:.2f}", "-i", str(CHASE_MUSIC),
+                   "-stream_loop", "-1", "-t", f"{max(chase_len, 0) + 2:.2f}", "-i", str(ep.get("chase_track", CHASE_MUSIC)),
                    "-t", f"{card_s + 2:.2f}", "-i", str(THEME)]
         agraph.append(f"[{m1}:a]{level},atrim=0:{chase_at + 0.5:.2f},afade=t=in:d=1,"
                       f"afade=t=out:st={chase_at - 0.3:.2f}:d=0.8[mu1]")
