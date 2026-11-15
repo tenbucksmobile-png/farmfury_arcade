@@ -657,6 +657,11 @@ Same negative prompt as the rest of the series. Per-world light: Meadow Ruins wa
 **VO — Bessie:** "Three more. The Overlord's last hideouts."
 **Hook:** *DUSTBOWL CANYON · HARVEST FAIRGROUND · CROP FACTORY*
 
+**13.10** · 5s · *(added 2026-11-15, the bridge to Chapter 3; see the saga doc)* · Refs: Overlord eye still (Ep 10's 10.2), a Cannonfire world backdrop
+**Prompt:** The Overlord's giant red eye behind glass, then a fast pull-back across a land at sunset where robot cranes are stacking crooked, top-heavy wooden towers, a small robot standing on top of each one.
+**Robot VO (Overlord):** "They run through everything. Then we will build... WALLS."
+**Hook:** *NEXT: CHAPTER 3*
+
 ### Stampede singles (between episodes)
 
 Codes in brackets are the voice-script codes.

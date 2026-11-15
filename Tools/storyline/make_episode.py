@@ -80,6 +80,17 @@ OPENER_SECONDS = 3.2
 OPENER_SHOUT_AT = 0.08
 OPENER_ARCADE_AT = 1.2
 OPENER_STAMPEDE_AT = 2.0
+# From the Stampede renders on (user, 2026-11-15) the opener also shows Farm Fury: Cannonfire as a third game
+# logo under Stampede. use_cannonfire_opener() switches it on (an episode's "cannonfire": True, or a Stampede
+# gameplay short); the opener then runs a little longer so the third logo is on screen long enough to read.
+CANNONFIRE_LOGO = HERE / "assets" / "Logo_Cannonfire.png"
+OPENER_CANNONFIRE = False
+OPENER_CANNONFIRE_AT = 2.3
+
+
+def use_cannonfire_opener():
+    global OPENER_CANNONFIRE, OPENER_SECONDS, OPENER_ARCADE_AT, OPENER_STAMPEDE_AT
+    OPENER_CANNONFIRE, OPENER_SECONDS, OPENER_ARCADE_AT, OPENER_STAMPEDE_AT = True, 3.8, 1.1, 1.7
 OPENER_FADE = 0.35
 OPENER_SPEED = {"bessie": 1.5}   # her take is about 2 s, the others about 1 s
 
@@ -419,6 +430,7 @@ EPISODES = {
     # Robot lines: ElevenLabs takes through robot_fx.py (the Combine's 10.2 uses a lighter per-line effect).
     10: {
         "name": "ep10_the_march",
+        "cannonfire": True,   # Stampede era: the opener shows Cannonfire too
         "clip_dir": VIDEO_DIR / "Ep10_Clips",
         "music": THEME,
         "chase_track": Path(r"C:\Users\Personel\Desktop\FarmFury_Stampede\Assets\_Project\Audio\Music\MeadowRuins.mp3"),
@@ -870,6 +882,11 @@ def build_opener(ffmpeg, work):
     still = Image.open(OPENER_STILL).convert("RGB")
     base = still.resize((W, int(W * still.height / still.width) + 2), Image.LANCZOS)
     ff, arcade, stampede = _logo(FARMFURY_LOGO, 900), _logo(ARCADE_LOGO, 470, True), _logo(STAMPEDE_LOGO, 600, True)
+    arcade_y, stampede_y = 810, 1250
+    if OPENER_CANNONFIRE:   # three game logos: smaller and tighter, Cannonfire last
+        arcade, stampede = _logo(ARCADE_LOGO, 400, True), _logo(STAMPEDE_LOGO, 500, True)
+        cannonfire = _logo(CANNONFIRE_LOGO, 500, True)
+        arcade_y, stampede_y, cannonfire_y = 720, 1040, 1390
 
     def ease(x):
         x = max(0.0, min(1.0, x))
@@ -897,9 +914,12 @@ def build_opener(ffmpeg, work):
         if games > 0:   # dim the busy scene so the game logos read; redraw FARM FURY on top of the dim
             frame.alpha_composite(Image.new("RGBA", (W, H), (0, 0, 0, int(150 * games))))
             _paste(frame, ff, W / 2, 330, games * shown(t, 0, 0.08), pop)
-        _paste(frame, arcade, W / 2, 810, games, 0.9 + 0.1 * ease((t - OPENER_ARCADE_AT) / OPENER_FADE))
-        _paste(frame, stampede, W / 2, 1250, shown(t, OPENER_STAMPEDE_AT, OPENER_FADE),
+        _paste(frame, arcade, W / 2, arcade_y, games, 0.9 + 0.1 * ease((t - OPENER_ARCADE_AT) / OPENER_FADE))
+        _paste(frame, stampede, W / 2, stampede_y, shown(t, OPENER_STAMPEDE_AT, OPENER_FADE),
                0.9 + 0.1 * ease((t - OPENER_STAMPEDE_AT) / OPENER_FADE))
+        if OPENER_CANNONFIRE:
+            _paste(frame, cannonfire, W / 2, cannonfire_y, shown(t, OPENER_CANNONFIRE_AT, OPENER_FADE),
+                   0.9 + 0.1 * ease((t - OPENER_CANNONFIRE_AT) / OPENER_FADE))
         frame.convert("RGB").save(frames_dir / f"{i:04d}.png")
 
     voices = []
@@ -1005,6 +1025,8 @@ def main():
     play_only = "--play-only" in args
     key = args[args.index("--episode") + 1] if "--episode" in args else "1"
     ep = EPISODES[int(key) if key.isdigit() else key]   # numbered episodes, or a single's name (e.g. "vd")
+    if ep.get("cannonfire"):
+        use_cannonfire_opener()
     shots = ep["shots"]
     final_path = VIDEO_DIR / "Episodes" / (ep["name"] + ("_play_only" if play_only else "") + ".mp4")
     if not key.isdigit():   # singles live in Episodes/singles, named without the "single_" prefix

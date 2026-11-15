@@ -181,6 +181,7 @@ def main():
     ms.CTA_SUBTITLE = "FREE ON APP STORE & GOOGLE PLAY"
     if GAME == "stampede":
         ms.LOGO = HERE.parent / "storyline/assets/stampede-logo.png"
+        make_episode.use_cannonfire_opener()   # Stampede era: the opener shows Cannonfire too
     if GAME == "stampede":   # Stampede's controls span the whole bottom edge and coins sit at the top: crop both off
         ms.CROP_FILTER = "crop=ih*0.757*1.45:ih*0.757:(iw-ih*0.757*1.45)/2:ih*0.035,"
     ffmpeg = find_ffmpeg()

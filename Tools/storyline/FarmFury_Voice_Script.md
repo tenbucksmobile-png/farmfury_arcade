@@ -391,6 +391,100 @@ File names: `robot_combine_10.2.mp3`, `robot_overlord_10.2.mp3`, `robot_overlord
 
 ---
 
+## Chapter 3: Cannonfire (Ep 13 bridge + Eps 14–17)
+
+Lines for the saga doc's "Chapter 3: Cannonfire, The Siege" (`Video/FarmFury_Saga/FarmFury_Saga_Story_Arc.md`), added
+2026-11-15. Same saved voices; file names as before, e.g. `cluck_14.1.mp3`, `robot_overlord_14.5.mp3`.
+
+The tone: golden-hour, a bit more epic. The animals have marched a long way and hit a wall (literally); Bessie is
+the planner, Cluck the cheerleader, and the cannon is everyone's new favourite toy. Robots are toppled, knocked
+over, sent tumbling; never "blown up" or "destroyed".
+
+### The bridge (end of Ep 13)
+
+| Who | Clip | Line | Delivery |
+|---|---|---|---|
+| The Overlord | 13.10 | "They run through everything. Then we will build... WALLS." | *Slow, cold amusement; a long pause before WALLS, then a purr* |
+
+### Cluck (7)
+
+| Clip | Line | Delivery |
+|---|---|---|
+| 14.1 | "Okay, team, full speed, straight thro—" | *Charging, thrilled, cut off mid-word (record "through", it gets trimmed)* |
+| 14.2 | "…oh." | *Tiny, deflated, staring up* |
+| 14.6 | "…we go OVER it!" | *Lights up, finishing Bessie's sentence* |
+| 15.5 | "Tap in the air… and CHAOS!" | *Mid-flight whoop, building to CHAOS* |
+| 16.5 | "There's MORE?!" | *Outraged squawk* |
+| 17.5 | "Canyons, fairgrounds, FACTORIES?" | *Rattling off, voice rising on each* |
+| 17.6 | "Cluck. Chase. Collect. CHAOS!" | *From inside the cannon barrel, a battle cry, slightly echoey* |
+
+### Bessie (11)
+
+| Clip | Line | Delivery |
+|---|---|---|
+| 14.4 | "While we marched… they built." | *Low, quiet realisation* |
+| 14.6 | "If we can't go through it…" | *Thinking out loud, looking up* |
+| 15.3 | "The bigger the walls, the bigger our powers." | *Warm, a little awed* |
+| 15.4 | "Pull back to aim. Further back, further it flies." | *Crisp coach, the how-to-play line* |
+| 15.6 | "One good hit. Gravity does the rest." | *Dry, satisfied* |
+| 16.1 | "Three of us per fortress. Choose well." | *Briefing* |
+| 16.2 | "Stone? That's mine." | *Confident, cracking her neck* |
+| 16.6 | "One launch, one fortress… and a friend joins in." | *Pleased, warm on "friend"* |
+| 17.1 | "Every land has a keep. Every keep has a boss." | *Storyteller, serious* |
+| 17.2 | "Bosses don't fall easy. Bring the tower down under them." | *Steady, the one rule* |
+| 17.6 | "Load her up." | *Calm, final, a small smile* |
+
+### Percy (2)
+
+| Clip | Line | Delivery |
+|---|---|---|
+| 14.3 | "Nope. Can't roll with THAT." | *Dazed, upside down in the pile* |
+| 16.3 | "Boing, boing, BOING!" | *Gleeful, getting louder each bounce* |
+
+### Woolly (1)
+
+| Clip | Line | Delivery |
+|---|---|---|
+| 15.3 | "Ooh. I feel… extra fluffy." | *Surprised, then delighted; new line, plays after Bessie's 15.3* |
+
+### Ducky (1)
+
+| Clip | Line | Delivery |
+|---|---|---|
+| 16.4 | "Just go with the flow, dude." | *Laid-back surfer* |
+
+### Horace (1)
+
+| Clip | Line | Delivery |
+|---|---|---|
+| 17.3 | "Two horseshoes. Two ringers." | *Rodeo show-off, savouring it* |
+
+### Gerald (1)
+
+| Clip | Line | Delivery |
+|---|---|---|
+| 15.1 | "Left. LEFT. My other left." | *Bossy, losing patience* |
+
+### Billy (1)
+
+| Clip | Line | Delivery |
+|---|---|---|
+| 15.2 | "Head first. Questions later." | *Blunt, proud* |
+
+### The Overlord (3 more, the voice you made for Ep 10)
+
+| Clip | Line | Delivery |
+|---|---|---|
+| 14.5 | "No more running. Let them knock." | *Quiet, unbothered, a purr* |
+| 17.4 | "Build HIGHER." | *Two words, slow, the second one swelling* |
+
+(13.10 is in the bridge table above.)
+
+Chapter 3 total: 28 lines (Cluck 7, Bessie 11, Percy 2, Woolly 1, Ducky 1, Horace 1, Gerald 1, Billy 1, Overlord 3
+including the 13.10 bridge). No new voices.
+
+---
+
 ## Count
 
 | Character | Lines |
@@ -406,6 +500,6 @@ File names: `robot_combine_10.2.mp3`, `robot_overlord_10.2.mp3`, `robot_overlord
 | Robots | 9 |
 | Group | 1 (8 layered takes) |
 
-Chapter 2 (Stampede) adds 49 more: Cluck 12, Bessie 15, Percy 2, Woolly 5, Ducky 4, Horace 1, Gerald 2, Billy 2, robots 6 (four new voices), plus "STAMPEDE!" from all 8.
+Chapter 3 (Cannonfire) adds 28 more (see its section). Chapter 2 (Stampede) adds 49 more: Cluck 12, Bessie 15, Percy 2, Woolly 5, Ducky 4, Horace 1, Gerald 2, Billy 2, robots 6 (four new voices), plus "STAMPEDE!" from all 8.
 
 Roughly 100 recordings in total for Chapter 1. Cluck and Bessie are two-thirds of the work, so build and approve those two voices first.

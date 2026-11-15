@@ -23,7 +23,7 @@ import datetime as dt
 import html
 
 from make_shorts import check_wording
-from plan_launch import WORLD_ORDER, build_days, label, resolve
+from plan_launch import STAMPEDE_WORLDS, WORLD_ORDER, build_days, label, resolve
 from plan_posts import PLANS, SHEET_STYLE
 
 SITE = "farmfurygames.com"
@@ -34,18 +34,30 @@ IG_TAGS = {
     "Episode": ["#farmfury", "#animation", "#cartoon", "#farmanimals", "#kidsanimation"],
     "Story single": ["#farmfury", "#animation", "#cartoon", "#farmanimals", "#cuteanimals"],
     "Gameplay": ["#farmfury", "#mobilegames", "#indiegame", "#arcadegames", "#familygames"],
+    "Stampede": ["#farmfury", "#mobilegames", "#indiegame", "#platformer", "#familygames"],
+    "Cosmetics": ["#farmfury", "#mobilegames", "#cuteanimals", "#farmanimals", "#familygames"],
+    "Review": ["#farmfury", "#gamereview", "#mobilegames", "#funny", "#familygames"],
 }
 FB_TAGS = {
     "Episode": ["#FarmFury", "#Animation", "#FamilyFun"],
     "Story single": ["#FarmFury", "#Animation", "#FamilyFun"],
     "Gameplay": ["#FarmFury", "#MobileGames", "#FamilyGames"],
+    "Stampede": ["#FarmFury", "#MobileGames", "#FamilyGames"],
+    "Cosmetics": ["#FarmFury", "#MobileGames", "#FamilyFun"],
+    "Review": ["#FarmFury", "#GameReview", "#FamilyFun"],
 }
 IG_CTA = {
     "Episode": "Play Farm Fury free on the App Store & Google Play 👉 link in bio",
     "Story single": "Play Farm Fury free on the App Store & Google Play 👉 link in bio",
     "Gameplay": "Farm Fury: Arcade is FREE on the App Store & Google Play 👉 link in bio",
+    "Stampede": "Farm Fury: Stampede is FREE on the App Store & Google Play 👉 link in bio",
+    "Cosmetics": "Farm Fury: Arcade is FREE on the App Store & Google Play 👉 link in bio",
+    "Review": "Farm Fury: Arcade is FREE on the App Store & Google Play 👉 link in bio",
 }
 FB_CTA = {
+    "Stampede": f"Farm Fury: Stampede is free on the App Store and Google Play: {SITE}",
+    "Cosmetics": f"Farm Fury: Arcade is free on the App Store and Google Play: {SITE}",
+    "Review": f"Farm Fury: Arcade is free on the App Store and Google Play: {SITE}",
     "Episode": f"Play Farm Fury free on the App Store and Google Play: {SITE}",
     "Story single": f"Play Farm Fury free on the App Store and Google Play: {SITE}",
     "Gameplay": f"Farm Fury: Arcade is free on the App Store and Google Play: {SITE}",
@@ -57,6 +69,12 @@ def group(kind):
         return "Episode"
     if kind.startswith("Story"):
         return "Story single"
+    if kind.startswith("Cosmetics"):
+        return "Cosmetics"
+    if kind.startswith("The Scout Reviews"):
+        return "Review"
+    if any(w in kind for w in STAMPEDE_WORLDS):
+        return "Stampede"
     return "Gameplay"
 
 
@@ -133,6 +151,7 @@ def main():
     ap.add_argument("--start", default="2026-11-21")
     ap.add_argument("--first", default="20:00", help="gameplay short, same SA date")
     ap.add_argument("--second", default="01:00", help="episode/single, the next SA date")
+    ap.add_argument("--review", default="23:00", help="the Scout Reviews (21:00 UK, 16:00 New York), same SA date")
     args = ap.parse_args()
     start = dt.date.fromisoformat(args.start)
     if start.weekday() != 5:
@@ -142,13 +161,15 @@ def main():
     days, left = build_days(start)
 
     rows, overview, i, todo = [], [], 0, 0
-    for n, (day, gp, second) in enumerate(days, 1):
+    t3 = dt.time.fromisoformat(args.review)
+    for n, (day, gp, review, second) in enumerate(days, 1):
         first_at = dt.datetime.combine(day, t1)
+        review_at = dt.datetime.combine(day, t3)
         second_at = dt.datetime.combine(day + dt.timedelta(days=1), t2)
         kind = "Episode day" if second and second[0] == "ep" else "Gameplay day"
         rows.append(f"<h2>Day {n} &middot; {day.strftime('%a %d %b')} &middot; {kind}</h2>")
         cells = []
-        for when, slot in ((first_at, gp), (second_at, second)):
+        for when, slot in ((first_at, gp), (review_at, review), (second_at, second)):
             if slot is None:
                 cells.append("")
                 continue
@@ -181,9 +202,10 @@ times aimed at the UK and US. All times are <b>South Africa time</b>:</p>
 <li><b>{t1.strftime('%H:%M')}</b> every day: the next gameplay short (18:00 UK, 13:00 New York).</li>
 <li><b>{t2.strftime('%H:%M')} the following night</b>: the episode (Tue/Sat) or story single
 (23:00 UK, 18:00 New York, 15:00 Los Angeles). Watch the date on each post: it's the next calendar day.</li>
+<li><b>{t3.strftime('%H:%M')}</b> on five days: The Scout Reviews (21:00 UK, 16:00 New York).</li>
 </ul>
 {SETUP}
-<table><tr><th>Day</th><th>Date</th><th>{t1.strftime('%H:%M')}</th><th>{t2.strftime('%H:%M')} (next day)</th></tr>{''.join(overview)}</table>
+<table><tr><th>Day</th><th>Date</th><th>{t1.strftime('%H:%M')}</th><th>{t3.strftime('%H:%M')} (Scout Reviews)</th><th>{t2.strftime('%H:%M')} (next day)</th></tr>{''.join(overview)}</table>
 <p>After this sheet the gameplay shorts carry on through {html.escape(', '.join(after))}.</p>
 {''.join(rows)}
 """, encoding="utf-8")
