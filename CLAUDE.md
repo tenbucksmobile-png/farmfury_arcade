@@ -6090,6 +6090,13 @@ were offered and declined, so don't build an uploader unless asked. Target 2-3 p
   `<session>/shorts_v3/<name>.mp4` + `.json`. Five made from Corn Field footage: Ducky water skip,
   Percy swap (no power shown: his only roll in the footage coincides with a death), Woolly clones,
   Bessie slam, Cluck egg drop. Horace/Gerald/Billy need new footage.
+- **Fast-start test (2026-11-17), after the first analytics read** (TikTok drop-off at 0:02 on every post, inside the
+  opener; ~85% of YouTube Shorts viewers swipe away at once; 0 installs; see memory `project_video_performance_2026_11_17`):
+  `make_gameplay_short.py --fast-start` drops the opener and world badge, starts on gameplay, shows
+  `FAST_START_TEXT` ("FREE GAME!|FARM ANIMALS VS ROBOTS", `|` = line break in `make_shorts.fit_font`) for 2.5 s, then
+  the hook; end card unchanged (`make_episode.wrap_video(opener=False)`). One test made: Meadow Ruins 02 ->
+  `singles/Meadow Ruins/Meadow Ruins 02 - Bessie Breaks the Floor (FAST START TEST).mp4` (20.6 s). Not posted yet;
+  compare its TikTok avg watch time / YouTube "stayed to watch" against the old template before re-cutting the rest.
 - **Launch schedule, `plan_launch.py` (2026-11-05, revised).** Every morning 07:30 the next gameplay short, world by world in number order (`WORLD_ORDER`, 10 per world, files found in `Episodes/singles/<World>/`); Tuesday and Saturday 16:30 the next episode; six story singles on other afternoons next to their episodes (`SINGLE_DAYS`). From Sat 7 Nov it runs 30 days to Sun 6 Dec (Ep 9 on Sat 5 Dec). Corn Field 01-10 and Vegetable Patch 01-10 are in (mornings 7-26 Nov); Orchard 01-10 is needed by Fri 27 Nov (first "to record" morning on the sheet). The Ground Slam story single moved to Fri 20 Nov so it doesn't share Thu 19 Nov with Vegetable Patch 03 (also a ground slam); after that mornings continue through the remaining worlds and Tue/Sat afternoons are for Chapter 2 (Stampede). Re-run after rendering: new shorts are picked up automatically (plain caption from the file title unless added to `CAPTIONS`). The 4 older `animated_*` shorts are left out. Sheet: `plans/launch-2026-11-07.html`.
   **Revised 2026-11-15:** Arcade gameplay stops after Orchard 10 (user: enough Arcade); `WORLD_ORDER` is
   Corn Field/Vegetable Patch/Orchard (10 each) then the six Stampede worlds (`PER_WORLD` 5 each, own captions/

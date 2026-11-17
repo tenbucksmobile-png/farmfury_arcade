@@ -62,6 +62,8 @@ STAMPEDE_BADGE_W = 700   # the Stampede badges are square shields, so a little n
 GAME = "arcade"          # set from --game in main()
 
 BADGE_SECONDS = 1.8
+FAST_START_SECONDS = 2.5
+FAST_START_TEXT = "FREE GAME!|FARM ANIMALS VS ROBOTS"   # "|" = line break (make_shorts.fit_font)
 ALIGN_SR = 4000
 BADGE_W = 820
 W, H, FPS = ms.W, ms.H, ms.FPS
@@ -166,6 +168,10 @@ def main():
     p.add_argument("--hook", required=True, help="on-screen headline during gameplay")
     p.add_argument("--name", required=True)
     p.add_argument("--game", choices=["arcade", "stampede"], default="arcade")
+    p.add_argument("--fast-start", action="store_true",
+                   help="no opener and no world badge: gameplay from the first frame, FAST_START_TEXT on screen "
+                        "for the first FAST_START_SECONDS, then the hook (17 Nov 2026 analytics: most viewers "
+                        "left at 0:02, inside the opener)")
     args = p.parse_args()
     global GAME
     GAME = args.game
@@ -195,18 +201,26 @@ def main():
             print(f"  world music found in the recording at {music_pos[0]:.2f}s of {track.name} (gain {music_pos[2]:.2f})")
         else:
             print(f"  world music not found at {args.start}s (power-crop music?); badge uses {track.name} from the top")
-        badge = render_badge(ffmpeg, args.world, work / "badge.mp4", work, music_pos, video, args.start)
-        play = b.gameplay(args.hook, args.start, args.start + args.seconds)
+        if args.fast_start:   # gameplay from frame 1: "FREE GAME" first, then the hook, same continuous clip
+            split = args.start + FAST_START_SECONDS
+            parts = [b.gameplay(FAST_START_TEXT, args.start, split),
+                     b.gameplay(args.hook, split, args.start + args.seconds)]
+            lead = 0.0
+        else:
+            parts = [render_badge(ffmpeg, args.world, work / "badge.mp4", work, music_pos, video, args.start),
+                     b.gameplay(args.hook, args.start, args.start + args.seconds)]
+            lead = BADGE_SECONDS
         body = body_dir / f"{args.name}.mp4"
-        total = ms.join_segments(ffmpeg, [badge, play], body)
+        total = ms.join_segments(ffmpeg, parts, body)
         end_kw = {}
         if music_pos:   # the end card carries the same track on from where the gameplay leaves it
-            end_at = BADGE_SECONDS + args.seconds - make_episode.END_CARD_XFADE
-            end_kw = {"end_music": track, "end_music_start": (music_pos[0] - BADGE_SECONDS + end_at) % music_pos[1]}
+            end_at = lead + args.seconds - make_episode.END_CARD_XFADE
+            end_kw = {"end_music": track, "end_music_start": (music_pos[0] - lead + end_at) % music_pos[1]}
         make_episode.wrap_video(ffmpeg, body, out_dir=out_dir, arcade_only=GAME == "arcade",
-                                stampede_only=GAME == "stampede", **end_kw)
+                                stampede_only=GAME == "stampede", opener=not args.fast_start, **end_kw)
 
     info = {"hook": args.hook, "clip": [args.start, args.start + args.seconds], "world": args.world, "game": GAME,
+            "fast_start": args.fast_start,
             "file": f"{args.name}.mp4", "seconds": round(ms.video_duration(ffmpeg, out_dir / f"{args.name}.mp4"), 1)}
     (out_dir / f"{args.name}.json").write_text(json.dumps(info, indent=2), encoding="utf-8")
     print(f"body {total:.1f}s -> {out_dir / (args.name + '.mp4')}  {info['seconds']}s")

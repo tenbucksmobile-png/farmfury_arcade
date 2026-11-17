@@ -153,20 +153,22 @@ def hook_text(moments, variant=0):
 
 
 def fit_font(draw, text, box, max_size=120, min_size=56):
-    """Largest font size (and wrapped lines) that fits text inside box."""
+    """Largest font size (and wrapped lines) that fits text inside box. "|" forces a line break."""
     width, height = box[2] - box[0], box[3] - box[1]
     for size in range(max_size, min_size - 1, -4):
         font = ImageFont.truetype(str(FONT), size)
-        lines, line = [], ""
-        for word in text.split():
-            trial = f"{line} {word}".strip()
-            if draw.textlength(trial, font=font) <= width:
-                line = trial
-            else:
-                if line:
-                    lines.append(line)
-                line = word
-        lines.append(line)
+        lines = []
+        for part in text.split("|"):
+            line = ""
+            for word in part.split():
+                trial = f"{line} {word}".strip()
+                if draw.textlength(trial, font=font) <= width:
+                    line = trial
+                else:
+                    if line:
+                        lines.append(line)
+                    line = word
+            lines.append(line)
         line_height = int(size * 1.05)
         if len(lines) * line_height <= height and all(draw.textlength(l, font=font) <= width for l in lines):
             return font, lines, line_height

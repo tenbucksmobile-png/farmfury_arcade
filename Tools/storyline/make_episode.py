@@ -962,7 +962,8 @@ def add_opener(ffmpeg, body, out_path):
 WRAP_DIR = VIDEO_DIR / "Episodes" / "singles"
 
 
-def wrap_video(ffmpeg, src, out_dir=None, arcade_only=False, end_music=None, end_music_start=0.0, stampede_only=False):
+def wrap_video(ffmpeg, src, out_dir=None, arcade_only=False, end_music=None, end_music_start=0.0, stampede_only=False,
+               opener=True):
     """end_music/end_music_start: the end card's music track and where in it to start (looped), e.g. to carry
     a gameplay short's world music on under the end card instead of switching to the theme."""
     """An already-finished video (e.g. Video/Narrated/*.mp4, with its own voices and music) given the episodes'
@@ -1011,8 +1012,11 @@ def wrap_video(ffmpeg, src, out_dir=None, arcade_only=False, end_music=None, end
         body = work / "wrapped.mp4"
         run([ffmpeg, "-v", "error", "-y", *inputs, "-filter_complex", ";".join(vg), "-map", "[v]", "-map", "[aout]",
              "-t", f"{total:.2f}", *VIDEO_OUT, *AUDIO_OUT, str(body)])
-        add_opener(ffmpeg, body, out)
-    print(f"{out}  {total + OPENER_SECONDS:.1f}s")
+        if opener:
+            add_opener(ffmpeg, body, out)
+        else:   # fast-start shorts (Nov 2026 analytics: viewers swiped away during the opener)
+            run([ffmpeg, "-v", "error", "-y", "-i", str(body), "-c", "copy", "-movflags", "+faststart", str(out)])
+    print(f"{out}  {total + (OPENER_SECONDS if opener else 0):.1f}s")
 
 
 def main():
