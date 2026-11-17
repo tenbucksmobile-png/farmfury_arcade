@@ -6261,6 +6261,23 @@ licensing not yet checked.
     Stampede/Cosmetics/Review); current sheet `plans/meta-2026-11-14.html` (start Sat 14 Nov). Scout Review 1 lands
     Mon 23 Nov 23:00. Next Meta post to load: Sat 5 Dec.
   - `Tools/maze-designer.html` shows as deleted in the working tree; not done by Claude, left uncommitted.
+- **Status at end of 2026-11-17 (pick up here):**
+  - **First analytics read** (TikTok + YouTube via Claude in Chrome; Meta and Play Console not checked yet): ~3.4K views,
+    11 followers, **0 downloads**. Drop-off at 0:02 on every TikTok post (inside the opener); ~85% of YouTube Shorts
+    viewers swipe away at once, those who stay watch 66-109%. Story clips beat gameplay; 50-60 s episodes got 8-9
+    YouTube views. Five posts 14-16 Nov got 0-1 TikTok views (cause unknown). Details: memory
+    `project_video_performance_2026_11_17`.
+  - **TikTok bio has no link** ("free to play ⬇️" points at nothing) while every caption says "link in bio". User to add
+    `https://farmfurygames.com` (Profile > Edit profile > Website). Not confirmed done.
+  - **Decisions:** everything already scheduled to Fri 4 Dec runs unchanged; episodes stay as they are; new Stampede
+    gameplay shorts use `--fast-start`; a third strand of 5-10 s "true shorts" is planned (list below).
+  - **Next session:** user records Frozen Tundra and the other Stampede worlds on 2026-11-18. Then: cut Frozen Tundra
+    01-05 with `--fast-start`, and the free true shorts from that footage (checklist in `True_Shorts_List.md`); schedule
+    from Sat 5 Dec on all four platforms. Still open: user checks the 0-view TikTok posts for a For You restriction,
+    Play Console store-listing visitors, Meta Business Suite numbers, Billy's voice (Eps 11-13), Kling credits for
+    Eps 11-13 (topped up, held until the fast-start test shows a result).
+  - Browser analytics works through Claude in Chrome (`claude --chrome --continue`); the user's Chrome is signed in to
+    TikTok Studio and YouTube Studio (channel `UCQLvt4X58OHQAg0yijo7vzg`).
 - **True shorts (2026-11-17, list only, nothing built).** The user's plan has three strands: story episodes (unchanged),
   The Scout Reviews, and "true shorts" (5-10 s single gags modelled on Robot Celebration, the best performer: action in
   frame 1, no opener, loopable, small bottom brand bar). ~55 ideas plus a Stampede recording checklist in
