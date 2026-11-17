@@ -6097,9 +6097,9 @@ were offered and declined, so don't build an uploader unless asked. Target 2-3 p
   Reviews in a third 12:00 `MIDDAY` slot. Stampede gameplay and Ep 10 only from `STAMPEDE_FROM_DAY` (Tue 8 Dec).
   A slot whose file doesn't exist yet shows as "TO MAKE".
 - **Instagram + Facebook Reels (2026-11-14, `plan_meta.py`).** Same videos and order as `plan_launch.py`, aimed at the UK/US: gameplay short 20:00 SAST, episode/single 01:00 SAST the next date; Instagram caption (5 hashtags, link in bio) + Facebook caption (plain link) per post, plus Page/Instagram setup steps. Sheet `plans/meta-2026-11-21.html` (30 days from Sat 21 Nov). Scheduled via Meta Business Suite; accounts not yet created.
-- **Launch went live 2026-11-07.** As of 2026-11-15 the user has scheduled everything up to
-  Sat 28 Nov (Ep 7), except the cosmetics singles (not released). TikTok Studio allows 10 days
-  ahead. The sheet (re-made 2026-11-15) runs to Wed 16 Dec: cosmetics singles Hats Sun 29 Nov / Trails Wed 2 Dec /
+- **Launch went live 2026-11-07.** As of 2026-11-17 everything is loaded and scheduled on all four
+  platforms (TikTok, YouTube, Instagram, Facebook) up to and including Fri 4 Dec (Machines cosmetics
+  single). Next to schedule: Sat 5 Dec (Ep 9) onward. TikTok Studio allows 10 days ahead. The sheet (re-made 2026-11-15) runs to Wed 16 Dec: cosmetics singles Hats Sun 29 Nov / Trails Wed 2 Dec /
   Machines Fri 4 Dec (narration to record first); Arcade gameplay ends at Orchard 10 (Sun 6 Dec); The Scout
   Reviews 1-5 (made 2026-11-15, `Episodes/scout_reviews/`, `make_episode.py --episode rv1..rv5`) go in a third
   12:00 midday slot (`MIDDAY` in plan_launch.py) the user inserts between existing posts: Mon 16, Sat 21, Thu 26
@@ -6247,10 +6247,10 @@ licensing not yet checked.
     The recording-sheet artifact still shows the old list; regenerate it for Billy's lines + Chapter 3.
   - **Eps 11-13 not built yet.** Ep 11-13 Kling clips need far more than the 99 credits left (estimate ~500-700;
     try Ep 5's reveal clips for Percy/Ducky/Horace/Gerald/Billy in Ep 11 first).
-  - **Instagram + Facebook:** user started a week early and loaded posts up to Thu 26 Nov. `plan_meta.py` now
+  - **Instagram + Facebook:** user started a week early; as of 2026-11-17 loaded up to Fri 4 Dec (same as TikTok/YouTube). `plan_meta.py` now
     takes the 4-slot days from `plan_launch.build_days` (Scout Reviews at 23:00 SA, own caption groups for
     Stampede/Cosmetics/Review); current sheet `plans/meta-2026-11-14.html` (start Sat 14 Nov). Scout Review 1 lands
-    Mon 23 Nov 23:00, inside the already-loaded range, so it must be inserted. Next Meta post to load: Fri 27 Nov.
+    Mon 23 Nov 23:00. Next Meta post to load: Sat 5 Dec.
   - `Tools/maze-designer.html` shows as deleted in the working tree; not done by Claude, left uncommitted.
 - **Saga arc + ability shorts (2026-11-14, scripts only).** One story across the games: Arcade (night war on the farm) → Stampede (march through six lands to the Mothership) → Cannonfire (the Overlord builds fortresses across the same nine lands; the animals build the Farm Cannon and their powers grow). Chapter 3 = Eps 14-17 outline + an Ep 13 bridge shot (13.10), in `Video/FarmFury_Saga/FarmFury_Saga_Story_Arc.md`. Ability shorts get more weight: 8 per game (`Video/FarmFury_<Arcade|Stampede|Cannonfire>/Ability_Shorts/`) + 8 "Power Up" evolution shorts (same power in all three games, `Video/FarmFury_Saga/Power_Up_Evolution_Shorts.md`). Cannonfire is the renamed original Farm Fury (`Desktop/FarmFury`, GDD v3.1). Nothing recorded or rendered yet.
 - **Ducky is male ("he")**, decided 2026-10-15 to match the storyline's surfer character; the game's
