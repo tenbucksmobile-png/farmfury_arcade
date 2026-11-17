@@ -6261,6 +6261,12 @@ licensing not yet checked.
     Stampede/Cosmetics/Review); current sheet `plans/meta-2026-11-14.html` (start Sat 14 Nov). Scout Review 1 lands
     Mon 23 Nov 23:00. Next Meta post to load: Sat 5 Dec.
   - `Tools/maze-designer.html` shows as deleted in the working tree; not done by Claude, left uncommitted.
+- **True shorts (2026-11-17, list only, nothing built).** The user's plan has three strands: story episodes (unchanged),
+  The Scout Reviews, and "true shorts" (5-10 s single gags modelled on Robot Celebration, the best performer: action in
+  frame 1, no opener, loopable, small bottom brand bar). ~55 ideas plus a Stampede recording checklist in
+  `Video/FarmFury_Saga/True_Shorts_List.md` (ability gags, satisfying moments, robot comedy, animal personality, comment
+  starters; marked REC / K-REUSE / K-NEW). About 30 are free; the 7 new Kling ones (~300 credits) wait until the free
+  ones show what works.
 - **Saga arc + ability shorts (2026-11-14, scripts only).** One story across the games: Arcade (night war on the farm) → Stampede (march through six lands to the Mothership) → Cannonfire (the Overlord builds fortresses across the same nine lands; the animals build the Farm Cannon and their powers grow). Chapter 3 = Eps 14-17 outline + an Ep 13 bridge shot (13.10), in `Video/FarmFury_Saga/FarmFury_Saga_Story_Arc.md`. Ability shorts get more weight: 8 per game (`Video/FarmFury_<Arcade|Stampede|Cannonfire>/Ability_Shorts/`) + 8 "Power Up" evolution shorts (same power in all three games, `Video/FarmFury_Saga/Power_Up_Evolution_Shorts.md`). Cannonfire is the renamed original Farm Fury (`Desktop/FarmFury`, GDD v3.1). Nothing recorded or rendered yet.
 - **Ducky is male ("he")**, decided 2026-10-15 to match the storyline's surfer character; the game's
   Character Story text and this file were corrected from "she".
