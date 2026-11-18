@@ -168,6 +168,13 @@ namespace FarmFuryArcade.Core
         /// actually granted its reward, or an interstitial that actually closed after showing) —
         /// never for a skipped/unready/failed attempt, so this tracks real ad exposure, not just
         /// button taps.</summary>
+        /// <summary>Menu hub cross-promo cards (2026-11-18): shown when the hub opens, tapped once the parental gate
+        /// is passed. Same events and parameter as Stampede / Cannonfire (promo_id = xpromo_stampede /
+        /// xpromo_cannonfire) - register promo_shown / promo_tapped in this project's UGS dashboard.</summary>
+        public void LogPromoShown(string promoId) => LogEvent("promo_shown", ("promo_id", promoId ?? string.Empty));
+
+        public void LogPromoTapped(string promoId) => LogEvent("promo_tapped", ("promo_id", promoId ?? string.Empty));
+
         public void LogAdShown(string placementType, string placementName) =>
             LogEvent("ad_shown",
                 ("placement_type", placementType ?? string.Empty),
