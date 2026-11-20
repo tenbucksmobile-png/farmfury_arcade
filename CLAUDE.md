@@ -6126,7 +6126,7 @@ were offered and declined, so don't build an uploader unless asked. Target 2-3 p
   (150x150), `youtube_banner_franchise_v2.png` (2026-11-06, characters removed per the user: website's empty
   farm backdrop dimmed to ~40% + the three logos and store/website text, made by `make_banner_v2.py`; whether
   uploaded is unconfirmed; superseded 2026-11-20 by `make_banners_v3.py <folder with backdrop-main.png>` ->
-  `youtube_banner_v3.png` (2560x1440) + `facebook_cover_v3.png` (1640x624), same look with the Cannonfire logo
+  `youtube_banner_v3.png` (2560x1440) + `facebook_cover_v3.png` (1640x624) + `instagram_post_v3.png` (1080x1350 pinned post, Instagram has no banner), same look with the Cannonfire logo
   added as a third game and the faint dark boxes behind the game logos removed (logo pixels with alpha < 40
   are stripped); `backdrop-main.png` comes from the website zip's `assets/brand/`), and two general thumbnails from the opener still (`thumbnail_vertical_1080x1920.png`, used for
   gameplay posts; `thumbnail_landscape_1280x720.png`). The older `youtube_banner.png`/`profile_picture.png`

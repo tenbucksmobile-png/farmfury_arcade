@@ -27,8 +27,11 @@ INK = (40, 18, 6)
 def clean_logo(path, h):
     im = Image.open(path).convert('RGBA')
     a = im.split()[3].point(lambda v: 0 if v < 40 else v)
+    # Logo_game.png has a stray mark ~100px below the logo; MinFilter erodes isolated specks so they
+    # don't stretch the crop box (the crop itself keeps the full-res alpha).
+    box = a.filter(ImageFilter.MinFilter(5)).getbbox()
     im.putalpha(a)
-    im = im.crop(a.getbbox())
+    im = im.crop((max(0, box[0] - 2), max(0, box[1] - 2), min(im.width, box[2] + 2), min(im.height, box[3] + 2)))
     return im.resize((round(im.width * h / im.height), h), Image.LANCZOS)
 
 
@@ -112,6 +115,49 @@ def facebook():
     p.save(os.path.join(OUT, 'facebook_cover_v3_preview.png'))
 
 
+def instagram():
+    """1080x1350 portrait post to pin on the profile (Instagram has no banner). Stacked layout:
+    FF Games logo, gold rule, the three game logos, store text. The profile grid shows the centre 3:4."""
+    w, h = 1080, 1350
+    bg = backdrop(w, h, (40, 200, 1040, 1150))
+    dr = ImageDraw.Draw(bg)
+    f1, f2 = ImageFont.truetype(FONT, 58), ImageFont.truetype(FONT, 44)
+    ff = clean_logo(GAMES_LOGO, 330)
+    games = [clean_logo(os.path.join(ASSETS, f), 150)
+             for f in ('arcade-logo.png', 'stampede-logo.png', 'Logo_Cannonfire.png')]
+    gap = 30
+    row_w = sum(g.width for g in games) + gap * 2
+    if row_w > w - 100:                                     # keep side margins
+        s = (w - 100 - gap * 2) / (row_w - gap * 2)
+        games = [g.resize((round(g.width * s), round(g.height * s)), Image.LANCZOS) for g in games]
+        row_w = sum(g.width for g in games) + gap * 2
+    game_h = games[0].height
+    t1a, t1b, t2 = 'FREE ON THE APP STORE', '& GOOGLE PLAY', 'FARMFURYGAMES.COM'
+    block = ff.height + 50 + 6 + 50 + game_h + 55 + f1.size * 2 + 10 + 25 + f2.size
+    y = (h - block) // 2
+    paste(bg, ff, (w - ff.width) // 2, y, 12)
+    y += ff.height + 50
+    dr.line((w // 2 - 220, y, w // 2 + 220, y), fill=GOLD + (220,), width=5)
+    y += 6 + 50
+    x = (w - row_w) / 2
+    for g in games:
+        paste(bg, g, round(x), y + (game_h - g.height) // 2, 8)
+        x += g.width + gap
+    y += game_h + 55
+    for s, f, col, step in ((t1a, f1, (255, 255, 255), f1.size + 10), (t1b, f1, (255, 255, 255), f1.size + 25),
+                            (t2, f2, GOLD, 0)):
+        tw = dr.textlength(s, font=f)
+        dr.text(((w - tw) / 2, y), s, font=f, fill=col, stroke_width=4, stroke_fill=INK)
+        y += step
+    out = bg.convert('RGB')
+    out.save(os.path.join(OUT, 'instagram_post_v3.png'))
+    p = out.copy()
+    gw = round(h * 3 / 4)
+    ImageDraw.Draw(p).rectangle(((w - gw) // 2, 0, (w + gw) // 2, h - 1), outline=(255, 0, 0), width=3)
+    p.save(os.path.join(OUT, 'instagram_post_v3_preview.png'))
+
+
 if __name__ == '__main__':
     youtube()
     facebook()
+    instagram()
