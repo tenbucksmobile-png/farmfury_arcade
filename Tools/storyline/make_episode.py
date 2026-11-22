@@ -469,6 +469,45 @@ EPISODES = {
             {"image": "stills/10.7_horizon.png", "use": 3.0, "push": 0.08, "hook": ["NEXT:", "NEW MOVES"], "lines": []},
         ],
     },
+    # Ep 11 (2026-11-22): New Moves, one power per animal, each stamped like Ep 6's wanted posters. Three new Kling clips
+    # (Ep11_Clips/jobs.txt: Cluck's Egg Launch, Woolly's Cloud Step, the crystal apple); Bessie reuses Ep 10's floor
+    # crack, Percy/Ducky/Horace/Gerald/Billy their Ep 5 reveal clips (Stampede's powers look the same). 11.0 reuses
+    # Ep 10's signpost still.
+    11: {
+        "name": "ep11_new_moves",
+        "cannonfire": True,
+        "clip_dir": VIDEO_DIR / "Ep11_Clips",
+        "music": THEME,
+        "chase_track": Path(r"C:\Users\Personel\Desktop\FarmFury_Stampede\Assets\_Project\Audio\Music\MeadowRuins.mp3"),
+        "hook": ["NEW", "MOVES"],
+        "shots": [
+            {"image": str(VIDEO_DIR / "Ep10_Clips/stills/10.5_signpost.png"),
+             "use": 5.0, "push": 0.1, "hook": True, "hook_seconds": 2.6, "lines": [
+                ("bessie_11.0", "Out here, you don't stand still. Your power works on the run.", 0.3)]},
+            {"file": "ep11_11.1_cluck.mp4", "use": 5.0, "chase_music": True, "hook": ["CLUCK", "EGG LAUNCH"],
+             "sfx": [("Clucky_abiltiy.mp3", 1.0, 0.8), ("Robot_damage.mp3", 1.6, 0.6)], "lines": [
+                ("cluck_11.1", "Egg Launch! High, low, in the air!", 0.4)]},
+            {"path": VIDEO_DIR / "Ep10_Clips/ep10_10.6a_bessie.mp4", "skip": 0.4, "use": 4.6, "hold": 0.4,
+             "hook": ["BESSIE", "GROUND POUND"], "sfx": [("Bessie-ability.mp3", 1.2, 0.9)], "lines": [
+                ("bessie_11.2", "Ground Pound. Floors crack. Robots wobble.", 0.3)]},
+            {"path": VIDEO_DIR / "Ep05_Clips/ep05_6.5_percy.mp4", "use": 4.0, "hook": ["PERCY", "ROLL DASH"],
+             "sfx": [("Percy_ability.mp3", 0.3, 0.8)], "lines": [("percy_11.3", "Roll Dash! Mind your toes!", 0.8)]},
+            {"file": "ep11_11.4_woolly.mp4", "use": 5.0, "hook": ["WOOLLY", "CLOUD STEP"], "lines": [
+                ("woolly_11.4", "Cloud Step. One step more than you've got.", 0.5)]},
+            {"path": VIDEO_DIR / "Ep05_Clips/ep05_6.7_ducky.mp4", "use": 4.0, "hook": ["DUCKY", "WATER SPOUT"],
+             "sfx": [("DuckyTeleport.mp3", 0.3, 0.8)], "lines": [("ducky_11.5", "Water Spout. Surf's up, dude.", 0.8)]},
+            {"path": VIDEO_DIR / "Ep05_Clips/ep05_6.8_horace.mp4", "use": 4.0, "hook": ["HORACE", "HORSESHOE THROW"],
+             "sfx": [("Horace_ability.mp3", 0.8, 0.8)], "lines": [("horace_11.6", "Horseshoe, coming in high!", 0.7)]},
+            {"path": VIDEO_DIR / "Ep05_Clips/ep05_6.9_gerald.mp4", "use": 4.5, "hook": ["GERALD", "FEATHER BLOW"],
+             "sfx": [("Gerald_ability.mp3", 1.6, 0.6)], "lines": [("gerald_11.7", "Feather Blow. And I'm STILL mad.", 0.5)]},
+            {"path": VIDEO_DIR / "Ep05_Clips/ep05_6.10_billy.mp4", "use": 5.0, "hook": ["BILLY", "MUD SLING"],
+             "sfx": [("billy_ability.mp3", 0.9, 0.7)], "lines": [("billy_11.8", "Mud Sling! …Watch your step.", 0.4)]},
+            {"file": "ep11_11.9_apple.mp4", "use": 5.0, "hold": 1.0, "hook": ["NEXT:", "SIX LANDS"], "hook_at": 3.4,
+             "hook_seconds": 2.4, "sfx": [("RarePellet_pickup.mp3", 1.0, 0.8)], "lines": [
+                ("cluck_11.9", "Find a crystal apple…", 0.3),
+                ("bessie_11.9", "…and another friend joins the stampede.", 2.4)]},
+        ],
+    },
     # Singles (2026-11-03): the standalone Kling character clips, now with the franchise opener, captions and the
     # two-game end card like the episodes. Render with --episode <key> (gs, rc, cc). The square/landscape
     # clips are "fit" (whole picture on a blurred copy); "skip" cuts the ~1s reference sprite each square clip opens
@@ -800,7 +839,7 @@ def _recorded(stem):
     return path.exists()
 
 
-def build_end_card(path, play_only=False, arcade_only=False, stampede_only=False):
+def build_end_card(path, play_only=False, arcade_only=False, stampede_only=False, cannonfire=False):
     """Blurred, darkened game poster; FARM FURY with the Arcade and Stampede logos stacked beneath, 'play both
     free', the store badges side by side, the website. Everything sits above the bottom of the frame, which TikTok
     and Shorts cover with the caption. arcade_only (Eps 7-9, which are about Arcade's mazes, tunnels and combos):
@@ -813,7 +852,23 @@ def build_end_card(path, play_only=False, arcade_only=False, stampede_only=False
     card = Image.alpha_composite(card, Image.new("RGBA", (W, H), (0, 0, 0, 155)))
     draw = ImageDraw.Draw(card)
 
-    if stampede_only:   # Stampede gameplay shorts: the Stampede logo alone
+    if cannonfire and not (arcade_only or stampede_only):
+        # Stampede era (Ep 10 on, the true shorts): FARM FURY over the three games side by side, then the badges and
+        # website higher up than the two-game card, since the logos take one row instead of two.
+        _paste(card, _logo(FARMFURY_LOGO, 640, True), W / 2, 330)
+        row_h, gap = 215, 22
+        logos = []
+        for p_ in (ARCADE_LOGO, STAMPEDE_LOGO, CANNONFIRE_LOGO):
+            im = Image.open(p_).convert("RGBA")
+            im = im.crop(im.getbbox())
+            logos.append(im.resize((round(im.width * row_h / im.height), row_h), Image.LANCZOS))
+        x = (W - sum(lg.width for lg in logos) - gap * 2) / 2
+        for lg in logos:
+            _paste(card, lg, x + lg.width / 2, 620)
+            x += lg.width + gap
+        _centered(draw, "PLAY FREE!", ImageFont.truetype(str(FONT), 112), 770, TEXT_FILL, 8)
+        badge_y = 930
+    elif stampede_only:   # Stampede gameplay shorts: the Stampede logo alone
         _paste(card, _logo(STAMPEDE_LOGO, 760), W / 2, 560)
         _centered(draw, "PLAY FREE NOW!", ImageFont.truetype(str(FONT), 112), 1050, TEXT_FILL, 8)
     elif arcade_only:
@@ -825,7 +880,7 @@ def build_end_card(path, play_only=False, arcade_only=False, stampede_only=False
         _paste(card, _logo(STAMPEDE_LOGO, 500), W / 2, 935)
         _centered(draw, "PLAY BOTH FREE!", ImageFont.truetype(str(FONT), 104), 1110, TEXT_FILL, 8)
 
-    badge_w, gap, y = 455, 30, 1260
+    badge_w, gap, y = 455, 30, (badge_y if cannonfire and not (arcade_only or stampede_only) else 1260)
     badges = [_badge(p, badge_w) for p in ((PLAY_BADGE,) if play_only else (APP_STORE_BADGE, PLAY_BADGE))]
     x = (W - len(badges) * badge_w - (len(badges) - 1) * gap) // 2
     for k, badge in enumerate(badges):
@@ -1019,6 +1074,67 @@ def wrap_video(ffmpeg, src, out_dir=None, arcade_only=False, end_music=None, end
     print(f"{out}  {total + (OPENER_SECONDS if opener else 0):.1f}s")
 
 
+LOSSLESS = ["-c:v", "libx264", "-qp", "0", "-preset", "ultrafast", "-pix_fmt", "yuv420p", "-r", str(FPS), "-an"]
+
+
+def _input_groups(inputs):
+    """Split a flat ffmpeg input list into one argument group per input (each group ends with '-i <path>')."""
+    groups, cur = [], []
+    it = iter(inputs)
+    for tok in it:
+        cur.append(tok)
+        if tok == "-i":
+            cur.append(next(it))
+            groups.append(cur)
+            cur = []
+    return groups
+
+
+def prerender_base(ffmpeg, work, inputs, vgraph, durs, card_s):
+    """The episode's picture (every shot, crossfaded, then the end card) as one lossless file, built without ever
+    decoding more than two clips at once: each shot and the card are rendered to their own file from their own chain
+    in vgraph (shots first, card last; each chain reads one input), each crossfade is rendered from just the two
+    overlapping tails, and the pieces are joined in order. Same timeline as the old single xfade chain."""
+    groups = _input_groups(inputs)
+    segs = []
+    for k, chain in enumerate(vgraph):   # len(durs) shot chains, then the card chain
+        idx = int(chain[1:chain.index(":v]")])
+        out_label = chain[chain.rindex("["):]
+        g = groups[idx]
+        chain = chain.replace(f"[{idx}:v]", "[0:v]").replace(out_label, "[out]")
+        seg = work / f"seg_{k:02d}.mkv"
+        dur = durs[k] if k < len(durs) else card_s
+        run([ffmpeg, "-v", "error", "-y", *g, "-filter_complex", chain, "-map", "[out]", "-t", f"{dur:.3f}",
+             *LOSSLESS, str(seg)])
+        segs.append((seg, dur))
+    overlaps = [XFADE] * (len(segs) - 2) + [END_CARD_XFADE]   # between consecutive pieces
+    pieces = []
+
+    def cut(src, a, b, name):
+        out = work / name
+        run([ffmpeg, "-v", "error", "-y", "-i", str(src), "-vf", f"trim=start={a:.3f}:end={b:.3f},setpts=PTS-STARTPTS",
+             *LOSSLESS, str(out)])
+        pieces.append(out)
+
+    for k, (seg, dur) in enumerate(segs):
+        head = overlaps[k - 1] if k > 0 else 0.0
+        tail = overlaps[k] if k < len(overlaps) else 0.0
+        cut(seg, head, dur - tail, f"piece_{k:02d}a.mkv")
+        if k < len(overlaps):   # the crossfade into the next piece, from the two overlapping ends only
+            nxt, x = segs[k + 1][0], overlaps[k]
+            out = work / f"piece_{k:02d}b.mkv"
+            run([ffmpeg, "-v", "error", "-y", "-i", str(seg), "-i", str(nxt), "-filter_complex",
+                 f"[0:v]trim=start={dur - x:.3f},setpts=PTS-STARTPTS[a];[1:v]trim=end={x:.3f},setpts=PTS-STARTPTS[b];"
+                 f"[a][b]xfade=transition=fade:duration={x}:offset=0[out]", "-map", "[out]", "-t", f"{x:.3f}",
+                 *LOSSLESS, str(out)])
+            pieces.append(out)
+    listing = work / "pieces.txt"
+    listing.write_text("".join(f"file '{p.as_posix()}'\n" for p in pieces), encoding="utf-8")
+    base = work / "base.mkv"
+    run([ffmpeg, "-v", "error", "-y", "-f", "concat", "-safe", "0", "-i", str(listing), "-c", "copy", str(base)])
+    return base
+
+
 def main():
     args = sys.argv[1:]
     if "--wrap" in args:   # python make_episode.py --wrap <video> [<video> ...]
@@ -1116,7 +1232,7 @@ def main():
 
         # End card: a still with a slow push-in, crossfaded in after the last clip.
         end_png = work / "end_card.png"
-        build_end_card(end_png, play_only, ep.get("end_card") == "arcade")
+        build_end_card(end_png, play_only, ep.get("end_card") == "arcade", cannonfire=ep.get("cannonfire", False))
         ei = inputs.count("-i")
         inputs += ["-loop", "1", "-framerate", str(FPS), "-t", f"{card_s:.2f}", "-i", str(end_png)]
         frames = int(card_s * FPS)
@@ -1125,15 +1241,19 @@ def main():
         end_start = clips_end - END_CARD_XFADE
         total = end_start + card_s
 
-        # Join with crossfades.
-        cur, acur = "v0", "k0"
+        # Join with crossfades. The picture is built first as its own file (prerender_base): one xfade chain over every
+        # clip at once made ffmpeg decode all of them in parallel and hold each later clip's frames until its
+        # crossfade, which ran out of memory on Ep 11 (10 shots, 7.7 GB PC). The audio still crossfades here.
+        acur = "k0"
         for i in range(1, len(shots)):
-            off = starts[i]
-            vgraph.append(f"[{cur}][v{i}]xfade=transition=fade:duration={XFADE}:offset={off:.2f}[x{i}]")
             agraph.append(f"[{acur}][k{i}]acrossfade=d={XFADE}[ka{i}]")
-            cur, acur = f"x{i}", f"ka{i}"
-        vgraph.append(f"[{cur}][vend]xfade=transition=fade:duration={END_CARD_XFADE}:offset={end_start:.2f}[xend]")
-        cur = "xend"
+            acur = f"ka{i}"
+        base = prerender_base(ffmpeg, work, inputs, vgraph, [s["_dur"] for s in shots], card_s)
+        vgraph = []   # the per-shot picture chains now live in the base file; their inputs stay for the audio
+        bi = inputs.count("-i")
+        inputs += ["-i", str(base)]
+        vgraph.append(f"[{bi}:v]setsar=1[base]")
+        cur = "base"
 
         # Hook text over the cold open ("hook": True uses the episode's hook; a list gives a shot its own, e.g. a
         # "Next episode" tag on the sign-off).

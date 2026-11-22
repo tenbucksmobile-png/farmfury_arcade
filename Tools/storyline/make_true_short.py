@@ -3,8 +3,8 @@ the logo opener).
 
 The rules (Video/FarmFury_Saga/True_Shorts_List.md): action and the hook text on screen from the first frame, no
 opener, one gag, a small brand bar along the bottom the whole time, and a hard cut at the end so the short loops.
-Half of them end with a short card (logo, both store badges, website) instead, to compare the two; the ability shorts
-end on a card with Bessie's tag over it.
+Every true short ends on a short card: FARM FURY over the three games (Arcade, Stampede, Cannonfire), both store
+badges, the website. The ability shorts end on the same card with Bessie's Stampede tag over it.
 
 Each short is one entry in SHORTS: segments (gameplay windows from a recorded session, or Kling clips), the hook,
 voice lines (Eleven_Audio stems, seconds from the start of the short), sound effects, an optional music bed, and the
@@ -31,8 +31,10 @@ from PIL import Image, ImageDraw, ImageFont  # noqa: E402
 from make_shorts import (ACCENT_FILL, AUDIO_OUT, FONT, FPS, H, STROKE_FILL, TEXT_FILL, VIDEO_OUT, W,  # noqa: E402
                          check_wording, fit_font)
 from make_animatic import VIDEO_DIR, build_caption, prepare_voice, probe_duration, run  # noqa: E402
-from make_episode import (ARCADE_LOGO, CHASE_MUSIC, FARMFURY_LOGO, SFX, STAMPEDE_LOGO, THEME, _logo, _recorded,  # noqa: E402
-                          build_end_card, has_audio)
+from PIL import ImageFilter  # noqa: E402
+from make_shorts import POSTER  # noqa: E402
+from make_episode import (APP_STORE_BADGE, ARCADE_LOGO, CANNONFIRE_LOGO, CHASE_MUSIC, FARMFURY_LOGO, PLAY_BADGE, SFX,  # noqa: E402
+                          STAMPEDE_LOGO, THEME, _recorded, build_end_card)
 from normalize_video import find_ffmpeg  # noqa: E402
 
 SESSIONS = HERE.parent / "content-pipeline" / "sessions"
@@ -47,7 +49,7 @@ HOOK_BOX = (60, 110, W - 60, 420)
 PIC_Y = 820                 # centre of a gameplay or "fit" picture
 CAPTION_Y = 1310
 BAR_TOP = 1450
-CARD_SECONDS = 1.6          # the short end card ("card")
+CARD_SECONDS = 2.2          # the short end card ("card"): long enough to take in the three game logos
 TAG_PAD = 0.9               # the tag card: Bessie's tag plus this much
 GAME_GAIN = 1.0
 MUSIC_GAIN = 0.16
@@ -106,26 +108,26 @@ SHORTS = [
 
     # --- True shorts from the Frozen Tundra recording (REC).
     {"name": "ts_secret_room", "group": "rec", "game": "stampede", "hook": "SECRET ROOM!",
-     "segs": [gp(317.6, 5.0)], "end": None,
+     "segs": [gp(317.6, 5.0)], "end": "card",
      "caption": f"Bessie found a secret room under the ice 🐄❄️ {ST_CTA} {ST_TAGS}"},
     {"name": "ts_boss_fight", "group": "rec", "game": "stampede", "hook": "BOSS FIGHT!",
      "segs": [gp(207.6, 5.8)], "end": "card",
      "caption": f"Three bonks and the Commander is done 🦆 {ST_CTA} {ST_TAGS}"},
     {"name": "ts_three_stars", "group": "rec", "game": "stampede", "hook": "THREE STARS!",
-     "segs": [gp(281.4, 5.5)], "end": None,
+     "segs": [gp(281.4, 5.5)], "end": "card",
      "caption": f"Every crop, every coin, three stars ⭐⭐⭐ {ST_CTA} {ST_TAGS}"},
     {"name": "ts_world_unlocked", "group": "rec", "game": "stampede", "hook": "NEW WORLD|UNLOCKED!",
      "segs": [gp(214.6, 5.5)], "end": "card",
      "caption": f"Next stop: the Frozen Tundra ❄️ {ST_CTA} {ST_TAGS}"},
     {"name": "ts_pick_your_animal", "group": "rec", "game": "stampede", "hook": "WHO WOULD|YOU PICK?",
-     "segs": [gp(228.4, 7.6)], "end": None,
+     "segs": [gp(228.4, 7.6)], "end": "card",
      "caption": f"Eight animals, one run. Who would you pick? 👇 {ST_CTA} {ST_TAGS}"},
 
     # --- Robot comedy (Kling clips we already have).
     {"name": "ts_robot_celebration", "group": "kling", "game": "franchise", "hook": "THE ROBOTS THINK|THEY WON...",
      "music": THEME, "segs": [clip(VIDEO_DIR / "Singles/robot_celebration_keyed.mp4", 3.7, skip=0.3, hold=2.6, fit=True)],
      "lines": [("robot_harvester_rc1", "Crops collected. Celebration mode... ON.", 0.3), ("cluck_rc2", "Not for long.", 4.4)],
-     "sfx": [("RobotSpawn.mp3", 0.3, 0.7)], "end": None,
+     "sfx": [("RobotSpawn.mp3", 0.3, 0.7)], "end": "card",
      "caption": f"The robots are celebrating a bit early 🤖🎉 {FF_CTA} {AR_TAGS}"},
     {"name": "ts_meet_harvester", "group": "kling", "game": "franchise", "hook": "MEET THE|HARVESTER",
      "music": CHASE_MUSIC, "segs": [clip(EP6 / "ep06_4.1_harvester.mp4", 5.0, hold=2.4)],
@@ -135,7 +137,7 @@ SHORTS = [
     {"name": "ts_meet_scout", "group": "kling", "game": "franchise", "hook": "MEET THE|SCOUT",
      "music": CHASE_MUSIC, "segs": [clip(EP6 / "ep06_4.2_scout.mp4", 5.0, hold=2.4)],
      "lines": [("robot_scout_4.2", "Calculating your next move…", 0.4), ("bessie_4.2", "Usually it does.", 3.0)],
-     "end": None, "caption": f"The Scout thinks it knows where you're going 🤖 {FF_CTA} {AR_TAGS}"},
+     "end": "card", "caption": f"The Scout thinks it knows where you're going 🤖 {FF_CTA} {AR_TAGS}"},
     {"name": "ts_meet_patrol", "group": "kling", "game": "franchise", "hook": "MEET THE|PATROL",
      "music": CHASE_MUSIC, "segs": [clip(EP6 / "ep06_4.3_patrol.mp4", 4.0, hold=3.4)],
      "lines": [("bessie_4.3", "The Patrol. Never works alone. Its partner comes from the front; it comes from behind.", 0.3)],
@@ -144,7 +146,7 @@ SHORTS = [
      "music": CHASE_MUSIC, "segs": [clip(EP6 / "ep06_4.4_drifter.mp4", 5.0, hold=2.6)],
      "lines": [("robot_drifter_4.4", "I'm coming for y— …actually, never mind.", 0.2),
                ("cluck_4.4", "The Drifter. Big talk from far away.", 3.9)],
-     "end": None, "caption": f"The Drifter: big talk from far away 🤖 {FF_CTA} {AR_TAGS}"},
+     "end": "card", "caption": f"The Drifter: big talk from far away 🤖 {FF_CTA} {AR_TAGS}"},
     {"name": "ts_meet_drone", "group": "kling", "game": "franchise", "hook": "MEET THE|DRONE",
      "music": CHASE_MUSIC, "segs": [clip(EP6 / "ep06_4.5_drone.mp4", 5.0, hold=2.6)],
      "lines": [("robot_drone_4.5", "Walls? How quaint. Hee hee.", 0.3),
@@ -155,7 +157,7 @@ SHORTS = [
     {"name": "ts_power_cluck", "group": "kling", "game": "franchise", "hook": "CLUCK GOT|A POWER!", "music": CHASE_MUSIC,
      "segs": [clip(EP5 / "ep05_6.3_cluck.mp4", 5.0, hold=0.6)],
      "lines": [("bessie_6.3", "Clucky got Egg Drop.", 0.2), ("cluck_6.3", "And it's CLUCK!", 3.3)],
-     "sfx": [("Clucky_abiltiy.mp3", 0.4, 0.8), ("Robot_damage.mp3", 2.4, 0.7)], "end": None,
+     "sfx": [("Clucky_abiltiy.mp3", 0.4, 0.8), ("Robot_damage.mp3", 2.4, 0.7)], "end": "card",
      "caption": f"Cluck got Egg Drop 🥚 {FF_CTA} {AR_TAGS}"},
     {"name": "ts_power_bessie", "group": "kling", "game": "franchise", "hook": "BESSIE GOT|A POWER!", "music": CHASE_MUSIC,
      "segs": [clip(EP5 / "ep05_6.4_bessie.mp4", 5.0, hold=0.8)],
@@ -164,7 +166,7 @@ SHORTS = [
      "caption": f"Bessie got Ground Slam 🐄💥 {FF_CTA} {AR_TAGS}"},
     {"name": "ts_power_percy", "group": "kling", "game": "franchise", "hook": "PERCY GOT|A POWER!", "music": CHASE_MUSIC,
      "segs": [clip(EP5 / "ep05_6.5_percy.mp4", 5.0, hold=0.4)], "lines": [("percy_6.5", "Roll with it!", 3.4)],
-     "sfx": [("Percy_ability.mp3", 0.3, 0.8)], "end": None, "caption": f"Percy rolls with it 🐷 {FF_CTA} {AR_TAGS}"},
+     "sfx": [("Percy_ability.mp3", 0.3, 0.8)], "end": "card", "caption": f"Percy rolls with it 🐷 {FF_CTA} {AR_TAGS}"},
     {"name": "ts_power_woolly", "group": "kling", "game": "franchise", "hook": "WOOLLY GOT|A POWER!", "music": CHASE_MUSIC,
      "segs": [clip(EP5 / "ep05_6.6_woolly.mp4", 5.0, hold=0.6)],
      "lines": [("woolly_6.6", "Ewe can never have too many of me.", 2.2), ("woolly_6.6_b", "", 2.27),
@@ -172,14 +174,14 @@ SHORTS = [
      "caption": f"Woolly can never have too many of herself 🐑🐑🐑 {FF_CTA} {AR_TAGS}"},
     {"name": "ts_power_ducky", "group": "kling", "game": "franchise", "hook": "DUCKY GOT|A POWER!", "music": CHASE_MUSIC,
      "segs": [clip(EP5 / "ep05_6.7_ducky.mp4", 5.0, hold=0.6)], "lines": [("ducky_6.7", "Just go with the flow, dude.", 3.2)],
-     "sfx": [("DuckyTeleport.mp3", 0.3, 0.8)], "end": None, "caption": f"Ducky goes with the flow 🦆🌊 {FF_CTA} {AR_TAGS}"},
+     "sfx": [("DuckyTeleport.mp3", 0.3, 0.8)], "end": "card", "caption": f"Ducky goes with the flow 🦆🌊 {FF_CTA} {AR_TAGS}"},
     {"name": "ts_power_horace", "group": "kling", "game": "franchise", "hook": "HORACE GOT|A POWER!", "music": CHASE_MUSIC,
      "segs": [clip(EP5 / "ep05_6.8_horace.mp4", 5.0, hold=0.4)], "lines": [("horace_6.8", "Ringer!", 3.8)],
      "sfx": [("Horace_ability.mp3", 0.8, 0.8)], "end": "card", "caption": f"Horace never misses 🐴 {FF_CTA} {AR_TAGS}"},
     {"name": "ts_power_gerald", "group": "kling", "game": "franchise", "hook": "GERALD GOT|A POWER!", "music": CHASE_MUSIC,
      "segs": [clip(EP5 / "ep05_6.9_gerald.mp4", 5.0, hold=0.6)],
      "lines": [("gerald_6.9", "You want feathers? I'll GIVE you feathers!", 0.4)],
-     "sfx": [("Gerald_ability.mp3", 1.6, 0.6)], "end": None,
+     "sfx": [("Gerald_ability.mp3", 1.6, 0.6)], "end": "card",
      "caption": f"Gerald has had enough of these robots 🦃 {FF_CTA} {AR_TAGS}"},
     {"name": "ts_power_billy", "group": "kling", "game": "franchise", "hook": "BILLY GOT|A POWER!", "music": CHASE_MUSIC,
      "segs": [clip(EP5 / "ep05_6.10_billy.mp4", 5.0, hold=0.6)], "lines": [("billy_6.10", "Okay… maybe MUD first.", 0.6)],
@@ -187,13 +189,13 @@ SHORTS = [
     {"name": "ts_cluck_panic", "group": "kling", "game": "franchise", "hook": "CLUCK DOES NOT|HANDLE STRESS", "music": CHASE_MUSIC,
      "segs": [clip(EP2 / "ep02_2.7_chaos.mp4", 5.0), clip(EP2 / "ep02_2.7_chaos.mp4", 0.1, skip=1.55, hold=3.6)],
      "lines": [("cluck_2.7a", "It was CHAOS. Feathers! Wool! Panic! Somebody screamed!", 0.1),
-               ("cluck_2.7b", "…It was a brave scream.", 7.4)], "end": None,
+               ("cluck_2.7b", "…It was a brave scream.", 7.4)], "end": "card",
      "caption": f"Cluck stayed very calm. Very calm 🐔 {FF_CTA} {AR_TAGS}"},
     {"name": "ts_bell_boogie", "group": "kling", "game": "franchise", "hook": "DING DING DING!", "music": THEME,
      "segs": [clip(VIDEO_DIR / "BessieBellBoogie.mp4", 7.0, skip=1.4, fit=True)], "end": "card",
      "caption": f"Bessie rings the barn bell 🔔🐄 {FF_CTA} {AR_TAGS}"},
     {"name": "ts_victory_dance", "group": "kling", "game": "franchise", "hook": "VICTORY DANCE!", "music": THEME,
-     "segs": [clip(VIDEO_DIR / "ClucksVictoryDance.mp4", 7.0, skip=1.4, fit=True)], "end": None,
+     "segs": [clip(VIDEO_DIR / "ClucksVictoryDance.mp4", 7.0, skip=1.4, fit=True)], "end": "card",
      "caption": f"Cluck's victory dance 🐔🕺 {FF_CTA} {AR_TAGS}"},
 
     # --- Comment starter: every animal, one after another.
@@ -202,8 +204,14 @@ SHORTS = [
      "segs": [clip(EP5 / f, 0.75, skip=2.2) for f in ("ep05_6.3_cluck.mp4", "ep05_6.4_bessie.mp4", "ep05_6.5_percy.mp4",
                                                       "ep05_6.6_woolly.mp4", "ep05_6.7_ducky.mp4", "ep05_6.8_horace.mp4",
                                                       "ep05_6.9_gerald.mp4", "ep05_6.10_billy.mp4")],
-     "end": None, "caption": f"8 farm animals, 8 powers. Which one are you? Tell us 👇 {FF_CTA} {AR_TAGS}"},
+     "end": "card", "caption": f"8 farm animals, 8 powers. Which one are you? Tell us 👇 {FF_CTA} {AR_TAGS}"},
 ]
+
+
+def build_card3(path):
+    """The true shorts' end card: the episodes' Stampede-era card (FARM FURY over Arcade, Stampede and Cannonfire,
+    both store badges, the website), shared so the two can't drift apart."""
+    build_end_card(path, cannonfire=True)
 
 
 def build_hook(path, text):
@@ -298,7 +306,7 @@ def render(short, ffmpeg):
         n = len(segs)
         if card_s:
             card = work / "card.png"
-            build_end_card(card, arcade_only=game == "arcade", stampede_only=game == "stampede")
+            build_card3(card)   # every short, ability shorts too (user, 2026-11-22), even though Bessie's tag names Stampede
             ci = inputs.count("-i")
             inputs += ["-loop", "1", "-framerate", str(FPS), "-t", f"{card_s:.2f}", "-i", str(card)]
             vg.append(f"[{ci}:v]scale={W}:{H},setsar=1,fps={FPS}[vcard]")

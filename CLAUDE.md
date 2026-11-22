@@ -6305,6 +6305,17 @@ licensing not yet checked.
   https://api.us.elevenlabs.io/v1/mcp`; the plugin's own config doesn't load). It can't delete voices. Billy was
   re-designed from his voice brief (voice "Billy the Goat", `AIwe5WeusuRWAwPWqckD`; Deep Dredger deleted by the user to
   free the slot); his `billy_ab-stampede`, `billy_11.8`, `billy_12.3` (+`_take2`s) and `billy_15.2` are in Eleven_Audio.
+  End card: every true short and ability short ends on the three-game card (FARM FURY over Arcade, Stampede,
+  Cannonfire side by side, "PLAY FREE!", both badges, website), which is `build_end_card(cannonfire=True)` in
+  make_episode.py, also used by any episode with `"cannonfire": True` (Ep 10 re-rendered with it, 59.8 s).
+- **Ep 11 New Moves MADE (2026-11-22), 53.0 s.** `make_episode.py --episode 11` -> `Episodes/ep11_new_moves.mp4`. 123 Kling
+  credits (3 stills + 3 Turbo videos: Cluck Egg Launch, Woolly Cloud Step, crystal apple + Percy; one take each,
+  ids in `Ep11_Clips/jobs.txt`); Bessie reuses Ep 10's 10.6a, Percy/Ducky/Horace/Gerald/Billy their Ep 5 reveal clips
+  (night/barn next to daytime Stampede), 11.0 the Ep 10 signpost still. **515 Kling credits left.** User chose Ep 11
+  first, then review before Eps 12-13 (~460 credits est.). **make_episode.py no longer xfades every clip in one
+  graph:** that decoded all clips at once and ran out of memory on Ep 11 (this PC: 7.7 GB). `prerender_base` renders
+  each shot and each crossfade to its own lossless file and joins them in order; audio still crossfades in the main
+  graph. Same timeline as before.
 - **Saga arc + ability shorts (2026-11-14, scripts only).** One story across the games: Arcade (night war on the farm) → Stampede (march through six lands to the Mothership) → Cannonfire (the Overlord builds fortresses across the same nine lands; the animals build the Farm Cannon and their powers grow). Chapter 3 = Eps 14-17 outline + an Ep 13 bridge shot (13.10), in `Video/FarmFury_Saga/FarmFury_Saga_Story_Arc.md`. Ability shorts get more weight: 8 per game (`Video/FarmFury_<Arcade|Stampede|Cannonfire>/Ability_Shorts/`) + 8 "Power Up" evolution shorts (same power in all three games, `Video/FarmFury_Saga/Power_Up_Evolution_Shorts.md`). Cannonfire is the renamed original Farm Fury (`Desktop/FarmFury`, GDD v3.1). Nothing recorded or rendered yet.
 - **Ducky is male ("he")**, decided 2026-10-15 to match the storyline's surfer character; the game's
   Character Story text and this file were corrected from "she".
