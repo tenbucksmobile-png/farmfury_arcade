@@ -6228,6 +6228,22 @@ licensing not yet checked.
   Challenge and 8-combo cards). New `make_episode.py` keys: shot `"src"` (gameplay from any session),
   episode `"music_through"` (music bed doesn't stop at gameplay), `"end_line": False` (end card without Bessie's
   E.1), banner tuple optional `center_y, width`.
+  **Since 2026-11-22 the Arcade reviews use `"cannonfire": True`** (three-game end card + Cannonfire opener); they need a
+  re-render (`--episode rv1..rv5`) for the existing files to pick it up.
+- **The Scout Reviews, season 2: Farm Fury: Stampede (2026-11-22), with Cluck and Bessie talking back.** 5 videos /
+  37 lines, script `Video/FarmFury_Stampede/Robot_Reviews/Robot_Reviews_Stampede_Script.md` (facts checked against the
+  Stampede project: swap any time, 3 lives, crystal apples, 6 free lands x 11 levels + boss, 3 paid lands $3.99,
+  cosmetics, ads every 6 level loads + optional rewarded, Remove Ads $4.99). Voices generated in ElevenLabs through the
+  MCP (voices "Scout" `yrArshEoFgmlZTLxocaL`, "Clucky Chicken" `lLdFccLPaI9MXsAgqsXY`, "Bessie Cow" `H53O9HC2yTkncW0HJE4k`,
+  eleven_v4, take 1 unless transcription failed: Cluck's 5.7 take 1 said "five scars", take 2 used), ~6,000
+  ElevenLabs credits; stems `robot_scout_srv*`/`cluck_srv*`/`bessie_srv*` in Eleven_Audio, job ids in
+  `Robot_Reviews/eleven_sessions.txt`. `robot_fx.py` applies `SCOUT_REVIEW_FX` to `robot_scout_srv*` too. Cards:
+  `make_review_cards.py --stampede` -> `Robot_Reviews/cards/` (title_srv1-5, stamps incl. "5 STARS BY CLUCK &
+  BESSIE", facts, six-lands shields, bosses card; the live Commander art is `Robots/Robot_right.png`, the
+  `Placeholder/Commander.png` is a 16 px square). Render `make_episode.py --episode srv1..srv5` ->
+  `Episodes/scout_reviews/scout_review_stampede_0N.mp4` (review names now route to `Episodes/scout_reviews/`). No new
+  Kling: the Arcade season's desk stills, Meadow Ruins + Frozen Tundra recordings, Ep 10/11 clips. Gameplay shots take
+  `"stampede": True` for Stampede's crop. Opener kept on the reviews (user, 2026-11-22). Not posted or scheduled yet.
 - **Cosmetics shorts split into three (2026-11-15):** `--episode hats|trails|machines` -> `singles/cosmetics_*.mp4`.
   Order: opener > the Shop's category banner on its own scene (`make_banner_cards.py`, combo sound) > the videos,
   each named by a hook stamp > end card. New Ducky Bubbles Trail clip (`c4_ducky_bubbles.mp4`, 33 credits).

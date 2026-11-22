@@ -55,7 +55,7 @@ FX = {
 
 # Per-line overrides: the Combine's full echo turned "Overlord" into "in the morning" on 10.2 (checked by
 # transcription), so that line gets a lighter version of the same voice.
-# The Scout Reviews (robot_scout_rv*): long speeches, so a lighter Scout than Ep 6's (same pitch, less robotize).
+# The Scout Reviews (robot_scout_rv*, and robot_scout_srv* for the Stampede season): long speeches, so a lighter Scout than Ep 6's (same pitch, less robotize).
 SCOUT_REVIEW_FX = f"{pitch(1.04)},{robot(0.9, 0.25, 256)},highpass=f=150,aecho=0.8:0.4:25:0.15"
 FX_LINE = {
     "robot_combine_10.2": f"{pitch(0.9)},{robot(0.95, 0.22, 1024)},aecho=0.8:0.4:50:0.2",
@@ -151,7 +151,7 @@ def main():
         if src is None:
             print(f"  missing {stem}")
             continue
-        line_fx = FX_LINE.get(stem) or (SCOUT_REVIEW_FX if stem.startswith("robot_scout_rv") else None)
+        line_fx = FX_LINE.get(stem) or (SCOUT_REVIEW_FX if stem.startswith(("robot_scout_rv", "robot_scout_srv")) else None)
         apply_fx(src, robot_name, OUT_DIR / f"{stem}.wav", line_fx)
 
     chorus = [OUT_DIR / f"robot_{name}_4.6.wav" for name, _, _ in CHORUS]

@@ -651,7 +651,8 @@ def _gp(src, start, use, hook=None, lines=()):
 
 
 def _review(n, title, shots):
-    return {"name": f"scout_review_{n:02d}", "end_card": "arcade", "end_line": False, "clip_dir": RV_DIR,
+    # Ends on the three-game card (Arcade, Stampede, Cannonfire) since 2026-11-22, like the Stampede season.
+    return {"name": f"scout_review_{n:02d}", "cannonfire": True, "end_line": False, "clip_dir": RV_DIR,
             "music": THEME, "music_through": True, "hook": ["THE SCOUT", "REVIEWS"], "shots": shots}
 
 
@@ -744,6 +745,133 @@ EPISODES.update({
         {"file": "rv5_glitch.mp4", "use": 5.0, "lines": [_sc("5.7", "Rating... has been changed... by a cow.", 0.4)]},
         {"path": BESSIE_B, "skip": 0.6, "use": 4.4, "hold": 0.2, "lines": [
             _be("5.8", "Free on the App Store and Google Play. Come help us out.")]},
+    ]),
+})
+
+# The Scout Reviews, season 2: Farm Fury: Stampede (2026-11-22), with Cluck and Bessie talking back. Script:
+# Video/FarmFury_Stampede/Robot_Reviews/Robot_Reviews_Stampede_Script.md; render with --episode srv1..srv5. Voices from
+# ElevenLabs (Scout / Clucky Chicken / Bessie Cow, eleven_v4), Scout lines through robot_fx.py (SCOUT_REVIEW_FX). Picture:
+# the Arcade season's Scout desk stills, Stampede gameplay from the Meadow Ruins and Frozen Tundra recordings (log
+# times minus 1.8 s for Frozen Tundra), Ep 10/11 Stampede clips, cards from make_review_cards.py --stampede. No new
+# Kling jobs. Stampede-era opener and three-game end card ("cannonfire").
+ST_CARDS = VIDEO_DIR / "FarmFury_Stampede" / "Robot_Reviews" / "cards"
+FT = _SESS / "20261122-172342" / "video.mp4"   # Meadow Ruins boss + Frozen Tundra 01-09
+MR = _SESS / "20261115-064849" / "video.mp4"   # Meadow Ruins
+DESK = RV_DIR / "stills"
+E10, E11 = VIDEO_DIR / "Ep10_Clips", VIDEO_DIR / "Ep11_Clips"
+BESSIE_DAY = E10 / "ep10_10.6a_bessie.mp4"
+
+
+def _ssc(n, text, at=0.3):
+    return (f"robot_scout_srv{n}", text, at)
+
+
+def _scl(n, text, at=0.3):
+    return (f"cluck_srv{n}", text, at)
+
+
+def _sbe(n, text, at=0.3):
+    return (f"bessie_srv{n}", text, at)
+
+
+def _st_title(n):
+    return (ST_CARDS / f"title_srv{n}.png", 0.15, 3.2, 340, 900)
+
+
+def _st_stamp(name, at, secs):
+    return (ST_CARDS / f"{name}.png", at, secs, 880, 780)
+
+
+def _sgp(src, start, use, hook=None, lines=(), **extra):
+    shot = {"gameplay": (start, use), "src": src, "stampede": True, "lines": list(lines), **extra}
+    if hook:
+        shot.update({"hook": [hook], "hook_at": 0.1, "hook_seconds": use - 0.5})
+    return shot
+
+
+def _st_review(n, shots):
+    return {"name": f"scout_review_stampede_{n:02d}", "cannonfire": True, "end_line": False, "clip_dir": RV_DIR,
+            "music": Path(r"C:\Users\Personel\Desktop\FarmFury_Stampede\Assets\_Project\Audio\Music\MeadowRuins.mp3"),
+            "music_through": True, "hook": ["THE SCOUT", "REVIEWS"], "shots": shots}
+
+
+EPISODES.update({
+    "srv1": _st_review(1, [
+        {"image": str(DESK / "rv1_smug.png"), "use": 9.4, "push": 0.08, "banner": _st_title(1), "lines": [
+            _ssc("1.1", "Greetings again, organics. The Scout is back. Today: Farm Fury: Stampede. I have... notes.")]},
+        _sgp(MR, 106.5, 6.4, lines=[_ssc("1.2", "Last time they stayed in their maze. Now they run. Sideways. Through OUR lands.", 0.2)]),
+        _sgp(FT, 236.9, 5.4, lines=[_ssc("1.3", "They jump. They bounce on our heads. They grab every crop along the way.", 0.2)]),
+        _sgp(FT, 228.4, 5.6, lines=[_scl("1.4", "And you can swap animals any time you like! Mid-level! Whoosh!", 0.2)]),
+        _sgp(FT, 281.4, 6.8, lines=[_ssc("1.5", "Three lives. Checkpoints. Three stars at the end. It is far too fair.", 0.2)]),
+        {"path": SCOUT_CLIP, "use": 5.0, "hold": 1.0, "banner": _st_stamp("stamp_1bolt", 2.2, 3.6),
+         "sfx": [("Bessie-ability.mp3", 2.2, 0.6)], "lines": [
+            _ssc("1.6", "Rating: one bolt out of five. Too much running. Not enough losing.", 0.2)]},
+        {"path": BESSIE_DAY, "skip": 0.4, "use": 4.4, "lines": [
+            _sbe("1.7", "Free on the App Store and Google Play. Come help us out.")]},
+    ]),
+    "srv2": _st_review(2, [
+        {"image": str(DESK / "rv2_weary.png"), "use": 6.8, "push": 0.08, "banner": _st_title(2), "lines": [
+            _ssc("2.1", "Review two. The powers. They have learned new tricks. Nobody asked me.")]},
+        _sgp(FT, 236.9, 5.0, "EGG LAUNCH", [_ssc("2.2", "The chicken launches eggs. In an arc. At my head.", 0.2)]),
+        {"path": E11 / "ep11_11.1_cluck.mp4", "skip": 1.2, "use": 3.4, "sfx": [("Robot_damage.mp3", 0.6, 0.6)],
+         "lines": [_scl("2.3", "Bonk! Right on the noggin!", 0.3)]},
+        _sgp(FT, 316.6, 5.0, "GROUND POUND", [_ssc("2.4", "The cow pounds the floor... and then there is no floor.", 0.2)]),
+        _sgp(FT, 444.8, 7.4, "CLOUD STEP", [_ssc("2.5", "The sheep makes a cloud. Out of wool. And stands on it. Physics has left the building.", 0.2)]),
+        _sgp(FT, 424.6, 2.2, "ROLL DASH", [_ssc("2.6", "The pig rolls. The duck sprays. The horse throws horseshoes at my flying friends. The turkey blows feathers. And the goat... flings MUD.", 0.2)]),
+        _sgp(FT, 138.0, 2.2, "WATER SPOUT"),
+        _sgp(FT, 489.2, 2.2, "HORSESHOE THROW"),
+        _sgp(FT, 572.6, 2.2, "FEATHER BLOW"),
+        _sgp(FT, 676.4, 2.4, "MUD SLING"),
+        _sgp(MR, 64.5, 5.0, "SECRET ROOM", [_sbe("2.7", "Every level hides a secret only one of us can reach.", 0.2)]),
+        _sgp(FT, 230.0, 2.8, lines=[_scl("2.8", "So pick the right animal!", 0.2)]),
+        {"path": E11 / "ep11_11.4_woolly.mp4", "use": 5.0, "hold": 1.2, "banner": _st_stamp("stamp_1half", 3.0, 3.2),
+         "sfx": [("Bessie-ability.mp3", 3.0, 0.6)], "lines": [
+            _ssc("2.9", "Rating: one bolt. ...One and a half. The cloud was clever.", 0.2)]},
+    ]),
+    "srv3": _st_review(3, [
+        {"image": str(DESK / "rv3_proud.png"), "use": 5.8, "push": 0.08, "banner": _st_title(3), "lines": [
+            _ssc("3.1", "Review three. Six lands. We took them fair and square. They want them back.")]},
+        _sgp(MR, 344.0, 6.6, "MEADOW RUINS", [_ssc("3.2", "Meadow Ruins. Grass. Old stones. A very proud Commander.", 0.2)]),
+        _sgp(FT, 290.0, 7.4, "FROZEN TUNDRA", [_ssc("3.3", "Frozen Tundra. Ice. Everything slides. Including chickens.", 0.2),
+                                               _scl("3.4", "Wheeeee!", 5.4)]),
+        {"image": str(ST_CARDS / "card_lands.png"), "use": 7.4, "push": 0.06, "lines": [
+            _ssc("3.5", "Watermill Village. Sky Islands. Sunken City. And at the end... our Mothership.")]},
+        _sgp(FT, 286.9, 4.4, lines=[_sbe("3.6", "Eleven levels in every land. And a boss at the end.", 0.2)]),
+        {"path": SCOUT_CLIP, "use": 5.0, "hold": 0.4, "banner": _st_stamp("stamp_1bolt", 1.8, 3.4),
+         "sfx": [("Bessie-ability.mp3", 1.8, 0.6)], "lines": [
+            _ssc("3.7", "Rating: one bolt. And stay OUT of my Mothership.", 0.2)]},
+    ]),
+    "srv4": _st_review(4, [
+        {"image": str(DESK / "rv4_panic.png"), "use": 8.0, "push": 0.08, "banner": _st_title(4), "lines": [
+            _ssc("4.1", "Review four. Our bosses. Very big. Very important. Very... wobbly.")]},
+        _sgp(FT, 197.0, 7.6, "BOSS FIGHT", [_ssc("4.2", "Each boss takes three hits. After every hit, it wobbles. That is our one weakness. Do not tell anyone.", 0.2)]),
+        _sgp(FT, 207.6, 6.2, lines=[_sbe("4.3", "Hit it. Let it wobble. Hit it again.", 0.2),
+                                    _scl("4.4", "Three bonks and it sits right down!", 3.4)]),
+        {"image": str(ST_CARDS / "card_bosses.png"), "use": 8.6, "push": 0.05, "lines": [
+            _ssc("4.5", "The Commander. The Storm Baron. The Deep Dredger. And waiting at the very end... the Overlord.")]},
+        {"path": SCOUT_CLIP, "use": 5.0, "hold": 1.2, "banner": _st_stamp("stamp_1bolt", 2.0, 4.0),
+         "sfx": [("Bessie-ability.mp3", 2.0, 0.6)], "lines": [
+            _ssc("4.6", "Rating: one bolt. Bosses deserve respect. And a fourth hit.", 0.2)]},
+    ]),
+    "srv5": _st_review(5, [
+        {"image": str(DESK / "rv5_anchor.png"), "use": 6.4, "push": 0.06, "banner": _st_title(5), "lines": [
+            _ssc("5.1", "Final review. For the grown-ups. Robots cannot lie. ...Annoyingly.")]},
+        _sgp(FT, 352.0, 6.0, banner=(ST_CARDS / "facts.png", 0.3, 5.6, 900, 920), lines=[
+            _ssc("5.2", "Farm Fury: Stampede is free to download. Six whole lands are free to play.", 0.2)]),
+        {"path": VIDEO_DIR / "Cosmetics_Clips/c2_cluck_crown.mp4", "use": 4.0, "lines": [
+            _ssc("5.3", "Three bonus lands cost extra. Hats, trails and machines are extras too. Nobody needs them to finish.")]},
+        {"path": VIDEO_DIR / "Cosmetics_Clips/m1_cluck_tractor.mp4", "use": 4.0, "lines": []},
+        _sgp(MR, 296.5, 4.8, lines=[_ssc("5.4", "There are ads. A short one every few levels, and optional ones to get back up or double your coins. Remove Ads is a one-time purchase.", 0.2)]),
+        _sgp(FT, 214.6, 5.2),
+        {"path": E10 / "ep10_10.7_stampede.mp4", "skip": 0.4, "use": 4.6, "hold": 1.0, "lines": [
+            _sbe("5.5", "No sign-up. No chat. Just farm animals and a lot of jumping.")]},
+        {"image": str(DESK / "rv5_anchor.png"), "use": 3.8, "push": 0.12, "banner": _st_stamp("stamp_1bolt", 2.6, 1.2),
+         "lines": [_ssc("5.6", "My final rating is... one bo—", 0.2)]},
+        {"path": E11 / "ep11_11.9_apple.mp4", "skip": 2.4, "use": 2.6, "hold": 0.6,
+         "banner": _st_stamp("stamp_5stars", 0.3, 2.8), "sfx": [("Bessie-ability.mp3", 0.3, 0.9)],
+         "lines": [_scl("5.7", "FIVE STARS!", 0.2)]},
+        {"path": BESSIE_DAY, "skip": 0.4, "use": 4.4, "lines": [
+            _sbe("5.8", "Free on the App Store and Google Play. Come help us out.")]},
     ]),
 })
 
@@ -1149,7 +1277,9 @@ def main():
         use_cannonfire_opener()
     shots = ep["shots"]
     final_path = VIDEO_DIR / "Episodes" / (ep["name"] + ("_play_only" if play_only else "") + ".mp4")
-    if not key.isdigit():   # singles live in Episodes/singles, named without the "single_" prefix
+    if ep["name"].startswith("scout_review"):   # both review seasons live in Episodes/scout_reviews
+        final_path = VIDEO_DIR / "Episodes" / "scout_reviews" / final_path.name
+    elif not key.isdigit():   # singles live in Episodes/singles, named without the "single_" prefix
         final_path = WRAP_DIR / final_path.name.removeprefix("single_")
     out_path = final_path.parent / "no_opener" / final_path.name
     ffmpeg = find_ffmpeg()
@@ -1181,8 +1311,12 @@ def main():
                 g_start, use = shot["gameplay"]
                 dur = use + hold
                 inputs += ["-ss", f"{g_start:.2f}", "-t", f"{use:.2f}", "-i", str(shot.get("src", ep.get("gameplay")))]
+                # Stampede footage ("stampede": True) needs its own crop: its controls span the whole bottom edge and the
+                # coin counter sits at the top (same crop as make_gameplay_short.py --game stampede).
+                gcrop = ("crop=ih*0.757*1.45:ih*0.757:(iw-ih*0.757*1.45)/2:ih*0.035" if shot.get("stampede")
+                         else f"crop=ih*{CROP_ASPECT}:ih:(iw-ih*{CROP_ASPECT})/2:0")
                 vgraph.append(f"[{i}:v]trim=0:{use},setpts=PTS-STARTPTS,"
-                              f"crop=ih*{CROP_ASPECT}:ih:(iw-ih*{CROP_ASPECT})/2:0,setsar=1,split[gb{i}][gf{i}];"
+                              f"{gcrop},setsar=1,split[gb{i}][gf{i}];"
                               f"[gb{i}]scale={W}:{H}:force_original_aspect_ratio=increase,crop={W}:{H},"
                               f"boxblur=24:2,eq=brightness=-0.18[gbb{i}];[gf{i}]scale={W}:-2[gff{i}];"
                               f"[gbb{i}][gff{i}]overlay=0:{PICTURE_CENTER_Y}-h/2,fps={FPS},setsar=1,"
