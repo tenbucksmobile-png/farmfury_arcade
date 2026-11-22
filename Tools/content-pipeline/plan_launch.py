@@ -223,6 +223,11 @@ CAPTIONS = {
     ("Meadow Ruins", 3): "Cluck races to the flag for three stars ⭐⭐⭐🐔",
     ("Meadow Ruins", 4): "Pick your animal before every run! Woolly's turn 🐑",
     ("Meadow Ruins", 5): "Woolly jumps the robots all the way to the finish 🐑🤖🏁",
+    ("Frozen Tundra", 1): "Cluck slides across the ice, eggs at the ready 🐔❄️🥚",
+    ("Frozen Tundra", 2): "Bessie's Ground Pound shakes the whole tundra 🐄❄️💥",
+    ("Frozen Tundra", 3): "A race across the ice to the flag 🏁❄️",
+    ("Frozen Tundra", 4): "Horace lobs horseshoes all the way to the finish 🐴❄️",
+    ("Frozen Tundra", 5): "Gerald blows the robots back through the snow 🦃🌬️❄️",
 }
 GP_TAGS = ["#farmfury", "#mobilegame", "#arcadegame", "#mazegame", "#retrogaming"]
 ST_TAGS = ["#farmfury", "#farmfurystampede", "#mobilegame", "#platformer", "#farmanimals"]
