@@ -56,6 +56,8 @@ EPISODES = {
     # Chapter 2 (Stampede) starts here: the bridge from Arcade.
     10: ("ep10_the_march.mp4", "The March",
          "The robots ran home... so the farm is going after them 🐄🐔 Chapter 2: STAMPEDE starts now!"),
+    11: ("ep11_new_moves.mp4", "New Moves",
+         "Out here you don't stand still: every animal's power works on the run 🥚💨🐑☁️ Which one is your favourite?"),
 }
 EP_TAGS = ["#farmfury", "#animation", "#cartoon", "#farmanimals", "#mobilegame"]
 EPISODE_WEEKDAYS = (1, 5)      # Tuesday, Saturday
@@ -107,6 +109,58 @@ MIDDAY = {9: ("review", 1),      # Mon 16 Nov
           30: ("review", 5)}     # Mon 7 Dec
 # Ep 10 (and with it all Stampede gameplay) starts the day after the last review: Tue 8 Dec = day 31.
 STAMPEDE_FROM_DAY = 31
+
+# Stampede batch made 2026-11-22 (user: add every new Stampede video to the sheets). key -> (file, kind, title, body)
+# Ability shorts (narrated, real Frozen Tundra/Meadow Ruins gameplay) and true shorts (5-8 s gags, hook from frame 1)
+# fill the afternoons without an episode from Wed 9 Dec, alternating; the Stampede Scout Reviews take the midday slot
+# every 4 days from Thu 10 Dec.
+ABILITY_DIR = VIDEO.parent / "FarmFury_Stampede" / "Ability_Shorts"
+TRUE_DIR = VIDEO / "true_shorts"
+ST_SINGLES = {
+    "ab_cluck": (ABILITY_DIR / "ab_cluck.mp4", "Stampede ability short", "Cluck's Egg Launch",
+                 "Eggs away! Right on the noggin! 🥚💨"),
+    "ab_bessie": (ABILITY_DIR / "ab_bessie.mp4", "Stampede ability short", "Bessie's Ground Pound",
+                  "Bessie breaks the floor... and finds a secret 🐄💥"),
+    "ab_percy": (ABILITY_DIR / "ab_percy.mp4", "Stampede ability short", "Percy's Roll Dash",
+                 "Out of my way, I'm on a roll! 🐷💨"),
+    "ab_woolly": (ABILITY_DIR / "ab_woolly.mp4", "Stampede ability short", "Woolly's Cloud Step",
+                  "Woolly makes her own cloud to stand on ☁️🐑"),
+    "ab_ducky": (ABILITY_DIR / "ab_ducky.mp4", "Stampede ability short", "Ducky's Water Spout",
+                 "Ducky's Water Spout knocks robots right over 🦆🌊"),
+    "ab_horace": (ABILITY_DIR / "ab_horace.mp4", "Stampede ability short", "Horace's Horseshoe Throw",
+                  "Horace's horseshoe reaches the robots up high 🐴"),
+    "ab_gerald": (ABILITY_DIR / "ab_gerald.mp4", "Stampede ability short", "Gerald's Feather Blow",
+                  "Feel the breeze, tin can! 🦃🌬️"),
+    "ab_billy": (ABILITY_DIR / "ab_billy.mp4", "Stampede ability short", "Billy's Mud Sling",
+                 "Mind the mud. Seriously. Mind it. 🐐"),
+    "ts_pick_your_animal": (TRUE_DIR / "ts_pick_your_animal.mp4", "Stampede true short", "Who Would You Pick?",
+                            "Eight animals, one run. Who would you pick? 👇"),
+    "ts_secret_room": (TRUE_DIR / "ts_secret_room.mp4", "Stampede true short", "Secret Room!",
+                       "Bessie found a secret room under the ice 🐄❄️"),
+    "ts_three_stars": (TRUE_DIR / "ts_three_stars.mp4", "Stampede true short", "Three Stars!",
+                       "Every crop, every coin, three stars ⭐⭐⭐"),
+    "ts_boss_fight": (TRUE_DIR / "ts_boss_fight.mp4", "Stampede true short", "Boss Fight!",
+                      "Three bonks and the Commander is done 🦆"),
+    "ts_world_unlocked": (TRUE_DIR / "ts_world_unlocked.mp4", "Stampede true short", "New World Unlocked!",
+                          "Next stop: the Frozen Tundra ❄️"),
+}
+ST_SINGLE_ORDER = ["ab_cluck", "ts_pick_your_animal", "ab_bessie", "ts_secret_room", "ab_percy", "ts_three_stars",
+                   "ab_woolly", "ts_boss_fight", "ab_ducky", "ts_world_unlocked", "ab_horace", "ab_gerald", "ab_billy"]
+ST_SINGLE_FROM_DAY = 32                  # Wed 9 Dec, the day after Ep 10
+ST_REVIEW_DAYS = [33, 37, 41, 45, 49]    # Thu 10, Mon 14, Fri 18, Tue 22, Sat 26 Dec (midday)
+ST_REVIEWS = {
+    1: ("scout_review_stampede_01.mp4", "A Robot Reviews Farm Fury: Stampede",
+        "The Scout is back, and this time Cluck and Bessie talk back 🤖🐔🐄"),
+    2: ("scout_review_stampede_02.mp4", "A Robot Rates the Stampede Powers",
+        "Eggs, wool clouds, mud... the Scout has complaints 🥚☁️🐐"),
+    3: ("scout_review_stampede_03.mp4", "A Robot Tours the Six Lands",
+        "Six lands, and the Scout wants every one of them back 🗺️🤖"),
+    4: ("scout_review_stampede_04.mp4", "A Robot Defends the Bosses",
+        "Three hits, and every boss wobbles. Don't tell anyone 🤫🤖"),
+    5: ("scout_review_stampede_05.mp4", "The Verdict: Is Farm Fury: Stampede Worth It?",
+        "The honest facts for grown-ups... and Cluck has the final word ⭐⭐⭐⭐⭐"),
+}
+ST_REVIEW_TAGS = ["#farmfury", "#farmfurystampede", "#gamereview", "#mobilegame", "#funny"]
 
 # The Scout Reviews: the Scout "reviews" Farm Fury: Arcade, Bessie corrects him (scripts in
 # Video/FarmFury_Arcade/Robot_Reviews/). n -> (file in Episodes/scout_reviews/, title, caption body)
@@ -214,6 +268,32 @@ def review(n):
             "short": f"Scout Reviews {n}: {title}"}
 
 
+def stampede_single(key):
+    file, kind, title, body = ST_SINGLES[key]
+    if not file.exists():
+        return None
+    return {"kind": kind, "video": file,
+            "caption": f"{body}\n\n{STAMPEDE_CTA}\n\n{' '.join(ST_TAGS)}",
+            "yt_title": f"{title} | Farm Fury: Stampede",
+            "yt_desc": f"{body}\n\nReal gameplay from Farm Fury: Stampede.\n\nPlay free:\n{store_links(ST_TAGS)}",
+            "note": "Real gameplay: no AI label.", "short": f"{title} (Stampede)"}
+
+
+def stampede_review(n):
+    file, title, body = ST_REVIEWS[n]
+    video = REVIEWS_DIR / file
+    if not video.exists():
+        return None
+    return {"kind": f"The Scout Reviews: Stampede {n}", "video": video,
+            "caption": (f"THE SCOUT REVIEWS: STAMPEDE {n}/5 | {title}\n{body}\n\n{STAMPEDE_CTA}\n\n"
+                        f"{' '.join(ST_REVIEW_TAGS)}"),
+            "yt_title": f"{title} | The Scout Reviews",
+            "yt_desc": (f"{body}\n\nThe Scout Reviews: Stampede, part {n} of 5. A Farm Fury team production.\n\n"
+                        f"Play free:\n{store_links(ST_REVIEW_TAGS)}"),
+            "note": "TikTok: AI-generated label on. YouTube: add to the \"The Scout Reviews\" playlist.",
+            "short": f"Scout Reviews Stampede {n}: {title}"}
+
+
 def cosmetic(key):
     file, title, body = COSMETICS[key]
     return {"kind": "Cosmetics single", "video": SINGLES / file,
@@ -251,20 +331,32 @@ def resolve(slot):
         return cosmetic(slot[1])
     if slot[0] == "review":
         return review(slot[1])
+    if slot[0] == "st":
+        return stampede_single(slot[1])
+    if slot[0] == "streview":
+        return stampede_review(slot[1])
     return gameplay(slot[1], slot[2])
 
 
 def label(slot):
     if slot[0] == "review":
         return f"The Scout Reviews {slot[1]}: {REVIEWS[slot[1]][1]}"
+    if slot[0] == "streview":
+        return f"The Scout Reviews: Stampede {slot[1]}: {ST_REVIEWS[slot[1]][1]}"
+    if slot[0] == "st":
+        return f"{ST_SINGLES[slot[1]][2]} (Stampede)"
     return f"{slot[1]} {slot[2]:02d} gameplay short"
 
 
 def build_days(start):
     queue = [("gp", w, n) for w in WORLD_ORDER for n in range(1, PER_WORLD[w] + 1)]
     days, ep, d = [], 1, 0
-    # Runs until every episode and single is out, then on while rendered gameplay shorts are left.
-    while ep <= len(EPISODES) or any(k >= d for k in SINGLE_DAYS) or (queue and resolve(queue[0])):
+    st_singles = [("st", k) for k in ST_SINGLE_ORDER]
+    midday = dict(MIDDAY)
+    midday.update({day_n: ("streview", n) for n, day_n in enumerate(ST_REVIEW_DAYS, 1)})
+    # Runs until every episode, single and review is out, then on while rendered gameplay shorts are left.
+    while (ep <= len(EPISODES) or any(k >= d for k in SINGLE_DAYS) or any(k >= d for k in midday) or st_singles
+           or (queue and resolve(queue[0]))):
         day = start + dt.timedelta(days=d)
         afternoon = None
         ep_ready = ep <= len(EPISODES) and (ep < 10 or d >= STAMPEDE_FROM_DAY)
@@ -272,11 +364,13 @@ def build_days(start):
             afternoon, ep = ("ep", ep), ep + 1
         elif d in SINGLE_DAYS:
             afternoon = SINGLE_DAYS[d]
+        elif d >= ST_SINGLE_FROM_DAY and st_singles and day.weekday() not in EPISODE_WEEKDAYS:
+            afternoon = st_singles.pop(0)
         # Stampede gameplay only from Ep 10's day on; mornings before that stay empty once Arcade runs out.
         morning = None
         if queue and (queue[0][1] not in STAMPEDE_WORLDS or d >= STAMPEDE_FROM_DAY):
             morning = queue.pop(0)
-        days.append((day, morning, MIDDAY.get(d), afternoon))
+        days.append((day, morning, midday.get(d), afternoon))
         d += 1
     return days, queue
 

@@ -37,6 +37,7 @@ IG_TAGS = {
     "Stampede": ["#farmfury", "#mobilegames", "#indiegame", "#platformer", "#familygames"],
     "Cosmetics": ["#farmfury", "#mobilegames", "#cuteanimals", "#farmanimals", "#familygames"],
     "Review": ["#farmfury", "#gamereview", "#mobilegames", "#funny", "#familygames"],
+    "StampedeReview": ["#farmfury", "#gamereview", "#mobilegames", "#platformer", "#funny"],
 }
 FB_TAGS = {
     "Episode": ["#FarmFury", "#Animation", "#FamilyFun"],
@@ -45,6 +46,7 @@ FB_TAGS = {
     "Stampede": ["#FarmFury", "#MobileGames", "#FamilyGames"],
     "Cosmetics": ["#FarmFury", "#MobileGames", "#FamilyFun"],
     "Review": ["#FarmFury", "#GameReview", "#FamilyFun"],
+    "StampedeReview": ["#FarmFury", "#GameReview", "#FamilyFun"],
 }
 IG_CTA = {
     "Episode": "Play Farm Fury free on the App Store & Google Play 👉 link in bio",
@@ -53,11 +55,13 @@ IG_CTA = {
     "Stampede": "Farm Fury: Stampede is FREE on the App Store & Google Play 👉 link in bio",
     "Cosmetics": "Farm Fury: Arcade is FREE on the App Store & Google Play 👉 link in bio",
     "Review": "Farm Fury: Arcade is FREE on the App Store & Google Play 👉 link in bio",
+    "StampedeReview": "Farm Fury: Stampede is FREE on the App Store & Google Play 👉 link in bio",
 }
 FB_CTA = {
     "Stampede": f"Farm Fury: Stampede is free on the App Store and Google Play: {SITE}",
     "Cosmetics": f"Farm Fury: Arcade is free on the App Store and Google Play: {SITE}",
     "Review": f"Farm Fury: Arcade is free on the App Store and Google Play: {SITE}",
+    "StampedeReview": f"Farm Fury: Stampede is free on the App Store and Google Play: {SITE}",
     "Episode": f"Play Farm Fury free on the App Store and Google Play: {SITE}",
     "Story single": f"Play Farm Fury free on the App Store and Google Play: {SITE}",
     "Gameplay": f"Farm Fury: Arcade is free on the App Store and Google Play: {SITE}",
@@ -71,9 +75,11 @@ def group(kind):
         return "Story single"
     if kind.startswith("Cosmetics"):
         return "Cosmetics"
+    if kind.startswith("The Scout Reviews: Stampede"):
+        return "StampedeReview"
     if kind.startswith("The Scout Reviews"):
         return "Review"
-    if any(w in kind for w in STAMPEDE_WORLDS):
+    if kind.startswith("Stampede") or any(w in kind for w in STAMPEDE_WORLDS):
         return "Stampede"
     return "Gameplay"
 
@@ -92,12 +98,12 @@ def post_html(i, when, slot):
     when_txt = when.strftime("%a %d %b %H:%M")
     p = resolve(slot)
     if p is None:
-        return (f'<div class="post todo"><div class="meta"><b>{when_txt}</b> &middot; TO RECORD: '
-                f'{html.escape(label(slot))} gameplay short</div></div>')
+        return (f'<div class="post todo"><div class="meta"><b>{when_txt}</b> &middot; TO MAKE: '
+                f'{html.escape(label(slot))}</div></div>')
     ig, fb = captions(p)
     missing = "" if p["video"].exists() else ' <b style="color:#c00">FILE MISSING</b>'
     ai = ('<div class="note">AI-made animation: turn on <i>Add AI label</i> (Instagram: Advanced settings; '
-          'Facebook: the AI info toggle).</div>' if group(p["kind"]) != "Gameplay" else "")
+          'Facebook: the AI info toggle).</div>' if group(p["kind"]) not in ("Gameplay", "Stampede") else "")
     cls = "post ep" if p["kind"].startswith("Episode") else "post"
     return f"""
 <div class="{cls}">
