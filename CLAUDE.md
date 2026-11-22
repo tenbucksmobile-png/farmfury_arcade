@@ -6287,6 +6287,24 @@ licensing not yet checked.
   `Video/FarmFury_Saga/True_Shorts_List.md` (ability gags, satisfying moments, robot comedy, animal personality, comment
   starters; marked REC / K-REUSE / K-NEW). About 30 are free; the 7 new Kling ones (~300 credits) wait until the free
   ones show what works.
+- **True shorts + Stampede ability shorts BUILT (2026-11-22), `Tools/storyline/make_true_short.py`.** One `SHORTS`
+  entry per video (gameplay windows from a session and/or Kling clips, hook, voice lines, sfx, music, end). Hook on
+  screen from frame 1, no opener, small brand bar (game logo + "FREE ON APP STORE & GOOGLE PLAY") the whole time, hard
+  cut to loop; `"end": "card"` adds a 1.6 s end card (alternate shorts have one, to compare), `"tag"` (ability shorts)
+  puts Bessie's tag over the card. `python make_true_short.py --list | --all | --group ability|rec|kling | <names>`.
+  Output: 23 true shorts in `Video/Episodes/true_shorts/` (18 Kling reuse: robot celebration, meet the 5 robots, 8 power
+  reveals, Cluck panic, bell boogie, victory dance, "which one are you"; 5 from Frozen Tundra: secret room, boss fight,
+  three stars, world unlocked, pick your animal) and 8 ability shorts (13.7-14.7 s) in
+  `Video/FarmFury_Stampede/Ability_Shorts/`, each with a `.json` holding the post caption. Not posted or scheduled yet.
+  Frozen Tundra session `20261122-172342` (Meadow Ruins boss + FT 01-09, every animal's power): its first conversion
+  stopped at 5 min (window closed while normalising), re-run with `normalize_video.py`. **Its log runs ~1.8 s ahead of
+  the video** (measured on two Level Complete screens and a character pick); windows are log time minus 1.8. Stampede's
+  log uses old ability names (SkipDash/RearVaultThrow/PuffGlide/ChargeBreak) for Water Spout/Horseshoe Throw/Feather
+  Blow/Mud Sling. Ducky's only footage is dry land, so his short uses just the "Wooo! Surf's up!" end of his take.
+  **ElevenLabs is connected** (MCP server added by hand: `claude mcp add --transport http --scope user elevenlabs
+  https://api.us.elevenlabs.io/v1/mcp`; the plugin's own config doesn't load). It can't delete voices. Billy was
+  re-designed from his voice brief (voice "Billy the Goat", `AIwe5WeusuRWAwPWqckD`; Deep Dredger deleted by the user to
+  free the slot); his `billy_ab-stampede`, `billy_11.8`, `billy_12.3` (+`_take2`s) and `billy_15.2` are in Eleven_Audio.
 - **Saga arc + ability shorts (2026-11-14, scripts only).** One story across the games: Arcade (night war on the farm) → Stampede (march through six lands to the Mothership) → Cannonfire (the Overlord builds fortresses across the same nine lands; the animals build the Farm Cannon and their powers grow). Chapter 3 = Eps 14-17 outline + an Ep 13 bridge shot (13.10), in `Video/FarmFury_Saga/FarmFury_Saga_Story_Arc.md`. Ability shorts get more weight: 8 per game (`Video/FarmFury_<Arcade|Stampede|Cannonfire>/Ability_Shorts/`) + 8 "Power Up" evolution shorts (same power in all three games, `Video/FarmFury_Saga/Power_Up_Evolution_Shorts.md`). Cannonfire is the renamed original Farm Fury (`Desktop/FarmFury`, GDD v3.1). Nothing recorded or rendered yet.
 - **Ducky is male ("he")**, decided 2026-10-15 to match the storyline's surfer character; the game's
   Character Story text and this file were corrected from "she".
