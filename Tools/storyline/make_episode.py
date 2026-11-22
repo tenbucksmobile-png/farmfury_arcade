@@ -1159,7 +1159,9 @@ def wrap_video(ffmpeg, src, out_dir=None, arcade_only=False, end_music=None, end
         work = Path(tmp)
         end_voices, card_s = build_end_voices(ffmpeg, work, chorus_at=END_CARD_XFADE + WRAP_SHOUT_DELAY)
         end_png = work / "end_card.png"
-        build_end_card(end_png, arcade_only=arcade_only, stampede_only=stampede_only)
+        # Every video ends on the three-game card (user, 2026-11-22: "all must end with this card for consistency");
+        # arcade_only/stampede_only only still choose the music/opener elsewhere, not the card.
+        build_end_card(end_png, cannonfire=True)
         end_start = body_s - END_CARD_XFADE
         total = end_start + card_s
         frames = int(card_s * FPS)
@@ -1366,7 +1368,7 @@ def main():
 
         # End card: a still with a slow push-in, crossfaded in after the last clip.
         end_png = work / "end_card.png"
-        build_end_card(end_png, play_only, ep.get("end_card") == "arcade", cannonfire=ep.get("cannonfire", False))
+        build_end_card(end_png, play_only, cannonfire=True)   # the three-game card on every episode (2026-11-22)
         ei = inputs.count("-i")
         inputs += ["-loop", "1", "-framerate", str(FPS), "-t", f"{card_s:.2f}", "-i", str(end_png)]
         frames = int(card_s * FPS)
