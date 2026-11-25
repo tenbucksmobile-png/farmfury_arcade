@@ -24,6 +24,11 @@ Downloads shown on Google Play: Arcade 5+, Stampede 1+, Cannonfire 0+. No rating
   the Families policy" is not allowed on Arcade or Stampede, which usually means their Target audience does not
   include children. Check App content > Target audience and content on both.
 
+- Store videos (make_store_videos.py -> Video/Store_Videos/): Google Play trailers uploaded to YouTube UNLISTED
+  (Arcade https://youtu.be/kCQWw7NoQbM, Stampede https://youtu.be/taowEvSyJkM) and linked in each default store
+  listing, SAVED, not sent for review (user presses Submit in Publishing overview, together with Data safety).
+  App Store previews (arcade_preview.mp4 / stampede_preview.mp4, 1920x886) wait for each game's next iOS version.
+
 ## 1. Fix first: Google Play Data safety (Arcade and Stampede)
 
 Both say **"No data collected"** and **"No data shared with third parties"**. Both games show ads (LevelPlay/AdMob)
