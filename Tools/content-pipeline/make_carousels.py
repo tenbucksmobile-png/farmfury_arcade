@@ -115,11 +115,11 @@ def paste_center(canvas, img, cy):
     canvas.alpha_composite(img, ((W - img.width) // 2, int(cy - img.height / 2)))
 
 
-def footer(canvas, draw, n, total):
-    draw.text((W - 40, H - 40), f"{n}/{total}", font=font(34), fill=WHITE, anchor="rb", stroke_width=3,
+def footer(canvas, draw, n, total, h=H):
+    draw.text((W - 40, h - 40), f"{n}/{total}", font=font(34), fill=WHITE, anchor="rb", stroke_width=3,
               stroke_fill=DARK)
     if n < total:
-        draw.text((40, H - 40), "SWIPE  >", font=font(34), fill=YELLOW, anchor="lb", stroke_width=3, stroke_fill=DARK)
+        draw.text((40, h - 40), "SWIPE  >", font=font(34), fill=YELLOW, anchor="lb", stroke_width=3, stroke_fill=DARK)
 
 
 def cover(title, subtitle, art):
@@ -445,6 +445,200 @@ def vertical(slide):
     return bg
 
 
+# ---------------------------------------------------------------------------------------------------------------
+# Photo carousels from the episode / cosmetics Kling stills (2026-11-25). Stills are 768x1360 (9:16), so each photo
+# slide is drawn twice, natively: 1080x1350 (cropped) and 1080x1920 (full frame), instead of padding the 4:5 one.
+STILLS = OUT.parent
+EP = {n: STILLS / f"Ep{n:02d}_Clips/stills" for n in (2, 3, 4, 5, 6, 7, 8, 10, 11)}
+COS = STILLS / "Cosmetics_Clips/stills"
+
+
+def cover_fill(img, w, h, focus=0.5):
+    """Scale to cover w x h and crop; focus = where to centre the crop vertically (0 top .. 1 bottom)."""
+    s = max(w / img.width, h / img.height)
+    img = img.resize((int(img.width * s + 0.5), int(img.height * s + 0.5)), Image.LANCZOS)
+    x = (img.width - w) // 2
+    y = int((img.height - h) * focus)
+    return img.crop((x, y, x + w, y + h))
+
+
+def shade_bottom(canvas, start, strength=230):
+    """Dark gradient from y=start to the bottom so white text stays readable on any photo."""
+    h = canvas.height - start
+    grad = Image.new("L", (1, h))
+    for y in range(h):
+        grad.putpixel((0, y), int(strength * min(1, (y / h) * 1.6)))
+    overlay = Image.new("RGBA", (canvas.width, h), (15, 8, 20, 255))
+    overlay.putalpha(grad.resize((canvas.width, h)))
+    canvas.alpha_composite(overlay, (0, start))
+
+
+def photo(still, kicker, title, lines, focus=0.45, text_top=False):
+    """One still, full bleed, with a kicker (small yellow), big title and short lines at the bottom.
+    Returns (4:5 slide, 9:16 slide)."""
+    out = []
+    for h in (H, VH):
+        c = cover_fill(load(still), W, h, focus).convert("RGBA")
+        scratch = ImageDraw.Draw(Image.new("RGBA", (W, h)))
+        block = (text(scratch, 0, kicker, 46) if kicker else 0) + text(scratch, 0, title, 92) + \
+            sum(text(scratch, 0, t, 44, body=True) + 10 for t in lines)
+        if text_top:   # subject sits low in the picture: put the words at the top instead
+            top = 190
+            grad = c.transpose(Image.FLIP_TOP_BOTTOM)
+            shade_bottom(grad, max(0, h - (top + block + 220)))
+            c = grad.transpose(Image.FLIP_TOP_BOTTOM)
+        else:
+            top = h - 150 - block
+            shade_bottom(c, max(0, top - 220))
+        d = ImageDraw.Draw(c)
+        y = top
+        if kicker:
+            y = text(d, y, kicker, 46, YELLOW)
+        y = text(d, y, title, 92, WHITE)
+        for t in lines:
+            y = text(d, y + 10, t, 44, body=True)
+        logo = fit(load(ASSETS / "farmfury-games-logo.png"), 150, 130)
+        c.alpha_composite(logo, (W - logo.width - 30, 30))
+        out.append(c)
+    return tuple(out)
+
+
+def bookend(first, title, subtitle, art_still):
+    """Cover (first=True) or end slide for a photo carousel, both formats."""
+    if not first:
+        e = end_slide(title)
+        return e, vertical(e)
+    out = []
+    for h in (H, VH):
+        c = cover_fill(load(art_still), W, h, 0.45).convert("RGBA")
+        c = Image.alpha_composite(c, Image.new("RGBA", c.size, (20, 10, 30, 120)))
+        d = ImageDraw.Draw(c)
+        paste_center(c, fit(load(ASSETS / "farmfury-games-logo.png"), 520, 420), h * 0.2)
+        y = text(d, int(h * 0.2) + 240, title, 112, YELLOW)
+        text(d, y + 10, subtitle, 48, body=True)
+        out.append(c)
+    return tuple(out)
+
+
+STORY_BEATS = [  # (still, episode label, title, line); wording follows the episode captions in plan_launch.py
+    (EP[10] / "ref_eye.png", "EPISODE 1", "THE NIGHT THE ROBOTS CAME", "One quiet night, the Harvest Robots landed and took every crop."),
+    (EP[2] / "2.7_chaos.png", "EPISODE 2", "CHAOS ON THE FARM", "The morning after: eight animals, zero crops, a LOT of panic."),
+    (EP[3] / "3.1_studio.png", "EPISODE 3", "THE DEBRIEF", "Live from the barn, Barnyard Breakdown replays the landing."),
+    (EP[4] / "4.1_meeting.png", "EPISODE 4", "THE BARN MEETING", "Bessie rings the bell. Everyone meets in the barn..."),
+    (EP[5] / "6.2_circle.png", "EPISODE 5", "THE GOLDEN GLOW", "...and a golden sunflower gives every animal a power."),
+    (EP[6] / "4.6_lineup.png", "EPISODE 6", "MEET THE METAL", "Every Harvest Robot has its own trick."),
+    (EP[7] / "7.5_huddle.png", "EPISODE 7", "OPERATION HARVEST HOME", "The plan: into the mazes, every crop back home."),
+    (EP[8] / "8.9_dawn.png", "EPISODE 8", "INTO THE MAZES", "Maze after maze, until the robots ran for home."),
+    (EP[10] / "10.7_stampede.png", "EPISODE 10", "THE MARCH", "So the whole farm went after them. Chapter 2: STAMPEDE!"),
+]
+
+
+def story_so_far():
+    s = [bookend(True, "THE STORY SO FAR", "Farm animals vs robots, in 9 pictures. Swipe!", EP[5] / "6.2_circle.png")]
+    for still, ep, title, line in STORY_BEATS:
+        s.append(photo(still, ep, title, [line]))
+    s.append(bookend(False, "WATCH EVERY EPISODE ON OUR PAGE", None, None))
+    return s
+
+
+POWER_STILLS = ["6.3_cluck.png", "6.4_bessie.png", "6.5_percy.png", "6.6_woolly.png", "6.7_ducky.png",
+                "6.8_horace.png", "6.9_gerald.png", "6.10_billy.png"]
+
+
+LOW_SUBJECT = {"6.7_ducky.png"}
+
+
+def power_reveals():
+    s = [bookend(True, "8 ANIMALS. 8 POWERS.", "The night the golden sunflower glowed. Swipe!", EP[5] / "6.1_sunflower.png")]
+    for still, card in zip(POWER_STILLS, CARDS):
+        low = still in LOW_SUBJECT   # the animal sits at the bottom of the frame
+        s.append(photo(EP[5] / still, card[1], "SIGNATURE POWER: " + card[5], [card[7]],
+                       focus=0.9 if low else 0.45, text_top=low))
+    s.append(bookend(False, "WHICH POWER WOULD YOU PICK?", None, None))
+    return s
+
+
+WANTED = [  # (still, name, known trick); generic across games, no "how to beat it" game mechanics
+    ("4.1_harvester.png", "THE HARVESTER", "Never stops chasing."),
+    ("4.2_scout.png", "THE SCOUT", "Guesses where you're going next."),
+    ("4.3_patrol.png", "THE PATROL", "Never works alone."),
+    ("4.4_drifter.png", "THE DRIFTER", "Comes close... then wanders off."),
+    ("4.5_drone.png", "THE DRONE", "Flies right over the walls."),
+]
+PARCHMENT, INK = (236, 214, 170), (78, 44, 20)
+
+
+def wanted_poster(still, name, trick, h):
+    c = background() if h == H else vertical(background())
+    d = ImageDraw.Draw(c)
+    pw, ph = 860, int(h * 0.86)
+    x0, y0 = (W - pw) // 2, (h - ph) // 2
+    d.rounded_rectangle((x0 + 14, y0 + 18, x0 + pw + 14, y0 + ph + 18), 20, fill=(0, 0, 0, 120))
+    d.rounded_rectangle((x0, y0, x0 + pw, y0 + ph), 20, fill=PARCHMENT, outline=INK, width=10)
+    _ctext(d, W / 2, y0 + 30, "WANTED", font(170), INK)
+    _ctext(d, W / 2, y0 + 205, "FOR CROP THEFT", font(56), (160, 40, 30))
+    pic_h = ph - 560
+    pic = cover_fill(load(EP[6] / still), pw - 120, pic_h, 0.55).convert("RGBA")
+    c.alpha_composite(pic, (x0 + 60, y0 + 290))
+    d.rectangle((x0 + 60, y0 + 290, x0 + pw - 60, y0 + 290 + pic_h), outline=INK, width=8)
+    y = y0 + 310 + pic_h
+    _ctext(d, W / 2, y, name, font(96), INK)
+    _ctext(d, W / 2, y + 105, "Known trick: " + trick, fit_size_body(d, "Known trick: " + trick, 44, pw - 100), INK)
+    _ctext(d, W / 2, y + 170, "REWARD: EVERY CROP BACK", font(58), (160, 40, 30))
+    return c
+
+
+def wanted():
+    s = [bookend(True, "WANTED!", "Have you seen these robots? Swipe!", EP[6] / "4.6_lineup.png")]
+    for still, name, trick in WANTED:
+        s.append((wanted_poster(still, name, trick, H), wanted_poster(still, name, trick, VH)))
+    s.append(bookend(False, "WHICH ROBOT IS THE SNEAKIEST?", None, None))
+    return s
+
+
+LOOKS = [  # (still, kicker, title, line); items from the in-game Shop
+    ("c1_bessie_cowboy.png", "HATS", "BESSIE IN A COWBOY HAT", "Yee-haw. Moo-haw?"),
+    ("c2_cluck_crown.png", "HATS", "CLUCK IN THE CROWN", "Queen of the coop."),
+    ("c3_percy_ribbon.png", "TRAILS", "PERCY'S RAINBOW RIBBON", "Leave a little sparkle behind you."),
+    ("c4_ducky_bubbles.png", "TRAILS", "DUCKY'S BUBBLE TRAIL", "Pop, pop, pop."),
+    ("m1_cluck_tractor.png", "MACHINES", "CLUCK'S TRACTOR", "Cluck behind the wheel. Clear the road."),
+    ("m2_bessie_tanker.png", "MACHINES", "BESSIE'S MILK TANKER", "Fresh milk, coming through!"),
+    ("m3_horace_baler.png", "MACHINES", "HORACE'S HAY BALER", "Neigh-bours, stand back."),
+]
+
+
+def lookbook():
+    s = [bookend(True, "THE FARM FURY LOOKBOOK", "Hats, trails and machines from the in-game Shop. Swipe!", COS / "m1_cluck_tractor.png")]
+    for still, kicker, title, line in LOOKS:
+        s.append(photo(COS / still, kicker, title, [line]))
+    s.append(bookend(False, "WHICH LOOK IS YOUR FAVOURITE?", None, None))
+    return s
+
+
+WALLPAPERS = [EP[5] / "6.2_circle.png", EP[4] / "4.1_meeting.png", EP[6] / "4.6_lineup.png", EP[8] / "8.9_dawn.png",
+              EP[10] / "10.7_stampede.png", EP[8] / "8.5_ducky.png", EP[5] / "6.1_sunflower.png", EP[8] / "8.3_horace.png"]
+
+
+def wallpapers():
+    s = [bookend(True, "FREE PHONE WALLPAPERS", "8 Farm Fury wallpapers. Save your favourite!", EP[8] / "8.7_gerald_bessie.png")]
+    for still in WALLPAPERS:
+        pair = []
+        for h in (H, VH):
+            c = cover_fill(load(still), W, h, 0.45).convert("RGBA")
+            logo = fit(load(ASSETS / "farmfury-games-logo.png"), 170, 150)
+            c.alpha_composite(logo, (W - logo.width - 36, h - logo.height - 120))
+            pair.append(c)
+        s.append(tuple(pair))
+    s.append(bookend(False, "WHICH ONE IS ON YOUR PHONE?", None, None))
+    return s
+
+
+BUILDERS.update({"story_so_far": story_so_far, "power_reveals": power_reveals, "wanted": wanted,
+                 "lookbook": lookbook, "wallpapers": wallpapers})
+WORDING += [w for b in STORY_BEATS for w in b[1:]] + [w for wt in WANTED for w in wt[1:]] + \
+    [w for lk in LOOKS for w in lk[1:]]
+
+
 def main():
     for w in WORDING:
         check_wording(w)
@@ -456,9 +650,15 @@ def main():
         for old in list(folder.glob("*.png")) + list((folder / "vertical").glob("*.png")):
             old.unlink()
         for n, slide in enumerate(slides, 1):
-            footer(slide, ImageDraw.Draw(slide), n, len(slides))
-            slide.convert("RGB").save(folder / f"{n:02d}.png")
-            vertical(slide).convert("RGB").save(folder / "vertical" / f"{n:02d}.png")
+            # A builder may hand back (4:5, 9:16) pairs drawn natively; otherwise the 9:16 is the 4:5 on a taller blur.
+            square, tall = slide if isinstance(slide, tuple) else (slide, None)
+            footer(square, ImageDraw.Draw(square), n, len(slides))
+            square.convert("RGB").save(folder / f"{n:02d}.png")
+            if tall is None:
+                tall = vertical(square)
+            else:
+                footer(tall, ImageDraw.Draw(tall), n, len(slides), tall.height)
+            tall.convert("RGB").save(folder / "vertical" / f"{n:02d}.png")
         print(f"{folder}  {len(slides)} slides")
 
 

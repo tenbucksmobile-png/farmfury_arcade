@@ -175,6 +175,16 @@ TWO_A_DAY_FROM_DAY = 28
 CAROUSEL_WEEKDAYS = (0, 2, 4)   # Mon, Wed, Fri
 CAROUSEL_DIR = VIDEO.parent / "Carousels"
 CAROUSELS = {
+    "story_so_far": ("Farm Fury: The Story So Far",
+                     "Robots took the crops. The farm fought back. The whole story in 9 pictures 🌽🤖 Which episode is your favourite?"),
+    "power_reveals": ("8 Animals, 8 Powers",
+                      "The night the golden sunflower glowed, every animal got a power ✨🌻 Which one would you pick?"),
+    "wanted": ("WANTED: The Harvest Robots",
+               "Have you seen these robots? Wanted for crop theft. Reward: every crop back 🤖📜"),
+    "lookbook": ("The Farm Fury Lookbook",
+                 "Hats, trails and machines from the in-game Shop 🤠👑🚜 Which look is your favourite?"),
+    "wallpapers": ("Free Farm Fury Phone Wallpapers",
+                   "8 free phone wallpapers 📱 Save your favourite and tell us which one you picked!"),
     "trading_cards": ("Farm Fury Trading Cards: Series 1",
                       "Eight animals, eight cards. Power, speed, agility, smarts... which card would you pull first? 👇"),
     "which_animal": ("Which Farm Fury Animal Are You?",
@@ -188,7 +198,8 @@ CAROUSELS = {
     "combos": ("Farm Fury Combo Guide",
                "Swap animals in the right order for a COMBO 🔁💥 Save this for your next run!"),
 }
-CAROUSEL_ORDER = ["trading_cards", "parents", "worlds", "robots", "combos", "which_animal"]
+CAROUSEL_ORDER = ["trading_cards", "story_so_far", "parents", "lookbook", "wanted", "power_reveals",
+                  "worlds", "wallpapers", "combos", "robots", "which_animal"]
 CAR_TAGS = ["#farmfury", "#farmfurygames", "#mobilegames", "#familygames", "#farmanimals"]
 TS_TAGS = ["#farmfury", "#farmfurygames", "#cartoon", "#farmanimals", "#familygames"]
 ST_REVIEW_TAGS = ["#farmfury", "#farmfurystampede", "#gamereview", "#mobilegame", "#funny"]
