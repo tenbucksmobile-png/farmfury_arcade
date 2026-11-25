@@ -167,6 +167,27 @@ TS_ORDER = ([f"ts_power_{c}" for c in ("cluck", "bessie", "percy", "woolly", "du
             + [f"ts_meet_{r}" for r in ("harvester", "scout", "patrol", "drifter", "drone")]
             + ["ts_which_one_are_you", "ts_robot_celebration", "ts_cluck_panic", "ts_bell_boogie", "ts_victory_dance"])
 TS_FROM_DAY = 28
+
+# 2026-11-25 (after the reach check): from Sat 5 Dec (day 28) two videos a day, 07:30 + 16:30. What used to go out at
+# midday moves into the afternoon queue; the 12:00 slot carries a photo carousel three days a week (TikTok photo mode,
+# Instagram carousel, Facebook photo post, YouTube Post). Slides: make_carousels.py -> Video/Carousels/<key>/NN.png.
+TWO_A_DAY_FROM_DAY = 28
+CAROUSEL_WEEKDAYS = (0, 2, 4)   # Mon, Wed, Fri
+CAROUSEL_DIR = VIDEO.parent / "Carousels"
+CAROUSELS = {
+    "which_animal": ("Which Farm Fury Animal Are You?",
+                     "Eight farm animals, eight powers. Swipe through and tell us which one you are 👇"),
+    "parents": ("Farm Fury: A Quick Guide for Parents",
+                "What is Farm Fury, and is it a good fit for your kids? Everything in one swipe 👨‍👩‍👧"),
+    "worlds": ("Every Farm Fury World",
+               "From the Corn Field to the Robot Mothership 🌽🍎❄️ Which world would you visit first?"),
+    "robots": ("Meet the Harvest Robots",
+               "Know your robots: here's how each one moves, and how to dodge it 🤖"),
+    "combos": ("Farm Fury Combo Guide",
+               "Swap animals in the right order for a COMBO 🔁💥 Save this for your next run!"),
+}
+CAROUSEL_ORDER = ["which_animal", "parents", "worlds", "robots", "combos"]
+CAR_TAGS = ["#farmfury", "#farmfurygames", "#mobilegames", "#familygames", "#farmanimals"]
 TS_TAGS = ["#farmfury", "#farmfurygames", "#cartoon", "#farmanimals", "#familygames"]
 ST_REVIEW_TAGS = ["#farmfury", "#farmfurystampede", "#gamereview", "#mobilegame", "#funny"]
 
@@ -307,6 +328,21 @@ def true_short(key):
             "note": "TikTok: AI-generated label on. Short loop: no opener.", "short": f"{title} (true short)"}
 
 
+def carousel(key):
+    folder = CAROUSEL_DIR / key
+    if not folder.exists() or not any(folder.glob("*.png")):
+        return None
+    title, body = CAROUSELS[key]
+    n = len(list(folder.glob("*.png")))
+    caption = f"{title}\n{body}\n\n{CTA}\n\n{' '.join(CAR_TAGS)}"
+    return {"kind": "Carousel", "video": folder, "caption": caption,
+            "yt_title": f"{title} | Farm Fury",
+            "yt_desc": f"YouTube: post as a Post (Create > Post > Image, add all {n} images).\n\n{caption}",
+            "note": f"Photo carousel, {n} images in the folder. TikTok: Upload > photos (photo mode), add a sound. "
+                    "Instagram: carousel post. Facebook: photo post.",
+            "short": f"{title} (carousel, {n} images)"}
+
+
 def stampede_review(n):
     file, title, body = ST_REVIEWS[n]
     video = REVIEWS_DIR / file
@@ -365,6 +401,8 @@ def resolve(slot):
         return stampede_review(slot[1])
     if slot[0] == "ts":
         return true_short(slot[1])
+    if slot[0] == "car":
+        return carousel(slot[1])
     return gameplay(slot[1], slot[2])
 
 
@@ -375,6 +413,8 @@ def label(slot):
         return f"The Scout Reviews: Stampede {slot[1]}: {ST_REVIEWS[slot[1]][1]}"
     if slot[0] == "ts":
         return f"{slot[1]} (true short)"
+    if slot[0] == "car":
+        return f"{CAROUSELS[slot[1]][0]} (carousel)"
     if slot[0] == "st":
         return f"{ST_SINGLES[slot[1]][2]} (Stampede)"
     return f"{slot[1]} {slot[2]:02d} gameplay short"
@@ -387,25 +427,47 @@ def build_days(start):
     midday = dict(MIDDAY)
     midday.update({day_n: ("streview", n) for n, day_n in enumerate(ST_REVIEW_DAYS, 1)})
     true_shorts = [("ts", k) for k in TS_ORDER]
-    # Runs until every episode, single and review is out, then on while rendered gameplay shorts are left.
-    while (ep <= len(EPISODES) or any(k >= d for k in SINGLE_DAYS) or any(k >= d for k in midday) or st_singles or true_shorts
-           or (queue and resolve(queue[0]))):
+    carousels = [("car", k) for k in CAROUSEL_ORDER]
+    # From TWO_A_DAY_FROM_DAY: no video at midday any more. Reviews and true shorts that would have gone there join
+    # one afternoon queue instead (reviews keep their day as an earliest date); the 12:00 slot carries a carousel on
+    # CAROUSEL_WEEKDAYS only.
+    afternoon_q = []
+    # Runs until every episode, single, review, short and carousel is out, then on while gameplay shorts are left.
+    while (ep <= len(EPISODES) or any(k >= d for k in SINGLE_DAYS) or any(k >= d for k in midday) or st_singles
+           or true_shorts or afternoon_q or carousels or (queue and resolve(queue[0]))):
         day = start + dt.timedelta(days=d)
+        two_a_day = d >= TWO_A_DAY_FROM_DAY
+        if two_a_day and d in midday:
+            afternoon_q.append(midday[d])
         afternoon = None
         ep_ready = ep <= len(EPISODES) and (ep < 10 or d >= STAMPEDE_FROM_DAY)
         if day.weekday() in EPISODE_WEEKDAYS and ep_ready:
             afternoon, ep = ("ep", ep), ep + 1
         elif d in SINGLE_DAYS:
             afternoon = SINGLE_DAYS[d]
+        elif two_a_day:
+            # Reviews first (they were due on a set day), then alternate true shorts and Stampede singles.
+            if afternoon_q:
+                afternoon = afternoon_q.pop(0)
+            else:
+                stampede_ok = d >= ST_SINGLE_FROM_DAY and st_singles
+                use_st = stampede_ok and (not true_shorts or d % 2 == 0)
+                if use_st:
+                    afternoon = st_singles.pop(0)
+                elif true_shorts:
+                    afternoon = true_shorts.pop(0)
         elif d >= ST_SINGLE_FROM_DAY and st_singles and day.weekday() not in EPISODE_WEEKDAYS:
             afternoon = st_singles.pop(0)
         # Stampede gameplay only from Ep 10's day on; mornings before that stay empty once Arcade runs out.
         morning = None
         if queue and (queue[0][1] not in STAMPEDE_WORLDS or d >= STAMPEDE_FROM_DAY):
             morning = queue.pop(0)
-        noon = midday.get(d)
-        if noon is None and d >= TS_FROM_DAY and true_shorts:
-            noon = true_shorts.pop(0)
+        if two_a_day:
+            noon = carousels.pop(0) if carousels and day.weekday() in CAROUSEL_WEEKDAYS else None
+        else:
+            noon = midday.get(d)
+            if noon is None and d >= TS_FROM_DAY and true_shorts:
+                noon = true_shorts.pop(0)
         days.append((day, morning, noon, afternoon))
         d += 1
     return days, queue

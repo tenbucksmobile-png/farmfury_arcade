@@ -38,6 +38,7 @@ IG_TAGS = {
     "Cosmetics": ["#farmfury", "#mobilegames", "#cuteanimals", "#farmanimals", "#familygames"],
     "Review": ["#farmfury", "#gamereview", "#mobilegames", "#funny", "#familygames"],
     "StampedeReview": ["#farmfury", "#gamereview", "#mobilegames", "#platformer", "#funny"],
+    "Carousel": ["#farmfury", "#mobilegames", "#familygames", "#farmanimals", "#gamesforkids"],
 }
 FB_TAGS = {
     "Episode": ["#FarmFury", "#Animation", "#FamilyFun"],
@@ -47,6 +48,7 @@ FB_TAGS = {
     "Cosmetics": ["#FarmFury", "#MobileGames", "#FamilyFun"],
     "Review": ["#FarmFury", "#GameReview", "#FamilyFun"],
     "StampedeReview": ["#FarmFury", "#GameReview", "#FamilyFun"],
+    "Carousel": ["#FarmFury", "#FamilyGames", "#MobileGames"],
 }
 IG_CTA = {
     "Episode": "Play Farm Fury free on the App Store & Google Play 👉 link in bio",
@@ -56,6 +58,7 @@ IG_CTA = {
     "Cosmetics": "Farm Fury: Arcade is FREE on the App Store & Google Play 👉 link in bio",
     "Review": "Farm Fury: Arcade is FREE on the App Store & Google Play 👉 link in bio",
     "StampedeReview": "Farm Fury: Stampede is FREE on the App Store & Google Play 👉 link in bio",
+    "Carousel": "Play Farm Fury free on the App Store & Google Play 👉 link in bio",
 }
 FB_CTA = {
     "Stampede": f"Farm Fury: Stampede is free on the App Store and Google Play: {SITE}",
@@ -65,10 +68,13 @@ FB_CTA = {
     "Episode": f"Play Farm Fury free on the App Store and Google Play: {SITE}",
     "Story single": f"Play Farm Fury free on the App Store and Google Play: {SITE}",
     "Gameplay": f"Farm Fury: Arcade is free on the App Store and Google Play: {SITE}",
+    "Carousel": f"Play Farm Fury free on the App Store and Google Play: {SITE}",
 }
 
 
 def group(kind):
+    if kind == "Carousel":
+        return "Carousel"
     if kind.startswith("Episode"):
         return "Episode"
     if kind.startswith("Story"):
