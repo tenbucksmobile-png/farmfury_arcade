@@ -6879,3 +6879,35 @@ Phase 3's IAP plumbing was built (see "IAP plumbing" above) — it's the overlay
 ## Home screen name (2026-11-02)
 
 The name under the icon is "Arcade" (`ArcadeAndroidBuild` rewrites the generated launcher's `app_name`; `IOSPostProcessBuild` sets `CFBundleDisplayName`). `productName` stays `FarmFuryArcade` because the editor save location depends on it; store names are unchanged. Plain "Farm Fury" is reserved for the original game. Written in the Stampede session, not yet compiled in this project or seen on a phone.
+
+## Reach review, carousels and store work (2026-11-25)
+
+Full status and to-do list: `Tools/content-pipeline/channel-kit/store_review_and_nominations.md`;
+reach findings: memory `project_reach_diagnosis_2026_11_25`.
+
+- **Schedule changes (`plan_launch.py`).** 18 Kling true shorts (`TS_ORDER`, from `TS_FROM_DAY` 28 =
+  Sat 5 Dec) fill the afternoon queue; from the same day midday reviews move to the afternoon
+  (`TWO_A_DAY_FROM_DAY`), and noon on Mon/Wed/Fri carries a photo carousel (`CAROUSEL_WEEKDAYS`,
+  `CAROUSEL_ORDER`, 7-30 Dec). `plan_meta.py` has matching "Carousel" caption groups. Sheet runs to 14 Jan 2027.
+- **Carousels (`make_carousels.py`).** 11 sets in `Video/Carousels/<key>/` at 4:5 (1080x1350) plus
+  `vertical/` 9:16. Trading cards (Series 1, all 8 animals, stats sum to 26, game-neutral, "FARM FURY
+  GAMES" top logo `Tools/storyline/assets/farmfury-games-logo.png`, print masters 1500x2100 in
+  `trading_cards/cards/`; Billy keeps his original thumbs-up art). End slides point to
+  farmfurygames.com, no store badges, no per-game logos. **The user loads all carousels himself** once
+  Facebook/Instagram are unlocked and merged under his main account; only the trading-cards TikTok draft
+  and YouTube Post (7 Dec 12:00) exist so far.
+- **Store pages.** Arcade Play description + Stampede rename ("Farm Fury Stampede") in review; Arcade
+  App Store promo text live; Apple featuring nominations submitted for all three games. Data safety
+  answers copied from Cannonfire (CSV) and saved for Arcade and Stampede, except the Families-policy
+  answer (check Target audience). Next iOS version of each game: subtitles, Arcade subcategory, the
+  description fixes listed in the status file.
+- **Store videos (`make_store_videos.py` -> `Video/Store_Videos/`).** App Store previews
+  (`arcade_preview.mp4`, `stampede_preview.mp4`, 1920x886, gameplay only) wait for the next iOS
+  version. Play trailers on YouTube unlisted (Arcade https://youtu.be/kCQWw7NoQbM, Stampede
+  https://youtu.be/taowEvSyJkM) and linked in both Play listings, saved. **The user must press "Submit
+  changes for review" in each app's Publishing overview** (sends trailers + Data safety; Claude's
+  attempt was blocked by the permission system - don't work around it). Trailers include Kling clips,
+  so the optional "AI-generated" asset label may apply. Cannonfire store videos need a gameplay recording first.
+- **Re-rendered with `--fast-start`:** Orchard 09/10 and Cluck's Big Day; old versions in each folder's
+  `old_template/`. TikTok still holds the old versions for 5-6 Dec (replace only in the TikTok app).
+- **Creator outreach:** shortlist and message draft in `channel-kit/creator_outreach.md`; nothing sent.
