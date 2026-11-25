@@ -141,11 +141,15 @@ def end_slide(line):
     # The studio logo only, no per-game logos: the list of games keeps growing.
     paste_center(c, fit(load(ASSETS / "farmfury-games-logo.png"), 640, 480), 330)
     y = text(d, 640, line, 72, YELLOW)
-    y = text(d, y + 10, "FREE ON THE APP STORE & GOOGLE PLAY", 50)
-    apple, google = fit(load(ASSETS / "app-store-badge.png"), 440, 150), fit(load(ASSETS / "google-play-badge.png"), 460, 150)
-    c.alpha_composite(apple, (W // 2 - 20 - apple.width, y + 40))
-    c.alpha_composite(google, (W // 2 + 20, y + 40 + (apple.height - google.height) // 2))
-    text(d, y + 230, "Link in bio  •  farmfurygames.com", 42, body=True)
+    y = text(d, y + 10, "FREE GAMES FOR IPHONE & ANDROID", 50)
+    # No store badges: there are several games, so the website (which links to each one) is the single call to action.
+    url = "farmfurygames.com"
+    fnt = font(96)
+    w = d.textlength(url, font=fnt)
+    box = (W / 2 - w / 2 - 50, y + 50, W / 2 + w / 2 + 50, y + 50 + 150)
+    d.rounded_rectangle(box, 40, fill=YELLOW, outline=DARK, width=6)
+    d.text((W / 2, box[1] + 75), url, font=fnt, fill=DARK, anchor="mm")
+    text(d, box[3] + 40, "Link in bio", 46, body=True)
     return c
 
 
