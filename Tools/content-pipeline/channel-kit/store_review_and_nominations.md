@@ -12,7 +12,12 @@ Downloads shown on Google Play: Arcade 5+, Stampede 1+, Cannonfire 0+. No rating
 - TO DO with the next iOS version (fields locked until a version is being prepared): Arcade subtitle
   "Farm animals vs robots maze", subcategory (currently none; Arcade / Action fit), description line about
   "puff up huge, or charge headfirst" -> "fire a burst of feathers, or fling sticky mud".
-- TO DO: featuring nominations (drafts below), not submitted.
+- DONE: Apple featuring nominations SUBMITTED 2026-11-25 for all three (iPhone only, publish date 25 Nov,
+  links farmfurygames.com + youtube.com/@FarmFuryGames, same 'helpful details' text): Cannonfire and Stampede as
+  App Launch, Arcade as App Enhancements (1.0.1's new powers). Apple only replies if a game is picked.
+- Checked, no change needed: Stampede/Cannonfire Google Play descriptions; Stampede/Cannonfire App Store promo text.
+- TO DO with each game's next iOS version: Cannonfire has NO subtitle either; Stampede's App Store description has two
+  cut-off sentences ("...and unlock the" and "leave colorful  farm machines") - rewrite those.
 - TO DO: Data safety forms (section 1) - needs the user's answers, not filled in by Claude.
 
 ## 1. Fix first: Google Play Data safety (Arcade and Stampede)
