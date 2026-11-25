@@ -3,6 +3,13 @@
 Checked as a US visitor (Google Play `gl=US`, App Store `/us/`). All three games are live in 177 countries.
 Downloads shown on Google Play: Arcade 5+, Stampede 1+, Cannonfire 0+. No ratings yet on any of them.
 
+## Status (2026-11-25)
+
+- DONE, in Google review: Arcade short + full description (section 3 text, paragraphs unwrapped); Stampede renamed
+  "FarmFury Stampede" -> "Farm Fury Stampede" (matches "Farm Fury Arcade" / "Farm Fury Cannonfire" rather than adding a colon).
+- TO DO (user signs in to App Store Connect): Arcade subtitle, promotional text, description bullet; nominations.
+- TO DO: Data safety forms (section 1) - needs the user's answers, not filled in by Claude.
+
 ## 1. Fix first: Google Play Data safety (Arcade and Stampede)
 
 Both say **"No data collected"** and **"No data shared with third parties"**. Both games show ads (LevelPlay/AdMob)
