@@ -272,7 +272,133 @@ def combos():
     return s
 
 
-BUILDERS = {"which_animal": which_animal, "parents": parents, "worlds": worlds, "robots": robots, "combos": combos}
+# Trading cards (2026-11-25, user's idea; also meant as merch). Stats are made-up flavour for the cards, not game
+# numbers (in the game every animal moves at the same speed); each animal's four stats add up to 26 so no card is
+# simply "the best". Masters are 1500x2100 (2.5x3.5 in, the size of a real trading card, at 600 dpi) in
+# Carousels/trading_cards/cards/. The art is the 500x500 thumbs-up sprites, upscaled: fine on a phone, but print
+# merch from higher-resolution art.
+CHARS = REPO / "Assets/_Project/Sprites/Characters"
+STAT_NAMES = ("POWER", "SPEED", "AGILITY", "SMARTS")
+CARDS = [  # (art, name, species, colour, (power, speed, agility, smarts), ability, ability text, catchphrase)
+    ("CluckThumbsUp.png", "CLUCK", "CHICKEN", (245, 140, 25), (4, 7, 7, 8), "EGG DROP",
+     "Leaves an egg behind. Any robot that walks into it is out of the game.", "\"Leave it to me!\""),
+    ("BessieThumbsUp.png", "BESSIE", "COW", (215, 55, 55), (10, 4, 4, 8), "GROUND SLAM",
+     "Slams the ground and powers down every robot close by.", "\"Stand back, everyone.\""),
+    ("PercyThumbsup.png", "PERCY", "PIG", (235, 105, 150), (7, 8, 7, 4), "BOUNCE ROLL",
+     "Curls into a ball and rolls straight through the robots.", "\"Out of my way, I'm on a roll!\""),
+    ("WoollyThumbsUp.png", "WOOLLY", "SHEEP", (130, 110, 200), (4, 5, 7, 10), "TRIPLE CLONE",
+     "Two fluffy clones pop out and help collect the crops.", "\"There's more of me where that came from.\""),
+    ("DuckyThumbsUp.png", "DUCKY", "DUCK", (40, 145, 225), (4, 7, 9, 6), "WATER SKIP",
+     "Skips across the water to the other side. Nobody else can!", "\"Surf's up!\""),
+    ("HoraceThumbsUp.png", "HORACE", "HORSE", (165, 95, 45), (7, 9, 6, 4), "HORSESHOE THROW",
+     "Throws a horseshoe that knocks the first robot it hits out of the game.", "\"Right on target.\""),
+    ("GeraldThumbsUp.png", "GERALD", "TURKEY", (150, 55, 40), (7, 5, 5, 9), "FEATHER BURST",
+     "Fires a burst of feathers that sends a robot packing.", "\"Feel the breeze, tin can!\""),
+    ("BillyThumbsUp.png", "BILLY", "GOAT", (105, 140, 55), (9, 6, 8, 3), "MUD SLING",
+     "Flings mud. Miss, and it leaves a sticky puddle for the next robot.", "\"Mind the mud.\""),
+]
+CW, CH = 1500, 2100
+
+
+def _shade(color, f):
+    return tuple(max(0, min(255, int(c * f))) for c in color)
+
+
+def _ctext(draw, cx, y, txt, fnt, fill, stroke=0, stroke_fill=DARK):
+    w = draw.textlength(txt, font=fnt)
+    draw.text((cx - w / 2, y), txt, font=fnt, fill=fill, stroke_width=stroke, stroke_fill=stroke_fill)
+
+
+def fit_size(draw, txt, size, width):
+    while size > 40 and draw.textlength(txt, font=font(size)) > width:
+        size -= 4
+    return font(size)
+
+
+def trading_card(n, art, name, species, color, stats, ability, what, quote):
+    card = Image.new("RGBA", (CW, CH), (0, 0, 0, 0))
+    d = ImageDraw.Draw(card)
+    # Outer frame: rounded card in the animal's colour with a gold edge.
+    d.rounded_rectangle((0, 0, CW - 1, CH - 1), 90, fill=(250, 205, 70))
+    d.rounded_rectangle((28, 28, CW - 29, CH - 29), 70, fill=color)
+    d.rounded_rectangle((70, 70, CW - 71, CH - 71), 50, fill=_shade(color, 0.55))
+    # Name bar.
+    d.rounded_rectangle((110, 110, CW - 111, 300), 40, fill=(255, 250, 235), outline=DARK, width=8)
+    d.text((160, 120), name, font=font(150), fill=DARK)
+    sp = font(64, body=True)
+    d.text((CW - 160 - d.textlength(species, font=sp), 175), species, font=sp, fill=_shade(color, 0.8))
+    # Art window: sunburst in the animal's colour behind the thumbs-up pose.
+    win = (110, 330, CW - 111, 1240)
+    burst = Image.new("RGBA", (win[2] - win[0], win[3] - win[1]), _shade(color, 1.25))
+    bd = ImageDraw.Draw(burst)
+    cx, cy = burst.width / 2, burst.height / 2
+    import math
+    for k in range(24):
+        a0, a1 = 2 * math.pi * k / 24, 2 * math.pi * (k + 0.5) / 24
+        bd.polygon([(cx, cy), (cx + 2000 * math.cos(a0), cy + 2000 * math.sin(a0)),
+                    (cx + 2000 * math.cos(a1), cy + 2000 * math.sin(a1))], fill=_shade(color, 1.45) + (255,))
+    mask = Image.new("L", burst.size, 0)
+    ImageDraw.Draw(mask).rounded_rectangle((0, 0, burst.width - 1, burst.height - 1), 40, fill=255)
+    card.paste(burst, win[:2], mask)
+    img = fit(load(CHARS / art), win[2] - win[0] - 60, win[3] - win[1] - 40)
+    card.alpha_composite(img, (int(win[0] + (win[2] - win[0] - img.width) / 2), int(win[3] - 20 - img.height)))
+    d.rounded_rectangle(win, 40, outline=DARK, width=8)
+    # Card number badge on the art.
+    d.ellipse((CW - 330, 360, CW - 140, 550), fill=(250, 205, 70), outline=DARK, width=8)
+    _ctext(d, CW - 235, 395, f"#{n:02d}", font(86), DARK)
+    # Ability panel.
+    panel = (110, 1262, CW - 111, 1578)
+    d.rounded_rectangle(panel, 36, fill=(255, 250, 235), outline=DARK, width=8)
+    _ctext(d, CW / 2, 1280, "SPECIAL POWER: " + ability, fit_size(d, "SPECIAL POWER: " + ability, 84, panel[2] - panel[0] - 80), _shade(color, 0.75))
+    yy = 1380
+    for line in wrap(d, what, font(48, body=True), panel[2] - panel[0] - 90):
+        _ctext(d, CW / 2, yy, line, font(48, body=True), DARK)
+        yy += 60
+    _ctext(d, CW / 2, yy + 4, quote, font(46, body=True), _shade(color, 0.7))
+    # Stats: label, ten pips, number.
+    sy = 1606
+    for label, value in zip(STAT_NAMES, stats):
+        d.text((130, sy), label, font=font(70), fill=WHITE, stroke_width=5, stroke_fill=DARK)
+        for p in range(10):
+            x0 = 520 + p * 74
+            d.rounded_rectangle((x0, sy + 10, x0 + 60, sy + 66), 14,
+                                fill=(250, 205, 70) if p < value else _shade(color, 0.35), outline=DARK, width=4)
+        d.text((CW - 140, sy), str(value), font=font(70), fill=WHITE, anchor="ra", stroke_width=5, stroke_fill=DARK)
+        sy += 84
+    # Footer.
+    d.text((130, CH - 122), "FARM FURY  •  SERIES 1", font=font(52), fill=(250, 205, 70), stroke_width=4,
+           stroke_fill=DARK)
+    d.text((CW - 130, CH - 122), f"{n} / {len(CARDS)}", font=font(52), fill=(250, 205, 70), anchor="ra",
+           stroke_width=4, stroke_fill=DARK)
+    return card
+
+
+def trading_cards():
+    cards = [trading_card(i, *c) for i, c in enumerate(CARDS, 1)]
+    masters = OUT / "trading_cards" / "cards"
+    masters.mkdir(parents=True, exist_ok=True)
+    for i, (c, info) in enumerate(zip(cards, CARDS), 1):
+        c.save(masters / f"{i:02d}_{info[1].lower()}.png")
+    # Cover: a fan of four cards.
+    cov = background()
+    d = ImageDraw.Draw(cov)
+    paste_center(cov, fit(load(ASSETS / "farmfury-logo.png"), 600, 300), 190)
+    y = text(d, 360, "COLLECT ALL 8!", 120, YELLOW)
+    text(d, y, "Farm Fury trading cards, Series 1. Swipe to see them all.", 44, body=True)
+    for k, idx in enumerate((1, 3, 0, 2)):
+        small = cards[idx].resize((350, 490), Image.LANCZOS).rotate((k - 1.5) * -9, expand=True,
+                                                                     resample=Image.BICUBIC)
+        cov.alpha_composite(small, (int(W / 2 - small.width / 2 + (k - 1.5) * 200), 660 + int(abs(k - 1.5) * 30)))
+    slides = [cov]
+    for c in cards:
+        s = background()
+        paste_center(s, c.resize((858, 1201), Image.LANCZOS), H / 2 - 20)
+        slides.append(s)
+    slides.append(end_slide("WHICH CARD WOULD YOU PULL FIRST?"))
+    return slides
+
+
+BUILDERS = {"trading_cards": trading_cards, "which_animal": which_animal, "parents": parents, "worlds": worlds, "robots": robots, "combos": combos}
 WORDING = [*(w for c in CHARACTERS for w in c[1:]), *(w for r in ROBOT_INFO for w in r[1:]),
            *(w for c in COMBOS for w in c[1:])]
 

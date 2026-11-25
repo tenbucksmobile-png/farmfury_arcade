@@ -175,6 +175,8 @@ TWO_A_DAY_FROM_DAY = 28
 CAROUSEL_WEEKDAYS = (0, 2, 4)   # Mon, Wed, Fri
 CAROUSEL_DIR = VIDEO.parent / "Carousels"
 CAROUSELS = {
+    "trading_cards": ("Farm Fury Trading Cards: Series 1",
+                      "Eight animals, eight cards. Power, speed, agility, smarts... which card would you pull first? 👇"),
     "which_animal": ("Which Farm Fury Animal Are You?",
                      "Eight farm animals, eight powers. Swipe through and tell us which one you are 👇"),
     "parents": ("Farm Fury: A Quick Guide for Parents",
@@ -186,7 +188,7 @@ CAROUSELS = {
     "combos": ("Farm Fury Combo Guide",
                "Swap animals in the right order for a COMBO 🔁💥 Save this for your next run!"),
 }
-CAROUSEL_ORDER = ["which_animal", "parents", "worlds", "robots", "combos"]
+CAROUSEL_ORDER = ["trading_cards", "parents", "worlds", "robots", "combos", "which_animal"]
 CAR_TAGS = ["#farmfury", "#farmfurygames", "#mobilegames", "#familygames", "#farmanimals"]
 TS_TAGS = ["#farmfury", "#farmfurygames", "#cartoon", "#farmanimals", "#familygames"]
 ST_REVIEW_TAGS = ["#farmfury", "#farmfurystampede", "#gamereview", "#mobilegame", "#funny"]
