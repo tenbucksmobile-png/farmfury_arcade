@@ -7,7 +7,12 @@ Downloads shown on Google Play: Arcade 5+, Stampede 1+, Cannonfire 0+. No rating
 
 - DONE, in Google review: Arcade short + full description (section 3 text, paragraphs unwrapped); Stampede renamed
   "FarmFury Stampede" -> "Farm Fury Stampede" (matches "Farm Fury Arcade" / "Farm Fury Cannonfire" rather than adding a colon).
-- TO DO (user signs in to App Store Connect): Arcade subtitle, promotional text, description bullet; nominations.
+- DONE, live: Arcade App Store promotional text = "Eight farm animals, eight powers, one big robot problem. Dodge the
+  Harvest Robots and bring every crop home!" (the trading-cards line was dropped: the cards are social posts, not in the game).
+- TO DO with the next iOS version (fields locked until a version is being prepared): Arcade subtitle
+  "Farm animals vs robots maze", subcategory (currently none; Arcade / Action fit), description line about
+  "puff up huge, or charge headfirst" -> "fire a burst of feathers, or fling sticky mud".
+- TO DO: featuring nominations (drafts below), not submitted.
 - TO DO: Data safety forms (section 1) - needs the user's answers, not filled in by Claude.
 
 ## 1. Fix first: Google Play Data safety (Arcade and Stampede)
