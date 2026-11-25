@@ -295,7 +295,8 @@ CARDS = [  # (art, name, species, colour, (power, speed, agility, smarts), signa
      "Throws a horseshoe and never misses the target.", "\"Ringer!\""),
     ("GeraldThumbsUp.png", "GERALD", "TURKEY", (150, 55, 40), (7, 5, 5, 9), "FEATHERS",
      "Bursts, blows and bombs of feathers. Don't ruffle him.", "\"You want feathers? I'll GIVE you feathers!\""),
-    ("BillyThumbsUp.png", "BILLY", "GOAT", (105, 140, 55), (9, 6, 8, 3), "MUD",
+    # Billy: a Kling still (2026-11-25, trading_cards/kling/), since his sprite reads as a cow.
+    (OUT / "trading_cards/kling/billy_thumbsup_cutout.png", "BILLY", "GOAT", (105, 140, 55), (9, 6, 8, 3), "MUD",
      "Slings it, throws it, leaves it for the next robot.", "\"Head first. Questions later.\""),
 ]
 CW, CH = 1500, 2100
