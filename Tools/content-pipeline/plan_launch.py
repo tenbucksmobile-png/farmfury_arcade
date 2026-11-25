@@ -21,6 +21,7 @@ Writes plans/launch-<start>.html. Doesn't touch ledger.json.
 import argparse
 import datetime as dt
 import html
+import json
 from pathlib import Path
 
 from make_shorts import check_wording
@@ -160,6 +161,13 @@ ST_REVIEWS = {
     5: ("scout_review_stampede_05.mp4", "The Verdict: Is Farm Fury: Stampede Worth It?",
         "The honest facts for grown-ups... and Cluck has the final word ⭐⭐⭐⭐⭐"),
 }
+# The 18 Kling-reuse true shorts (make_true_short.py, 2026-11-22): one a day in the free 12:00 slot from Sat 5 Dec
+# (day 28), power reveals first. Caption body and hook come from each video's .json.
+TS_ORDER = ([f"ts_power_{c}" for c in ("cluck", "bessie", "percy", "woolly", "ducky", "horace", "gerald", "billy")]
+            + [f"ts_meet_{r}" for r in ("harvester", "scout", "patrol", "drifter", "drone")]
+            + ["ts_which_one_are_you", "ts_robot_celebration", "ts_cluck_panic", "ts_bell_boogie", "ts_victory_dance"])
+TS_FROM_DAY = 28
+TS_TAGS = ["#farmfury", "#farmfurygames", "#cartoon", "#farmanimals", "#familygames"]
 ST_REVIEW_TAGS = ["#farmfury", "#farmfurystampede", "#gamereview", "#mobilegame", "#funny"]
 
 # The Scout Reviews: the Scout "reviews" Farm Fury: Arcade, Bessie corrects him (scripts in
@@ -284,6 +292,21 @@ def stampede_single(key):
             "note": "Real gameplay: no AI label.", "short": f"{title} (Stampede)"}
 
 
+def true_short(key):
+    video = TRUE_DIR / f"{key}.mp4"
+    meta = video.with_suffix(".json")
+    if not video.exists() or not meta.exists():
+        return None
+    info = json.loads(meta.read_text(encoding="utf-8"))
+    body = info["caption"].split(" Farm Fury games are free")[0].strip()
+    title = info["hook"].title()
+    return {"kind": "Story true short", "video": video,
+            "caption": f"{body}\n\n{CTA}\n\n{' '.join(TS_TAGS)}",
+            "yt_title": f"{title} | Farm Fury",
+            "yt_desc": f"{body}\n\nPlay free:\n{store_links(TS_TAGS)}",
+            "note": "TikTok: AI-generated label on. Short loop: no opener.", "short": f"{title} (true short)"}
+
+
 def stampede_review(n):
     file, title, body = ST_REVIEWS[n]
     video = REVIEWS_DIR / file
@@ -340,6 +363,8 @@ def resolve(slot):
         return stampede_single(slot[1])
     if slot[0] == "streview":
         return stampede_review(slot[1])
+    if slot[0] == "ts":
+        return true_short(slot[1])
     return gameplay(slot[1], slot[2])
 
 
@@ -348,6 +373,8 @@ def label(slot):
         return f"The Scout Reviews {slot[1]}: {REVIEWS[slot[1]][1]}"
     if slot[0] == "streview":
         return f"The Scout Reviews: Stampede {slot[1]}: {ST_REVIEWS[slot[1]][1]}"
+    if slot[0] == "ts":
+        return f"{slot[1]} (true short)"
     if slot[0] == "st":
         return f"{ST_SINGLES[slot[1]][2]} (Stampede)"
     return f"{slot[1]} {slot[2]:02d} gameplay short"
@@ -359,8 +386,9 @@ def build_days(start):
     st_singles = [("st", k) for k in ST_SINGLE_ORDER]
     midday = dict(MIDDAY)
     midday.update({day_n: ("streview", n) for n, day_n in enumerate(ST_REVIEW_DAYS, 1)})
+    true_shorts = [("ts", k) for k in TS_ORDER]
     # Runs until every episode, single and review is out, then on while rendered gameplay shorts are left.
-    while (ep <= len(EPISODES) or any(k >= d for k in SINGLE_DAYS) or any(k >= d for k in midday) or st_singles
+    while (ep <= len(EPISODES) or any(k >= d for k in SINGLE_DAYS) or any(k >= d for k in midday) or st_singles or true_shorts
            or (queue and resolve(queue[0]))):
         day = start + dt.timedelta(days=d)
         afternoon = None
@@ -375,7 +403,10 @@ def build_days(start):
         morning = None
         if queue and (queue[0][1] not in STAMPEDE_WORLDS or d >= STAMPEDE_FROM_DAY):
             morning = queue.pop(0)
-        days.append((day, morning, midday.get(d), afternoon))
+        noon = midday.get(d)
+        if noon is None and d >= TS_FROM_DAY and true_shorts:
+            noon = true_shorts.pop(0)
+        days.append((day, morning, noon, afternoon))
         d += 1
     return days, queue
 
