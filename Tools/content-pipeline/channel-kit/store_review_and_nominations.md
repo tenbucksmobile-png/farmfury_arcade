@@ -18,7 +18,11 @@ Downloads shown on Google Play: Arcade 5+, Stampede 1+, Cannonfire 0+. No rating
 - Checked, no change needed: Stampede/Cannonfire Google Play descriptions; Stampede/Cannonfire App Store promo text.
 - TO DO with each game's next iOS version: Cannonfire has NO subtitle either; Stampede's App Store description has two
   cut-off sentences ("...and unlock the" and "leave colorful  farm machines") - rewrite those.
-- TO DO: Data safety forms (section 1) - needs the user's answers, not filled in by Claude.
+- Data safety (Arcade + Stampede): Cannonfire's answers imported via Play Console CSV export/import (user OK'd),
+  SAVED but NOT SENT for review: the user must press Publishing overview > "Submit 1 change for review" on each app
+  (Claude's attempt was blocked by the permission system). One Cannonfire answer could not be copied: "complies with
+  the Families policy" is not allowed on Arcade or Stampede, which usually means their Target audience does not
+  include children. Check App content > Target audience and content on both.
 
 ## 1. Fix first: Google Play Data safety (Arcade and Stampede)
 
