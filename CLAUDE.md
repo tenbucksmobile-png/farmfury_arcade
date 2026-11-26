@@ -6106,6 +6106,18 @@ were offered and declined, so don't build an uploader unless asked. Target 2-3 p
   Reviews in a third 12:00 `MIDDAY` slot. Stampede gameplay and Ep 10 only from `STAMPEDE_FROM_DAY` (Tue 8 Dec).
   A slot whose file doesn't exist yet shows as "TO MAKE".
 - **Instagram + Facebook Reels (2026-11-14, `plan_meta.py`).** Same videos and order as `plan_launch.py`, aimed at the UK/US: gameplay short 20:00 SAST, episode/single 01:00 SAST the next date; Instagram caption (5 hashtags, link in bio) + Facebook caption (plain link) per post, plus Page/Instagram setup steps. Sheet `plans/meta-2026-11-21.html` (30 days from Sat 21 Nov). Scheduled via Meta Business Suite; accounts not yet created.
+- **Meta relaunch (2026-11-26).** The duplicate Facebook account that owned the Farm Fury Page was disabled, taking
+  the Page and all its uploads with it; Instagram survived. The user will make a new Page from his personal profile,
+  a new Business Suite portfolio, reconnect Instagram, and clear any old scheduled Instagram posts, when back in
+  South Africa (no start date yet). For it, Arcade gameplay was cut to **5 shorts per world** and re-rendered
+  `--fast-start` with the three-game end card, filed in `Video/Episodes/gameplay_fast_start/<World>/<World> 0N -
+  title.mp4` (renders are `fs_*` in each session's `shorts_v3/`; originals and the TikTok/YouTube schedule untouched):
+  Corn Field = Cluck egg, Bessie slam, Woolly clone, Ducky water skip (start 354.6 s, after the swap screen), collect;
+  Vegetable Patch = Horace throw, Meet Gerald, Percy on the move, Horace dodges, collect carrots; Orchard = Billy,
+  Ducky spout, Percy roll, Gerald feathers, outrun. The Earthquake Roll combo was dropped (swap screen mid-clip; with
+  fast-start there's no badge to hide it). Stampede already has 5 per world in this style. Next: rebuild
+  `plan_meta.py` from the new start date (slower first two weeks, new-style shorts + carousels first, episodes after);
+  Claude can load posts through Business Suite in Chrome once the user is logged in.
 - **Launch went live 2026-11-07.** As of 2026-11-17 everything is loaded and scheduled on all four
   platforms (TikTok, YouTube, Instagram, Facebook) up to and including Fri 4 Dec (Machines cosmetics
   single). Next to schedule: Sat 5 Dec (Ep 9) onward. TikTok Studio allows 10 days ahead. The sheet (re-made 2026-11-15) runs to Wed 16 Dec: cosmetics singles Hats Sun 29 Nov / Trails Wed 2 Dec /
