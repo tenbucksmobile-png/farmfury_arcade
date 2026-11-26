@@ -5828,6 +5828,32 @@ Design export will undo the patch** unless the design itself makes those buttons
 Testing note: headless Edge can drive the site via the DevTools protocol (scratchpad `cdp_eval.py` /
 `cdp_shot.py` pattern: `--remote-allow-origins=*`, a short `--user-data-dir` under `%TEMP%`).
 
+**Site v2 (2026-11-18): plain HTML, no build step.** Source: `Desktop\FarmFury_Technicalarmfurygames-website\site-v2-2026-11-18\`
+(its `README.txt` logs every update and how to upload). Pages: `index.html`, `story/` (episode grid + player, list
+in the `EPISODES` array near the bottom), `shop/` (merch cards, all "Coming soon"). Updates go up as small zips that
+the user extracts in `public_html`; before overwriting a page, diff the local copy against the live one.
+- **Story page, Eps 10-11 added (2026-11-26):** zip `update-2026-11-26-story-ep10-11.zip`. Per episode: video at 720p
+  (`-vf scale=720:-2 -crf 27 -movflags +faststart`), 540x960 `thumbs/epNN.webp`. Thumbnails follow the Ep 1-9 style
+  (FARM FURY logo, red EPISODE chip, two-line Bangers title) over a clean Kling still with no captions (Ep 10: 10.7
+  stampede, Ep 11: 11.4 Woolly); full-size `ep10/ep11_thumbnail.png` saved in `Video/Episodes/thumbnails/`. The
+  thumbnail script was a one-off (not kept). Not confirmed uploaded.
+- **Shop thumbnails (2026-11-26):** zip `update-2026-11-26-shop-merch.zip` (shop page + 7 images). Mug (Bessie), cap
+  (now "Farm Fury Cap", logo embroidered; was "Percy Cap") and Cluck plush are Kling product photos (kling-image-v3_0,
+  1k, 3 credits, ids in `FarmFury_Artwork/Merch_Mockups/jobs.txt`). Sticker sheet, the new "Farm Crew Poster" (Ep 10
+  stampede still) and the new Bumper Sticker (FARM FURY + FARMFURYGAMES.COM, Cluck and Bessie; print file
+  `bumper-sticker-print.png`, 11.5x3 in at 300 dpi) come from `Tools/store-assets/make_merch_thumbs.py <out_dir>`. The
+  Cannonfire Tee is a one-off edit of the existing tee photo with `Tools/storyline/assets/Logo_Cannonfire.png`, sized
+  to match the Stampede tee. Masters in `FarmFury_Artwork/Merch_Mockups/`. Billy is left off the stickers: his only
+  standalone art (`BillyThumbsUp.png`, `Web/billy.png`) is drawn as a cow; `Web/Characters_nobackground.png` is also
+  off-model (suited duck, three sheep), don't use it for merch. Not confirmed uploaded.
+- **Merch order flow (recommended 2026-11-26, nothing built):** keep the static site; each shop card links to a hosted
+  store (Shopify + PayFast, since Shopify Payments isn't offered in South Africa; or WooCommerce on the existing cPanel
+  + PayFast) with Printful/Printify print-on-demand. Guest checkout, prices incl. VAT, shipping/duties shown up front,
+  order + tracking emails. Aim the shop at parents ("checkout for adults"), collect no children's data; SA
+  consumer-law wording (company details, returns, online cooling-off) needs review. Before launch: order samples and
+  replace the AI mock-ups with real photos; confirm plush is available from print-on-demand (often needs a
+  manufacturer with a minimum order); simplify the logo for cap embroidery. Platform choice is the user's next decision.
+
 **Still open:**
 - Since 2026-09-25 the site and both policies name one address only, `support@farmfurygames.com`
   (was `privacy@` in the Privacy Policy, `legal@` in the Terms). That mailbox must actually exist
@@ -6344,6 +6370,10 @@ licensing not yet checked.
   graph:** that decoded all clips at once and ran out of memory on Ep 11 (this PC: 7.7 GB). `prerender_base` renders
   each shot and each crossfade to its own lossless file and joins them in order; audio still crossfades in the main
   graph. Same timeline as before.
+- **End card without store badges (2026-11-26), Ep 11 only.** Episode key `"website_only": True` makes the three-game
+  card show FARM FURY, the three game logos, "PLAY FREE!" and FARMFURYGAMES.COM, no App Store/Google Play badges
+  (`build_end_card(..., website_only=True)`). The user wanted it on Ep 11 only: Ep 10, the true shorts, ability shorts
+  and Scout Reviews keep the badges. Ep 11 re-rendered with it (53.0 s).
 - **Saga arc + ability shorts (2026-11-14, scripts only).** One story across the games: Arcade (night war on the farm) → Stampede (march through six lands to the Mothership) → Cannonfire (the Overlord builds fortresses across the same nine lands; the animals build the Farm Cannon and their powers grow). Chapter 3 = Eps 14-17 outline + an Ep 13 bridge shot (13.10), in `Video/FarmFury_Saga/FarmFury_Saga_Story_Arc.md`. Ability shorts get more weight: 8 per game (`Video/FarmFury_<Arcade|Stampede|Cannonfire>/Ability_Shorts/`) + 8 "Power Up" evolution shorts (same power in all three games, `Video/FarmFury_Saga/Power_Up_Evolution_Shorts.md`). Cannonfire is the renamed original Farm Fury (`Desktop/FarmFury`, GDD v3.1). Nothing recorded or rendered yet.
 - **Ducky is male ("he")**, decided 2026-10-15 to match the storyline's surfer character; the game's
   Character Story text and this file were corrected from "she".
