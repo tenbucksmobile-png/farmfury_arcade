@@ -476,6 +476,7 @@ EPISODES = {
     11: {
         "name": "ep11_new_moves",
         "cannonfire": True,
+        "website_only": True,   # end card: website only, no store badges (2026-11-26)
         "clip_dir": VIDEO_DIR / "Ep11_Clips",
         "music": THEME,
         "chase_track": Path(r"C:\Users\Personel\Desktop\FarmFury_Stampede\Assets\_Project\Audio\Music\MeadowRuins.mp3"),
@@ -967,9 +968,10 @@ def _recorded(stem):
     return path.exists()
 
 
-def build_end_card(path, play_only=False, arcade_only=False, stampede_only=False, cannonfire=False):
+def build_end_card(path, play_only=False, arcade_only=False, stampede_only=False, cannonfire=False,
+                   website_only=False):
     """Blurred, darkened game poster; FARM FURY with the Arcade and Stampede logos stacked beneath, 'play both
-    free', the store badges side by side, the website. Everything sits above the bottom of the frame, which TikTok
+    free', the store badges side by side, the website. website_only (three-game card, Ep 11 on): no badges. Everything sits above the bottom of the frame, which TikTok
     and Shorts cover with the caption. arcade_only (Eps 7-9, which are about Arcade's mazes, tunnels and combos):
     the Arcade logo alone and 'play free now', so a maze tutorial doesn't point viewers at Stampede."""
     card = Image.open(POSTER).convert("RGBA")
@@ -995,6 +997,12 @@ def build_end_card(path, play_only=False, arcade_only=False, stampede_only=False
             _paste(card, lg, x + lg.width / 2, 620)
             x += lg.width + gap
         _centered(draw, "PLAY FREE!", ImageFont.truetype(str(FONT), 112), 770, TEXT_FILL, 8)
+        if website_only:
+            # No store badges (2026-11-26, Ep 11 on): with three games, two badges can't say which game they mean,
+            # so the card sends viewers to the website, which links every game to both stores.
+            _centered(draw, "FARMFURYGAMES.COM", ImageFont.truetype(str(FONT), 118), 960, ACCENT_FILL, 8)
+            card.convert("RGB").save(path)
+            return
         badge_y = 930
     elif stampede_only:   # Stampede gameplay shorts: the Stampede logo alone
         _paste(card, _logo(STAMPEDE_LOGO, 760), W / 2, 560)
@@ -1368,7 +1376,8 @@ def main():
 
         # End card: a still with a slow push-in, crossfaded in after the last clip.
         end_png = work / "end_card.png"
-        build_end_card(end_png, play_only, cannonfire=True)   # the three-game card on every episode (2026-11-22)
+        build_end_card(end_png, play_only, cannonfire=True,   # the three-game card on every episode (2026-11-22)
+                       website_only=ep.get("website_only", False))
         ei = inputs.count("-i")
         inputs += ["-loop", "1", "-framerate", str(FPS), "-t", f"{card_s:.2f}", "-i", str(end_png)]
         frames = int(card_s * FPS)
