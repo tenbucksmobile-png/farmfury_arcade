@@ -5828,7 +5828,7 @@ Design export will undo the patch** unless the design itself makes those buttons
 Testing note: headless Edge can drive the site via the DevTools protocol (scratchpad `cdp_eval.py` /
 `cdp_shot.py` pattern: `--remote-allow-origins=*`, a short `--user-data-dir` under `%TEMP%`).
 
-**Site v2 (2026-11-18): plain HTML, no build step.** Source: `Desktop\FarmFury_Technicalarmfurygames-website\site-v2-2026-11-18\`
+**Site v2 (2026-11-18): plain HTML, no build step.** Source: `Desktop\FarmFury_Technical\farmfurygames-website\site-v2-2026-11-18\`
 (its `README.txt` logs every update and how to upload). Pages: `index.html`, `story/` (episode grid + player, list
 in the `EPISODES` array near the bottom), `shop/` (merch cards, all "Coming soon"). Updates go up as small zips that
 the user extracts in `public_html`; before overwriting a page, diff the local copy against the live one.
