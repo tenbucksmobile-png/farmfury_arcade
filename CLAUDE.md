@@ -5836,7 +5836,7 @@ the user extracts in `public_html`; before overwriting a page, diff the local co
   (`-vf scale=720:-2 -crf 27 -movflags +faststart`), 540x960 `thumbs/epNN.webp`. Thumbnails follow the Ep 1-9 style
   (FARM FURY logo, red EPISODE chip, two-line Bangers title) over a clean Kling still with no captions (Ep 10: 10.7
   stampede, Ep 11: 11.4 Woolly); full-size `ep10/ep11_thumbnail.png` saved in `Video/Episodes/thumbnails/`. The
-  thumbnail script was a one-off (not kept). Not confirmed uploaded.
+  thumbnail script was a one-off (not kept). Uploaded and live 2026-11-26.
 - **Shop thumbnails (2026-11-26):** zip `update-2026-11-26-shop-merch.zip` (shop page + 7 images). Mug (Bessie), cap
   (now "Farm Fury Cap", logo embroidered; was "Percy Cap") and Cluck plush are Kling product photos (kling-image-v3_0,
   1k, 3 credits, ids in `FarmFury_Artwork/Merch_Mockups/jobs.txt`). Sticker sheet, the new "Farm Crew Poster" (Ep 10
@@ -5845,7 +5845,7 @@ the user extracts in `public_html`; before overwriting a page, diff the local co
   Cannonfire Tee is a one-off edit of the existing tee photo with `Tools/storyline/assets/Logo_Cannonfire.png`, sized
   to match the Stampede tee. Masters in `FarmFury_Artwork/Merch_Mockups/`. Billy is left off the stickers: his only
   standalone art (`BillyThumbsUp.png`, `Web/billy.png`) is drawn as a cow; `Web/Characters_nobackground.png` is also
-  off-model (suited duck, three sheep), don't use it for merch. Not confirmed uploaded.
+  off-model (suited duck, three sheep), don't use it for merch. Uploaded and live 2026-11-26 (10 shop cards).
 - **Merch order flow (recommended 2026-11-26, nothing built):** keep the static site; each shop card links to a hosted
   store (Shopify + PayFast, since Shopify Payments isn't offered in South Africa; or WooCommerce on the existing cPanel
   + PayFast) with Printful/Printify print-on-demand. Guest checkout, prices incl. VAT, shipping/duties shown up front,
