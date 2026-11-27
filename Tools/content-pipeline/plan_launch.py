@@ -275,9 +275,18 @@ GP_TAGS = ["#farmfury", "#mobilegame", "#arcadegame", "#mazegame", "#retrogaming
 ST_TAGS = ["#farmfury", "#farmfurystampede", "#mobilegame", "#platformer", "#farmanimals"]
 
 
-def store_links(tags):
-    return (f"App Store: {APP_STORE_LINK}\nGoogle Play: {YOUTUBE_SHORTS_LINK}\n\n"
-            f"{' '.join(['#shorts'] + tags)}")
+ST_APP_STORE_LINK = "https://apps.apple.com/us/app/farmfury-stampede/id6825786519"
+ST_PLAY_LINK = ("https://play.google.com/store/apps/details?id=com.farmfury.stampede"
+                "&referrer=utm_source%3Dyoutube%26utm_medium%3Dsocial%26utm_campaign%3Dshorts")
+
+
+def store_links(tags, game="arcade"):
+    """game: "arcade", "stampede" or "both" (Chapter 2 episodes, true shorts)."""
+    arcade = f"App Store: {APP_STORE_LINK}\nGoogle Play: {YOUTUBE_SHORTS_LINK}"
+    stampede = f"App Store: {ST_APP_STORE_LINK}\nGoogle Play: {ST_PLAY_LINK}"
+    links = {"arcade": arcade, "stampede": stampede,
+             "both": f"Farm Fury: Arcade\n{arcade}\n\nFarm Fury: Stampede\n{stampede}"}[game]
+    return f"{links}\n\n{' '.join(['#shorts'] + tags)}"
 
 
 def episode(n):
@@ -288,7 +297,7 @@ def episode(n):
     return {"kind": f"Episode {n}", "video": VIDEO / file,
             "caption": f"EP {n} | {title}\n{body}\n\n{CTA}\n\n{' '.join(EP_TAGS)}",
             "yt_title": f"Ep {n}: {title} | {SERIES}",
-            "yt_desc": f"{body}\n\nEpisode {n} of {SERIES}.\n\nPlay Farm Fury free:\n{store_links(EP_TAGS)}",
+            "yt_desc": f"{body}\n\nEpisode {n} of {SERIES}.\n\nPlay Farm Fury free:\n{store_links(EP_TAGS, 'both' if n >= 10 else 'arcade')}",
             "note": note, "short": f"Ep {n}: {title}"}
 
 
@@ -322,7 +331,7 @@ def stampede_single(key):
     return {"kind": kind, "video": file,
             "caption": f"{body}\n\n{STAMPEDE_CTA}\n\n{' '.join(ST_TAGS)}",
             "yt_title": f"{title} | Farm Fury: Stampede",
-            "yt_desc": f"{body}\n\nReal gameplay from Farm Fury: Stampede.\n\nPlay free:\n{store_links(ST_TAGS)}",
+            "yt_desc": f"{body}\n\nReal gameplay from Farm Fury: Stampede.\n\nPlay free:\n{store_links(ST_TAGS, 'stampede')}",
             "note": "Real gameplay: no AI label.", "short": f"{title} (Stampede)"}
 
 
@@ -337,7 +346,7 @@ def true_short(key):
     return {"kind": "Story true short", "video": video,
             "caption": f"{body}\n\n{CTA}\n\n{' '.join(TS_TAGS)}",
             "yt_title": f"{title} | Farm Fury",
-            "yt_desc": f"{body}\n\nPlay free:\n{store_links(TS_TAGS)}",
+            "yt_desc": f"{body}\n\nPlay free:\n{store_links(TS_TAGS, 'both')}",
             "note": "TikTok: AI-generated label on. Short loop: no opener.", "short": f"{title} (true short)"}
 
 
@@ -366,7 +375,7 @@ def stampede_review(n):
                         f"{' '.join(ST_REVIEW_TAGS)}"),
             "yt_title": f"{title} | The Scout Reviews",
             "yt_desc": (f"{body}\n\nThe Scout Reviews: Stampede, part {n} of 5. A Farm Fury team production.\n\n"
-                        f"Play free:\n{store_links(ST_REVIEW_TAGS)}"),
+                        f"Play free:\n{store_links(ST_REVIEW_TAGS, 'stampede')}"),
             "note": "TikTok: AI-generated label on. YouTube: add to the \"The Scout Reviews\" playlist.",
             "short": f"Scout Reviews Stampede {n}: {title}"}
 
@@ -394,7 +403,7 @@ def gameplay(world, n):
             "caption": f"{body}\n\n{cta}\n\n{' '.join(tags)}",
             "yt_title": f"{title} | {game}",
             "yt_desc": (f"{body}\n\nReal gameplay from {game}, {world}.\n\nPlay free:\n"
-                        f"{store_links(tags)}"),
+                        f"{store_links(tags, 'stampede' if world in STAMPEDE_WORLDS else 'arcade')}"),
             "note": "", "short": f"{world} {n:02d} {title}"}
 
 

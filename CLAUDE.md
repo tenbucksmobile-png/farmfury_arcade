@@ -6144,6 +6144,29 @@ were offered and declined, so don't build an uploader unless asked. Target 2-3 p
   fast-start there's no badge to hide it). Stampede already has 5 per world in this style. Next: rebuild
   `plan_meta.py` from the new start date (slower first two weeks, new-style shorts + carousels first, episodes after);
   Claude can load posts through Business Suite in Chrome once the user is logged in.
+  **2026-11-27: new Page created** from the user's personal profile: "Farm Fury Games"
+  (`https://www.facebook.com/profile.php?id=61597052788969`), category Video game, website farmfurygames.com,
+  email support@farmfurygames.com, logo `FarmFury_Artwork/Logo/Logo_game.png`, cover `channel-kit/facebook_cover_v3.png`,
+  bio set. Business portfolio "Farm Fury Games" created the same day (business_id 2317762935672168, Page asset_id
+  1422213234314115), holding only this Page; the user's other Page, Fizzog SA, was deliberately left out. Instagram
+  was still NOT connected to the Page afterwards (Business Suite showed "Connect Instagram"), though the user believed
+  it was linked; next: connect it (user logs in), then schedule. Instagram login is blocked by 2FA set to an
+  authentication app the user doesn't have (no backup codes found yet); options given: backup codes, an old device
+  still logged in, or Instagram's identity recovery. Relaunch schedule built: `plan_meta_relaunch.py` ->
+  `plans/meta-relaunch-2026-11-28.{html,json}`, 14 posts, one a day 20:00 SAST (US/Europe audience), carousels
+  Mon/Wed/Fri + fast-start Arcade shorts; NOTHING loaded yet: Chrome got logged out of Facebook (two saved
+  "Marius Bonthuys" profiles on the login screen; the spare one may be the old disabled account). Since the
+  28 Nov 20:00 slot will have passed by the next session, re-run with a later `--start`.
+  Same day: YouTube loaded with the 16 small-file Shorts 5-17 Dec; episodes/reviews (20-32 MB) not yet, because the
+  Chrome upload tool takes files under 10 MB only (a local-server workaround was blocked by Chrome's local-network
+  permission, which Claude must not grant). **The user will upload those himself later:** Ep 9 (5 Dec 16:30), Scout
+  Review 5 (7 Dec 16:30), Ep 10 (8 Dec 16:30), Scout Reviews Stampede 1 (10 Dec 16:30), Ep 11 (12 Dec 16:30), Scout
+  Reviews Stampede 2 (14 Dec 16:30), titles/descriptions from `plans/launch-2026-11-07.html`. The 12:00 photo-post
+  slots on YouTube (Posts) are also not loaded. TikTok is loaded to Sun 6 Dec. YouTube upload automation that worked:
+  fill title/description via `execCommand('insertText')`, audience NOT_MFK radio, `#step-badge-3`, expand schedule,
+  type the date then a real Enter key, open the time list with real clicks (often needs 2-3) and click the option
+  found inside the shadow DOM (`tp-yt-paper-item`), check date/time before pressing `#done-button`. `plan_launch.py` YouTube descriptions now link Stampede posts to
+  Stampede's stores (they linked Arcade before) and Ep 10+/true shorts to both games.
 - **Launch went live 2026-11-07.** As of 2026-11-17 everything is loaded and scheduled on all four
   platforms (TikTok, YouTube, Instagram, Facebook) up to and including Fri 4 Dec (Machines cosmetics
   single). Next to schedule: Sat 5 Dec (Ep 9) onward. TikTok Studio allows 10 days ahead. The sheet (re-made 2026-11-15) runs to Wed 16 Dec: cosmetics singles Hats Sun 29 Nov / Trails Wed 2 Dec /
