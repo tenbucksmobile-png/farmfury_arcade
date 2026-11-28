@@ -5846,6 +5846,13 @@ the user extracts in `public_html`; before overwriting a page, diff the local co
   to match the Stampede tee. Masters in `FarmFury_Artwork/Merch_Mockups/`. Billy is left off the stickers: his only
   standalone art (`BillyThumbsUp.png`, `Web/billy.png`) is drawn as a cow; `Web/Characters_nobackground.png` is also
   off-model (suited duck, three sheep), don't use it for merch. Uploaded and live 2026-11-26 (10 shop cards).
+- **Footer socials + search/AI findability (2026-11-28, live):** footer icons on all pages (Facebook Page id
+  61597052788969, Instagram `farm_fury_games`, TikTok/YouTube `@farmfurygames`/`@FarmFuryGames`); home page got a text
+  section (one card per game) and a 7-question FAQ, JSON-LD (Organization + socials, each game as VideoGame, FAQPage),
+  canonical links, new title/description, and root `robots.txt`, `sitemap.xml` (9 pages), `llms.txt`. Built by a one-off
+  script (not kept); edit the HTML directly. Don't name other games (Pac-Man, Angry Birds) on the site or in listings
+  (user's trademark concern). Sitemap submitted in Google Search Console (property `https://www.farmfurygames.com/`, HTML-file
+  verification: leave Google's `google*.html` file in public_html) and imported into Bing Webmaster Tools (2026-11-28).
 - **Merch order flow (recommended 2026-11-26, nothing built):** keep the static site; each shop card links to a hosted
   store (Shopify + PayFast, since Shopify Payments isn't offered in South Africa; or WooCommerce on the existing cPanel
   + PayFast) with Printful/Printify print-on-demand. Guest checkout, prices incl. VAT, shipping/duties shown up front,
@@ -6144,6 +6151,22 @@ were offered and declined, so don't build an uploader unless asked. Target 2-3 p
   fast-start there's no badge to hide it). Stampede already has 5 per world in this style. Next: rebuild
   `plan_meta.py` from the new start date (slower first two weeks, new-style shorts + carousels first, episodes after);
   Claude can load posts through Business Suite in Chrome once the user is logged in.
+  **2026-11-28: Instagram `farm_fury_games` connected to the Page in Business Suite** (2FA regained via Meta
+  Account > Login and security, then linked from the Instagram app's Edit profile > Page). **Same day: 16 reels
+  scheduled on BOTH Facebook and Instagram, 29 Nov 20:00 to 7 Dec 01:00 SAST**, same content/dates as TikTok/YouTube
+  (`plan_launch.build_days(date(2026,11,7))`, Meta times 20:00 gameplay / 23:00 review / 01:00 next-day episode or
+  single, captions from `plan_meta.captions`). Files over 10 MB re-encoded to 720p copies in
+  `Video/Episodes/meta_upload/` (browser upload limit). **Extended the same day to 18 Dec 01:00 (42 posts, 84 items,
+  all captions verified), matching YouTube**, incl. the 5 carousels as photo posts (JPG copies in each
+  `Carousels/<key>/meta_jpg/`; Instagram caps carousels at 10 images, so Story So Far drops its end slide 11).
+  Next Meta load: from 18 Dec 20:00.
+  Business Suite automation gotchas: reel captions entered in the reel composer DON'T save, whether typed or pasted
+  (the editor shows them, the scheduled reel has none). What works: schedule the reel, then Content > Scheduled >
+  open the item > Actions > Edit Post/Edit Reel, paste the caption with a synthetic `paste` ClipboardEvent, save.
+  Photo/carousel posts made in the normal post composer keep pasted captions. Verify in Content > Scheduled (each
+  row's checkbox aria-label holds the caption; `Tick item with caption ""` = empty). The file picker is bypassed by
+  patching `HTMLInputElement.prototype.click` and using the file-upload tool on the captured input. Audience
+  restriction (geo) is greyed out for reels, so US/Europe targeting is by posting time only.
   **2026-11-27: new Page created** from the user's personal profile: "Farm Fury Games"
   (`https://www.facebook.com/profile.php?id=61597052788969`), category Video game, website farmfurygames.com,
   email support@farmfurygames.com, logo `FarmFury_Artwork/Logo/Logo_game.png`, cover `channel-kit/facebook_cover_v3.png`,
